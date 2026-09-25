@@ -12,6 +12,8 @@
 import * as v from "valibot";
 import {
   ARTIFACT_TYPES,
+  MESSAGE_OUTCOMES,
+  WORKFLOW_KINDS,
   SCHEMA_VERSION,
   type Anchor,
   type Annotation,
@@ -21,14 +23,21 @@ import {
   type DiffFileContents,
   type Identity,
   type Thread,
+  type TextCut,
   type HunkRejection,
+  type HarnessBinding,
+  type Delivery,
+  type PendingDelivery,
   type Revision,
+  REVIEW_SEVERITIES,
+  type ReviewComment,
   type SessionHistory,
   type ShareAccess,
   type ShareLink,
   validateHistory,
-  type Verdict,
+  type Message,
   type WorkspaceKey,
+  applyTextCuts,
 } from "@cueloop/schema";
 import { DaemonError } from "./errors";
 import type { Request } from "./protocol";
@@ -44,6 +53,25 @@ type EntriesOf<T> = { [K in keyof T]-?: v.GenericSchema<any, any> };
 
 const NonEmpty = v.pipe(v.string(), v.minLength(1));
 
+const TextCutSchema = v.object({
+  start: v.pipe(v.number(), v.integer(), v.minValue(0)),
+  end: v.pipe(v.number(), v.integer(), v.minValue(1)),
+  quote: NonEmpty,
+} satisfies EntriesOf<TextCut>);
+
+const TextCutsSchema = v.pipe(
+  v.array(TextCutSchema),
+  v.check(
+    (cuts) =>
+      cuts.every(
+        (cut, index) =>
+          cut.end - cut.start === cut.quote.length &&
+          (index === 0 || cuts[index - 1]!.end <= cut.start),
+      ),
+    "text Cuts must be ordered, non-overlapping, and match their quote lengths",
+  ),
+);
+
 export const WorkspaceSchema = v.object({
   repoRoot: NonEmpty,
   branch: NonEmpty,
@@ -52,12 +80,19 @@ export const WorkspaceSchema = v.object({
 } satisfies EntriesOf<WorkspaceKey>);
 
 export const ArtifactMetaSchema = v.object({
+  workflow: v.optional(v.picklist(WORKFLOW_KINDS)),
   cwd: v.optional(v.string()),
   agent: v.optional(v.string()),
   agentSessionId: v.optional(v.string()),
   planPath: v.optional(v.string()),
   prototypePath: v.optional(v.string()),
   pr: v.optional(v.string()),
+  prBrief: v.optional(v.string()),
+  prBaseSha: v.optional(NonEmpty),
+  prHeadSha: v.optional(NonEmpty),
+  prRefreshBaseSha: v.optional(NonEmpty),
+  prRefreshHeadSha: v.optional(NonEmpty),
+  prUrl: v.optional(NonEmpty),
   herdrPane: v.optional(v.string()),
   title: v.optional(v.string()),
   workbench: v.optional(v.boolean()),
@@ -108,6 +143,19 @@ export const AnnotationSchema = v.object({
   body: v.string(),
   orphan: v.optional(v.boolean()),
   author: v.optional(v.string()),
+  reviewComment: v.optional(
+    v.object({
+      severity: v.picklist(REVIEW_SEVERITIES),
+      title: NonEmpty,
+      path: NonEmpty,
+      line: v.pipe(v.number(), v.integer(), v.minValue(1)),
+      startLine: v.optional(v.pipe(v.number(), v.integer(), v.minValue(1))),
+      startAnchor: v.optional(AnchorSchema),
+      side: v.picklist(["LEFT", "RIGHT"]),
+      suggestion: v.optional(v.string()),
+      prompt: v.optional(v.string()),
+    } satisfies EntriesOf<ReviewComment>),
+  ),
   replyTo: v.optional(NonEmpty),
   resolution: v.optional(
     v.object({
@@ -141,6 +189,24 @@ export const ShareLinkSchema = v.object({
   shareBranch: v.optional(v.string()),
 } satisfies EntriesOf<ShareLink>);
 
+export const HarnessBindingSchema = v.object({
+  id: NonEmpty,
+  threadId: NonEmpty,
+  harness: NonEmpty,
+  harnessSessionId: NonEmpty,
+  createdAt: NonEmpty,
+  approvedRetryMessageId: v.optional(NonEmpty),
+} satisfies EntriesOf<HarnessBinding>);
+
+export const DeliverySchema = v.object({
+  id: NonEmpty,
+  messageId: NonEmpty,
+  bindingId: NonEmpty,
+  status: v.picklist(["pending", "acknowledged"]),
+  createdAt: NonEmpty,
+  acknowledgedAt: v.optional(NonEmpty),
+} satisfies EntriesOf<Delivery>);
+
 export const Params = {
   "session.create": v.object({ workspace: WorkspaceSchema, artifact: ArtifactSchema }),
   "session.get": v.object({ id: SessionId }),
@@ -173,7 +239,11 @@ export const Params = {
   }),
   "session.removeAnnotation": v.object({ id: SessionId, annotationId: NonEmpty }),
   "session.setParticipantName": v.object({ id: SessionId, author: NonEmpty, name: NonEmpty }),
-  "session.setWorkingCopy": v.object({ id: SessionId, workingCopy: v.optional(v.string()) }),
+  "session.setWorkingCopy": v.object({
+    id: SessionId,
+    workingCopy: v.optional(v.string()),
+    textCuts: v.optional(TextCutsSchema),
+  }),
   "session.cutBlock": v.object({
     id: SessionId,
     blockIndex: v.pipe(v.number(), v.integer(), v.minValue(0)),
@@ -227,15 +297,30 @@ export const Params = {
       v.array(v.object({ id: NonEmpty, annotationId: NonEmpty, createdAt: v.string() })),
     ),
   }),
-  "session.resolve": v.object({
+  "session.sendMessage": v.object({
     id: SessionId,
-    verdictKind: v.picklist(["comment", "approve", "request_changes"]),
+    outcome: v.picklist(MESSAGE_OUTCOMES),
     summary: v.optional(v.string(), ""),
     actionBodies: v.optional(v.record(v.string(), v.string())),
   }),
+  "harness.bind": v.object({
+    threadId: SessionId,
+    harness: NonEmpty,
+    harnessSessionId: NonEmpty,
+  }),
+  "harness.getBinding": v.object({ bindingId: NonEmpty }),
+  "harness.bindingsForSession": v.object({ harness: NonEmpty, harnessSessionId: NonEmpty }),
+  "harness.consumeApprovedRetry": v.object({
+    bindingId: NonEmpty,
+    messageId: NonEmpty,
+    content: v.string(),
+  }),
+  "delivery.pending": v.object({ bindingId: NonEmpty }),
+  "delivery.acknowledge": v.object({ deliveryId: NonEmpty }),
   "session.submitRevision": v.object({
     id: SessionId,
     content: v.string(),
+    files: v.optional(v.array(DiffFileContentsSchema)),
     /** Annotation ids the agent acted on; each is marked addressed. */
     addressedAnnotationIds: v.optional(v.array(NonEmpty), []),
   }),
@@ -244,14 +329,24 @@ export const Params = {
   // the owner token proves ownership; without it a request for owner stays a collaborator
   "daemon.hello": v.object({
     role: v.picklist(["owner", "collaborator", "agent"]),
+    clientVersion: v.optional(v.string()),
     token: v.optional(v.string()),
     // the author a non-owner acts as, bound once for the connection
     author: v.optional(NonEmpty),
   }),
   "daemon.shutdown": v.object({}),
-  // herdr adapter scratch: the review's opened tab, kept off the session record.
-  "herdr.getTab": v.object({ id: SessionId }),
-  "herdr.setTab": v.object({ id: SessionId, tabId: NonEmpty, paneId: NonEmpty }),
+  // Herdr terminal handles stay outside canonical Thread records.
+  "herdr.getThreadSurface": v.object({ id: SessionId }),
+  "herdr.setThreadSurface": v.object({
+    id: SessionId,
+    tabId: NonEmpty,
+    paneId: NonEmpty,
+    mode: v.optional(v.picklist(["tab", "pane"])),
+  }),
+  "ghostty.getThreadSurface": v.object({ id: SessionId }),
+  "ghostty.setThreadSurface": v.object({ id: SessionId, terminalId: NonEmpty }),
+  "ghostty.claimThreadSurface": v.object({ id: SessionId }),
+  "ghostty.releaseThreadSurface": v.object({ id: SessionId }),
 } as const;
 
 export type MethodName = keyof typeof Params;
@@ -286,12 +381,19 @@ export const RevisionSchema = v.object({
   submittedAt: v.string(),
 } satisfies EntriesOf<Revision>);
 
-export const VerdictSchema = v.object({
-  kind: v.picklist(["comment", "approve", "request_changes"]),
+export const MessageSchema = v.object({
+  id: NonEmpty,
+  outcome: v.picklist(MESSAGE_OUTCOMES),
   summary: v.string(),
-  feedback: v.string(),
-  resolvedAt: v.string(),
-} satisfies EntriesOf<Verdict>);
+  body: v.string(),
+  annotations: v.optional(v.array(FullAnnotationSchema)),
+  sentAt: v.string(),
+} satisfies EntriesOf<Message>);
+
+export const PendingDeliverySchema = v.object({
+  delivery: DeliverySchema,
+  message: MessageSchema,
+} satisfies EntriesOf<PendingDelivery>);
 
 const EntryBaseEntries = {
   id: NonEmpty,
@@ -306,10 +408,11 @@ export const SessionEntrySchema = v.variant("type", [
     type: v.literal("revision"),
     by: v.picklist(["agent", "reviewer"]),
     content: v.string(),
+    textCuts: v.optional(TextCutsSchema),
   }),
   v.object({ ...EntryBaseEntries, type: v.literal("comment"), annotationId: NonEmpty }),
   v.object({ ...EntryBaseEntries, type: v.literal("comment-removed"), annotationId: NonEmpty }),
-  v.object({ ...EntryBaseEntries, type: v.literal("verdict"), verdict: VerdictSchema }),
+  v.object({ ...EntryBaseEntries, type: v.literal("message"), message: MessageSchema }),
   v.object({
     ...EntryBaseEntries,
     type: v.literal("branch-summary"),
@@ -335,39 +438,53 @@ export const SessionHistorySchema = v.pipe(
 );
 
 /** Persisted records are validated on recovery: a bad file is skipped, not fatal. */
-export const ThreadRecordSchema = v.object({
-  schemaVersion: v.literal(SCHEMA_VERSION),
-  id: NonEmpty,
-  workspace: WorkspaceSchema,
-  artifact: ArtifactSchema,
-  revisions: v.array(RevisionSchema),
-  annotations: v.array(FullAnnotationSchema),
-  history: v.optional(SessionHistorySchema),
-  curation: v.optional(
-    v.array(
-      v.object({
-        path: NonEmpty,
-        hunkIndex: v.number(),
-        changeIndex: v.optional(v.number()),
-      } satisfies EntriesOf<HunkRejection>),
+export const ThreadRecordSchema = v.pipe(
+  v.object({
+    schemaVersion: v.literal(SCHEMA_VERSION),
+    id: NonEmpty,
+    workspace: WorkspaceSchema,
+    artifact: ArtifactSchema,
+    revisions: v.array(RevisionSchema),
+    annotations: v.array(FullAnnotationSchema),
+    history: v.optional(SessionHistorySchema),
+    curation: v.optional(
+      v.array(
+        v.object({
+          path: NonEmpty,
+          hunkIndex: v.number(),
+          changeIndex: v.optional(v.number()),
+        } satisfies EntriesOf<HunkRejection>),
+      ),
     ),
-  ),
-  workingCopy: v.optional(v.string()),
-  viewedPaths: v.optional(v.array(v.string())),
-  verdict: v.nullable(VerdictSchema),
-  status: v.picklist(["pending", "resolved"]),
-  createdAt: v.string(),
-  shelvedAnnotations: v.optional(v.array(FullAnnotationSchema)),
-  parentSessionId: v.optional(v.string()),
-  shares: v.optional(v.array(ShareLinkSchema)),
-  shareId: v.optional(v.string()),
-  shareBranch: v.optional(v.string()),
-  owner: v.optional(v.string()),
-  access: v.optional(
-    v.object({ githubLogins: v.array(NonEmpty) } satisfies EntriesOf<ShareAccess>),
-  ),
-  participants: v.optional(v.array(IdentitySchema)),
-} satisfies EntriesOf<Thread>);
+    workingCopy: v.optional(v.string()),
+    textCuts: v.optional(TextCutsSchema),
+    viewedPaths: v.optional(v.array(v.string())),
+    message: v.nullable(MessageSchema),
+    status: v.picklist(["pending", "resolved"]),
+    createdAt: v.string(),
+    shelvedAnnotations: v.optional(v.array(FullAnnotationSchema)),
+    parentSessionId: v.optional(v.string()),
+    shares: v.optional(v.array(ShareLinkSchema)),
+    shareId: v.optional(v.string()),
+    shareBranch: v.optional(v.string()),
+    owner: v.optional(v.string()),
+    access: v.optional(
+      v.object({ githubLogins: v.array(NonEmpty) } satisfies EntriesOf<ShareAccess>),
+    ),
+    participants: v.optional(v.array(IdentitySchema)),
+  } satisfies EntriesOf<Thread>),
+  v.rawCheck(({ dataset, addIssue }) => {
+    if (!dataset.typed || !dataset.value.textCuts?.length) return;
+    const { artifact, textCuts, workingCopy } = dataset.value;
+    const matchesSource = textCuts.every(
+      (cut) => artifact.content.slice(cut.start, cut.end) === cut.quote,
+    );
+
+    if (!matchesSource || workingCopy !== applyTextCuts(artifact.content, textCuts)) {
+      addIssue({ message: "text Cuts do not match the submitted artifact and working copy" });
+    }
+  }),
+);
 
 export function validateThreadRecord(
   raw: Parameters<typeof v.safeParse>[1],

@@ -1,13 +1,14 @@
 /**
  * The daemon's method surface. Transport-independent: the socket
  * server and the in-process test harness both call these handlers.
- * The wait contract: verdicts outlive waits - session.wait long-polls,
- * and a verdict resolved while nobody waited is delivered on next contact.
+ * The wait contract: messages outlive waits - session.wait long-polls,
+ * and a message resolved while nobody waited is delivered on next contact.
  */
 
 import {
   SCHEMA_VERSION,
   appendEntry,
+  applyTextCuts,
   applyPathView,
   createBranch,
   cutBlock,
@@ -27,34 +28,72 @@ import {
   parseBlocks,
   registerParticipant,
   resolveAnchor,
+  newMessageId,
   isBlockCut,
   restoreBlock,
   switchBranch,
-  verdictAllows,
+  messageAllows,
   type Annotation,
   type DiffFileStatus,
+  type DiffFileContents,
   type HunkRejection,
   type NewEntry,
   type Artifact,
   type ShareLink,
   type Identity,
+  type HarnessBinding,
+  type Delivery,
+  type PendingDelivery,
   type Thread,
+  type TextCut,
   type SessionHistory,
-  type Verdict,
-  type VerdictKind,
+  type Message,
+  type MessageOutcome,
   type WorkspaceKey,
 } from "@cueloop/schema";
 import { curateDiff } from "./curate";
 import { ThreadStore, withHistory } from "./store";
 import { pruneExpiredSessions, resolveCleanupPeriodDays } from "./retention";
-import { HerdrTabStore, type HerdrTabHandle } from "./herdr-tab-store";
+import {
+  HerdrThreadSurfaceStore,
+  type HerdrThreadSurfaceHandle,
+} from "./herdr-thread-surface-store";
+import {
+  GhosttyThreadSurfaceStore,
+  type GhosttyThreadSurfaceHandle,
+} from "./ghostty-thread-surface-store";
+import { HarnessStateStore } from "./harness-state-store";
 import { DiffWatcher } from "./diff-watcher";
 import { PrReviewPoller } from "./pr-poller";
-import { prDiff } from "./gh";
+import { prSnapshot } from "./gh";
 import { workingTreeDiff, workingChangeList, type WorkingTreeDiff } from "./working-tree";
 import { listProjectFiles, readProjectFile } from "./project-files";
-import { resolveWorkspace } from "./review";
+import { resolveWorkspace } from "./thread-review";
 import { DaemonError } from "./errors";
+
+/** Reviewer-controlled fields that make an annotation new or edited for delivery. */
+function annotationDeliveryFingerprint(annotation: Annotation | undefined): string {
+  if (!annotation) return "";
+
+  return JSON.stringify({
+    kind: annotation.kind,
+    anchor: {
+      quote: annotation.anchor.quote,
+      prefix: annotation.anchor.prefix,
+      suffix: annotation.anchor.suffix,
+      blockIndex: annotation.anchor.blockIndex,
+      endBlockIndex: annotation.anchor.endBlockIndex,
+      start: annotation.anchor.start,
+      end: annotation.anchor.end,
+      selector: annotation.anchor.selector,
+    },
+    target: annotation.target,
+    body: annotation.body,
+    author: annotation.author,
+    reviewComment: annotation.reviewComment,
+    replyTo: annotation.replyTo,
+  });
+}
 
 /** What a share hands back: the notes and names it collected, and the removals it recorded. */
 export interface SharedMerge {
@@ -67,7 +106,7 @@ export interface SharedMerge {
 export type EventName =
   | "session.created"
   | "session.updated"
-  | "session.resolved"
+  | "message.sent"
   | "session.revised"
   | "inbox.changed";
 
@@ -82,7 +121,9 @@ type EventListener = (event: DaemonEvent) => void;
 
 export class DaemonCore {
   readonly store: ThreadStore;
-  readonly herdrTabs: HerdrTabStore;
+  readonly herdrThreadSurfaces: HerdrThreadSurfaceStore;
+  readonly ghosttyThreadSurfaces: GhosttyThreadSurfaceStore;
+  readonly harnessState: HarnessStateStore;
   private waiters = new Map<string, ((session: Thread) => void)[]>();
   private listeners = new Set<EventListener>();
   private seq = 0;
@@ -102,12 +143,29 @@ export class DaemonCore {
   constructor(home: string) {
     this.store = new ThreadStore(home);
     this.store.recover();
-    pruneExpiredSessions(this.store, resolveCleanupPeriodDays(), Date.now());
-    this.herdrTabs = new HerdrTabStore(home);
+    this.harnessState = new HarnessStateStore(home);
+    for (const session of this.store.list()) this.reconcileDeliveries(session);
+    this.herdrThreadSurfaces = new HerdrThreadSurfaceStore(home);
+    this.ghosttyThreadSurfaces = new GhosttyThreadSurfaceStore(home);
+    const expiredThreadIds = pruneExpiredSessions(
+      this.store,
+      resolveCleanupPeriodDays(),
+      Date.now(),
+      this.harnessState.pendingThreadIds(),
+    );
+
+    for (const threadId of expiredThreadIds) {
+      this.herdrThreadSurfaces.delete(threadId);
+      this.ghosttyThreadSurfaces.delete(threadId);
+    }
     this.diffWatcher = new DiffWatcher((repoRoot) => void this.refreshDiffsForRepo(repoRoot));
-    this.prPoller = new PrReviewPoller((sessionId) => void this.sessionRefreshPrDiff(sessionId));
+    this.prPoller = new PrReviewPoller((sessionId, refs) =>
+      this.markPrRefreshAvailable(sessionId, refs),
+    );
     // resume hot-reload for diff sessions that survived a daemon restart
-    for (const session of this.store.list()) this.trackLiveDiffSession(session);
+    for (const session of this.store.list()) {
+      this.trackLiveDiffSession(session);
+    }
   }
 
   /** Release the watchers and pollers behind diff hot-reload; call on daemon shutdown. */
@@ -116,13 +174,108 @@ export class DaemonCore {
     this.prPoller.close();
   }
 
-  /** The herdr tab opened for a review, if any (adapter scratch, not on the session). */
-  herdrGetTab(sessionId: string): HerdrTabHandle | null {
-    return this.herdrTabs.get(sessionId);
+  /** The Herdr Thread surface handle, kept outside the canonical Thread. */
+  herdrGetThreadSurface(sessionId: string): HerdrThreadSurfaceHandle | null {
+    return this.herdrThreadSurfaces.get(sessionId);
   }
 
-  herdrSetTab(sessionId: string, handle: HerdrTabHandle): void {
-    this.herdrTabs.set(sessionId, handle);
+  herdrSetThreadSurface(sessionId: string, handle: HerdrThreadSurfaceHandle): void {
+    this.herdrThreadSurfaces.set(sessionId, handle);
+  }
+
+  ghosttyGetThreadSurface(sessionId: string): GhosttyThreadSurfaceHandle | null {
+    return this.ghosttyThreadSurfaces.get(sessionId);
+  }
+
+  ghosttySetThreadSurface(sessionId: string, handle: GhosttyThreadSurfaceHandle): void {
+    this.ghosttyThreadSurfaces.set(sessionId, handle);
+  }
+
+  ghosttyClaimThreadSurface(sessionId: string): boolean {
+    return this.ghosttyThreadSurfaces.claim(sessionId);
+  }
+
+  ghosttyReleaseThreadSurface(sessionId: string): void {
+    this.ghosttyThreadSurfaces.release(sessionId);
+  }
+
+  harnessBind(input: {
+    threadId: string;
+    harness: string;
+    harnessSessionId: string;
+  }): HarnessBinding {
+    this.sessionGet(input.threadId);
+    const binding = this.harnessState.bind(input);
+
+    this.reconcileDeliveries(this.sessionGet(input.threadId));
+
+    return binding;
+  }
+
+  harnessGetBinding(bindingId: string): HarnessBinding {
+    const binding = this.harnessState.binding(bindingId);
+
+    if (!binding) throw new DaemonError("not_found", `no harness binding ${bindingId}`);
+
+    return binding;
+  }
+
+  harnessBindingsForSession(harness: string, harnessSessionId: string): HarnessBinding[] {
+    return this.harnessState.bindingsForSession(harness, harnessSessionId);
+  }
+
+  harnessConsumeApprovedRetry(bindingId: string, messageId: string, content: string): boolean {
+    const binding = this.harnessState.binding(bindingId);
+
+    if (!binding) throw new DaemonError("not_found", `no harness binding ${bindingId}`);
+    const session = this.sessionGet(binding.threadId);
+
+    if (
+      session.artifact.type !== "plan" ||
+      session.status !== "resolved" ||
+      session.message?.id !== messageId ||
+      session.message.outcome !== "approved" ||
+      session.artifact.content !== content ||
+      this.harnessState.submittingBinding(session.id)?.id !== bindingId ||
+      !this.harnessState.acknowledged(bindingId, messageId)
+    ) {
+      throw new DaemonError("invalid_state", `no unchanged approved plan for ${bindingId}`);
+    }
+
+    return this.harnessState.consumeApprovedRetry(bindingId, messageId);
+  }
+
+  deliveryPending(bindingId: string): PendingDelivery[] {
+    const binding = this.harnessState.binding(bindingId);
+
+    if (!binding) throw new DaemonError("not_found", `no harness binding ${bindingId}`);
+    const session = this.sessionGet(binding.threadId);
+
+    return this.harnessState.pending(bindingId).map((delivery) => {
+      const historical = session.history?.entries.find(
+        (entry) => entry.type === "message" && entry.message.id === delivery.messageId,
+      );
+      const message =
+        session.message?.id === delivery.messageId
+          ? session.message
+          : historical?.type === "message"
+            ? historical.message
+            : null;
+
+      if (!message || message.id !== delivery.messageId) {
+        throw new DaemonError("not_found", `no message ${delivery.messageId}`);
+      }
+
+      return { delivery, message };
+    });
+  }
+
+  deliveryAcknowledge(deliveryId: string): Delivery {
+    if (!this.harnessState.delivery(deliveryId)) {
+      throw new DaemonError("not_found", `no delivery ${deliveryId}`);
+    }
+
+    return this.harnessState.acknowledge(deliveryId);
   }
 
   onEvent(listener: EventListener): () => void {
@@ -138,7 +291,7 @@ export class DaemonCore {
     for (const listener of this.listeners) listener(frame);
   }
 
-  /** True when nothing awaits a verdict - drives idle-exit. */
+  /** True when nothing awaits a message - drives idle-exit. */
   hasPendingSessions(): boolean {
     return this.store.list().some((session) => session.status === "pending");
   }
@@ -152,18 +305,28 @@ export class DaemonCore {
       artifact: params.artifact,
       revisions: [{ revision: 1, content: params.artifact.content, submittedAt: now }],
       annotations: [],
-      verdict: null,
+      message: null,
       status: "pending",
       createdAt: now,
     };
 
     session.history = historyFromLinear(session);
     this.store.upsert(session);
+    this.reconcileDeliveries(session);
     this.trackLiveDiffSession(session);
     this.emit("session.created", session.id);
     this.emit("inbox.changed", session.id);
 
     return session;
+  }
+
+  private reconcileDeliveries(session: Thread): void {
+    if (!session.message) return;
+
+    const binding = this.harnessState.submittingBinding(session.id);
+
+    if (binding)
+      this.harnessState.enqueue({ bindingId: binding.id, messageId: session.message.id });
   }
 
   private newSessionId(now: string): string {
@@ -194,9 +357,9 @@ export class DaemonCore {
   }
 
   /**
-   * Long-poll for the verdict. Resolves immediately when already resolved;
-   * otherwise parks until sessionResolve fires or timeoutMs elapses (null =
-   * still pending - the caller re-polls later; the verdict is never lost).
+   * Long-poll for the message. Resolves immediately when already resolved;
+   * otherwise parks until sessionSendMessage fires or timeoutMs elapses (null =
+   * still pending - the caller re-polls later; the message is never lost).
    */
   sessionWait(id: string, timeoutMs: number): Promise<Thread | null> {
     const current = this.sessionGet(id);
@@ -310,14 +473,42 @@ export class DaemonCore {
   }
 
   /** The reviewer's working copy; undefined clears it (revert all edits). */
-  sessionSetWorkingCopy(id: string, workingCopy: string | undefined): Thread {
+  sessionSetWorkingCopy(id: string, workingCopy: string | undefined, textCuts?: TextCut[]): Thread {
     const session = this.mutable(id);
-    const entryId = this.applyWorkingCopy(session, workingCopy);
+
+    if (textCuts?.length) this.assertTextCuts(session.artifact.content, workingCopy, textCuts);
+    const entryId = this.applyWorkingCopy(session, workingCopy, textCuts);
 
     this.store.upsert(session);
     this.emit("session.updated", id, entryId);
 
     return session;
+  }
+
+  private assertTextCuts(
+    source: string,
+    workingCopy: string | undefined,
+    textCuts: readonly TextCut[],
+  ): void {
+    let previousEnd = 0;
+    const valid = textCuts.every((cut) => {
+      const matches =
+        cut.start >= previousEnd &&
+        cut.end > cut.start &&
+        cut.end <= source.length &&
+        source.slice(cut.start, cut.end) === cut.quote;
+
+      previousEnd = cut.end;
+
+      return matches;
+    });
+
+    if (!valid || workingCopy === undefined || applyTextCuts(source, textCuts) !== workingCopy) {
+      throw new DaemonError(
+        "invalid_params",
+        "text Cuts do not match the submitted artifact and working copy",
+      );
+    }
   }
 
   /**
@@ -472,7 +663,8 @@ export class DaemonCore {
     if (!this.store.delete(id)) throw new DaemonError("not_found", `no session ${id}`);
     if (session) this.untrackLiveDiffSession(session);
     this.diffRefreshGenerations.delete(id);
-    this.herdrTabs.delete(id);
+    this.herdrThreadSurfaces.delete(id);
+    this.ghosttyThreadSurfaces.delete(id);
     this.emit("inbox.changed", id);
   }
 
@@ -539,7 +731,7 @@ export class DaemonCore {
     if (session.artifact.type !== "diff") {
       throw new DaemonError("invalid_params", "only a diff review is curated by hunk");
     }
-    if (!session.artifact.files) {
+    if (!session.artifact.files?.length) {
       throw new DaemonError("invalid_params", "hunk curation needs full file contents");
     }
     if (rejections.length === 0) delete session.curation;
@@ -611,35 +803,56 @@ export class DaemonCore {
     return session;
   }
 
-  sessionResolve(
+  sessionSendMessage(
     id: string,
-    verdictKind: VerdictKind,
+    outcome: MessageOutcome,
     summary: string,
     actionBodies?: Record<string, string>,
   ): Thread {
     const session = this.mutable(id);
-    const verdict: Verdict = {
-      kind: verdictKind,
+    const sentAt = new Date().toISOString();
+    const sentAnnotations = new Map(
+      (session.history?.entries ?? [])
+        .filter((entry) => entry.type === "message")
+        .flatMap((entry) => (entry.type === "message" ? (entry.message.annotations ?? []) : []))
+        .map((annotation) => [annotation.id, annotation]),
+    );
+    const annotations = session.annotations.filter(
+      (annotation) =>
+        !isAddressed(annotation) &&
+        annotationDeliveryFingerprint(sentAnnotations.get(annotation.id)) !==
+          annotationDeliveryFingerprint(annotation),
+    );
+    const message: Message = {
+      id: newMessageId(),
+      outcome,
       summary,
-      feedback: feedbackForSession(session, verdictKind, summary, actionBodies),
-      resolvedAt: new Date().toISOString(),
+      body: feedbackForSession(session, outcome, summary, actionBodies, annotations),
+      annotations,
+      sentAt,
     };
 
-    session.verdict = verdict;
-    session.status = "resolved";
+    session.message = message;
+    session.status = outcome === "comment" ? "pending" : "resolved";
     const entryId = this.record(session, {
-      type: "verdict",
-      verdict,
-      createdAt: verdict.resolvedAt,
+      type: "message",
+      message,
+      createdAt: message.sentAt,
     });
     this.store.upsert(session);
+    this.reconcileDeliveries(session);
+    this.emit("message.sent", id, entryId);
+    if (outcome === "comment") {
+      this.emit("session.updated", id, entryId);
+
+      return session;
+    }
     // a resolved diff review is frozen; stop hot-reloading its working tree
     this.untrackLiveDiffSession(session);
     const parked = this.waiters.get(id) ?? [];
 
     this.waiters.delete(id);
     for (const parkedWaiter of parked) parkedWaiter(session);
-    this.emit("session.resolved", id, entryId);
     this.emit("inbox.changed", id);
 
     return session;
@@ -659,13 +872,14 @@ export class DaemonCore {
     id: string,
     content: string,
     addressedAnnotationIds: string[] = [],
+    files?: DiffFileContents[],
   ): Thread {
     const session = this.sessionGet(id);
     const now = new Date().toISOString();
     const revisionNumber = session.revisions.length + 1;
 
     session.revisions.push({ revision: revisionNumber, content, submittedAt: now });
-    session.artifact = { ...session.artifact, content };
+    session.artifact = { ...session.artifact, content, files: files ?? session.artifact.files };
     // the agent's revision lands on main wherever its tip sits; the artifact
     // shows the head of the branch the reviewer is on
     const entryId = this.recordOnMain(session, {
@@ -675,7 +889,8 @@ export class DaemonCore {
       createdAt: now,
     });
     delete session.workingCopy;
-    session.verdict = null;
+    delete session.textCuts;
+    session.message = null;
     session.status = "pending";
 
     // a reported root comment addresses its whole discussion: replies are
@@ -776,7 +991,7 @@ export class DaemonCore {
 
   /**
    * Copy the current path into a new pending session: its revisions, open
-   * comments, labels, and participant names travel; verdicts, edits, and the
+   * comments, labels, and participant names travel; messages, edits, and the
    * share do not. A resolved session can be forked.
    */
   sessionFork(id: string): Thread {
@@ -799,7 +1014,7 @@ export class DaemonCore {
         })),
       annotations: [],
       history,
-      verdict: null,
+      message: null,
       status: "pending",
       createdAt: now,
       parentSessionId: id,
@@ -861,31 +1076,72 @@ export class DaemonCore {
 
     if (!session || session.status !== "pending" || session.artifact.type !== "diff")
       return { changed: false };
-    const pr = session.artifact.meta.pr;
+    const pr = session.artifact.meta.prUrl ?? session.artifact.meta.pr;
 
     if (pr === undefined) return { changed: false };
     const generation = (this.diffRefreshGenerations.get(id) ?? 0) + 1;
 
     this.diffRefreshGenerations.set(id, generation);
-    const patch = await prDiff(pr);
+    const snapshot = await prSnapshot(pr);
 
     // gh failed (offline, unauthenticated): keep the diff we have, try again next poll
-    if (patch === null) return { changed: false };
+    if (snapshot === null) return { changed: false };
     // the pull yields the event loop: discard a stale capture or a closed session
     if (this.diffRefreshGenerations.get(id) !== generation) return { changed: false };
     const current = this.store.get(id);
 
     if (!current || current.status !== "pending" || current.artifact.type !== "diff")
       return { changed: false };
-    if (patch === current.artifact.content) return { changed: false };
-    current.artifact = { ...current.artifact, content: patch };
+    const contentChanged = snapshot.patch !== current.artifact.content;
+
+    if (
+      !contentChanged &&
+      snapshot.baseSha === current.artifact.meta.prBaseSha &&
+      snapshot.headSha === current.artifact.meta.prHeadSha &&
+      current.artifact.meta.prRefreshBaseSha === undefined &&
+      current.artifact.meta.prRefreshHeadSha === undefined
+    )
+      return { changed: false };
+    current.artifact = {
+      ...current.artifact,
+      content: snapshot.patch,
+      meta: {
+        ...current.artifact.meta,
+        prBaseSha: snapshot.baseSha,
+        prHeadSha: snapshot.headSha,
+        prRefreshBaseSha: undefined,
+        prRefreshHeadSha: undefined,
+      },
+    };
     const history = withHistory(current).history;
 
-    if (history) current.history = recaptureMainHead(history, patch);
+    if (history && contentChanged) current.history = recaptureMainHead(history, snapshot.patch);
     this.store.upsert(current);
     this.emit("session.updated", id);
 
-    return { changed: true };
+    return { changed: contentChanged };
+  }
+
+  /** Record moved PR refs without replacing the review until the reviewer refreshes it. */
+  private markPrRefreshAvailable(id: string, refs: { baseSha: string; headSha: string }): void {
+    const session = this.store.get(id);
+
+    if (!session || session.status !== "pending" || session.artifact.meta.pr === undefined) return;
+    if (
+      session.artifact.meta.prBaseSha === refs.baseSha &&
+      session.artifact.meta.prHeadSha === refs.headSha
+    )
+      return;
+    session.artifact = {
+      ...session.artifact,
+      meta: {
+        ...session.artifact.meta,
+        prRefreshBaseSha: refs.baseSha,
+        prRefreshHeadSha: refs.headSha,
+      },
+    };
+    this.store.upsert(session);
+    this.emit("session.updated", id);
   }
 
   /** Re-capture every working-tree diff session sharing a repo root (one debounced fs change). */
@@ -910,7 +1166,16 @@ export class DaemonCore {
     if (isWorkingTreeDiffSession(session))
       this.diffWatcher.trackDiffRepo(session.workspace.repoRoot, session.id);
     else if (isPrReviewSession(session))
-      this.prPoller.trackPr(session.id, session.artifact.meta.pr!);
+      this.prPoller.trackPr(
+        session.id,
+        session.artifact.meta.prUrl ?? session.artifact.meta.pr!,
+        session.artifact.meta.prBaseSha && session.artifact.meta.prHeadSha
+          ? {
+              baseSha: session.artifact.meta.prBaseSha,
+              headSha: session.artifact.meta.prHeadSha,
+            }
+          : null,
+      );
   }
 
   private untrackLiveDiffSession(session: Thread): void {
@@ -923,25 +1188,35 @@ export class DaemonCore {
    * Set or clear the working copy and, when the reviewer's text changed, record
    * it as a reviewer revision on the current branch. Returns that entry's id.
    */
-  private applyWorkingCopy(session: Thread, workingCopy: string | undefined): string | undefined {
+  private applyWorkingCopy(
+    session: Thread,
+    workingCopy: string | undefined,
+    textCuts?: TextCut[],
+  ): string | undefined {
     const before = session.workingCopy ?? session.artifact.content;
     const next =
       workingCopy === undefined || workingCopy === session.artifact.content
         ? undefined
         : workingCopy;
 
+    if (textCuts?.length) session.textCuts = textCuts;
+    else delete session.textCuts;
     if (next === undefined) delete session.workingCopy;
     else session.workingCopy = next;
     const after = next ?? session.artifact.content;
 
     if (after === before) return undefined;
 
-    return this.record(session, {
+    const revision: Extract<NewEntry, { type: "revision" }> = {
       type: "revision",
       by: "reviewer",
       content: after,
       createdAt: new Date().toISOString(),
-    });
+    };
+
+    if (textCuts?.length) revision.textCuts = textCuts;
+
+    return this.record(session, revision);
   }
 
   /** The session's history; a record without a revision has none and cannot be moved through. */
@@ -1060,8 +1335,8 @@ function isPrReviewSession(session: Thread): boolean {
 }
 
 /** Convenience for adapters: map a resolved session to the agent contract. */
-export function verdictResponse(session: Thread) {
-  if (!session.verdict) throw new DaemonError("pending", "session has no verdict");
+export function messageResponse(session: Thread) {
+  if (!session.message) throw new DaemonError("pending", "session has no message");
 
-  return { allow: verdictAllows(session.verdict.kind), feedback: session.verdict.feedback };
+  return { allow: messageAllows(session.message.outcome), message: session.message };
 }

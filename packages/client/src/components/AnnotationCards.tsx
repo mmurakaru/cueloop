@@ -313,7 +313,7 @@ export function CommentRow({
   // own comments (no author) wear the filled dot, collaborators the outline
   const own = annotation.author === undefined;
   const glyph = own ? "●" : "○";
-  const glyphColor = own ? tokens.text : tokens.textMuted;
+  const glyphColor = annotation.orphan ? tokens.warning : own ? tokens.text : tokens.textMuted;
   const { showTooltip, hideTooltip } = useTooltip();
   const dotHover = authorLabel
     ? {

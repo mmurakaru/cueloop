@@ -30,7 +30,7 @@ export function createTestThreadRecord(
     artifact: { type: "plan", content: `# ${id}`, meta: {} },
     revisions: [{ revision: 1, content: `# ${id}`, submittedAt: createdAt }],
     annotations: [],
-    verdict: null,
+    message: null,
     status: "pending",
     createdAt,
     ...overrides,

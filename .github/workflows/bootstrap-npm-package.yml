@@ -1,0 +1,110 @@
+name: Prepare first npm publish
+
+# New npm packages cannot use trusted publishing until their first version exists.
+# This workflow prepares the exact tarball; a maintainer publishes it with 2FA,
+# then grants release.yml trusted-publisher access for later versions.
+on:
+  workflow_dispatch:
+    inputs:
+      package_name:
+        description: "Publishable workspace package name, for example @cueloop/pi"
+        required: true
+        type: string
+      dist_tag:
+        description: "npm dist-tag for the first version"
+        required: true
+        default: alpha
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    name: Pack first npm version
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+      - run: npm install -g npm@latest
+      - run: bun install --frozen-lockfile
+      - run: bun run check:publish
+      - name: Select unpublished workspace package
+        id: package
+        env:
+          PACKAGE_NAME: ${{ inputs.package_name }}
+          DIST_TAG: ${{ inputs.dist_tag }}
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_REF" != refs/heads/main ]; then
+            echo "First npm publishes must use main" >&2
+            exit 1
+          fi
+          if ! [[ "$DIST_TAG" =~ ^[a-z][a-z0-9._-]*$ ]]; then
+            echo "Invalid npm dist-tag: $DIST_TAG" >&2
+            exit 1
+          fi
+          package_dir=""
+          for manifest in packages/*/package.json packages/integrations/*/package.json; do
+            [ -f "$manifest" ] || continue
+            name=$(jq -r 'if .private then empty else .name end' "$manifest")
+            if [ "$name" = "$PACKAGE_NAME" ]; then
+              package_dir="${manifest%/package.json}"
+              break
+            fi
+          done
+          if [ -z "$package_dir" ]; then
+            echo "No publishable workspace package named $PACKAGE_NAME" >&2
+            exit 1
+          fi
+          set +e
+          lookup=$(npm view "$PACKAGE_NAME" version --prefer-online 2>&1)
+          status=$?
+          set -e
+          if [ "$status" -eq 0 ]; then
+            echo "$PACKAGE_NAME already exists on npm: $lookup" >&2
+            exit 1
+          fi
+          if ! printf '%s' "$lookup" | grep -q 'E404'; then
+            echo "Could not confirm $PACKAGE_NAME is absent from npm: $lookup" >&2
+            exit 1
+          fi
+          echo "directory=$package_dir" >> "$GITHUB_OUTPUT"
+          echo "version=$(jq -r .version "$package_dir/package.json")" >> "$GITHUB_OUTPUT"
+      - name: Pack first version
+        id: pack
+        env:
+          PACKAGE_DIR: ${{ steps.package.outputs.directory }}
+        run: |
+          set -euo pipefail
+          mkdir -p bootstrap
+          tarball=$(cd "$PACKAGE_DIR" && npm pack --silent --pack-destination "$GITHUB_WORKSPACE/bootstrap")
+          echo "tarball=$tarball" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: npm-first-publish-${{ github.run_id }}
+          path: bootstrap/${{ steps.pack.outputs.tarball }}
+          if-no-files-found: error
+      - name: Show maintainer commands
+        env:
+          PACKAGE_NAME: ${{ inputs.package_name }}
+          DIST_TAG: ${{ inputs.dist_tag }}
+          VERSION: ${{ steps.package.outputs.version }}
+          TARBALL: ${{ steps.pack.outputs.tarball }}
+        run: |
+          {
+            echo "Prepared $PACKAGE_NAME@$VERSION from $GITHUB_SHA."
+            echo
+            echo 'Download the artifact, sign in to npm with 2FA, then run:'
+            echo '```bash'
+            printf 'npm publish ./%s --access public --tag %s\n' "$TARBALL" "$DIST_TAG"
+            printf 'npm trust github %s --repo mmurakaru/cueloop --file release.yml --allow-publish\n' "$PACKAGE_NAME"
+            echo '```'
+            echo 'The normal release workflow handles later versions with OIDC.'
+          } >> "$GITHUB_STEP_SUMMARY"

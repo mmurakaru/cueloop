@@ -60,6 +60,9 @@ export interface LaunchReviewOptions {
   cols?: number;
   rows?: number;
   env?: Record<string, string>;
+  content?: string;
+  title?: string;
+  readyText?: string;
 }
 
 /** Open ROLLOUT_PLAN in the TUI, ready and painted. */
@@ -67,7 +70,8 @@ export async function launchPlanReview(
   reviewHome: TestReviewHome,
   options: LaunchReviewOptions = {},
 ): Promise<{ session: PtyTuiSession; review: Thread }> {
-  const review = reviewHome.createPlanSession(ROLLOUT_PLAN, "Rollout Plan");
+  const content = options.content ?? ROLLOUT_PLAN;
+  const review = reviewHome.createPlanSession(content, options.title ?? "Rollout Plan");
   const session = launchTuiSession({
     home: reviewHome.home,
     args: [review.id],
@@ -77,7 +81,9 @@ export async function launchPlanReview(
   });
 
   await session.waitForReady();
-  await session.waitForText(ROLLOUT_PLAN_LAST_LINE, { what: "the painted plan" });
+  await session.waitForText(options.readyText ?? ROLLOUT_PLAN_LAST_LINE, {
+    what: "the painted plan",
+  });
 
   return { session, review };
 }

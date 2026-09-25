@@ -1,6 +1,6 @@
 import { ScrollArea } from "./components/ScrollArea";
 import React, { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
-import type { DiffFileContents, Thread, VerdictKind } from "@cueloop/schema";
+import type { DiffFileContents, Thread, MessageOutcome } from "@cueloop/schema";
 import { returnPaneFor } from "@cueloop/schema";
 import type { Theme } from "./theme";
 import type { QuickAction } from "./config";
@@ -16,7 +16,7 @@ import type { SettingsCategory, SettingsValues } from "./components/SettingsDial
 import type { SettingsNav } from "./use-settings-dialog";
 import { CLIENT_VERSION } from "./version";
 import { ThemeProvider } from "./components/theme-context";
-import type { InboxRow } from "./components/session-tree";
+import type { InboxRow } from "./components/thread-tree";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { CompletionOverlay } from "./components/CompletionOverlay";
 import { ThreadTree } from "./components/ThreadTree";
@@ -319,7 +319,6 @@ export function NoThreadShell(props: {
               renderTab={(tab) =>
                 tab.kind === "welcome" ? (
                   <WelcomePlayground
-                    version={CLIENT_VERSION}
                     quickActions={quickActions}
                     onComposingChange={onWelcomeComposingChange}
                     suspended={focusedPane !== "changes" || menuControl.openMenuId !== null}
@@ -404,19 +403,19 @@ export function NoThreadShell(props: {
 export function CompletionScreen(props: {
   theme: Theme;
   session: Thread;
-  verdict: VerdictKind;
+  message: MessageOutcome;
   completion: { phase: "prompt" } | { phase: "counting"; remaining: number };
   status: string;
   onClose: () => void;
   onBackToPlan: () => void;
   onAlways: () => void;
 }): React.ReactNode {
-  const { theme, session, verdict, completion, status, onClose, onBackToPlan, onAlways } = props;
+  const { theme, session, message, completion, status, onClose, onBackToPlan, onAlways } = props;
 
   return (
     <ThemeProvider theme={theme}>
       <CompletionOverlay
-        verdict={verdict}
+        message={message}
         completion={completion}
         status={status}
         onClose={onClose}

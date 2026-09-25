@@ -1,8 +1,7 @@
 /**
- * Black-box PR review flow (tier 3): the real entrypoint spawned as a
- * subprocess with CUELOOP_GH pointing at a stub gh script that records its
- * args and emits a fixture diff. Covers `review --no-tui` session creation
- * and `review-post` verdict mapping for every verdict kind.
+ * Black-box GitHub review flow: the real CLI talks to a stub gh binary and a
+ * real daemon, so import, agent findings, explicit publication, and failures
+ * cross the same process and socket boundaries as production.
  */
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
@@ -25,48 +24,70 @@ const FIXTURE_DIFF = [
   "",
 ].join("\n");
 
+function addedLinesDiff(lines: string[]): string {
+  return [
+    "diff --git a/a.ts b/a.ts",
+    "index 0000001..0000002 100644",
+    "--- a/a.ts",
+    "+++ b/a.ts",
+    `@@ -0,0 +1,${lines.length} @@`,
+    ...lines.map((line) => `+${line}`),
+    "",
+  ].join("\n");
+}
+
 let home: string;
 let ghDir: string;
 let ghStub: string;
 let ghLog: string;
+let payloadLog: string;
 
-/** Args of every stub invocation, one JSON array per call. */
-function ghCalls(): string[][] {
-  let raw = "";
+const PostedPayloadSchema = v.object({
+  event: v.string(),
+  body: v.optional(v.string()),
+  comments: v.array(
+    v.object({
+      body: v.string(),
+      path: v.string(),
+      line: v.number(),
+      start_line: v.optional(v.number()),
+    }),
+  ),
+});
 
+function lines(path: string): string[] {
   try {
-    raw = readFileSync(ghLog, "utf8");
+    return readFileSync(path, "utf8").split("\n").filter(Boolean);
   } catch {
     return [];
   }
-
-  return (
-    raw
-      .split("\n")
-      .filter(Boolean)
-      .map((line) => v.parse(v.array(v.string()), JSON.parse(line)))
-      // the daemon's PR head-poll runs on a timer and shares this log; drop it so a
-      // background poll never lands between a before/after count or as the last call
-      .filter((args) => !(args[0] === "pr" && args[1] === "view" && args.includes("headRefOid")))
-  );
 }
 
-function ghEnv() {
-  return { CUELOOP_GH: ghStub };
+function ghCalls(): string[][] {
+  return lines(ghLog)
+    .map((line) => v.parse(v.array(v.string()), JSON.parse(line)))
+    .filter((args) => !(args[0] === "pr" && args[1] === "view" && args.includes("headRefOid")));
+}
+
+function postedPayloads(): Array<v.InferOutput<typeof PostedPayloadSchema>> {
+  return lines(payloadLog).map((line) => v.parse(PostedPayloadSchema, JSON.parse(line)));
+}
+
+function ghEnv(extra: Record<string, string> = {}) {
+  return { CUELOOP_GH: ghStub, ...extra };
 }
 
 beforeAll(() => {
   home = mkdtempSync(join(tmpdir(), "cueloop-review-"));
   ghDir = mkdtempSync(join(tmpdir(), "cueloop-gh-"));
   ghLog = join(ghDir, "gh.log");
+  payloadLog = join(ghDir, "payloads.log");
   ghStub = join(ghDir, "gh");
-  // Stub gh: record args as JSON lines; `pr diff` emits the fixture,
-  // any command mentioning GH_FAIL exits nonzero like a real gh error.
   writeFileSync(
     ghStub,
     [
       `#!${process.execPath}`,
-      `const { appendFileSync } = require("node:fs");`,
+      `const { appendFileSync, readFileSync } = require("node:fs");`,
       `const args = process.argv.slice(2);`,
       `appendFileSync(${JSON.stringify(ghLog)}, JSON.stringify(args) + "\\n");`,
       `if (args.includes("GH_FAIL")) {`,
@@ -75,12 +96,26 @@ beforeAll(() => {
       `}`,
       `if (args[0] === "pr" && args[1] === "diff") {`,
       `  process.stdout.write(${JSON.stringify(FIXTURE_DIFF)});`,
+      `} else if (args[0] === "pr" && args[1] === "view" && args.includes("-q")) {`,
+      `  process.stdout.write("head456\\n");`,
+      `} else if (args[0] === "pr" && args[1] === "view") {`,
+      `  const number = Number(args[2]) || 42;`,
+      `  process.stdout.write(JSON.stringify({ number, title: "Fix auth", body: "Original PR body.", url: "https://github.com/org/repo/pull/" + number, author: { login: "alex" }, baseRefName: "main", baseRefOid: process.env.CUELOOP_GH_BASE || "base123", headRefName: "fix", headRefOid: process.env.CUELOOP_GH_HEAD || "head456" }));`,
+      `} else if (args[0] === "api") {`,
+      `  if (process.env.CUELOOP_GH_FAIL_POST === "1") {`,
+      `    process.stderr.write("GitHub review post failed\\n");`,
+      `    process.exit(1);`,
+      `  }`,
+      `  const payload = readFileSync(0, "utf8");`,
+      `  appendFileSync(${JSON.stringify(payloadLog)}, payload + "\\n");`,
+      `  process.stdout.write(JSON.stringify({ html_url: "https://github.com/org/repo/pull/42#pullrequestreview-1" }));`,
       `}`,
       ``,
     ].join("\n"),
   );
   chmodSync(ghStub, 0o755);
 });
+
 afterAll(async () => {
   try {
     const client = await DaemonClient.connect({ home });
@@ -94,220 +129,523 @@ afterAll(async () => {
   rmSync(ghDir, { recursive: true, force: true });
 });
 
-/** Create a PR diff session non-interactively and resolve it with one verdict. */
-async function createResolvedSession(
-  pr: string,
-  verdict: string,
-  summary: string,
-): Promise<Thread> {
-  const created = cliJson<Thread>(
-    await runCli(home, ["review", pr, "--no-tui"], undefined, ghEnv()),
-  );
-  const runResult = await runCli(home, [
+async function createReview(pr = "42"): Promise<Thread> {
+  return cliJson<Thread>(await runCli(home, ["review", pr, "--no-tui"], undefined, ghEnv()));
+}
+
+async function resolveReview(session: Thread, outcome = "approved", summary = "Ship it.") {
+  const result = await runCli(home, [
     "session",
-    "resolve",
-    created.id,
-    "--verdict",
-    verdict,
+    "send-message",
+    session.id,
+    "--outcome",
+    outcome,
     "--summary",
     summary,
   ]);
 
-  expect(runResult.code).toBe(0);
-
-  return cliJson<Thread>(runResult);
+  expect(result.code).toBe(0);
 }
 
-describe("cueloop review (black box)", () => {
-  test("--no-tui fetches the PR diff into a session and prints it", async () => {
-    // Act
-    const runResult = await runCli(home, ["review", "42", "--no-tui"], undefined, ghEnv());
+describe("cueloop review", () => {
+  test("imports PR metadata, the exact diff, and a readable PR brief", async () => {
+    const result = await runCli(home, ["review", "42", "--no-tui"], undefined, ghEnv());
 
-    // Assert
-    expect(runResult.code).toBe(0);
-    const session = cliJson<Thread>(runResult);
+    expect(result.code).toBe(0);
+    const session = cliJson<Thread>(result);
 
-    expect(session.id.startsWith("ses_")).toBe(true);
-    expect(session.status).toBe("pending");
-    expect(session.artifact.type).toBe("diff");
     expect(session.artifact.content).toBe(FIXTURE_DIFF);
-    expect(session.artifact.meta.title).toBe("PR 42");
     expect(session.artifact.meta.pr).toBe("42");
-    expect(ghCalls()).toContainEqual(["pr", "diff", "42"]);
+    expect(session.artifact.meta.prHeadSha).toBe("head456");
+    expect(session.artifact.meta.prUrl).toBe("https://github.com/org/repo/pull/42");
+    expect(session.artifact.meta.prBrief).toBe(
+      "# Fix auth\n\n## PR description\n\nOriginal PR body.",
+    );
+    expect(ghCalls()).toContainEqual(["pr", "diff", "https://github.com/org/repo/pull/42"]);
   });
 
-  test("bare `review` opens the latest pending PR review, never creates - with none it reports nothing to open", async () => {
-    // Arrange
-    // A fresh home has no pending PR reviews, so the open path has nothing to
-    // launch and must fall through to a plain message without ever calling gh.
-    const emptyHome = mkdtempSync(join(tmpdir(), "cueloop-review-empty-"));
+  test("reports gh import failures", async () => {
+    const result = await runCli(home, ["review", "GH_FAIL", "--no-tui"], undefined, ghEnv());
 
-    try {
-      const before = ghCalls().length;
-
-      // Act
-      const runResult = await runCli(emptyHome, ["review"], undefined, ghEnv());
-
-      // Assert
-      expect(runResult.code).toBe(1);
-      expect(runResult.stderr).toContain("no pending PR review - nothing to open");
-      expect(ghCalls().length).toBe(before);
-    } finally {
-      try {
-        const client = await DaemonClient.connect({ home: emptyHome });
-
-        await client.shutdown();
-        client.close();
-      } catch {
-        // daemon already gone
-      }
-      rmSync(emptyHome, { recursive: true, force: true });
-    }
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain("Could not resolve to a PullRequest");
   });
 
-  test("gh diff failure surfaces gh's stderr and exits 1", async () => {
-    // Act
-    const runResult = await runCli(home, ["review", "GH_FAIL", "--no-tui"], undefined, ghEnv());
+  test("refuses to open a Thread when the reviewed head moved", async () => {
+    const result = await runCli(
+      home,
+      ["review", "42", "--head-sha", "head456", "--no-tui"],
+      undefined,
+      ghEnv({ CUELOOP_GH_HEAD: "head789" }),
+    );
 
-    // Assert
-    expect(runResult.code).toBe(1);
-    expect(runResult.stderr).toContain("Could not resolve to a PullRequest");
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain("reviewed head456, current head789");
+  });
+
+  test("prints the configured review skill and workspace", async () => {
+    const result = await runCli(home, ["review-config"]);
+
+    expect(result.code).toBe(0);
+    expect(JSON.parse(result.stdout)).toEqual({ skill: "code-review", workspace: "worktree" });
   });
 });
 
-describe("cueloop review-post (black box)", () => {
-  test("approve maps to gh pr review --approve with feedback.md as body", async () => {
-    // Arrange
-    const session = await createResolvedSession("42", "approve", "Ship it.");
-
-    // Act
-    const runResult = await runCli(home, ["review-post", session.id, "42"], undefined, ghEnv());
-
-    // Assert
-    expect(runResult.code).toBe(0);
-    expect(runResult.stdout).toContain("posted approve review to PR 42");
-    const call = ghCalls().at(-1)!;
-
-    expect(call.slice(0, 4)).toEqual(["pr", "review", "42", "--approve"]);
-    expect(call[4]).toBe("--body");
-    expect(call[5]).toBe(session.verdict!.feedback);
-    expect(call[5]).toContain("Ship it.");
-  });
-
-  test("request_changes maps to --request-changes", async () => {
-    // Arrange
-    const session = await createResolvedSession("43", "request_changes", "Rename the constant.");
-
-    // Act
-    const runResult = await runCli(home, ["review-post", session.id, "43"], undefined, ghEnv());
-
-    // Assert
-    expect(runResult.code).toBe(0);
-    const call = ghCalls().at(-1)!;
-
-    expect(call.slice(0, 4)).toEqual(["pr", "review", "43", "--request-changes"]);
-    expect(call[5]).toContain("Rename the constant.");
-  });
-
-  test("comment maps to --comment", async () => {
-    // Arrange
-    const session = await createResolvedSession("44", "comment", "Looks reasonable overall.");
-
-    // Act
-    const runResult = await runCli(home, ["review-post", session.id, "44"], undefined, ghEnv());
-
-    // Assert
-    expect(runResult.code).toBe(0);
-    const call = ghCalls().at(-1)!;
-
-    expect(call.slice(0, 4)).toEqual(["pr", "review", "44", "--comment"]);
-    expect(call[5]).toContain("Looks reasonable overall.");
-  });
-
-  test("annotations flow into the posted body through feedback.md", async () => {
-    // Arrange
-    const created = cliJson<Thread>(
-      await runCli(home, ["review", "45", "--no-tui"], undefined, ghEnv()),
-    );
-
-    // Act
-    const a = await runCli(home, [
-      "session",
-      "annotate",
-      created.id,
-      "--quote",
-      "export const a = 2;",
-      "--body",
-      "Why bump to 2?",
-    ]);
-
-    // Assert
-    expect(a.code).toBe(0);
-
-    // Act
-    const parsed = await runCli(home, [
-      "session",
-      "resolve",
-      created.id,
-      "--verdict",
-      "request_changes",
-      "--summary",
-      "Explain the bump.",
-    ]);
-
-    // Assert
-    expect(parsed.code).toBe(0);
-
-    // Act
-    const runResult = await runCli(home, ["review-post", created.id, "45"], undefined, ghEnv());
-
-    // Assert
-    expect(runResult.code).toBe(0);
-    const body = ghCalls().at(-1)![5]!;
-
-    expect(body).toContain("Why bump to 2?");
-    expect(body).toContain("Explain the bump.");
-  });
-
-  test("unresolved session posts nothing and exits 1", async () => {
-    // Arrange
-    const created = cliJson<Thread>(
-      await runCli(home, ["review", "46", "--no-tui"], undefined, ghEnv()),
-    );
-    const before = ghCalls().length;
-
-    // Act
-    const runResult = await runCli(home, ["review-post", created.id, "46"], undefined, ghEnv());
-
-    // Assert
-    expect(runResult.code).toBe(1);
-    expect(runResult.stderr).toContain("nothing was posted to PR 46");
-    expect(ghCalls().length).toBe(before);
-  });
-
-  test("gh review failure exits 1", async () => {
-    // Arrange
-    const session = await createResolvedSession("47", "approve", "Fine.");
-
-    // Act
-    const runResult = await runCli(
+describe("explicit GitHub publication", () => {
+  test("publishes selected agent findings as one GitHub review", async () => {
+    const session = await createReview();
+    const comment = await runCli(
       home,
-      ["review-post", session.id, "GH_FAIL"],
+      [
+        "review-comment",
+        session.id,
+        "--path",
+        "a.ts",
+        "--line",
+        "1",
+        "--side",
+        "RIGHT",
+        "--severity",
+        "p1",
+        "--title",
+        "Value changed without coverage",
+        "--body",
+        "Add a regression test.",
+        "--suggestion",
+        "export const a = testedValue;",
+        "--prompt",
+        "Add a focused test for this value.",
+      ],
       undefined,
       ghEnv(),
     );
 
-    // Assert
-    expect(runResult.code).toBe(1);
-    expect(runResult.stderr).toContain("Could not resolve to a PullRequest");
+    expect(comment.code).toBe(0);
+    expect(comment.stdout.trim()).toBe("C1");
+    await resolveReview(session);
+    const post = await runCli(
+      home,
+      ["review-post", session.id, "--comments", "C1", "--event", "approve"],
+      undefined,
+      ghEnv(),
+    );
+
+    expect(post.stderr).toBe("");
+    expect(post.code).toBe(0);
+    expect(post.stdout).toContain("posted 1 review comment to PR 42");
+    const call = ghCalls().at(-1)!;
+    const payload = postedPayloads().at(-1)!;
+
+    expect(call[0]).toBe("api");
+    expect(payload.event).toBe("APPROVE");
+    expect(payload.body).toBe("Ship it.");
+    expect(payload.comments).toHaveLength(1);
+    expect(payload.comments[0]!.path).toBe("a.ts");
+    expect(payload.comments[0]!.line).toBe(1);
+    expect(payload.comments[0]!.body).toContain("/badges/p1.svg");
+    expect(payload.comments[0]!.body).toContain("```suggestion");
+    expect(payload.comments[0]!.body).toContain("<details><summary>Prompt to fix</summary>");
+    const publicationCount = postedPayloads().length;
+    const retry = await runCli(
+      home,
+      ["review-post", session.id, "--comments", "C1", "--event", "approve"],
+      undefined,
+      ghEnv(),
+    );
+
+    expect(retry.code).toBe(0);
+    expect(postedPayloads()).toHaveLength(publicationCount);
   });
 
-  test("missing arguments exit 2", async () => {
-    // Act
-    const runResult = await runCli(home, ["review-post"], undefined, ghEnv());
+  test("human comments remain local and are never emitted as inline findings", async () => {
+    const session = await createReview("43");
+    const annotation = await runCli(home, [
+      "session",
+      "annotate",
+      session.id,
+      "--quote",
+      "export const a = 2;",
+      "--body",
+      "Private reviewer note.",
+    ]);
 
-    // Assert
-    expect(runResult.code).toBe(2);
-    expect(runResult.stderr).toContain("usage: cueloop review-post <session-id> <pr>");
+    expect(annotation.code).toBe(0);
+    await resolveReview(session, "changes_requested", "Please address the selected findings.");
+    const post = await runCli(
+      home,
+      ["review-post", session.id, "--event", "request-changes"],
+      undefined,
+      ghEnv(),
+    );
+
+    expect(post.stderr).toBe("");
+    expect(post.code).toBe(0);
+    const payload = postedPayloads().at(-1)!;
+
+    expect(payload.body).toBe("Please address the selected findings.");
+    expect(payload.body).not.toContain("Private reviewer note.");
+    expect(payload.comments).toEqual([]);
   });
+
+  test("refuses unresolved Threads and failed GitHub posts", async () => {
+    const unresolved = await createReview("44");
+    const refused = await runCli(home, ["review-post", unresolved.id], undefined, ghEnv());
+
+    expect(refused.code).toBe(1);
+    expect(refused.stderr).toContain("is unresolved");
+    await resolveReview(unresolved);
+    const failed = await runCli(
+      home,
+      ["review-post", unresolved.id],
+      undefined,
+      ghEnv({ CUELOOP_GH_FAIL_POST: "1" }),
+    );
+
+    expect(failed.code).toBe(1);
+    expect(failed.stderr).toContain("GitHub review post failed");
+  });
+
+  for (const [name, changedRefs] of [
+    ["head", { CUELOOP_GH_HEAD: "head789" }],
+    ["base", { CUELOOP_GH_BASE: "base789" }],
+  ] as const) {
+    test(`refuses publication when the remote ${name} moved`, async () => {
+      const session = await createReview(`stale-${name}`);
+
+      await resolveReview(session);
+      const publicationCount = postedPayloads().length;
+      const post = await runCli(
+        home,
+        ["review-post", session.id, "--event", "approve"],
+        undefined,
+        ghEnv(changedRefs),
+      );
+
+      expect(post.code).toBe(1);
+      expect(post.stderr).toContain("pull request changed since this review");
+      expect(postedPayloads()).toHaveLength(publicationCount);
+    });
+  }
+
+  test("rejects findings whose line is not in the imported diff", async () => {
+    const session = await createReview("45");
+    const result = await runCli(
+      home,
+      [
+        "review-comment",
+        session.id,
+        "--path",
+        "a.ts",
+        "--line",
+        "99",
+        "--side",
+        "RIGHT",
+        "--severity",
+        "p2",
+        "--title",
+        "Bad anchor",
+        "--body",
+        "This must not publish.",
+      ],
+      undefined,
+      ghEnv(),
+    );
+
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain("a.ts:99 is not present");
+  });
+
+  test("never overwrites a reviewer comment that uses the requested finding ID", async () => {
+    const session = await createReview("47");
+    const reviewer = await runCli(home, [
+      "session",
+      "annotate",
+      session.id,
+      "--annotation-id",
+      "C1",
+      "--quote",
+      "export const a = 2;",
+      "--body",
+      "Reviewer comment.",
+    ]);
+
+    expect(reviewer.code).toBe(0);
+    const finding = await runCli(
+      home,
+      [
+        "review-comment",
+        session.id,
+        "--id",
+        "C1",
+        "--path",
+        "a.ts",
+        "--line",
+        "1",
+        "--side",
+        "RIGHT",
+        "--severity",
+        "p2",
+        "--title",
+        "Collision",
+        "--body",
+        "Must not replace the reviewer.",
+      ],
+      undefined,
+      ghEnv(),
+    );
+
+    expect(finding.code).toBe(1);
+    expect(finding.stderr).toContain("already belongs to another reviewer");
+  });
+
+  test("reanchors a finding when a refreshed diff moves its quoted line", async () => {
+    const session = await createReview("46");
+    const comment = await runCli(
+      home,
+      [
+        "review-comment",
+        session.id,
+        "--path",
+        "a.ts",
+        "--line",
+        "1",
+        "--side",
+        "RIGHT",
+        "--severity",
+        "p2",
+        "--title",
+        "Moved finding",
+        "--body",
+        "Keep this attached to the changed value.",
+      ],
+      undefined,
+      ghEnv(),
+    );
+
+    expect(comment.code).toBe(0);
+    const client = await DaemonClient.connect({ home });
+    const movedDiff = [
+      "diff --git a/a.ts b/a.ts",
+      "index 0000001..0000002 100644",
+      "--- a/a.ts",
+      "+++ b/a.ts",
+      "@@ -1,2 +1,2 @@",
+      " export const before = true;",
+      "-export const a = 1;",
+      "+export const a = 2;",
+      "",
+    ].join("\n");
+
+    await client.sessionSubmitRevision(session.id, movedDiff);
+    client.close();
+    await resolveReview(session);
+    const post = await runCli(
+      home,
+      ["review-post", session.id, "--comments", "C1"],
+      undefined,
+      ghEnv(),
+    );
+
+    expect(post.code).toBe(0);
+    const payload = postedPayloads().at(-1)!;
+
+    expect(payload.comments[0]!.line).toBe(2);
+  });
+
+  test("uses anchor context instead of an identical quote at the old line", async () => {
+    const session = await createReview("47");
+    const comment = await runCli(
+      home,
+      [
+        "review-comment",
+        session.id,
+        "--path",
+        "a.ts",
+        "--line",
+        "1",
+        "--side",
+        "RIGHT",
+        "--severity",
+        "p1",
+        "--title",
+        "Repeated line",
+        "--body",
+        "Keep the original context.",
+      ],
+      undefined,
+      ghEnv(),
+    );
+
+    expect(comment.code).toBe(0);
+    const client = await DaemonClient.connect({ home });
+    const repeatedDiff = [
+      "diff --git a/a.ts b/a.ts",
+      "index 0000001..0000002 100644",
+      "--- a/a.ts",
+      "+++ b/a.ts",
+      "@@ -1 +1 @@",
+      "-export const other = 1;",
+      "+export const a = 2;",
+      "@@ -10 +10 @@",
+      "-export const a = 1;",
+      "+export const a = 2;",
+      "",
+    ].join("\n");
+
+    await client.sessionSubmitRevision(session.id, repeatedDiff);
+    client.close();
+    await resolveReview(session);
+    const post = await runCli(
+      home,
+      ["review-post", session.id, "--comments", "C1"],
+      undefined,
+      ghEnv(),
+    );
+
+    expect(post.stderr).toBe("");
+    expect(post.code).toBe(0);
+    expect(postedPayloads().at(-1)!.comments[0]!.line).toBe(10);
+  });
+
+  test("refuses repeated hunk-boundary quotes with no distinguishing context", async () => {
+    const session = await createReview("48");
+    const comment = await runCli(
+      home,
+      [
+        "review-comment",
+        session.id,
+        "--path",
+        "a.ts",
+        "--line",
+        "1",
+        "--side",
+        "RIGHT",
+        "--severity",
+        "p1",
+        "--title",
+        "Ambiguous boundary",
+        "--body",
+        "Do not guess which repeated line to publish.",
+      ],
+      undefined,
+      ghEnv(),
+    );
+
+    expect(comment.code).toBe(0);
+    const client = await DaemonClient.connect({ home });
+    const repeatedDiff = [
+      "diff --git a/a.ts b/a.ts",
+      "index 0000001..0000002 100644",
+      "--- a/a.ts",
+      "+++ b/a.ts",
+      "@@ -1 +1 @@",
+      "-export const first = 1;",
+      "+export const a = 2;",
+      "@@ -10 +10 @@",
+      "-export const second = 1;",
+      "+export const a = 2;",
+      "",
+    ].join("\n");
+
+    await client.sessionSubmitRevision(session.id, repeatedDiff);
+    client.close();
+    await resolveReview(session);
+    const post = await runCli(
+      home,
+      ["review-post", session.id, "--comments", "C1"],
+      undefined,
+      ghEnv(),
+    );
+
+    expect(post.code).toBe(1);
+    expect(post.stderr).toContain("outdated or ambiguous");
+  });
+
+  for (const scenario of [
+    {
+      name: "lines inserted before the range",
+      lines: ["inserted before", "before context", "start target", "middle context", "end target"],
+      startLine: 3,
+      line: 5,
+    },
+    {
+      name: "lines inserted inside the range",
+      lines: ["before context", "start target", "middle context", "inserted inside", "end target"],
+      startLine: 2,
+      line: 5,
+    },
+    {
+      name: "lines inserted after the range",
+      lines: ["before context", "start target", "middle context", "end target", "inserted after"],
+      startLine: 2,
+      line: 4,
+    },
+    {
+      name: "duplicate endpoint text",
+      lines: [
+        "end target",
+        "wrong context",
+        "before context",
+        "start target",
+        "middle context",
+        "end target",
+      ],
+      startLine: 4,
+      line: 6,
+    },
+  ]) {
+    test(`reanchors both ends of a multiline finding after ${scenario.name}`, async () => {
+      const session = await createReview();
+      const client = await DaemonClient.connect({ home });
+
+      await client.sessionSubmitRevision(
+        session.id,
+        addedLinesDiff(["before context", "start target", "middle context", "end target"]),
+      );
+      client.close();
+      const comment = await runCli(
+        home,
+        [
+          "review-comment",
+          session.id,
+          "--path",
+          "a.ts",
+          "--start-line",
+          "2",
+          "--line",
+          "4",
+          "--side",
+          "RIGHT",
+          "--severity",
+          "p1",
+          "--title",
+          "Multiline finding",
+          "--body",
+          "Keep both endpoints attached.",
+        ],
+        undefined,
+        ghEnv(),
+      );
+
+      expect(comment.code).toBe(0);
+      const revisionClient = await DaemonClient.connect({ home });
+
+      await revisionClient.sessionSubmitRevision(session.id, addedLinesDiff(scenario.lines));
+      revisionClient.close();
+      await resolveReview(session);
+      const post = await runCli(
+        home,
+        ["review-post", session.id, "--comments", "C1"],
+        undefined,
+        ghEnv(),
+      );
+
+      expect(post.stderr).toBe("");
+      expect(post.code).toBe(0);
+      expect(postedPayloads().at(-1)!.comments[0]).toMatchObject({
+        start_line: scenario.startLine,
+        line: scenario.line,
+      });
+    });
+  }
 });

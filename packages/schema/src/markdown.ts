@@ -1,7 +1,6 @@
 /**
- * Markdown block model: parse source into addressable blocks that record
- * their source line ranges. Rendered-to-source mapping is block+line
- * granular; the quote carries sub-block precision. Round-trip safe for the
+ * Markdown block model: parse source into addressable blocks with source line
+ * ranges and project their text offsets back to source on demand. Round-trip safe for the
  * subset cueloop plans use; unknown constructs fall back to paragraph blocks
  * so no content is ever lost.
  */
@@ -28,6 +27,12 @@ export interface Block {
   /** 0-based inclusive line range in the source this block occupies. */
   lineStart: number;
   lineEnd: number;
+}
+
+export interface BlockTextSourceSegment {
+  textStart: number;
+  textEnd: number;
+  sourceStart: number;
 }
 
 /**
@@ -208,6 +213,101 @@ function nextBlock(lines: string[], lineIndex: number): BlockScan {
   if (isTableStart(lines, lineIndex)) return tableBlock(lines, lineIndex);
 
   return paragraphBlock(lines, lineIndex);
+}
+
+/** Project marker-free block text boundaries onto the source consumed by the parser. */
+function blockSourceSegments(
+  sourceLines: string[],
+  block: Block,
+  sourceStart = sourceLines
+    .slice(0, block.lineStart)
+    .reduce((offset, line) => offset + line.length + 1, 0),
+): BlockTextSourceSegment[] | undefined {
+  const rawLines = sourceLines.slice(block.lineStart, block.lineEnd + 1);
+  let contentLines: Array<{ rawLine: number; prefix: number }>;
+
+  if (block.kind === "code") {
+    const hasClosingFence = rawLines.at(-1)?.startsWith("```") ?? false;
+    const end = hasClosingFence ? rawLines.length - 1 : rawLines.length;
+
+    contentLines = rawLines.slice(1, end).map((_, index) => ({ rawLine: index + 1, prefix: 0 }));
+  } else if (block.kind === "frontmatter") {
+    contentLines = rawLines.slice(1, -1).map((_, index) => ({ rawLine: index + 1, prefix: 0 }));
+  } else if (block.kind === "quote") {
+    contentLines = rawLines.map((_, rawLine) => ({ rawLine, prefix: 2 }));
+  } else if (
+    block.kind === "h1" ||
+    block.kind === "h2" ||
+    block.kind === "h3" ||
+    block.kind === "li" ||
+    block.kind === "oli"
+  ) {
+    contentLines = [{ rawLine: 0, prefix: rawLines[0]!.length - block.text.length }];
+  } else {
+    contentLines = rawLines.map((_, rawLine) => ({ rawLine, prefix: 0 }));
+  }
+  const content = contentLines
+    .map(({ rawLine, prefix }) => rawLines[rawLine]!.slice(prefix))
+    .join("\n");
+
+  if (content !== block.text) return undefined;
+  const rawLineStarts: number[] = [];
+  let rawOffset = 0;
+
+  for (const line of rawLines) {
+    rawLineStarts.push(rawOffset);
+    rawOffset += line.length + 1;
+  }
+  let textOffset = 0;
+  const segments = contentLines.map(({ rawLine, prefix }) => {
+    const line = rawLines[rawLine]!.slice(prefix);
+    const lineStart = sourceStart + rawLineStarts[rawLine]! + prefix;
+    const segment = {
+      textStart: textOffset,
+      textEnd: textOffset + line.length,
+      sourceStart: lineStart,
+    };
+
+    textOffset += line.length + 1;
+
+    return segment;
+  });
+
+  return segments;
+}
+
+/** Project several parsed blocks onto source offsets without splitting the Markdown per block. */
+export function blockTextSourceSegments(
+  markdown: string,
+  blocks: readonly Block[],
+): Array<readonly BlockTextSourceSegment[] | undefined> {
+  const sourceLines = markdown.split("\n");
+  const lineStarts: number[] = [];
+  let sourceOffset = 0;
+
+  for (const line of sourceLines) {
+    lineStarts.push(sourceOffset);
+    sourceOffset += line.length + 1;
+  }
+
+  return blocks.map((block) =>
+    blockSourceSegments(sourceLines, block, lineStarts[block.lineStart] ?? sourceOffset),
+  );
+}
+
+/** Resolve a marker-free block-text boundary through the parser's source projection. */
+export function sourceOffsetAt(
+  markdown: string,
+  block: Block,
+  textOffset: number,
+): number | undefined {
+  for (const segment of blockSourceSegments(markdown.split("\n"), block) ?? []) {
+    if (textOffset < segment.textStart || textOffset > segment.textEnd) continue;
+
+    return segment.sourceStart + textOffset - segment.textStart;
+  }
+
+  return undefined;
 }
 
 export function parseBlocks(markdown: string): Block[] {

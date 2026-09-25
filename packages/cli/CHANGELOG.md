@@ -1,5 +1,147 @@
 # cueloop
 
+## 0.1.0-alpha.86
+
+### Minor Changes
+
+- [#511](https://github.com/mmurakaru/cueloop/pull/511) [`5881bb2`](https://github.com/mmurakaru/cueloop/commit/5881bb28f35b0eba32495b625e233ff0615d73e4) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Add an agent-driven pull-request review workflow with configurable skills and workspaces, line-anchored findings, explicit GitHub publishing, PR refresh state, and self-hosted severity badges.
+
+  Keep the welcome screen version tied to the published client package.
+
+### Patch Changes
+
+- Updated dependencies [[`5881bb2`](https://github.com/mmurakaru/cueloop/commit/5881bb28f35b0eba32495b625e233ff0615d73e4)]:
+  - @cueloop/schema@0.1.0-alpha.86
+  - @cueloop/daemon@0.1.0-alpha.86
+  - @cueloop/adapters@0.1.0-alpha.86
+  - @cueloop/client@0.1.0-alpha.86
+
+## 0.1.0-alpha.85
+
+### Minor Changes
+
+- [#508](https://github.com/mmurakaru/cueloop/pull/508) [`e86e4de`](https://github.com/mmurakaru/cueloop/commit/e86e4de84b175b73e252240e6d814eb7f2d4fbad) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Publish agent-readable website resources and a read-only discovery API.
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.85
+  - @cueloop/client@0.1.0-alpha.85
+  - @cueloop/daemon@0.1.0-alpha.85
+  - @cueloop/schema@0.1.0-alpha.85
+
+## 0.1.0-alpha.84
+
+### Minor Changes
+
+- [#505](https://github.com/mmurakaru/cueloop/pull/505) [`b5f43e5`](https://github.com/mmurakaru/cueloop/commit/b5f43e5adaa95275420e474281c122826ad91acb) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Add non-resolving Comment messages and exact character Cut/restore behavior.
+
+  Keep held marks moving at viewport edges, preserve their visual column across
+  vertical keyboard movement, center empty project panels, and remove success
+  toasts from edit actions. Point pi version mismatches at its extension update
+  command and streamline the installation, harness, Thread, and sharing docs.
+
+### Patch Changes
+
+- Updated dependencies [[`b5f43e5`](https://github.com/mmurakaru/cueloop/commit/b5f43e5adaa95275420e474281c122826ad91acb), [`fe05241`](https://github.com/mmurakaru/cueloop/commit/fe05241a69753e7b32e01d406779435d1e8a95c3)]:
+  - @cueloop/schema@0.1.0-alpha.84
+  - @cueloop/client@0.1.0-alpha.84
+  - @cueloop/daemon@0.1.0-alpha.84
+  - @cueloop/adapters@0.1.0-alpha.84
+
+## 0.1.0-alpha.83
+
+### Patch Changes
+
+- [#501](https://github.com/mmurakaru/cueloop/pull/501) [`c36e1fb`](https://github.com/mmurakaru/cueloop/commit/c36e1fbe5eea7f9f3f5f0bc444cf2d39e2d1ec57) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Keep ordinary Claude Code tools available when the Mod or cueloop bridge is unavailable, and remove the unconditional command hook that blocked every tool call.
+  Keep a live daemon running when an installed adapter uses a different cueloop version.
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.83
+  - @cueloop/client@0.1.0-alpha.83
+  - @cueloop/daemon@0.1.0-alpha.83
+  - @cueloop/schema@0.1.0-alpha.83
+
+## 0.1.0-alpha.82
+
+### Patch Changes
+
+- [#498](https://github.com/mmurakaru/cueloop/pull/498) [`078b3ab`](https://github.com/mmurakaru/cueloop/commit/078b3abb0fe5e77f79e3c87c5d3f07a6be9ddd22) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Reduce standalone CLI startup time by minifying its binary.
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.82
+  - @cueloop/client@0.1.0-alpha.82
+  - @cueloop/daemon@0.1.0-alpha.82
+  - @cueloop/schema@0.1.0-alpha.82
+
+## 0.1.0-alpha.81
+
+### Minor Changes
+
+- [#493](https://github.com/mmurakaru/cueloop/pull/493) [`6211a3e`](https://github.com/mmurakaru/cueloop/commit/6211a3eca3cea3f33fea24d3018fe0ca1f31f761) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Use a Claude Mod on Claude Code 2.1.278 or newer for native Thread gating and Message injection. Move shared workflow operations behind the cueloop harness bridge and remove the legacy review hook, private inbox, and detached Claude waiter. A guard blocks tools when the Mod is unavailable.
+
+- [#494](https://github.com/mmurakaru/cueloop/pull/494) [`755ec8d`](https://github.com/mmurakaru/cueloop/commit/755ec8dea8947da599de16a35e211be2c9533f27) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Ship a portable Codex plugin with shared Thread workflows, native session binding, and durable Message delivery through the long-lived MCP process.
+
+- [#491](https://github.com/mmurakaru/cueloop/pull/491) [`915df76`](https://github.com/mmurakaru/cueloop/commit/915df76f5d8b2736f9f864d0897f69884ddb108e) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Open pending Threads in Ghostty tabs, right-hand panes, or windows through its
+  macOS AppleScript API. Reuse live terminals, reopen closed ones, and fall back to
+  the manual command when automation fails.
+
+- [#489](https://github.com/mmurakaru/cueloop/pull/489) [`bb458ce`](https://github.com/mmurakaru/cueloop/commit/bb458ce72b5308067371555587bca26ebc23ee80) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Open pending Threads in a focused Herdr tab or a 50 percent right-hand pane,
+  selected through personal config. Reuse live surfaces, reopen closed ones, and
+  return a manual open command when terminal automation fails.
+
+### Patch Changes
+
+- Updated dependencies [[`6211a3e`](https://github.com/mmurakaru/cueloop/commit/6211a3eca3cea3f33fea24d3018fe0ca1f31f761), [`755ec8d`](https://github.com/mmurakaru/cueloop/commit/755ec8dea8947da599de16a35e211be2c9533f27), [`5b0a8ec`](https://github.com/mmurakaru/cueloop/commit/5b0a8ecb3a0ee730e54853525c6b8ff0a66770fa)]:
+  - @cueloop/adapters@0.1.0-alpha.81
+  - @cueloop/daemon@0.1.0-alpha.81
+  - @cueloop/client@0.1.0-alpha.81
+  - @cueloop/schema@0.1.0-alpha.81
+
+## 0.1.0-alpha.80
+
+### Minor Changes
+
+- [#487](https://github.com/mmurakaru/cueloop/pull/487) [`bdf6d30`](https://github.com/mmurakaru/cueloop/commit/bdf6d303f03cbedb02d50dea84a95105a9758c26) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Add one shared Thread workflow contract for plan, reply, prototype, diff, review,
+  and refine. Review imports and posts PR Messages through a shared forge port;
+  refine shares corpus analysis with the CLI. Shared skills leave native message
+  delivery to each harness adapter.
+
+- [#487](https://github.com/mmurakaru/cueloop/pull/487) [`bdf6d30`](https://github.com/mmurakaru/cueloop/commit/bdf6d303f03cbedb02d50dea84a95105a9758c26) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Add durable harness bindings and Message delivery for Threads. The daemon and
+  CLI now send stable-ID Messages with `approved` or `changes_requested` outcomes,
+  and harness adapters can redeliver safely until native injection is acknowledged.
+  An unchanged approved plan has one persisted retry, and adapter Message IDs are
+  journaled across reloads.
+  The TUI uses `Send message (n)`, and active code and commands use Thread and
+  Message names without the pre-alpha decision aliases.
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.80
+  - @cueloop/client@0.1.0-alpha.80
+  - @cueloop/daemon@0.1.0-alpha.80
+  - @cueloop/schema@0.1.0-alpha.80
+
+## 0.1.0-alpha.79
+
+### Minor Changes
+
+- [#469](https://github.com/mmurakaru/cueloop/pull/469) [`47b873e`](https://github.com/mmurakaru/cueloop/commit/47b873e1d7adbaaba7992aa15c5cd475e3fe51b5) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Reach the thread's structural commands through a nav mode instead of a leader chord. In the thread you type to comment, as before; press esc for nav mode - the footer switches to the commands - and a bare letter runs one: e edit, s share, enter submit, n/p move between comments, x cut, u restore, r rename, and the diff and tree letters. Every command is a bare key with no prefix and no modifier, so the terminal never swallows one and there is nothing to set up. Tab and shift+tab cycle the panes. The old ctrl+g leader is gone; cmd/ctrl+enter, ctrl+e, and ctrl+s stay as accelerators.
+
+  The mode hint is one line above the focused surface's footer, a diff rejects a change with a single x, and the submit card opens on approve by default (set `[ui] default_verdict` to change it). The inline plan editor keeps the pane's left inset and saves with ctrl+enter. A focused comment fills its marker-rail dot, not just the card border. The unwired tree-view toggle is dropped from nav until the history view lands. The nav footer names only the commands the surface can run, so the Welcome tab and a project file offer comment and fold rather than the diff commands. The keybinds dialog no longer lists an agent terminal detach chord, which had nothing behind it.
+
+### Patch Changes
+
+- [#466](https://github.com/mmurakaru/cueloop/pull/466) [`8a38a25`](https://github.com/mmurakaru/cueloop/commit/8a38a2537ea930b672519eaf1eed09b9523d0a82) Thanks [@mmurakaru](https://github.com/mmurakaru)! - The Changes pane's "No changes" hint centers level with the thread pane's "Select a thread", offsetting for the thread footer's height.
+
+- [#468](https://github.com/mmurakaru/cueloop/pull/468) [`f796fef`](https://github.com/mmurakaru/cueloop/commit/f796fefa3d495d95e55f5e4dcf72326819f59945) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Edit a thread's body inline, without leaving the pane. The edit shortcut now opens a native markdown editor over the thread - full editor motion, selection, and undo - that lightly marks the source as you type: a heading's marker dims and its title bolds, links color, and inline and fenced code gray. The header action toggles between edit and normal; cmd, meta, or ctrl + enter saves and closes. A diff still hands off to your `$EDITOR`.
+
+- [#468](https://github.com/mmurakaru/cueloop/pull/468) [`f796fef`](https://github.com/mmurakaru/cueloop/commit/f796fefa3d495d95e55f5e4dcf72326819f59945) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Render a thread's plan the way a markdown preview does. Headings sit over a rule, links show their label in the link color with the URL tucked away, inline and fenced code gray, and emphasis reads bold, italic, or struck - the source markers are gone. GFM tables render as an aligned grid and leading YAML frontmatter as a bordered key/value table. Comments still anchor to the source under the rendered text, so a note dropped on a link label lands exactly where it reads.
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.79
+  - @cueloop/client@0.1.0-alpha.79
+  - @cueloop/daemon@0.1.0-alpha.79
+  - @cueloop/schema@0.1.0-alpha.79
+
 ## 0.1.0-alpha.78
 
 ### Patch Changes

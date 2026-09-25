@@ -33,7 +33,7 @@ function diffThread(meta: Thread["artifact"]["meta"]): Thread {
         createdAt: AT,
       },
     ],
-    verdict: null,
+    message: null,
     status: "pending",
     createdAt: AT,
   };

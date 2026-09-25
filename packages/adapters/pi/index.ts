@@ -1,254 +1,362 @@
-/**
- * pi adapter: a pi extension factory. Registers the request_review tool
- * (submit any cueloop primitive, return immediately with the session id), a background waiter
- * per open review that injects the reviewer's verdict back into the live session
- * with pi.sendUserMessage once it resolves, a tool_call gate that holds
- * write-capable tools while a review this extension opened is still pending, and
- * a /review command that reports session status.
- *
- * Non-blocking by design (ADR 0008): the tool call does not sit inside the
- * verdict wait, so the human keeps chatting with the agent while the plan is
- * open. Each review spawns a detached waiter that parks on awaitResolve and
- * wakes the turn with a followUp message; session_shutdown aborts any waiter
- * still parked so a closed pi session never injects into a dead turn.
- */
-
-import { DaemonClient } from "@cueloop/daemon/client";
-import { awaitResolve, openReview } from "@cueloop/daemon/review";
-import { ARTIFACT_TYPES, isArtifactType, type ArtifactType } from "@cueloop/schema";
+import { join } from "node:path";
+import * as v from "valibot";
+import { DaemonClient, DaemonClientError } from "@cueloop/daemon/client";
+import { cueloopHome } from "@cueloop/daemon/paths";
+import { WORKFLOW_KINDS, type HarnessBinding } from "@cueloop/schema";
+import {
+  createHarnessThreadController,
+  type HarnessThreadController,
+  type HarnessWorkflowRequest,
+} from "../harness-thread-controller";
+import { createTerminalThreadSurfacePort } from "../terminal-thread-surface-port";
+import { createDeliveredMessageStore } from "../delivered-message-store";
+import { createGitHubForgeReviewPort } from "../forge-review";
+import { createLocalRefineCorpusPort } from "../refine-corpus";
 import { wakeMessage } from "../wake-message";
-import type { PiExtensionAPI, PiToolDefinition, PiToolResult } from "./pi-types";
+import type { PiContext, PiExtensionAPI, PiToolDefinition, PiToolResult } from "./pi-types";
 
-const REVIEW_TOOL = "request_review";
-
-/**
- * Conservative allowlist: only tools that cannot mutate the workspace pass
- * while a review is pending. Everything else (edit, write, bash, unknown
- * custom tools) is blocked.
- */
+const OPEN_THREAD_TOOL = "open_thread";
 const READ_ONLY_TOOLS = new Set(["read", "grep", "find", "ls"]);
+const OpenThreadParamsSchema = v.object({
+  workflow: v.picklist(WORKFLOW_KINDS),
+  content: v.optional(v.string()),
+  proposal: v.optional(v.string()),
+  pullRequestReference: v.optional(v.string()),
+  title: v.optional(v.string()),
+});
 
-export interface RequestReviewParams {
-  /** The artifact source: plan or reply markdown, a unified diff, or prototype HTML. */
-  content: string;
-  /** The cueloop primitive under review; defaults to "plan". */
-  type?: ArtifactType;
-  title?: string;
-}
+export type OpenThreadParams = v.InferOutput<typeof OpenThreadParamsSchema>;
 
-export interface ReviewDetails {
+export interface ThreadDetails {
   sessionId?: string;
   status: "pending" | "resolved" | "cancelled";
   annotationCount: number;
-  verdictKind?: string;
+  outcome?: string;
 }
 
 export interface CueloopExtensionOptions {
-  /** State-dir override; the default resolves CUELOOP_HOME from the environment. */
   home?: string;
-  /** Long-poll chunk length for the background waiter's awaitResolve loop. */
-  pollMs?: number;
 }
 
-const text = (message: string): PiToolResult<ReviewDetails>["content"] => [
-  { type: "text", text: message },
-];
+function text(message: string): PiToolResult<ThreadDetails>["content"] {
+  return [{ type: "text", text: message }];
+}
 
 function errorMessage(cause: unknown): string {
   return cause instanceof Error ? cause.message : String(cause);
 }
 
-export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
-  const pollMs = options.pollMs ?? 10_000;
-  /** Session ids this extension opened whose verdict is still outstanding, each with its waiter's abort. */
-  const pendingWaiters = new Map<string, AbortController>();
-  /** Most recent session this extension created, for /review. */
-  let lastSessionId: string | undefined;
-
-  /**
-   * The detached waiter: park on the verdict, then wake the live pi turn with a
-   * followUp message. Owns the daemon connection for the whole wait, so the held
-   * connection also keeps the daemon off its idle-exit path. Never throws into
-   * the background: a dropped daemon or a vanished session is reported to the
-   * turn once, not left to crash the session.
-   */
-  async function wakeOnResolve(
-    pi: PiExtensionAPI,
-    client: DaemonClient,
-    sessionId: string,
-    controller: AbortController,
-  ): Promise<void> {
-    try {
-      const verdict = await awaitResolve(client, sessionId, { pollMs, signal: controller.signal });
-
-      // A verdict can win the race with a shutdown abort; recheck before injecting
-      // so a follow-up never lands in a pi session that has already torn down.
-      if (verdict === null || controller.signal.aborted) return;
-      pi.sendUserMessage(wakeMessage(sessionId, verdict), { deliverAs: "followUp" });
-    } catch (error) {
-      if (controller.signal.aborted) return;
-      pi.sendUserMessage(
-        `cueloop could not collect the verdict for review ${sessionId}: ${errorMessage(error)}`,
-        { deliverAs: "followUp" },
-      );
-    } finally {
-      pendingWaiters.delete(sessionId);
-      client.close();
-    }
+export function piUnavailableMessage(cause: unknown): string {
+  if (cause instanceof DaemonClientError && cause.code === "version_mismatch") {
+    return "pi update --extensions";
   }
 
-  const requestReview: PiToolDefinition<RequestReviewParams, ReviewDetails> = {
-    name: REVIEW_TOOL,
-    label: "Request review",
-    description:
-      `Submit a cueloop artifact (${ARTIFACT_TYPES.join(", ")}) for human review and return ` +
-      "immediately with the session id. " +
-      "Do not block: end your turn and keep helping the user. When the reviewer returns a verdict " +
-      "cueloop wakes this session with a follow-up message carrying the outcome - an approval to " +
-      "proceed, or structured feedback to address before continuing.",
-    parameters: {
-      type: "object",
-      properties: {
-        content: {
-          type: "string",
-          description:
-            "The artifact source: plan or reply markdown, a unified diff, or prototype HTML.",
-        },
-        type: {
-          type: "string",
-          // Derived from the schema's runtime union, never hardcoded: a new
-          // primitive is reviewable from pi the moment the schema knows it.
-          enum: ARTIFACT_TYPES,
-          description: "The cueloop primitive under review; defaults to plan.",
-        },
-        title: {
-          type: "string",
-          description: "Session title; markdown artifacts default to their first heading.",
-        },
-      },
-      required: ["content"],
-    },
-    async execute(_toolCallId, params, signal, _onUpdate, context) {
-      if (signal?.aborted) {
-        return {
-          content: text("cueloop review cancelled before it opened."),
-          details: { status: "cancelled", annotationCount: 0 },
-          isError: true,
-        };
-      }
-      // The model side of the trust boundary: pi does not enforce the enum,
-      // so a hallucinated type is refused here instead of reaching the daemon.
-      const type = params.type ?? "plan";
+  return `cueloop unavailable: ${errorMessage(cause)}`;
+}
 
-      if (!isArtifactType(type)) {
-        return {
-          content: text(
-            `cueloop does not know the artifact type "${type}" - one of: ${ARTIFACT_TYPES.join(", ")}.`,
-          ),
-          details: { status: "cancelled", annotationCount: 0 },
-          isError: true,
-        };
-      }
-      const client = await DaemonClient.connect({ home: options.home, autostart: true });
+function requestFor(
+  params: OpenThreadParams,
+  harnessSessionId: string,
+  cwd: string,
+): HarnessWorkflowRequest {
+  const common = { harness: "pi", harnessSessionId, cwd };
 
-      try {
-        const review = await openReview(client, {
-          type,
-          content: params.content,
-          cwd: context.cwd,
-          agent: "pi",
-          title: params.title,
-        });
+  if (params.workflow === "review") {
+    if (!params.pullRequestReference) throw new Error("review needs pullRequestReference");
 
-        lastSessionId = review.id;
-        const controller = new AbortController();
+    return { ...common, workflow: "review", pullRequestReference: params.pullRequestReference };
+  }
+  if (params.workflow === "refine") {
+    if (!params.proposal) throw new Error("refine needs proposal from the corpus report");
 
-        pendingWaiters.set(review.id, controller);
-        // A host abort of this (already-returned) call still tears the waiter down,
-        // releasing the write gate and connection instead of leaking a live wait.
-        signal?.addEventListener("abort", () => controller.abort(), { once: true });
-        // Hand the connection to the waiter; it closes the client when done.
-        void wakeOnResolve(pi, client, review.id, controller);
+    return { ...common, workflow: "refine", proposal: params.proposal };
+  }
+  if (!params.content) throw new Error(`${params.workflow} needs content`);
 
-        return {
-          content: text(
-            `cueloop review opened (session ${review.id}). Keep working; I will deliver the ` +
-              `reviewer's verdict as a follow-up when it lands.`,
-          ),
-          details: { sessionId: review.id, status: "pending", annotationCount: 0 },
-        };
-      } catch (error) {
-        client.close();
+  return { ...common, workflow: params.workflow, content: params.content, title: params.title };
+}
 
-        return {
-          content: text(`cueloop could not open the review: ${errorMessage(error)}`),
-          details: { status: "cancelled", annotationCount: 0 },
-          isError: true,
-        };
-      }
-    },
-  };
+/** Register one in-process extension; pi reload constructs a new instance. */
+export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
+  const home = options.home ?? cueloopHome();
+  const nativeMessages = createDeliveredMessageStore(join(home, "pi-delivered-messages.json"));
+  const forgeMessages = createDeliveredMessageStore(join(home, "pi-forge-messages.json"));
+  let client: DaemonClient | null = null;
+  let controller: HarnessThreadController | null = null;
+  let activeSessionId: string | null = null;
+  let starting: Promise<void> | null = null;
+  let generation = 0;
+  let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  const bindings = new Map<string, HarnessBinding>();
+  const pendingThreads = new Set<string>();
+  const reconciliationTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
-  let pi: PiExtensionAPI;
+  return function cueloopExtension(pi: PiExtensionAPI): void {
+    async function reconcile(binding: HarnessBinding): Promise<void> {
+      if (!client || !controller || binding.harnessSessionId !== activeSessionId) return;
+      pendingThreads.add(binding.threadId);
+      const thread = await client.sessionGet(binding.threadId);
 
-  return function cueloopExtension(api: PiExtensionAPI): void {
-    pi = api;
-    pi.registerTool(requestReview);
+      await controller.deliverPending(binding.id, {
+        sendMessage: (message) =>
+          nativeMessages.sendOnce(message, () => {
+            if (binding.harnessSessionId !== activeSessionId)
+              throw new Error("pi conversation changed before Message injection");
+            pi.sendUserMessage(wakeMessage(thread.id, message), { deliverAs: "followUp" });
+          }),
+      });
+      if (thread.status !== "pending") pendingThreads.delete(thread.id);
+    }
 
-    pi.on("tool_call", (event) => {
-      if (pendingWaiters.size === 0) return undefined;
-      if (event.toolName === REVIEW_TOOL || READ_ONLY_TOOLS.has(event.toolName)) return undefined;
-      const ids = [...pendingWaiters.keys()].join(", ");
+    function retryReconcile(binding: HarnessBinding): void {
+      if (reconciliationTimers.has(binding.id)) return;
+      const timer = setTimeout(() => {
+        reconciliationTimers.delete(binding.id);
+        if (bindings.get(binding.id) !== binding) return;
+        void reconcile(binding).catch(() => retryReconcile(binding));
+      }, 500);
 
-      return {
-        block: true,
-        reason: `cueloop review pending (session ${ids}) - wait for the verdict before writing`,
-      };
-    });
+      timer.unref?.();
+      reconciliationTimers.set(binding.id, timer);
+    }
 
-    pi.on("session_shutdown", () => {
-      for (const controller of pendingWaiters.values()) controller.abort();
-    });
+    function scheduleReconnect(context: PiContext): void {
+      if (reconnectTimer) return;
+      const expectedGeneration = generation;
 
-    pi.registerCommand("review", {
-      description: "Show the status of the current cueloop thread",
-      handler: async (_args, context) => {
-        const notify = (message: string) => context.ui?.notify?.(message, "info");
-        let client: DaemonClient;
+      reconnectTimer = setTimeout(() => {
+        reconnectTimer = null;
+        if (generation !== expectedGeneration) return;
+        void start(context, true).catch(() => scheduleReconnect(context));
+      }, 500);
+      reconnectTimer.unref?.();
+    }
 
+    function stop(preservePending = false): void {
+      generation += 1;
+      client?.close();
+      client = null;
+      controller = null;
+      activeSessionId = null;
+      starting = null;
+      bindings.clear();
+      if (!preservePending) pendingThreads.clear();
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+      for (const timer of reconciliationTimers.values()) clearTimeout(timer);
+      reconciliationTimers.clear();
+    }
+
+    async function start(context: PiContext, preservePending = false): Promise<void> {
+      const sessionId = context.sessionManager?.getSessionId();
+
+      if (!sessionId) throw new Error("pi did not provide a conversation ID");
+      if (starting) return starting;
+      const existingClient = client;
+      const sameSession = existingClient !== null && activeSessionId === sessionId;
+
+      if (sameSession) {
         try {
-          client = await DaemonClient.connect({ home: options.home });
+          await existingClient.ping();
+
+          return;
         } catch {
-          notify("cueloop daemon is not running - no active reviews");
+          preservePending = true;
+        }
+      }
+      stop(preservePending);
+      const currentGeneration = generation;
+
+      starting = (async () => {
+        const connected = await DaemonClient.connect({ home, autostart: true });
+
+        if (generation !== currentGeneration) {
+          connected.close();
 
           return;
         }
         try {
-          if (lastSessionId === undefined) {
-            const pending = await client.sessionList({ status: "pending" });
+          const shared = createHarnessThreadController(connected, {
+            surface: createTerminalThreadSurfacePort(connected),
+            forge: createGitHubForgeReviewPort(forgeMessages),
+            corpus: createLocalRefineCorpusPort(connected, home),
+          });
 
-            notify(
-              pending.length > 0
-                ? `no review opened from this session; ${pending.length} cueloop session(s) pending overall`
-                : "no cueloop threads",
+          client = connected;
+          controller = shared;
+          activeSessionId = sessionId;
+          connected.onDisconnect(() => {
+            if (generation === currentGeneration && pendingThreads.size > 0)
+              scheduleReconnect(context);
+          });
+          connected.onEvent((event) => {
+            if (event.event !== "message.sent" && event.event !== "session.revised") return;
+            const binding = [...bindings.values()].find(
+              (item) => item.threadId === event.sessionId,
             );
 
-            return;
-          }
-          const session = await client.sessionGet(lastSessionId);
+            if (binding) void reconcile(binding).catch(() => retryReconcile(binding));
+          });
+          await connected.subscribe();
+          const restored = await connected.harnessBindingsForSession("pi", sessionId);
 
-          notify(
-            session.status === "pending"
-              ? `cueloop review ${session.id} pending - ${session.annotations.length} annotation(s)`
-              : `cueloop review ${session.id} resolved: ${session.verdict?.kind ?? "unknown"}`,
-          );
-        } finally {
-          client.close();
+          for (const binding of restored) {
+            bindings.set(binding.id, binding);
+            try {
+              await reconcile(binding);
+            } catch {
+              retryReconcile(binding);
+            }
+          }
+          const restoredThreads = new Set(restored.map((binding) => binding.threadId));
+
+          for (const threadId of pendingThreads)
+            if (!restoredThreads.has(threadId)) pendingThreads.delete(threadId);
+        } catch (error) {
+          stop(preservePending);
+
+          throw error;
         }
+      })().finally(() => {
+        starting = null;
+      });
+
+      return starting;
+    }
+
+    const openThread: PiToolDefinition<OpenThreadParams, ThreadDetails> = {
+      name: OPEN_THREAD_TOOL,
+      label: "Open cueloop Thread",
+      description:
+        "Open or revise a cueloop Thread for plan, reply, prototype, diff, review, or refine. " +
+        "The Thread remains pending until a human sends a Message. For refine, first call refine_corpus.",
+      parameters: {
+        type: "object",
+        properties: {
+          workflow: { type: "string", enum: WORKFLOW_KINDS },
+          content: { type: "string" },
+          proposal: { type: "string" },
+          pullRequestReference: { type: "string" },
+          title: { type: "string" },
+        },
+        required: ["workflow"],
+      },
+      async execute(_toolCallId, params, signal, _onUpdate, context) {
+        if (signal?.aborted) {
+          return {
+            content: text("Thread opening was cancelled."),
+            details: { status: "cancelled", annotationCount: 0 },
+            isError: true,
+          };
+        }
+
+        try {
+          const parsed = v.safeParse(OpenThreadParamsSchema, params);
+
+          if (!parsed.success) throw new Error("pi Thread request is invalid");
+          await start(context);
+          const sessionId = activeSessionId;
+
+          if (!controller || !sessionId) {
+            throw new Error("pi Thread adapter is not ready");
+          }
+          const opened = await controller.openWorkflow(
+            requestFor(parsed.output, sessionId, context.cwd),
+          );
+
+          bindings.set(opened.binding.id, opened.binding);
+          if (opened.approvedRetry) {
+            return {
+              content: text("The unchanged approved plan may proceed."),
+              details: {
+                sessionId: opened.thread.id,
+                status: "resolved",
+                annotationCount: opened.thread.annotations.length,
+                outcome: opened.thread.message?.outcome,
+              },
+            };
+          }
+          pendingThreads.add(opened.thread.id);
+
+          return {
+            content: text(
+              `Thread ${opened.thread.id} is pending. Do not mutate the workspace until its Message arrives.` +
+                (opened.manualOpenCommand ? ` Open it manually: ${opened.manualOpenCommand}` : ""),
+            ),
+            details: {
+              sessionId: opened.thread.id,
+              status: "pending",
+              annotationCount: opened.thread.annotations.length,
+            },
+          };
+        } catch (error) {
+          return {
+            content: text(`cueloop could not open a Thread: ${errorMessage(error)}`),
+            details: { status: "cancelled", annotationCount: 0 },
+            isError: true,
+          };
+        }
+      },
+    };
+
+    pi.registerTool(openThread);
+    pi.registerTool({
+      name: "refine_corpus",
+      label: "Analyze cueloop Threads",
+      description: "Analyze resolved Threads before drafting a refine proposal.",
+      parameters: { type: "object", properties: {} },
+      async execute(_toolCallId, _params, _signal, _onUpdate, context) {
+        await start(context);
+        const report = await controller!.analyzeRefineCorpus();
+
+        return {
+          content: text(report.report),
+          details: { status: "resolved", annotationCount: 0 },
+        };
+      },
+    });
+
+    pi.on("tool_call", (event) => {
+      if (!pendingThreads.size) return undefined;
+      if (event.toolName === OPEN_THREAD_TOOL || READ_ONLY_TOOLS.has(event.toolName))
+        return undefined;
+
+      return {
+        block: true,
+        reason: `cueloop Threads pending: ${[...pendingThreads].join(", ")}`,
+      };
+    });
+
+    pi.on("session_start", async (_event, context) => {
+      try {
+        await start(context);
+      } catch (error) {
+        context.ui?.notify?.(piUnavailableMessage(error), "error");
+      }
+    });
+    pi.on("session_switch", async (_event, context) => {
+      stop();
+      await start(context);
+    });
+    pi.on("session_fork", async (_event, context) => {
+      stop();
+      await start(context);
+    });
+    pi.on("session_shutdown", () => stop());
+
+    pi.registerCommand("threads", {
+      description: "Show the active cueloop Threads",
+      handler: async (_args, context) => {
+        await start(context);
+        context.ui?.notify?.(
+          pendingThreads.size
+            ? `Pending Threads: ${[...pendingThreads].join(", ")}`
+            : "No pending Threads",
+          "info",
+        );
       },
     });
   };
 }
 
-/** Default factory pi loads; state dir and poll cadence come from the environment. */
 export default createCueloopExtension();

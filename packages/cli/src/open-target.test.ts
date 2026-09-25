@@ -32,9 +32,9 @@ function session(overrides: {
     },
     revisions: [],
     annotations: [],
-    verdict:
+    message:
       overrides.status === "resolved"
-        ? { kind: "approve", summary: "", feedback: "", resolvedAt: "" }
+        ? { id: "msg_1", outcome: "approved", summary: "", body: "", sentAt: "" }
         : null,
     status: overrides.status ?? "pending",
     createdAt: overrides.createdAt ?? "2026-01-01T00:00:00.000Z",

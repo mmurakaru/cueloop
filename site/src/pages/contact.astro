@@ -1,0 +1,46 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import EmailObfuscationEscape from "../components/EmailObfuscationEscape.astro";
+---
+
+<BaseLayout
+  title="Contact cueloop"
+  description="Support, security, documentation, and project contact details for cueloop."
+>
+  <section class="section">
+    <div class="container">
+      <div class="prose">
+        <p><a href="/">← cueloop</a></p>
+        <h1>Contact cueloop</h1>
+        <p>
+          Start with the <a href="/docs/">cueloop documentation</a> for installation, agent
+          integrations, commands, configuration, keyboard controls, sharing, and security. The docs
+          are the fastest way to answer setup and usage questions.
+        </p>
+        <h2>Support and questions</h2>
+        <p>
+          Email <EmailObfuscationEscape><a href="mailto:hello@cueloop.dev"
+            >hello@cueloop.dev</a
+          ></EmailObfuscationEscape> for private support or questions about the project. For
+          reproducible bugs and feature requests, open an issue in the <a
+            href="https://github.com/mmurakaru/cueloop/issues">public issue tracker</a
+          >. Include the cueloop version, operating system, command you ran, and the smallest example
+          that shows the problem. Do not include source code, tokens, private repository URLs, or
+          other secrets.
+        </p>
+        <h2>Security reports</h2>
+        <p>
+          Send security reports by email instead of opening a public issue. Explain the affected
+          version, the impact, and how to reproduce the problem. Reports are reviewed before details
+          are shared publicly.
+        </p>
+        <h2>Project links</h2>
+        <p>
+          The source code, current work, and release history are available on
+          <a href="https://github.com/mmurakaru/cueloop">GitHub</a>. cueloop is an open-source project,
+          not a staffed support service, so response times can vary.
+        </p>
+      </div>
+    </div>
+  </section>
+</BaseLayout>

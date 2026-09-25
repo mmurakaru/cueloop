@@ -1,0 +1,6 @@
+/skill.md /SKILL.md 302
+/.well-known/skills/cueloop/SKILL.md /SKILL.md 302
+/docs/concepts/annotations/* /docs/concepts/comments/:splat 301
+/docs/sharing/quickstart/* /docs/sharing/ 301
+/docs/sharing/how-it-works/* /docs/sharing/ 301
+/docs/sharing/identity/* /docs/sharing/ 301

@@ -7,13 +7,15 @@
  */
 
 import { derivePath, followBranch, MAIN_BRANCH, pathOf, type SessionHistory } from "./history";
-import type { Annotation, Thread } from "./types";
+import type { Annotation, Thread, TextCut } from "./types";
 
 export interface PathView {
   /** The last agent revision on the path: what the artifact shows. */
   content: string;
   /** The reviewer's edits over it, when the path's head is a reviewer revision. */
   workingCopy: string | undefined;
+  /** Exact character Cuts attached to the reviewer revision at the path head. */
+  textCuts: TextCut[] | undefined;
   /** The comments open on the path, in path order. */
   annotations: Annotation[];
   /** Every other comment the session knows. */
@@ -45,6 +47,7 @@ export function viewOfPath(history: SessionHistory, known: Annotation[]): PathVi
   return {
     content,
     workingCopy: derived.head.content === content ? undefined : derived.head.content,
+    textCuts: derived.head.by === "reviewer" ? derived.head.textCuts : undefined,
     annotations,
     shelvedAnnotations: [...byId.values()],
   };
@@ -54,6 +57,8 @@ export function viewOfPath(history: SessionHistory, known: Annotation[]): PathVi
 export function applyPathView(session: Thread, view: PathView): void {
   session.artifact = { ...session.artifact, content: view.content };
   session.annotations = view.annotations;
+  if (view.textCuts?.length) session.textCuts = view.textCuts;
+  else delete session.textCuts;
   if (view.workingCopy === undefined) delete session.workingCopy;
   else session.workingCopy = view.workingCopy;
   if (view.shelvedAnnotations.length === 0) delete session.shelvedAnnotations;
