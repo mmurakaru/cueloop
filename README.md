@@ -12,12 +12,15 @@
 
 A terminal-first multiplayer thread for agent-authored work.
 
+<video src="https://github.com/user-attachments/assets/a14b0f79-97c9-4828-b92d-8252d32a32c5" controls muted loop playsinline></video>
+
 ## The primitives
 
 - **plan**
+- **reply**
 - **diff**
 - **review**
-- **prototype** (experimental)
+- **prototype**
 
 ## Install
 
