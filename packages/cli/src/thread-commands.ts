@@ -84,6 +84,13 @@ async function sessionGetCommand({ client, positional }: SessionContext): Promis
   return 0;
 }
 
+async function sessionDeleteCommand({ client, positional }: SessionContext): Promise<number> {
+  await client.sessionDelete(required(positional[1], "session id"));
+  out({});
+
+  return 0;
+}
+
 async function sessionListCommand({ client, flags }: SessionContext): Promise<number> {
   const rawStatus = stringFlag(flags, "status");
   const status = rawStatus ? v.parse(SessionStatusSchema, rawStatus) : undefined;
@@ -426,6 +433,7 @@ interface SessionVerbHandlers {
 const sessionVerbHandlers: SessionVerbHandlers = {
   create: sessionCreate,
   get: sessionGetCommand,
+  delete: sessionDeleteCommand,
   list: sessionListCommand,
   wait: sessionWaitCommand,
   annotate: sessionAnnotateCommand,
@@ -466,7 +474,7 @@ export async function sessionCommand(argv: string[]): Promise<number> {
 
     if (handler === undefined) {
       console.error(
-        "usage: cueloop session <create|get|list|wait|annotate|remove|cut|restore|curate|set-viewed|navigate|branch|switch|label|fork|name-self|events|send-message|bind-harness|pending-deliveries|acknowledge-delivery|submit-revision> [flags]",
+        "usage: cueloop session <create|get|delete|list|wait|annotate|remove|cut|restore|curate|set-viewed|navigate|branch|switch|label|fork|name-self|events|send-message|bind-harness|pending-deliveries|acknowledge-delivery|submit-revision> [flags]",
       );
 
       return 2;

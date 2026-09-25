@@ -190,6 +190,19 @@ export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
               scheduleReconnect(context);
           });
           connected.onEvent((event) => {
+            if (event.event === "session.deleted") {
+              pendingThreads.delete(event.sessionId);
+              for (const binding of bindings.values()) {
+                if (binding.threadId !== event.sessionId) continue;
+                bindings.delete(binding.id);
+                const timer = reconciliationTimers.get(binding.id);
+
+                if (timer) clearTimeout(timer);
+                reconciliationTimers.delete(binding.id);
+              }
+
+              return;
+            }
             if (event.event !== "message.sent" && event.event !== "session.revised") return;
             const binding = [...bindings.values()].find(
               (item) => item.threadId === event.sessionId,
