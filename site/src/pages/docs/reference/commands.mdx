@@ -75,11 +75,13 @@ See [Share a Thread](/docs/sharing/) for the full workflow.
 ## Post to GitHub
 
 ```bash
-cueloop review-post <session-id> --comments C1,C3 --event comment
+cueloop review-post <session-id> --comments C1,C3 --event comment --body-file review.md
 ```
 
 Posts selected agent findings from a completed Thread. Omit `--comments` to
-post every unresolved agent finding. Posting is always explicit.
+post every unresolved agent finding. Posting is always explicit. The Thread's
+send-message text gives instructions to the agent and is never posted as the
+GitHub review body. Use `--body` or `--body-file` for a separate review body.
 
 ```text
 comment         → COMMENT

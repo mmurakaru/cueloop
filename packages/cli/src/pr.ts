@@ -71,8 +71,8 @@ function reviewEvent(value: string): GitHubReviewEvent | undefined {
   return undefined;
 }
 
-function reviewSummary(event: GitHubReviewEvent, summary: string): string | undefined {
-  const trimmed = summary.trim();
+function reviewSummary(event: GitHubReviewEvent, body?: string): string | undefined {
+  const trimmed = body?.trim();
 
   if (trimmed) return trimmed;
   if (event === "APPROVE") return undefined;
@@ -84,6 +84,7 @@ function reviewPublicationId(
   session: Thread,
   event: GitHubReviewEvent,
   commentIds: string[],
+  body?: string,
 ): string {
   const fingerprint = JSON.stringify({
     sessionId: session.id,
@@ -91,6 +92,7 @@ function reviewPublicationId(
     event,
     head: session.artifact.meta.prHeadSha,
     comments: commentIds.toSorted(),
+    body,
   });
 
   return `github-review:${createHash("sha256").update(fingerprint).digest("hex")}`;
@@ -412,7 +414,7 @@ export async function reviewPostCommand(argv: string[]): Promise<number> {
 
   if (!sessionId) {
     console.error(
-      "usage: cueloop review-post <session-id> [--comments C1,C2] [--event comment|approve|request-changes]",
+      "usage: cueloop review-post <session-id> [--comments C1,C2] [--event comment|approve|request-changes] [--body <text>|--body-file <path>]",
     );
 
     return 2;
@@ -461,6 +463,7 @@ export async function reviewPostCommand(argv: string[]): Promise<number> {
 
     return 2;
   }
+  const body = reviewSummary(event, textFlag(flags, "body", "body-file"));
 
   try {
     const forgePort = forge();
@@ -484,6 +487,7 @@ export async function reviewPostCommand(argv: string[]): Promise<number> {
         session,
         event,
         comments.map((comment) => comment.id),
+        body,
       ),
       pullRequest: {
         number,
@@ -492,7 +496,7 @@ export async function reviewPostCommand(argv: string[]): Promise<number> {
       },
       comments,
       event,
-      body: reviewSummary(event, session.message.summary),
+      body,
       cwd: session.artifact.meta.cwd,
     });
 
