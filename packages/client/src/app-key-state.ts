@@ -44,7 +44,7 @@ export function buildKeyState(params: {
     keys,
     readOnly: observer,
     canEditPlan: isOwner,
-    canSubmitVerdict: isOwner,
+    canSubmitMessage: isOwner,
     canShare: isOwner,
     overlay,
     view: !session ? "inbox" : isDiff ? "diff" : "plan",

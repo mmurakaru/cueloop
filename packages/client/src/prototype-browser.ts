@@ -108,6 +108,13 @@ type PuppeteerBrowser = Awaited<ReturnType<typeof import("puppeteer-core").defau
 // launch is the dominant load cost, so each open only spawns a fresh page.
 let sharedBrowser: Promise<PuppeteerBrowser> | null = null;
 
+/** Install only the browser lifecycle used by unit tests, without launching Chrome. */
+export function setPrototypeBrowserForTest(browser: Pick<PuppeteerBrowser, "close"> | null): void {
+  // SAFETY: tests call only closePrototypeBrowser before resetting this seam, so close is the sole
+  // browser member the shared slot can read while the double is installed.
+  sharedBrowser = browser ? Promise.resolve(browser as PuppeteerBrowser) : null;
+}
+
 async function warmBrowser(executablePath: string | undefined): Promise<PuppeteerBrowser> {
   // reuse the warm browser only while it is still connected; a crashed or
   // disconnected Chromium is dropped so the next open relaunches instead of
@@ -148,13 +155,6 @@ export async function closePrototypeBrowser(): Promise<void> {
   const browser = await pending.catch(() => null);
 
   await browser?.close().catch(() => undefined);
-}
-
-/** Test-only: the warm browser's OS process id, or null when none is running. */
-export async function prototypeBrowserPidForTest(): Promise<number | null> {
-  const browser = sharedBrowser ? await sharedBrowser.catch(() => null) : null;
-
-  return browser?.process()?.pid ?? null;
 }
 
 export async function launchPrototypeRenderer(options: LaunchOptions): Promise<PrototypeRenderer> {

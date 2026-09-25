@@ -16,14 +16,14 @@ import {
   renderReadyApp,
   waitForText,
 } from "../packages/client/src/test-support";
-import { HERMETIC_HERDR_ENV } from "../test/helpers/env";
+import { HERMETIC_TERMINAL_ENV } from "../test/helpers/env";
 import { createTestReviewHome } from "../test/helpers/review-home";
 import { createTestGitRepo } from "../test/helpers/git-repo";
 import { largePlanMarkdown, manyFilesChange } from "./lib/fixtures";
 import { emitLatencyMetrics, emitMemoryMetrics, emitMetric } from "./lib/metric";
 import { timeToFirstPaint } from "./lib/nav-timing";
 
-Object.assign(process.env, HERMETIC_HERDR_ENV);
+Object.assign(process.env, HERMETIC_TERMINAL_ENV);
 
 const PROJECTS = 6;
 const PLAN_SECTIONS = 150;

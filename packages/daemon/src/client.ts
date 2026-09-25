@@ -4,17 +4,34 @@
  * autostart spawns a detached daemon when the socket is dead, then attaches.
  */
 
-import { existsSync, readFileSync, rmSync } from "node:fs";
+import { spawn } from "node:child_process";
+import { randomBytes } from "node:crypto";
+import {
+  appendFileSync,
+  closeSync,
+  existsSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  rmSync,
+} from "node:fs";
+import { createConnection } from "node:net";
+import { join } from "node:path";
 import * as v from "valibot";
 import type {
   Annotation,
   Artifact,
   DiffFileStatus,
+  DiffFileContents,
   HunkRejection,
   ShareLink,
   Thread,
-  VerdictKind,
+  HarnessBinding,
+  Delivery,
+  PendingDelivery,
+  MessageOutcome,
   WorkspaceKey,
+  TextCut,
 } from "@cueloop/schema";
 import {
   BackpressureWriter,
@@ -25,12 +42,20 @@ import {
   type Response,
 } from "./protocol";
 import type { DaemonRole } from "./capabilities";
-import type { HerdrTabHandle } from "./herdr-tab-store";
+import type { HerdrThreadSurfaceHandle } from "./herdr-thread-surface-store";
+import type { GhosttyThreadSurfaceHandle } from "./ghostty-thread-surface-store";
 import type { SharedMerge } from "./api";
 
 export type { SharedMerge } from "./api";
 import { cueloopHome, ownerTokenPath, socketPath } from "./paths";
-import { Params, ThreadRecordSchema, DiffFileContentsSchema } from "./validate";
+import {
+  Params,
+  ThreadRecordSchema,
+  DiffFileContentsSchema,
+  HarnessBindingSchema,
+  DeliverySchema,
+  PendingDeliverySchema,
+} from "./validate";
 import type { WorkingTreeDiff } from "./working-tree";
 import { DAEMON_VERSION } from "./version";
 
@@ -53,10 +78,17 @@ type PendingRequest = {
 
 const EmptyResultSchema = v.object({});
 // version is optional: a daemon from before the handshake carried one reads as
-// undefined, which never equals this build - so it is treated as stale and replaced
+// undefined, which never equals this build.
 const PingResultSchema = v.object({ pid: v.number(), version: v.optional(v.string()) });
 const RefreshDiffResultSchema = v.object({ changed: v.boolean() });
-const HerdrTabResultSchema = v.nullable(v.object({ tabId: v.string(), paneId: v.string() }));
+const HerdrThreadSurfaceResultSchema = v.nullable(
+  v.object({
+    tabId: v.string(),
+    paneId: v.string(),
+    mode: v.optional(v.picklist(["tab", "pane"])),
+  }),
+);
+const GhosttyThreadSurfaceResultSchema = v.nullable(v.object({ terminalId: v.string() }));
 
 /**
  * The session primitives the review controller drives. DaemonClient is the local
@@ -64,7 +96,7 @@ const HerdrTabResultSchema = v.nullable(v.object({ tabId: v.string(), paneId: v.
  * blob-backed one. Depending on this interface - not DaemonClient - is what
  * lets the same <App> render a local session or a decrypted share unchanged.
  */
-export interface SessionClient {
+export interface ThreadClient {
   onEvent(listener: (event: EventFrame) => void): () => void;
   subscribe(): Promise<void>;
   sessionGet(id: string): Promise<Thread>;
@@ -82,7 +114,11 @@ export interface SessionClient {
   ): Promise<Thread>;
   /** Remove a comment; a non-owner connection removes only the comments of the author it is bound to. */
   sessionRemoveAnnotation(id: string, annotationId: string): Promise<Thread>;
-  sessionSetWorkingCopy(id: string, workingCopy: string | undefined): Promise<Thread>;
+  sessionSetWorkingCopy(
+    id: string,
+    workingCopy: string | undefined,
+    textCuts?: TextCut[],
+  ): Promise<Thread>;
   /** Cut the `blockIndex`-th block of the working copy. */
   sessionCutBlock(id: string, blockIndex: number): Promise<Thread>;
   /** Re-insert the `baseBlockIndex`-th block of the submitted revision before `line` (default: the end). */
@@ -106,6 +142,8 @@ export interface SessionClient {
   repoChanges?(cwd: string): Promise<{ path: string; status: DiffFileStatus }[]>;
   /** The live working-tree diff (patch plus per-file contents) at `cwd`. */
   repoDiff?(cwd: string): Promise<WorkingTreeDiff>;
+  /** Refresh a local diff or explicitly pull a moved PR head. */
+  sessionRefreshDiff?(id: string): Promise<{ changed: boolean }>;
   /** Find-or-create the per-repo workbench thread for `cwd`, so a bare launch's first comment persists. */
   sessionWorkbench?(cwd: string): Promise<Thread>;
   /** Move a branch's tip (the current one, or `branch` after switching to it) back to an entry on its path; a summary records the abandoned segment. */
@@ -123,18 +161,33 @@ export interface SessionClient {
   sessionDelete(id: string): Promise<void>;
   /** Record the caller's own identity name (collaborator self-naming on a share). */
   sessionSetSelfName(id: string, name: string): Promise<Thread>;
-  sessionResolve(
+  sessionSendMessage(
     id: string,
-    verdictKind: VerdictKind,
+    outcome: MessageOutcome,
     summary: string,
     actionBodies?: Record<string, string>,
   ): Promise<Thread>;
+  harnessBind?(
+    threadId: string,
+    harness: string,
+    harnessSessionId: string,
+  ): Promise<HarnessBinding>;
+  harnessGetBinding?(bindingId: string): Promise<HarnessBinding>;
+  harnessBindingsForSession?(harness: string, harnessSessionId: string): Promise<HarnessBinding[]>;
+  harnessConsumeApprovedRetry?(
+    bindingId: string,
+    messageId: string,
+    content: string,
+  ): Promise<boolean>;
+  deliveryPending?(bindingId: string): Promise<PendingDelivery[]>;
+  deliveryAcknowledge?(deliveryId: string): Promise<Delivery>;
   close(): void;
 }
 
 /** What a connection says about itself: its role, the owner token when it claims ownership, the author it acts as otherwise. */
 interface HelloParams {
   role: DaemonRole;
+  clientVersion: string;
   token?: string;
   author?: string;
 }
@@ -159,15 +212,16 @@ function readOwnerToken(home: string): string | undefined {
   return parsed.output;
 }
 
-export class DaemonClient implements SessionClient {
-  private socket: Awaited<ReturnType<typeof Bun.connect>> | null = null;
+export class DaemonClient implements ThreadClient {
+  private socket: { end(): void } | null = null;
   private writer: BackpressureWriter | null = null;
+  private connectionEpoch = 0;
   private pending = new Map<number, PendingRequest>();
-  /** The connected daemon's build version and pid, learned from the ping handshake. */
+  /** The connected daemon's build version, learned from the ping handshake. */
   private daemonVersion: string | undefined;
-  private daemonPid: number | undefined;
   private nextId = 1;
   private eventListeners = new Set<(event: EventFrame) => void>();
+  private disconnectListeners = new Set<() => void>();
   private closed = false;
   private role: DaemonRole = "owner";
   private author: string | undefined;
@@ -183,56 +237,30 @@ export class DaemonClient implements SessionClient {
     client.home = home;
     try {
       await client.dial(path);
-      // A daemon from an earlier build lingers after an upgrade; talking to it
-      // means new client, old behaviour. The owner replaces it so an upgrade
-      // never needs a manual restart; without autostart there is nothing to
-      // replace it with, so the caller hears exactly why.
       if (client.daemonVersion === DAEMON_VERSION) return client;
-      if (!options.autostart) {
-        client.close();
-        throw new DaemonClientError(
-          "version_mismatch",
-          `daemon is version ${client.daemonVersion ?? "unknown"}, but this client is ${DAEMON_VERSION}; restart the daemon`,
-        );
-      }
-      await client.stopStaleDaemon(path);
+      const daemonVersion = client.daemonVersion ?? "unknown";
+
+      client.close();
+      throw new DaemonClientError(
+        "version_mismatch",
+        `daemon is version ${daemonVersion}, but this client is ${DAEMON_VERSION}; align cueloop versions before restarting the daemon`,
+      );
     } catch (err) {
-      // a live daemon that refused the handshake is not a dead socket: the
-      // caller hears why instead of the client replacing a running daemon
-      if (!options.autostart || err instanceof DaemonClientError) throw err;
-    }
-    // Socket dead, absent, or just-replaced: clean a stale file and spawn detached.
-    return client.attachFreshDaemon(home, path);
-  }
+      // Autostart repairs an unavailable socket, never a live incompatible daemon.
+      if (!options.autostart || err instanceof DaemonClientError) {
+        client.close();
 
-  /**
-   * Tear down a daemon from an earlier build so a fresh one can bind: ask it to
-   * shut down (owner-gated) or, failing that, signal its pid, then wait for it to
-   * release the socket. Best-effort - attachFreshDaemon's stale-socket and
-   * stale-lock cleanup recovers even a daemon that never ran its own teardown.
-   */
-  private async stopStaleDaemon(path: string): Promise<void> {
-    const pid = this.daemonPid;
-
-    try {
-      await this.request("daemon.shutdown", {}, EmptyResultSchema, 2_000);
-    } catch {
-      if (pid !== undefined) {
-        try {
-          process.kill(pid);
-        } catch {}
+        throw err;
       }
     }
-    this.socket?.end();
-    this.resetConnection();
-    // the old daemon removes its socket in stop(); wait so the new one binds cleanly
-    const deadline = Date.now() + 5_000;
 
-    while (Date.now() < deadline && existsSync(path)) await Bun.sleep(50);
+    // Socket dead or absent: let the new daemon own stale socket cleanup.
+    return client.attachFreshDaemon(home, path);
   }
 
   /** Reset per-connection state so a fresh dial() can reuse this client instance. */
   private resetConnection(): void {
+    this.connectionEpoch += 1;
     this.socket = null;
     this.writer = null;
     this.closed = false;
@@ -241,57 +269,104 @@ export class DaemonClient implements SessionClient {
     this.pending.clear();
   }
 
-  /** Clean any stale socket, spawn a detached daemon, and dial it until it answers. */
+  /** Spawn a detached daemon and dial the lock owner until it answers. */
   private async attachFreshDaemon(home: string, path: string): Promise<DaemonClient> {
-    if (existsSync(path)) rmSync(path, { force: true });
-    spawnDaemon(home);
+    const startupLogPath = spawnDaemon(home);
     // Generous: a cold or loaded machine pays for a runtime start before the
     // socket exists, and giving up early looks to callers like a broken daemon.
     const deadline = Date.now() + Number(process.env.CUELOOP_START_TIMEOUT_MS ?? 30_000);
     let lastError: unknown;
 
-    while (Date.now() < deadline) {
-      try {
-        await this.dial(path);
+    try {
+      while (Date.now() < deadline) {
+        try {
+          await this.dial(path);
+          if (this.daemonVersion !== DAEMON_VERSION) {
+            this.close();
+            if (typeof Bun === "undefined") {
+              throw new DaemonClientError(
+                "version_mismatch",
+                `installed cueloop is ${this.daemonVersion ?? "unknown"}, but this adapter is ${DAEMON_VERSION}; run cueloop update`,
+              );
+            }
 
-        return this;
-      } catch (err) {
-        lastError = err;
-        await Bun.sleep(50);
+            throw new Error("daemon autostarted an older build");
+          }
+
+          return this;
+        } catch (err) {
+          if (err instanceof DaemonClientError) throw err;
+          this.socket?.end();
+          this.resetConnection();
+          lastError = err;
+          await sleep(50);
+        }
       }
+      const output = readFileSync(startupLogPath, "utf8").trim();
+      const detail = output ? `\ndaemon startup output:\n${output.slice(-4_096)}` : "";
+
+      throw new Error(`daemon did not come up at ${path}: ${String(lastError)}${detail}`);
+    } finally {
+      rmSync(startupLogPath, { force: true });
     }
-    throw new Error(`daemon did not come up at ${path}: ${String(lastError)}`);
   }
 
   private async dial(path: string): Promise<void> {
     const buffer = new LineBuffer();
+    const epoch = ++this.connectionEpoch;
 
-    this.socket = await Bun.connect({
-      unix: path,
-      socket: {
-        data: (_socket, data) => {
-          buffer.push(data.toString(), (line) => this.routeInboundFrame(line));
+    const close = () => {
+      if (this.connectionEpoch !== epoch) return;
+      this.closed = true;
+      for (const pendingRequest of this.pending.values())
+        pendingRequest.reject(new Error("daemon connection closed"));
+      this.pending.clear();
+      for (const listener of this.disconnectListeners) listener();
+    };
+
+    if (typeof Bun !== "undefined") {
+      const socket = await Bun.connect({
+        unix: path,
+        socket: {
+          data: (_socket, data) => {
+            buffer.push(data.toString(), (line) => this.routeInboundFrame(line));
+          },
+          drain: () => this.writer?.drain(),
+          close,
+          error() {},
         },
-        drain: () => {
-          this.writer?.drain();
+      });
+
+      this.socket = socket;
+      this.writer = new BackpressureWriter(socket);
+    } else {
+      const socket = createConnection(path);
+
+      await new Promise<void>((resolve, reject) => {
+        socket.once("connect", resolve);
+        socket.once("error", reject);
+      });
+      socket.on("data", (data) => {
+        buffer.push(data.toString(), (line) => this.routeInboundFrame(line));
+      });
+      socket.on("close", close);
+      socket.on("error", () => {});
+      this.socket = socket;
+      // Node queues the complete Buffer internally when write returns false.
+      this.writer = new BackpressureWriter({
+        write(data) {
+          socket.write(data);
+
+          return data.length;
         },
-        close: () => {
-          this.closed = true;
-          for (const pendingRequest of this.pending.values())
-            pendingRequest.reject(new Error("daemon connection closed"));
-          this.pending.clear();
-        },
-        error() {},
-      },
-    });
-    this.writer = new BackpressureWriter(this.socket);
+      });
+    }
     // Verify liveness: a dead socket file accepts connects on some platforms
     // only to fail later, so a ping is the actual handshake. It also carries the
-    // daemon's build version and pid, so connect() can replace a stale daemon.
+    // daemon's build version, so connect() can reject incompatible clients.
     const pong = await this.request("daemon.ping", {}, PingResultSchema, 2_000);
 
     this.daemonVersion = pong.version;
-    this.daemonPid = pong.pid;
     // Every connection starts as a collaborator; the owner proves itself with
     // the token the daemon wrote into the home it serves, which only the home's
     // user can read. A capped role just names itself.
@@ -301,19 +376,28 @@ export class DaemonClient implements SessionClient {
   private helloParams(): HelloParams {
     if (this.role !== "owner") {
       return this.author === undefined
-        ? { role: this.role }
-        : { role: this.role, author: this.author };
+        ? { role: this.role, clientVersion: DAEMON_VERSION }
+        : { role: this.role, clientVersion: DAEMON_VERSION, author: this.author };
     }
     const token = readOwnerToken(this.home);
 
     // a daemon from before owner tokens has no file; it still knows the bare hello
-    return token === undefined ? { role: "owner" } : { role: "owner", token };
+    return token === undefined
+      ? { role: "owner", clientVersion: DAEMON_VERSION }
+      : { role: "owner", clientVersion: DAEMON_VERSION, token };
   }
 
   onEvent(listener: (event: EventFrame) => void): () => void {
     this.eventListeners.add(listener);
 
     return () => this.eventListeners.delete(listener);
+  }
+
+  /** Notify an adapter when its daemon socket closes so it can reconnect and replay Messages. */
+  onDisconnect(listener: () => void): () => void {
+    this.disconnectListeners.add(listener);
+
+    return () => this.disconnectListeners.delete(listener);
   }
 
   private routeInboundFrame(line: string): void {
@@ -418,8 +502,16 @@ export class DaemonClient implements SessionClient {
   sessionSetParticipantName(id: string, author: string, name: string): Promise<Thread> {
     return this.request("session.setParticipantName", { id, author, name }, ThreadRecordSchema);
   }
-  sessionSetWorkingCopy(id: string, workingCopy: string | undefined): Promise<Thread> {
-    return this.request("session.setWorkingCopy", { id, workingCopy }, ThreadRecordSchema);
+  sessionSetWorkingCopy(
+    id: string,
+    workingCopy: string | undefined,
+    textCuts?: TextCut[],
+  ): Promise<Thread> {
+    return this.request(
+      "session.setWorkingCopy",
+      { id, workingCopy, textCuts },
+      ThreadRecordSchema,
+    );
   }
   sessionCutBlock(id: string, blockIndex: number): Promise<Thread> {
     return this.request("session.cutBlock", { id, blockIndex }, ThreadRecordSchema);
@@ -513,35 +605,86 @@ export class DaemonClient implements SessionClient {
   sessionSetSelfName(id: string, _name: string): Promise<Thread> {
     return this.sessionGet(id);
   }
-  sessionResolve(
+  sessionSendMessage(
     id: string,
-    verdictKind: VerdictKind,
+    outcome: MessageOutcome,
     summary: string,
     actionBodies?: Record<string, string>,
   ): Promise<Thread> {
     return this.request(
-      "session.resolve",
-      { id, verdictKind, summary, actionBodies },
+      "session.sendMessage",
+      { id, outcome, summary, actionBodies },
       ThreadRecordSchema,
     );
+  }
+  harnessBind(
+    threadId: string,
+    harness: string,
+    harnessSessionId: string,
+  ): Promise<HarnessBinding> {
+    return this.request(
+      "harness.bind",
+      { threadId, harness, harnessSessionId },
+      HarnessBindingSchema,
+    );
+  }
+  harnessGetBinding(bindingId: string): Promise<HarnessBinding> {
+    return this.request("harness.getBinding", { bindingId }, HarnessBindingSchema);
+  }
+  harnessBindingsForSession(harness: string, harnessSessionId: string): Promise<HarnessBinding[]> {
+    return this.request(
+      "harness.bindingsForSession",
+      { harness, harnessSessionId },
+      v.array(HarnessBindingSchema),
+    );
+  }
+  harnessConsumeApprovedRetry(
+    bindingId: string,
+    messageId: string,
+    content: string,
+  ): Promise<boolean> {
+    return this.request(
+      "harness.consumeApprovedRetry",
+      { bindingId, messageId, content },
+      v.boolean(),
+    );
+  }
+  deliveryPending(bindingId: string): Promise<PendingDelivery[]> {
+    return this.request("delivery.pending", { bindingId }, v.array(PendingDeliverySchema));
+  }
+  deliveryAcknowledge(deliveryId: string): Promise<Delivery> {
+    return this.request("delivery.acknowledge", { deliveryId }, DeliverySchema);
   }
   sessionSubmitRevision(
     id: string,
     content: string,
     addressedAnnotationIds: string[] = [],
+    files?: DiffFileContents[],
   ): Promise<Thread> {
     return this.request(
       "session.submitRevision",
-      { id, content, addressedAnnotationIds },
+      { id, content, addressedAnnotationIds, files },
       ThreadRecordSchema,
     );
   }
-  /** herdr adapter scratch: the tab opened for a review; local-only, off the SessionClient contract. */
-  herdrGetTab(id: string): Promise<HerdrTabHandle | null> {
-    return this.request("herdr.getTab", { id }, HerdrTabResultSchema);
+  /** Read Herdr's local Thread surface handle, outside the ThreadClient contract. */
+  herdrGetThreadSurface(id: string): Promise<HerdrThreadSurfaceHandle | null> {
+    return this.request("herdr.getThreadSurface", { id }, HerdrThreadSurfaceResultSchema);
   }
-  async herdrSetTab(id: string, handle: HerdrTabHandle): Promise<void> {
-    await this.request("herdr.setTab", { id, ...handle }, EmptyResultSchema);
+  async herdrSetThreadSurface(id: string, handle: HerdrThreadSurfaceHandle): Promise<void> {
+    await this.request("herdr.setThreadSurface", { id, ...handle }, EmptyResultSchema);
+  }
+  ghosttyGetThreadSurface(id: string): Promise<GhosttyThreadSurfaceHandle | null> {
+    return this.request("ghostty.getThreadSurface", { id }, GhosttyThreadSurfaceResultSchema);
+  }
+  async ghosttySetThreadSurface(id: string, handle: GhosttyThreadSurfaceHandle): Promise<void> {
+    await this.request("ghostty.setThreadSurface", { id, ...handle }, EmptyResultSchema);
+  }
+  ghosttyClaimThreadSurface(id: string): Promise<boolean> {
+    return this.request("ghostty.claimThreadSurface", { id }, v.boolean());
+  }
+  async ghosttyReleaseThreadSurface(id: string): Promise<void> {
+    await this.request("ghostty.releaseThreadSurface", { id }, EmptyResultSchema);
   }
   shutdown(): Promise<void> {
     return this.request("daemon.shutdown", {}, EmptyResultSchema).then(() => undefined);
@@ -576,9 +719,37 @@ export function daemonSpawnCommand(
   return devWatch ? [execPath, "--watch", "run", mainPath] : [execPath, "run", mainPath];
 }
 
-function spawnDaemon(home: string): void {
-  Bun.spawn(daemonSpawnCommand(process.execPath, import.meta.url), {
-    env: { ...process.env, CUELOOP_HOME: home },
-    stdio: ["ignore", "ignore", "ignore"],
-  }).unref();
+function spawnDaemon(home: string): string {
+  mkdirSync(home, { recursive: true, mode: 0o700 });
+  const startupLogPath = join(
+    home,
+    `daemon-startup-${process.pid}-${randomBytes(6).toString("hex")}.log`,
+  );
+  const logFd = openSync(startupLogPath, "wx", 0o600);
+
+  try {
+    if (typeof Bun === "undefined") {
+      const child = spawn(process.env.CUELOOP_EXECUTABLE ?? "cueloop", ["daemon", "--autostart"], {
+        env: { ...process.env, CUELOOP_HOME: home },
+        stdio: ["ignore", logFd, logFd],
+        detached: true,
+      });
+
+      child.on("error", (error) => appendFileSync(startupLogPath, `${String(error)}\n`));
+      child.unref();
+    } else {
+      Bun.spawn(daemonSpawnCommand(process.execPath, import.meta.url), {
+        env: { ...process.env, CUELOOP_HOME: home },
+        stdio: ["ignore", logFd, logFd],
+      }).unref();
+    }
+  } finally {
+    closeSync(logFd);
+  }
+
+  return startupLogPath;
+}
+
+function sleep(durationMs: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, durationMs));
 }

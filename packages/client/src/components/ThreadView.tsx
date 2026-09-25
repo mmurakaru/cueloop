@@ -35,8 +35,9 @@ import { BOLD, CUT, ITALIC, UNDERLINE } from "../annotation-palette";
 import { wrapLines, type MarkRange, type VisualLine } from "../mark-runs";
 import { MarkdownGridBlock } from "./MarkdownGridBlock";
 import { useFrameMeasure } from "../use-frame-measure";
-import { useTerminalVirtualizer } from "../use-terminal-virtualizer";
+import { scrollBoxDragViewport, useTerminalVirtualizer } from "../use-terminal-virtualizer";
 import { useAnnotationSurface, type LineSource } from "../use-annotation-surface";
+import { NavModeHint } from "./NavModeHint";
 import { DiscussionMarkerRail } from "./DiscussionMarkerRail";
 import { useComponentTheme } from "./theme-context";
 
@@ -103,7 +104,7 @@ function isGridKind(kind: DisplayBlock["kind"]): boolean {
 /** The grammar as the keybinds dialog lists it; the view owns these keys, so they are not rebindable. */
 export const THREAD_VIEW_CHEATSHEET: CheatsheetSection[] = [
   {
-    title: "Thread",
+    title: "Thread (type)",
     entries: [
       { keys: "click", label: "place the caret" },
       { keys: "drag", label: "mark text, across blocks" },
@@ -112,11 +113,9 @@ export const THREAD_VIEW_CHEATSHEET: CheatsheetSection[] = [
       { keys: "⇧← / ⇧→", label: "hold a mark" },
       { keys: "↑ / ↓", label: "move by block" },
       { keys: "type", label: "comment on the mark" },
-      { keys: "⌘⌥m", label: "comment" },
       { keys: "enter", label: "reply to the comment" },
-      { keys: "tab", label: "fold / unfold" },
-      { keys: "⌘] / ⌘[", label: "next / previous comment" },
-      { keys: "esc", label: "drop the mark" },
+      { keys: "esc", label: "nav mode" },
+      { keys: "tab", label: "cycle panes" },
       { keys: "⌃q", label: "quit" },
     ],
   },
@@ -144,7 +143,7 @@ export interface ThreadViewProps {
   editOrphanCount?: number;
   /** Reports whether a composer is open, so session chords can yield to typing. */
   onComposingChange?: (composing: boolean) => void;
-  /** A verdict is in: no draft may open; the app answers with its read-only status. */
+  /** A message is in: no draft may open; the app answers with its read-only status. */
   resolved?: boolean;
   /** An observer or a resolved review refused a draft; the app shows why. */
   onObserverBlocked?: (reason: "observer" | "resolved") => void;
@@ -159,8 +158,7 @@ export interface ThreadViewProps {
   onUpdateAnnotation: (id: string, body: string) => void;
   /** The author's display name for a comment's hover tooltip. */
   resolveAuthorLabel?: (annotation: Annotation) => string | undefined;
-  leaderCombos?: readonly string[];
-  onLeaderCommand?: (key: KeyEvent) => void;
+  onNavCommand?: (key: KeyEvent, selection: TextSpan | null) => boolean;
   onExit: () => void;
   theme?: Theme;
 }
@@ -183,8 +181,7 @@ export function ThreadView({
   onReply,
   onUpdateAnnotation,
   resolveAuthorLabel,
-  leaderCombos,
-  onLeaderCommand,
+  onNavCommand,
   onExit,
   theme,
 }: ThreadViewProps): React.ReactNode {
@@ -195,6 +192,7 @@ export function ThreadView({
     textAt: (blockIndex) => renderedText(display[blockIndex]!),
     annotatable: () => true,
   };
+  const scrollRef = useRef<ScrollBoxRenderable | null>(null);
   const surface = useAnnotationSurface({
     source,
     session,
@@ -212,13 +210,12 @@ export function ThreadView({
     onAnnotate,
     onReply,
     onUpdateAnnotation,
+    dragViewport: () => scrollBoxDragViewport(scrollRef.current),
     resolveAuthorLabel,
-    leaderCombos,
-    onLeaderCommand,
+    onNavCommand,
     onExit,
   });
   const { palette, discussions } = surface;
-  const scrollRef = useRef<ScrollBoxRenderable | null>(null);
   const { height: terminalHeight } = useTerminalDimensions();
   const viewWidth = useFrameMeasure(
     () => scrollRef.current?.content?.width ?? 0,
@@ -247,9 +244,9 @@ export function ThreadView({
   });
 
   useEffect(() => {
-    virtual.scrollToIndex(surface.revealBlockIndex);
+    virtual.scrollToIndex(surface.revealBlockIndex, surface.compose ? "end" : "auto");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [surface.revealBlockIndex]);
+  }, [surface.revealBlockIndex, surface.compose]);
 
   interface LineContext {
     blockIndex: number;
@@ -459,10 +456,14 @@ export function ThreadView({
         >
           {virtualBlocks()}
         </scrollbox>
+        {suspended ? null : (
+          <NavModeHint navMode={surface.navMode} surface="thread" theme={tokens} />
+        )}
       </box>
       <DiscussionMarkerRail
         discussions={discussions}
         spanQuote={surface.spanQuote}
+        focusedKey={surface.focusedDiscussion}
         onJump={surface.jumpToDiscussion}
         scrollbox={scrollRef}
         theme={theme}

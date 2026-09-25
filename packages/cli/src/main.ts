@@ -20,11 +20,11 @@ import {
   openTargetMessage,
   resolveOpenTarget,
 } from "./open-target";
-import { sessionCommand } from "./session-commands";
+import { sessionCommand } from "./thread-commands";
 import { CLI_VERSION } from "./version";
 import { DaemonClient } from "@cueloop/daemon/client";
 import type { Thread } from "@cueloop/schema";
-import { openReview } from "@cueloop/daemon/review";
+import { openReview } from "@cueloop/daemon/thread-review";
 
 const argv = process.argv.slice(2);
 const cmd = argv[0];
@@ -112,11 +112,16 @@ const commandHandlers: CommandHandlers = {
   prototype: (rest) => prototypeCommand(rest),
   serve: (rest) => serveEntry(rest),
   share: (rest) => shareEntry(rest),
-  wake: async (rest) => (await import("./wake-command")).wakeCommand(rest),
+  harness: async () => (await import("./harness-command")).harnessCommand(),
+  "codex-hook": async () => (await import("./codex-hook-command")).codexHookCommand(),
+  mcp: async () => (await import("./codex-mcp-command")).codexMcpCommand(),
   actions: async (rest) => (await import("./actions-command")).actionsCommand(rest),
   refine: async (rest) => (await import("./refine-command")).refineCommand(rest),
   update: async (rest) => (await import("./update-command")).updateCommand(rest),
   review: (rest) => reviewEntry(rest),
+  "review-config": async () => (await import("./pr")).reviewConfigCommand(),
+  "review-comment": async (rest) => (await import("./pr")).reviewCommentCommand(rest),
+  "review-open": async (rest) => (await import("./pr")).reviewOpenCommand(rest),
   "review-post": async (rest) => (await import("./pr")).reviewPostCommand(rest),
   dev: async () => (await import("./dev-command")).devCommand(),
 };
@@ -340,12 +345,12 @@ function printHelp(): void {
       "  cueloop <plan|diff|review> --latest  open the latest pending review of that type",
       "",
       "scripting:",
-      "  cueloop session <primitive> [flags]   script the daemon (create|get|list|wait|annotate|remove|cut|restore|curate|set-viewed|navigate|branch|switch|label|fork|name-self|events|resolve|submit-revision)",
+      "  cueloop session <primitive> [flags]   script the daemon (create|get|list|wait|annotate|remove|cut|restore|curate|set-viewed|navigate|branch|switch|label|fork|name-self|events|send-message|bind-harness|pending-deliveries|acknowledge-delivery|submit-revision)",
       "  cueloop actions list             list the quick-action vocabulary (for annotate --action)",
       "  cueloop refine                   mine past reviews into a markdown report + writeback proposals",
       "  cueloop update [--dry-run]       update the installed cueloop binary (--dry-run reports the target only)",
-      "  cueloop wake <id> [--harness codex --thread <id>]  resume the agent with the verdict (spawn detached)",
-      "  cueloop review-post <id> <pr>    post a resolved session's verdict back to the PR",
+      "  cueloop review-post <id>         explicitly post selected agent findings to the PR",
+      "  cueloop review-comment <id>      add or update an agent PR finding (see --help)",
       "  cueloop daemon                   run the daemon in the foreground",
       "  cueloop stop                     stop the local daemon",
       "  cueloop restart                  stop the local daemon and start a fresh one",

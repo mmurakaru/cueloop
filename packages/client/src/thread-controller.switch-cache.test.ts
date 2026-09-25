@@ -6,7 +6,7 @@ import {
   type Thread,
 } from "@cueloop/schema";
 import { curateDiff } from "@cueloop/daemon/curate";
-import type { SessionClient } from "@cueloop/daemon/client";
+import type { ThreadClient } from "@cueloop/daemon/client";
 import { createReviewController } from "./thread-controller";
 
 const PATCH_A = `diff --git a/src/a.ts b/src/a.ts
@@ -39,7 +39,7 @@ function diffSession(id: string, patch: string, files: DiffFileContents[]): Thre
     artifact: { type: "diff", content: patch, meta: { title: id }, files },
     revisions: [{ revision: 1, content: patch, submittedAt: "2026-01-01T00:00:00.000Z" }],
     annotations: [],
-    verdict: null,
+    message: null,
     status: "pending",
     createdAt: "2026-01-01T00:00:00.000Z",
   };
@@ -66,7 +66,7 @@ const unimplemented = (member: string) => () =>
   Promise.reject(new Error(`fakeClient does not implement ${member}`));
 
 /** A fake client over a fixed set of sessions, so open(id) can switch between them from the inbox. */
-function fakeClient(sessions: Thread[]): SessionClient {
+function fakeClient(sessions: Thread[]): ThreadClient {
   const byId = new Map(sessions.map((session) => [session.id, session]));
 
   return {
@@ -108,7 +108,7 @@ function fakeClient(sessions: Thread[]): SessionClient {
     sessionMergeShared: unimplemented("sessionMergeShared"),
     sessionDelete: unimplemented("sessionDelete"),
     sessionSetSelfName: unimplemented("sessionSetSelfName"),
-    sessionResolve: unimplemented("sessionResolve"),
+    sessionSendMessage: unimplemented("sessionSendMessage"),
     close: () => {},
   };
 }
@@ -141,7 +141,7 @@ describe("switching threads keeps the cached projection curatable", () => {
     controller.toggleRejectChange(4);
     await tick();
 
-    expect(controller.getSnapshot().status).toContain("change rejected");
+    expect(controller.getSnapshot().toast).toBeNull();
     expect(controller.getSnapshot().session?.workingCopy).toBe("");
   });
 

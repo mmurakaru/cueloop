@@ -1,0 +1,48 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Public API
+eyebrow: Docs · Reference
+lede: Read cueloop product metadata, capabilities, and service health as JSON.
+prev: { title: "Keyboard and mouse", href: "/docs/reference/keyboard/" }
+next: { title: "Security and privacy", href: "/docs/sharing/security/" }
+---
+
+The public API is read-only. Use it to discover cueloop from an agent or a
+developer tool. Use the CLI and coding-agent integrations for review work.
+
+## OpenAPI
+
+The OpenAPI 3.1 description is available at:
+
+```text
+https://www.cueloop.dev/openapi.json
+```
+
+Each operation has a unique operation ID, description, typed response, and no
+authentication requirement.
+
+## Endpoints
+
+| Endpoint                   | Returns                                               |
+| -------------------------- | ----------------------------------------------------- |
+| `GET /api/v1`              | links to every public resource                        |
+| `GET /api/v1/product`      | product, docs, repository, and CLI links              |
+| `GET /api/v1/capabilities` | workflows, actions, integrations, and sharing support |
+| `GET /api/v1/health`       | API status and version                                |
+
+## Errors
+
+API errors use `application/problem+json`. The body includes a stable `code`, a
+plain-language `detail`, and a `resolution` link.
+
+```json
+{
+  "type": "https://www.cueloop.dev/docs/reference/api/#errors",
+  "title": "API route not found",
+  "status": 404,
+  "detail": "No public cueloop API operation exists at /api/v1/missing.",
+  "code": "api_route_not_found",
+  "resolution": "Read https://www.cueloop.dev/openapi.json for supported operations.",
+  "instance": "/api/v1/missing"
+}
+```

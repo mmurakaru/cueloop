@@ -44,7 +44,7 @@ import InstallTabs from "../components/InstallTabs.tsx";
       </h1>
       <p class="hero__lede">
         cueloop opens your agent's plan or diff in the terminal, where you
-        annotate the lines and send back a decision it acts on.
+        comment on exact lines and send back a Message it can act on.
       </p>
       <div class="hero__meta">
         <span>Runs in your terminal</span>
@@ -92,9 +92,8 @@ import InstallTabs from "../components/InstallTabs.tsx";
         <span class="eyebrow eyebrow--index">01 &middot; The loop</span>
         <h2>A gate between the plan and the code.</h2>
         <p style="color:var(--ink-soft)">
-          Your agent proposes a change and waits for your call. You read it in
-          the terminal and reply with a decision it can act on. Nothing leaves
-          the command line.
+          Your agent proposes a change and waits. You review it in the terminal
+          and send back one Message.
         </p>
       </div>
       <div class="grid grid--3 reveal">
@@ -102,13 +101,12 @@ import InstallTabs from "../components/InstallTabs.tsx";
           <span class="cell__index">[ propose ]</span>
           <h3>The agent hands off</h3>
           <p>
-            At the plan gate or after a diff, the agent opens a cueloop review
-            and waits for your decision instead of charging ahead.
+            The agent opens a cueloop Thread and waits for your Message.
           </p>
         </div>
         <div class="cell">
           <span class="cell__index">[ review ]</span>
-          <h3>You annotate</h3>
+          <h3>You comment</h3>
           <p>
             Read it in place. Select a line, quote it, and attach a comment or a
             suggested change, anchored to the exact text.
@@ -116,10 +114,10 @@ import InstallTabs from "../components/InstallTabs.tsx";
         </div>
         <div class="cell">
           <span class="cell__index">[ decide ]</span>
-          <h3>The decision returns</h3>
+          <h3>The Message returns</h3>
           <p>
-            Comment, approve, or request changes. Your notes become a structured
-            feedback document the agent reads and acts on.
+            Approve or ask for changes. Your comments become one clear Message
+            for the agent.
           </p>
         </div>
       </div>
@@ -137,7 +135,7 @@ import InstallTabs from "../components/InstallTabs.tsx";
             One primitive per artifact. <code>cueloop plan</code> opens the latest
             plan an agent proposed. <code>cueloop diff</code> reviews the working
             tree. <code>cueloop review</code> pulls a pull request into the same
-            surface and posts the decision back to the PR.
+            surface. Posting comments back is a separate, explicit step.
           </p>
           <div style="margin-top:1.5rem">
             <a class="btn btn--ghost" href="/docs/concepts/plan-diff-review/"
@@ -181,10 +179,8 @@ import InstallTabs from "../components/InstallTabs.tsx";
           <span class="eyebrow eyebrow--index">03 &middot; Prototype review</span>
           <h2 style="margin-top:0.9rem">Prototype.</h2>
           <p style="margin-top:1rem;color:var(--ink-soft);max-width:46ch">
-            <code>cueloop prototype</code> opens a component design doc: the prop
-            API, how it composes from primitives you already have, and the
-            callstack it fits into. You annotate it line by line, the same way you
-            annotate a plan or a diff.
+            <code>cueloop prototype</code> opens a component design document.
+            Comment on it line by line, as you would on a plan or diff.
           </p>
           <div style="margin-top:1.5rem">
             <a class="btn btn--ghost" href="/docs/reference/commands/#open-a-review">The prototype primitive</a>
@@ -232,7 +228,7 @@ import InstallTabs from "../components/InstallTabs.tsx";
           <p style="margin-top:1rem;color:var(--ink-soft);max-width:46ch">
             Press <strong>Share</strong> and cueloop copies one line. Your
             teammate pastes <code>ssh &lt;id&gt;@cueloop.dev</code> and the plan
-            opens in <em>their</em> terminal, your annotations already on it.
+            opens in <em>their</em> terminal, with your comments already on it.
             Their notes come back to you attributed to them, over SSH the whole
             way.
           </p>

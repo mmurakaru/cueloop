@@ -8,10 +8,13 @@ import {
   chmodSync,
   closeSync,
   existsSync,
+  fstatSync,
+  linkSync,
   mkdirSync,
   openSync,
   readFileSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 import { DaemonCore, type DaemonEvent } from "./api";
@@ -55,6 +58,7 @@ export interface DaemonOptions {
  * so in-process ownership is tracked separately.
  */
 const HELD_HOMES = new Set<string>();
+const LOCK_WAIT = new Int32Array(new SharedArrayBuffer(4));
 
 export class DaemonServer {
   readonly core: DaemonCore;
@@ -91,20 +95,35 @@ export class DaemonServer {
     const path = lockPath(this.home);
 
     for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        // "wx" fails when the file exists - the atomic part of the handshake
-        const fd = openSync(path, "wx");
+      const preparedPath = `${path}.${process.pid}.${randomBytes(8).toString("hex")}.tmp`;
+      const fd = openSync(preparedPath, "wx", 0o600);
 
+      try {
+        // Publish the complete pid atomically. A competing daemon must never
+        // mistake a newly created, still-empty lock for a crashed owner.
         writeFileSync(fd, String(process.pid));
+        linkSync(preparedPath, path);
         this.lockFd = fd;
         HELD_HOMES.add(this.home);
 
         return true;
-      } catch {
+      } catch (error) {
+        closeSync(fd);
+        if (!(error instanceof Error && "code" in error && error.code === "EEXIST")) throw error;
+
         let ownerPid = 0;
 
         try {
-          ownerPid = Number(readFileSync(path, "utf8").trim());
+          let ownerText = readFileSync(path, "utf8").trim();
+
+          // Older daemon builds published the lock before writing their pid.
+          // Give that live owner time to finish instead of stealing its socket.
+          for (let probe = 0; !ownerText && probe < 25; probe++) {
+            Atomics.wait(LOCK_WAIT, 0, 0, 20);
+            ownerText = readFileSync(path, "utf8").trim();
+          }
+          if (!ownerText && Date.now() - statSync(path).mtimeMs < 5_000) return false;
+          ownerPid = Number(ownerText);
         } catch {
           // the owner vanished between open and read; retry
           continue;
@@ -125,6 +144,8 @@ export class DaemonServer {
         } catch {
           return false;
         }
+      } finally {
+        rmSync(preparedPath, { force: true });
       }
     }
 
@@ -135,13 +156,18 @@ export class DaemonServer {
     HELD_HOMES.delete(this.home);
     if (this.lockFd !== null) {
       try {
+        if (statSync(lockPath(this.home)).ino === fstatSync(this.lockFd).ino)
+          rmSync(lockPath(this.home), { force: true });
+      } catch {
+        // the lock was already removed or replaced
+      }
+      try {
         closeSync(this.lockFd);
       } catch {
         // already closed
       }
       this.lockFd = null;
     }
-    rmSync(lockPath(this.home), { force: true });
   }
 
   /**
@@ -205,6 +231,7 @@ export class DaemonServer {
 
   stop(): void {
     this.core.dispose();
+    if (this.lockFd === null) return;
     this.server?.stop(true);
     this.server = null;
     rmSync(socketPath(this.home), { force: true });
@@ -270,6 +297,13 @@ export class DaemonServer {
       if (params.role === "owner" && params.token !== this.ownerToken) {
         throw new DaemonError("forbidden", "owner token required");
       }
+      if (params.clientVersion !== this.version) {
+        throw new DaemonError(
+          "version_mismatch",
+          `daemon is version ${this.version}, but this client is ${params.clientVersion ?? "unknown"}; align cueloop versions before restarting the daemon`,
+        );
+      }
+
       connection.role = params.role;
       // identity is bound once, here; a non-owner never names it per call
       if (params.role !== "owner" && params.author !== undefined) connection.author = params.author;
@@ -343,7 +377,7 @@ export class DaemonServer {
     "session.setWorkingCopy": (_connection, request) => {
       const params = parseParams("session.setWorkingCopy", request.params);
 
-      return this.core.sessionSetWorkingCopy(params.id, params.workingCopy);
+      return this.core.sessionSetWorkingCopy(params.id, params.workingCopy, params.textCuts);
     },
     "session.cutBlock": (_connection, request) => {
       const params = parseParams("session.cutBlock", request.params);
@@ -449,15 +483,49 @@ export class DaemonServer {
         removals: params.removals,
       });
     },
-    "session.resolve": (_connection, request) => {
-      const params = parseParams("session.resolve", request.params);
+    "session.sendMessage": (_connection, request) => {
+      const params = parseParams("session.sendMessage", request.params);
 
-      return this.core.sessionResolve(
+      return this.core.sessionSendMessage(
         params.id,
-        params.verdictKind,
+        params.outcome,
         params.summary,
         params.actionBodies,
       );
+    },
+    "harness.bind": (_connection, request) => {
+      const params = parseParams("harness.bind", request.params);
+
+      return this.core.harnessBind(params);
+    },
+    "harness.getBinding": (_connection, request) => {
+      const params = parseParams("harness.getBinding", request.params);
+
+      return this.core.harnessGetBinding(params.bindingId);
+    },
+    "harness.bindingsForSession": (_connection, request) => {
+      const params = parseParams("harness.bindingsForSession", request.params);
+
+      return this.core.harnessBindingsForSession(params.harness, params.harnessSessionId);
+    },
+    "harness.consumeApprovedRetry": (_connection, request) => {
+      const params = parseParams("harness.consumeApprovedRetry", request.params);
+
+      return this.core.harnessConsumeApprovedRetry(
+        params.bindingId,
+        params.messageId,
+        params.content,
+      );
+    },
+    "delivery.pending": (_connection, request) => {
+      const params = parseParams("delivery.pending", request.params);
+
+      return this.core.deliveryPending(params.bindingId);
+    },
+    "delivery.acknowledge": (_connection, request) => {
+      const params = parseParams("delivery.acknowledge", request.params);
+
+      return this.core.deliveryAcknowledge(params.deliveryId);
     },
     "session.submitRevision": (_connection, request) => {
       const params = parseParams("session.submitRevision", request.params);
@@ -466,14 +534,39 @@ export class DaemonServer {
         params.id,
         params.content,
         params.addressedAnnotationIds,
+        params.files,
       );
     },
-    "herdr.getTab": (_connection, request) =>
-      this.core.herdrGetTab(parseParams("herdr.getTab", request.params).id),
-    "herdr.setTab": (_connection, request) => {
-      const params = parseParams("herdr.setTab", request.params);
+    "herdr.getThreadSurface": (_connection, request) =>
+      this.core.herdrGetThreadSurface(parseParams("herdr.getThreadSurface", request.params).id),
+    "herdr.setThreadSurface": (_connection, request) => {
+      const params = parseParams("herdr.setThreadSurface", request.params);
 
-      this.core.herdrSetTab(params.id, { tabId: params.tabId, paneId: params.paneId });
+      this.core.herdrSetThreadSurface(params.id, {
+        tabId: params.tabId,
+        paneId: params.paneId,
+        mode: params.mode,
+      });
+
+      return {};
+    },
+    "ghostty.getThreadSurface": (_connection, request) =>
+      this.core.ghosttyGetThreadSurface(parseParams("ghostty.getThreadSurface", request.params).id),
+    "ghostty.setThreadSurface": (_connection, request) => {
+      const params = parseParams("ghostty.setThreadSurface", request.params);
+
+      this.core.ghosttySetThreadSurface(params.id, { terminalId: params.terminalId });
+
+      return {};
+    },
+    "ghostty.claimThreadSurface": (_connection, request) =>
+      this.core.ghosttyClaimThreadSurface(
+        parseParams("ghostty.claimThreadSurface", request.params).id,
+      ),
+    "ghostty.releaseThreadSurface": (_connection, request) => {
+      this.core.ghosttyReleaseThreadSurface(
+        parseParams("ghostty.releaseThreadSurface", request.params).id,
+      );
 
       return {};
     },

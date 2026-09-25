@@ -20,7 +20,7 @@ function forked(): SessionHistory {
     id: "ses_1",
     revisions: [{ revision: 1, content: "v1", submittedAt: AT }],
     annotations: [],
-    verdict: null,
+    message: null,
     createdAt: AT,
   });
 

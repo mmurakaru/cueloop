@@ -52,6 +52,12 @@ jobs:
       - name: Install
         working-directory: site
         run: bun install --frozen-lockfile
+      - name: Test
+        working-directory: site
+        run: bun run test
+      - name: Check
+        working-directory: site
+        run: bun run check
       - name: Build
         working-directory: site
         run: bun run build
@@ -65,6 +71,9 @@ jobs:
           # branch=main is the production alias; any other branch is a preview.
           # workflow_dispatch always targets production regardless of the ref.
           command: pages deploy dist --project-name=cueloop-site --branch=${{ github.event_name == 'workflow_dispatch' && 'main' || github.head_ref || github.ref_name }}
+      - name: Verify deployed site
+        working-directory: site
+        run: bun run verify:deployment -- "${{ steps.deploy.outputs.deployment-url }}"
       - name: Write the preview comment body
         if: github.event_name == 'pull_request'
         run: |

@@ -308,6 +308,38 @@ export class PtyTuiSession implements PtyScreenReader {
     await this.writeAndSettle(`\x1b[<0;${x};${y}M\x1b[<0;${x};${y}m`);
   }
 
+  /** Drag between 0-based cells with the left button held. */
+  async dragAt(
+    fromColumn: number,
+    fromRow: number,
+    toColumn: number,
+    toRow: number,
+  ): Promise<void> {
+    const fromX = fromColumn + 1;
+    const fromY = fromRow + 1;
+    const toX = toColumn + 1;
+    const toY = toRow + 1;
+
+    await this.writeAndSettle(
+      `\x1b[<0;${fromX};${fromY}M\x1b[<32;${toX};${toY}M\x1b[<0;${toX};${toY}m`,
+    );
+  }
+
+  /** Begin a left-button drag and keep the button held. */
+  mouseDownAt(column: number, row: number): void {
+    this.writeRaw(`\x1b[<0;${column + 1};${row + 1}M`);
+  }
+
+  /** Move a held left-button drag to a new cell. */
+  mouseDragTo(column: number, row: number): void {
+    this.writeRaw(`\x1b[<32;${column + 1};${row + 1}M`);
+  }
+
+  /** Release the left button at the current drag cell. */
+  mouseUpAt(column: number, row: number): void {
+    this.writeRaw(`\x1b[<0;${column + 1};${row + 1}m`);
+  }
+
   /** Resize the emulator and the child's tty together, which delivers SIGWINCH. */
   resize(cols: number, rows: number): void {
     this.terminal.resize(cols, rows);

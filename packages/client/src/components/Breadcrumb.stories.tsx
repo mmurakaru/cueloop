@@ -11,7 +11,7 @@ export const SessionHeader: Story = {
       items={[
         { label: "cueloop", tone: "accent" },
         { label: "Migration Plan · rev 2", tone: "dim" },
-        { label: "resolved: approve", tone: "green" },
+        { label: "resolved: approved", tone: "green" },
       ]}
     />
   ),
