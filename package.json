@@ -45,7 +45,7 @@
     "oxlint": "^1.80.0",
     "react": "^19.3.0",
     "typescript": "^7.0.2",
-    "valibot": "^1.4.2"
+    "valibot": "^1.5.0"
   },
   "dependencies": {}
 }
