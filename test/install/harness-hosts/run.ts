@@ -109,8 +109,15 @@ async function inspectPiExtension(work: string): Promise<void> {
       JSON.parse(line),
     );
 
-    if (!message.data.commands.some((command) => command.name === "threads")) {
-      throw new Error("pi did not register the cueloop Threads command");
+    const commandNames = message.data.commands.map((command) => command.name);
+
+    if (commandNames.includes("threads")) {
+      throw new Error("pi still registers the cueloop Threads command");
+    }
+    for (const workflow of WORKFLOW_KINDS) {
+      if (!commandNames.includes(`cueloop:${workflow}`)) {
+        throw new Error(`pi did not register /cueloop:${workflow}`);
+      }
     }
     if (!existsSync(workflowInventory)) throw new Error("pi did not invoke the workflow probe");
     const tools = v.parse(

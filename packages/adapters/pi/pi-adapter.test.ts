@@ -10,6 +10,7 @@ import type {
   PiContext,
   PiExtensionAPI,
   PiSessionEvent,
+  PiSendMessageOptions,
   PiToolCallEvent,
   PiToolCallHandler,
   PiToolDefinition,
@@ -34,6 +35,10 @@ interface FakePi {
   tools: Map<string, PiToolDefinition<any, any>>;
   commands: Map<string, PiCommandOptions>;
   wakes: string[];
+  sentMessages: {
+    content: string;
+    options: PiSendMessageOptions | undefined;
+  }[];
   messageAttempts(): number;
   gate: PiToolCallHandler;
   fire(event: PiSessionEvent["type"], sessionId?: string): Promise<void>;
@@ -47,6 +52,7 @@ function fakePi(options: { failFirstMessage?: boolean } = {}): FakePi {
   const tools = new Map<string, PiToolDefinition<any, any>>();
   const commands = new Map<string, PiCommandOptions>();
   const wakes: string[] = [];
+  const sentMessages: FakePi["sentMessages"] = [];
   const handlers = new Map<
     PiSessionEvent["type"],
     ((event: PiSessionEvent, ctx: PiContext) => void | Promise<void>)[]
@@ -57,12 +63,13 @@ function fakePi(options: { failFirstMessage?: boolean } = {}): FakePi {
   const api: PiExtensionAPI = {
     registerTool: (tool) => tools.set(tool.name, tool),
     registerCommand: (name, command) => commands.set(name, command),
-    sendUserMessage: (message) => {
+    sendUserMessage: (message, options) => {
       attempts += 1;
       if (failFirstMessage) {
         failFirstMessage = false;
         throw new Error("native pi message injection failed");
       }
+      sentMessages.push({ content: message, options });
       wakes.push(message);
     },
     on(event: PiSessionEvent["type"] | "tool_call", handler: any) {
@@ -84,6 +91,7 @@ function fakePi(options: { failFirstMessage?: boolean } = {}): FakePi {
     tools,
     commands,
     wakes,
+    sentMessages,
     messageAttempts: () => attempts,
     gate: (event, ctx) => gate(event, ctx),
     async fire(event, sessionId = "pi-session-1") {
@@ -117,13 +125,15 @@ function toolCall(name: string): PiToolCallEvent {
 }
 
 describe("pi Thread adapter", () => {
-  test("a version mismatch shows the pi extension update command", () => {
+  test("a version mismatch identifies both update paths", () => {
     const error = new DaemonClientError(
       "version_mismatch",
       "daemon is version 0.1.0-alpha.83, but this client is unknown",
     );
 
-    expect(piUnavailableMessage(error)).toBe("pi update --extensions");
+    expect(piUnavailableMessage(error)).toBe(
+      "cueloop version mismatch: daemon is version 0.1.0-alpha.83, but this client is unknown. Run `cueloop restart`; if it persists, update the older component with `cueloop update` or `pi update npm:@cueloop/pi`.",
+    );
   });
 
   test("advertises the six shared workflows", () => {
@@ -132,7 +142,20 @@ describe("pi Thread adapter", () => {
 
     expect(tool.parameters.properties.workflow?.enum).toEqual(WORKFLOW_KINDS);
     expect(fake.tools.has("refine_corpus")).toBe(true);
-    expect(fake.commands.has("threads")).toBe(true);
+    expect([...fake.commands.keys()]).toEqual(WORKFLOW_KINDS.map((kind) => `cueloop:${kind}`));
+  });
+
+  test("a pi workflow command expands its packaged skill", async () => {
+    const fake = fakePi();
+
+    await fake.commands.get("cueloop:plan")!.handler("  review this proposal  ", context());
+
+    expect(fake.sentMessages).toEqual([
+      {
+        content: "/skill:cueloop-plan review this proposal",
+        options: { deliverAs: "followUp", expandPromptTemplates: true },
+      },
+    ]);
   });
 
   test("opens a plan, gates mutations, and injects and acknowledges its Message", async () => {

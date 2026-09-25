@@ -9,6 +9,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { WORKFLOW_KINDS } from "@cueloop/schema";
 import * as v from "valibot";
 
 const ManifestSchema = v.object({
@@ -112,6 +113,13 @@ try {
 
       if (!shipped.has(rel))
         problems.push(`${pkg.name}: ships no ${rel}, but the manifest points at it`);
+    }
+    if (pkg.name === "@cueloop/pi") {
+      for (const workflow of WORKFLOW_KINDS) {
+        const path = `skills/${workflow}/SKILL.md`;
+
+        if (!shipped.has(path)) problems.push(`${pkg.name}: ships no ${path}`);
+      }
     }
   }
 } finally {

@@ -19,3 +19,6 @@ benchmarks/profiles/
 
 # install-vm and other scratch output
 tmp/
+
+# Generated from the shared skill source before packing @cueloop/pi.
+packages/pi/skills/

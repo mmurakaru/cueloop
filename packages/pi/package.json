@@ -17,7 +17,8 @@
   },
   "files": [
     "extension.ts",
-    "README.md"
+    "README.md",
+    "skills/"
   ],
   "type": "module",
   "exports": {
@@ -25,6 +26,9 @@
   },
   "publishConfig": {
     "access": "public"
+  },
+  "scripts": {
+    "prepack": "node prepare-skills.mjs"
   },
   "dependencies": {
     "@cueloop/adapters": "0.1.0-alpha.86"
@@ -38,6 +42,9 @@
   "pi": {
     "extensions": [
       "./extension.ts"
+    ],
+    "skills": [
+      "./skills"
     ]
   }
 }

@@ -82,6 +82,7 @@ export type PiSessionHandler = (event: PiSessionEvent) => void | Promise<void>;
  */
 export interface PiSendMessageOptions {
   deliverAs?: "followUp" | "steer";
+  expandPromptTemplates?: boolean;
 }
 
 export interface PiExtensionAPI {

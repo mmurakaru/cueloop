@@ -13,7 +13,7 @@ const CodexManifestSchema = v.object({
 const PiPackageSchema = v.object({
   name: v.string(),
   version: v.string(),
-  pi: v.object({ extensions: v.array(v.string()) }),
+  pi: v.object({ extensions: v.array(v.string()), skills: v.array(v.string()) }),
   peerDependencies: v.record(v.string(), v.string()),
 });
 const HostPinsSchema = v.object({ claude: v.string(), codex: v.string(), pi: v.string() });
@@ -69,6 +69,9 @@ export async function checkHarnessReleaseIntegrity(): Promise<string[]> {
   }
   if (!piPackage.pi.extensions.includes("./extension.ts")) {
     problems.push("packages/pi/package.json: pi extension is not registered");
+  }
+  if (!piPackage.pi.skills.includes("./skills")) {
+    problems.push("packages/pi/package.json: pi skills are not registered");
   }
   if (piPackage.peerDependencies["@earendil-works/pi-coding-agent"] !== `^${hostVersions.pi}`) {
     problems.push("packages/pi/package.json: supported pi host differs from install-matrix pin");
