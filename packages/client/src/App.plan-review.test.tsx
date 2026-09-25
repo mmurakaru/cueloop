@@ -14,6 +14,7 @@ import {
   clickText,
   dragText,
   isolateUserConfig,
+  navCommand,
   press,
   pressKey,
   renderReadyApp,
@@ -124,7 +125,7 @@ describe("share button", () => {
 
   test("a resolved plan hides Edit and Share (no re-sharing a finished review)", async () => {
     // Arrange - resolve the session before opening it
-    server.core.sessionResolve(session.id, "approve", "");
+    server.core.sessionSendMessage(session.id, "approved", "");
 
     // Act
     const setup = await renderApp();
@@ -210,9 +211,13 @@ describe("the mark stays painted while composing", () => {
     await waitForText(setup, "● x");
     expect(backgroundsOf(setup, "The daemon")).toContain(THREAD_MARK);
 
-    // Act: escape discards the draft; the mark stays for re-typing, a second escape drops it
+    // Act: escape discards the draft and the mark stays for re-typing; the next escape
+    // enters nav mode with the mark still held; only an escape in nav drops it
     await press(setup, "escape");
     await waitForTextGone(setup, "● x");
+    expect(backgroundsOf(setup, "The daemon")).toContain(THREAD_MARK);
+    await press(setup, "escape");
+    await waitForText(setup, "type to leave");
     expect(backgroundsOf(setup, "The daemon")).toContain(THREAD_MARK);
     await press(setup, "escape");
 
@@ -243,6 +248,22 @@ describe("the mark stays painted while composing", () => {
     // Assert: the composer is gone and the mark stays, ready to re-type
     await waitForTextGone(setup, "● x");
     expect(backgroundsOf(setup, "The daemon")).toContain(THREAD_MARK);
+  }, 60_000);
+
+  test("esc from type mode keeps the mark, so c in nav comments on the marked text", async () => {
+    // Arrange
+    const setup = await renderApp();
+
+    // Act: mark, enter nav with esc, open the composer with c, save
+    await dragText(setup, "The daemon", "daemon persists", "daemon".length);
+    await navCommand(setup, "c");
+    await type(setup, "Which daemon?");
+    await waitForText(setup, "● Which daemon?");
+    await pressKey(setup, "RETURN", { meta: true });
+
+    // Assert: the comment anchors to the mark, not to the word under the caret
+    await waitForState(setup, () => server.core.sessionGet(session.id).annotations.length === 1);
+    expect(server.core.sessionGet(session.id).annotations[0]!.anchor.quote).toBe("The daemon");
   }, 60_000);
 });
 

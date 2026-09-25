@@ -29,7 +29,7 @@ describe("renderFeedback", () => {
   test("plan edits section carries the one unified diff, directive framing first", () => {
     // Act
     const feedback = renderFeedback({
-      verdictKind: "request_changes",
+      outcome: "changes_requested",
       summary: "Tighten the storage section.",
       artifactContent: PLAN,
       workingCopy: PLAN.replace("one JSON document", "one JSON record"),
@@ -38,7 +38,7 @@ describe("renderFeedback", () => {
     });
 
     // Assert
-    expect(feedback).toContain("# Review: request changes");
+    expect(feedback).toContain("# Review: changes requested");
     expect(feedback).toContain("Tighten the storage section.");
     expect(feedback).toContain("## Plan edits");
     expect(feedback).toContain("Apply this exact diff first");
@@ -50,7 +50,7 @@ describe("renderFeedback", () => {
   test("reply edits section is labelled for the reply artifact, not a plan", () => {
     // Act
     const feedback = renderFeedback({
-      verdictKind: "request_changes",
+      outcome: "changes_requested",
       summary: "",
       artifactContent: PLAN,
       workingCopy: PLAN.replace("one JSON document", "one JSON record"),
@@ -68,7 +68,7 @@ describe("renderFeedback", () => {
   test("a reply review with no artifact path references reply.md, never plan.md", () => {
     // Act
     const feedback = renderFeedback({
-      verdictKind: "request_changes",
+      outcome: "changes_requested",
       summary: "",
       artifactContent: "# Findings\n\nThe cache is fine.\n",
       artifactType: "reply",
@@ -101,7 +101,7 @@ describe("renderFeedback", () => {
 
     // Act
     const feedback = renderFeedback({
-      verdictKind: "request_changes",
+      outcome: "changes_requested",
       summary: "",
       artifactContent: submittedPatch,
       workingCopy: curatedPatch,
@@ -120,7 +120,7 @@ describe("renderFeedback", () => {
   test("a diff working copy that rejected everything says so", () => {
     // Act
     const feedback = renderFeedback({
-      verdictKind: "request_changes",
+      outcome: "changes_requested",
       summary: "",
       artifactContent: "--- a/x\n+++ b/x\n@@ -1 +1 @@\n-a\n+b\n",
       workingCopy: "",
@@ -136,7 +136,7 @@ describe("renderFeedback", () => {
   test("annotations are located by quote and section", () => {
     // Act
     const feedback = renderFeedback({
-      verdictKind: "comment",
+      outcome: "changes_requested",
       summary: "",
       artifactContent: PLAN,
       annotations: [
@@ -159,7 +159,7 @@ describe("renderFeedback", () => {
 
     // Act
     const feedback = renderFeedback({
-      verdictKind: "comment",
+      outcome: "changes_requested",
       summary: "",
       artifactContent: PLAN,
       annotations: [
@@ -199,7 +199,7 @@ describe("renderFeedback", () => {
 
     // Act
     const feedback = renderFeedback({
-      verdictKind: "comment",
+      outcome: "changes_requested",
       summary: "",
       artifactContent: PLAN,
       annotations: [
@@ -223,7 +223,7 @@ describe("renderFeedback", () => {
   test("orphaned anchors are flagged, never dropped", () => {
     // Act
     const feedback = renderFeedback({
-      verdictKind: "comment",
+      outcome: "changes_requested",
       summary: "",
       artifactContent: PLAN,
       annotations: [
@@ -239,7 +239,7 @@ describe("renderFeedback", () => {
   test("empty review says so explicitly", () => {
     // Act
     const feedback = renderFeedback({
-      verdictKind: "approve",
+      outcome: "approved",
       summary: "",
       artifactContent: PLAN,
       annotations: [],
@@ -259,7 +259,7 @@ describe("renderFeedback", () => {
 
     // Act
     const noteOnly = renderFeedback({
-      verdictKind: "approve",
+      outcome: "approved",
       summary: "",
       artifactContent: PLAN,
       annotations: [note],
@@ -269,7 +269,7 @@ describe("renderFeedback", () => {
     expect(noteOnly).toContain("_No edits or annotations._");
     expect(noteOnly).not.toContain("The agent's own explanation of the change.");
     const mixed = renderFeedback({
-      verdictKind: "request_changes",
+      outcome: "changes_requested",
       summary: "",
       artifactContent: PLAN,
       annotations: [
@@ -291,7 +291,7 @@ describe("renderFeedback", () => {
 
     // Act
     const feedback = renderFeedback({
-      verdictKind: "request_changes",
+      outcome: "changes_requested",
       summary: "",
       artifactContent: PLAN,
       workingCopy: working,
@@ -309,7 +309,7 @@ describe("renderFeedback", () => {
   test("a prototype annotation locates by its selector and is never orphan-flagged", () => {
     // Act
     const feedback = renderFeedback({
-      verdictKind: "request_changes",
+      outcome: "changes_requested",
       summary: "",
       artifactType: "prototype",
       artifactContent: "<main><div class='card'>Pricing</div></main>",
@@ -333,7 +333,7 @@ describe("renderFeedback", () => {
 describe("renderFeedback target grouping", () => {
   test("file notes group under their own path section, apart from the artifact", () => {
     const feedback = renderFeedback({
-      verdictKind: "request_changes",
+      outcome: "changes_requested",
       summary: "",
       artifactContent: PLAN,
       artifactPath: "docs/plan.md",
@@ -371,7 +371,7 @@ describe("renderFeedback target grouping", () => {
 
   test("a quick-action reference expands to its body; an unknown skill reference passes through", () => {
     const feedback = renderFeedback({
-      verdictKind: "comment",
+      outcome: "changes_requested",
       summary: "",
       artifactContent: PLAN,
       annotations: [

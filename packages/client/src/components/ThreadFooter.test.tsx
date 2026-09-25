@@ -27,10 +27,21 @@ test("a long branch truncates on one line and keeps the send control in place", 
   const frame = setup.captureCharFrame();
   const footerRow = frame.split("\n").find((line) => line.includes("cueloop"))!;
   // the repo/branch context and the send control share the single footer row
-  expect(footerRow).toContain("send message");
+  expect(footerRow).toContain("Send message (0)");
   // the branch is clipped to an ellipsis, not wrapped onto a second row
   expect(footerRow).toContain("…");
   expect(frame).not.toContain("long-name");
 
+  setup.renderer.destroy();
+});
+
+test("the footer shows the open annotation count", async () => {
+  const setup = await testRender(
+    <ThreadFooter repo="cueloop" branch="main" pendingAnnotations={3} theme={DARK} />,
+    { width: 60, height: 3 },
+  );
+
+  await settle(setup);
+  expect(setup.captureCharFrame()).toContain("Send message (3)");
   setup.renderer.destroy();
 });

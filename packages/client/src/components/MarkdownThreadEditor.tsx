@@ -105,7 +105,7 @@ export const MarkdownThreadEditor = forwardRef<MarkdownEditorHandle, MarkdownThr
     }, []);
 
     return (
-      <box style={{ flexDirection: "column", flexGrow: 1 }}>
+      <box style={{ flexDirection: "column", flexGrow: 1, paddingLeft: 2 }}>
         <textarea
           ref={editorRef}
           focused
@@ -156,7 +156,7 @@ function MarkdownEditorStatus({
         fg={theme.textMuted}
       >{`Ln ${position.line}/${position.lineCount}  Col ${position.column}`}</text>
       <box style={{ flexGrow: 1 }} />
-      <text fg={theme.textDim}>{"⌘⏎ save & close"}</text>
+      <text fg={theme.textDim}>{"⌃⏎ save & close"}</text>
     </box>
   );
 }

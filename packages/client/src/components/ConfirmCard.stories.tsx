@@ -8,21 +8,21 @@ export const meta: StoryMeta = { title: "Cards/ConfirmCard" };
 
 const callbacks = {
   onInput: () => {},
-  onSelectVerdict: () => {},
+  onSelectMessage: () => {},
   onSubmit: () => {},
   onCancel: () => {},
   quickActions: DEFAULT_QUICK_ACTIONS,
 };
 
 export const ApproveDefault: Story = {
-  render: () => <ConfirmCard verdict="approve" summary="" {...callbacks} />,
+  render: () => <ConfirmCard message="approved" summary="" {...callbacks} />,
   expectedColors: [DARK.green, DARK.accent],
   size: { width: 40, height: 14 },
 };
 
 export const RequestChanges: Story = {
   render: () => (
-    <ConfirmCard verdict="request_changes" summary="Tighten the steps." {...callbacks} />
+    <ConfirmCard message="changes_requested" summary="Tighten the steps." {...callbacks} />
   ),
   expectedColors: [DARK.red],
   size: { width: 40, height: 14 },
@@ -30,7 +30,7 @@ export const RequestChanges: Story = {
 
 export const WithViewedSummary: Story = {
   render: () => (
-    <ConfirmCard verdict="approve" summary="" viewedSummary="2/3 files viewed" {...callbacks} />
+    <ConfirmCard message="approved" summary="" viewedSummary="2/3 files viewed" {...callbacks} />
   ),
   expectedColors: [DARK.green, DARK.textDim],
   size: { width: 40, height: 14 },

@@ -16,12 +16,12 @@ import {
   press,
   renderReadyApp,
 } from "../../packages/client/src/test-support";
-import { HERMETIC_HERDR_ENV } from "../../test/helpers/env";
+import { HERMETIC_TERMINAL_ENV } from "../../test/helpers/env";
 import { createTestReviewHome, type TestReviewHome } from "../../test/helpers/review-home";
 import { timeMsAsync, timeRepeatedAsync } from "./metric";
 
 // a script run outside the sampler must not reach a developer's live herdr session
-Object.assign(process.env, HERMETIC_HERDR_ENV);
+Object.assign(process.env, HERMETIC_TERMINAL_ENV);
 
 /** The rendered App as the test helpers type it, so drivers such as `press` accept it. */
 type ReadyAppSetup = Awaited<ReturnType<typeof renderReadyApp>>;

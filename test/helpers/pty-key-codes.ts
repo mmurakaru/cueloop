@@ -155,6 +155,7 @@ export function cheatsheetChordKeyPress(chord: string): PtyKeyPress {
     key = key.slice(1);
   }
   if (key === "⌫") key = "backspace";
+  if (key === "⏎") key = "enter";
   if (key.length === 1 && key !== key.toLowerCase()) {
     modifiers.push("shift");
     key = key.toLowerCase();

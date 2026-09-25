@@ -28,7 +28,13 @@ function resolvedSession(overrides: Partial<Thread> = {}): Thread {
       },
     ],
     annotations: [],
-    verdict: { kind: "approve", summary: "ship it", feedback: "", resolvedAt: NOW.toISOString() },
+    message: {
+      id: "msg_1",
+      outcome: "approved",
+      summary: "ship it",
+      body: "",
+      sentAt: NOW.toISOString(),
+    },
     status: "resolved",
     createdAt: NOW.toISOString(),
     ...overrides,
@@ -65,7 +71,7 @@ describe("exportSession", () => {
     expect(written).toContain("created: 2026-08-07T12:34:56.000Z");
     expect(written).toContain("source: cueloop");
     expect(written).toContain("session: s_test1");
-    expect(written).toContain("verdict: approve");
+    expect(written).toContain("message: approved");
   });
 
   test("the working copy wins over the submitted content", () => {
@@ -168,19 +174,17 @@ describe("obsidian extension", () => {
 
 describe("shouldExport", () => {
   test("approve exports only approvals", () => {
-    expect(shouldExport("approve", "approve")).toBe(true);
-    expect(shouldExport("approve", "request_changes")).toBe(false);
-    expect(shouldExport("approve", "comment")).toBe(false);
+    expect(shouldExport("approved", "approved")).toBe(true);
+    expect(shouldExport("approved", "changes_requested")).toBe(false);
   });
 
-  test("resolve exports any verdict", () => {
-    expect(shouldExport("resolve", "approve")).toBe(true);
-    expect(shouldExport("resolve", "request_changes")).toBe(true);
-    expect(shouldExport("resolve", "comment")).toBe(true);
+  test("message exports any outcome", () => {
+    expect(shouldExport("message", "approved")).toBe(true);
+    expect(shouldExport("message", "changes_requested")).toBe(true);
   });
 
   test("manual never auto-exports", () => {
-    expect(shouldExport("manual", "approve")).toBe(false);
-    expect(shouldExport("manual", "request_changes")).toBe(false);
+    expect(shouldExport("manual", "approved")).toBe(false);
+    expect(shouldExport("manual", "changes_requested")).toBe(false);
   });
 });

@@ -6,7 +6,7 @@
  * testable without a live gateway.
  */
 
-import { DaemonClient, type SessionClient } from "@cueloop/daemon/client";
+import { DaemonClient, type ThreadClient } from "@cueloop/daemon/client";
 import {
   mergeFromShare,
   publishShare,
@@ -68,9 +68,9 @@ export async function sharePullCommand(
   }
 }
 
-/** The share orchestration, over any SessionClient - the seam the tests drive. */
+/** The share orchestration, over any ThreadClient - the seam the tests drive. */
 export async function shareSession(
-  client: SessionClient,
+  client: ThreadClient,
   params: ShareParams,
   deps: ShareDeps,
 ): Promise<number> {
@@ -102,7 +102,7 @@ export async function shareSession(
  * ones land. The gateway lets only the fingerprint that shared it pull.
  */
 export async function pullSession(
-  client: SessionClient,
+  client: ThreadClient,
   params: ShareParams,
   deps: PullDeps,
 ): Promise<number> {
@@ -127,7 +127,7 @@ export async function pullSession(
 }
 
 /** The named session, or the most recent one when no id is given. */
-async function pickSession(client: SessionClient, sessionId?: string): Promise<Thread | null> {
+async function pickSession(client: ThreadClient, sessionId?: string): Promise<Thread | null> {
   if (sessionId) return client.sessionGet(sessionId);
   const sessions = await client.sessionList();
 
@@ -135,10 +135,7 @@ async function pickSession(client: SessionClient, sessionId?: string): Promise<T
 }
 
 /** The named session (if shared), or the most recent shared one. */
-async function pickSharedSession(
-  client: SessionClient,
-  sessionId?: string,
-): Promise<Thread | null> {
+async function pickSharedSession(client: ThreadClient, sessionId?: string): Promise<Thread | null> {
   if (sessionId) {
     const session = await client.sessionGet(sessionId);
 

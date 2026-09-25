@@ -1,5 +1,3 @@
-/** Codex queue shell-out: the exact `codex queue --thread <id> --message <text>` argv is passed to the binary (captured by a fake codex), and non-zero exits and a missing binary surface as ok=false. */
-
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";

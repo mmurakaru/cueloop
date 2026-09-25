@@ -10,11 +10,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DaemonServer } from "@cueloop/daemon";
 import { DaemonClient } from "@cueloop/daemon/client";
-import { HERMETIC_HERDR_ENV } from "../test/helpers/env";
+import { HERMETIC_TERMINAL_ENV } from "../test/helpers/env";
 import { largePlanMarkdown } from "./lib/fixtures";
 import { emitMemoryMetrics, emitMetric, timeMs } from "./lib/metric";
 
-Object.assign(process.env, HERMETIC_HERDR_ENV);
+Object.assign(process.env, HERMETIC_TERMINAL_ENV);
 
 const THREADS = 200;
 const home = mkdtempSync(join(tmpdir(), "cueloop-bench-launch-"));

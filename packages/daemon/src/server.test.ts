@@ -5,6 +5,7 @@ import { join } from "node:path";
 import * as v from "valibot";
 import { DaemonServer } from "./server";
 import { DaemonClient, DaemonClientError } from "./client";
+import { DAEMON_VERSION } from "./version";
 import type { Artifact, WorkspaceKey } from "@cueloop/schema";
 
 const WS: WorkspaceKey = { repoRoot: "/repo", branch: "main" };
@@ -46,12 +47,60 @@ describe("socket round-trip", () => {
     });
     const wait = client.sessionWait(session.id, 5_000);
 
-    await client.sessionResolve(session.id, "request_changes", "Expand it.");
+    await client.sessionSendMessage(session.id, "changes_requested", "Expand it.");
     const resolved = (await wait)!;
 
     // Assert
-    expect(resolved.verdict!.kind).toBe("request_changes");
-    expect(resolved.verdict!.feedback).toContain("More detail please.");
+    expect(resolved.message!.outcome).toBe("changes_requested");
+    expect(resolved.message!.body).toContain("More detail please.");
+  });
+
+  test("harness binding and Message delivery round-trip over the wire", async () => {
+    const thread = await client.sessionCreate(WS, PLAN);
+    const binding = await client.harnessBind(thread.id, "fake", "fake_1");
+
+    expect(await client.harnessGetBinding(binding.id)).toEqual(binding);
+    expect(await client.harnessBindingsForSession("fake", "fake_1")).toEqual([binding]);
+    expect(await client.harnessBindingsForSession("fake", "different")).toEqual([]);
+
+    const sent = await client.sessionSendMessage(thread.id, "approved", "Ready.");
+    const pending = await client.deliveryPending(binding.id);
+
+    expect(pending).toHaveLength(1);
+    expect(pending[0]!.message).toEqual(sent.message!);
+    expect(pending[0]!.delivery.status).toBe("pending");
+
+    const acknowledged = await client.deliveryAcknowledge(pending[0]!.delivery.id);
+
+    expect(acknowledged.status).toBe("acknowledged");
+    expect(await client.deliveryPending(binding.id)).toEqual([]);
+    expect(
+      await client.harnessConsumeApprovedRetry(binding.id, sent.message!.id, PLAN.content),
+    ).toBe(true);
+    expect(
+      await client.harnessConsumeApprovedRetry(binding.id, sent.message!.id, PLAN.content),
+    ).toBe(false);
+  });
+
+  test("diff revision replaces full changed-file contents over the wire", async () => {
+    const files = [
+      { path: "a.ts", status: "modified" as const, oldContents: "old", newContents: "first" },
+    ];
+    const thread = await client.sessionCreate(WS, {
+      type: "diff",
+      content: "first patch",
+      files,
+      meta: {},
+    });
+    const revised = await client.sessionSubmitRevision(
+      thread.id,
+      "second patch",
+      [],
+      [{ ...files[0]!, newContents: "second" }],
+    );
+
+    expect(revised.artifact.files?.[0]?.newContents).toBe("second");
+    expect((await client.sessionGet(thread.id)).artifact.files?.[0]?.newContents).toBe("second");
   });
 
   test("errors carry codes across the wire", async () => {
@@ -70,13 +119,13 @@ describe("socket round-trip", () => {
     // Act
     const session = await client.sessionCreate(WS, PLAN);
 
-    await client.sessionResolve(session.id, "approve", "");
+    await client.sessionSendMessage(session.id, "approved", "");
 
     // Assert
     // events are pushed async over the socket; give the loop a beat
     await Bun.sleep(50);
     expect(seen).toContain("session.created");
-    expect(seen).toContain("session.resolved");
+    expect(seen).toContain("message.sent");
     observer.close();
   });
 
@@ -344,7 +393,7 @@ describe("ownership is proven, never declared", () => {
       ).error,
     ).toBeUndefined();
     expect(
-      (await raw.call("session.resolve", { id: session.id, verdictKind: "approve", summary: "" }))
+      (await raw.call("session.sendMessage", { id: session.id, outcome: "approved", summary: "" }))
         .error?.code,
     ).toBe("forbidden");
     expect((await raw.call("session.delete", { id: session.id })).error?.code).toBe("forbidden");
@@ -365,12 +414,32 @@ describe("ownership is proven, never declared", () => {
     // Act: the token the daemon wrote into its home
     const token = readFileSync(join(home, "owner.token"), "utf8").trim();
 
-    expect((await raw.call("daemon.hello", { role: "owner", token })).error).toBeUndefined();
+    expect(
+      (
+        await raw.call("daemon.hello", {
+          role: "owner",
+          token,
+          clientVersion: DAEMON_VERSION,
+        })
+      ).error,
+    ).toBeUndefined();
 
     // Assert: owner primitives open up
     const created = await raw.call("session.create", { workspace: WS, artifact: PLAN });
 
     expect(created.error).toBeUndefined();
+    raw.close();
+  });
+
+  test("an older owner cannot shut down a newer daemon", async () => {
+    const raw = await rawConnection();
+    const token = readFileSync(join(home, "owner.token"), "utf8").trim();
+
+    expect((await raw.call("daemon.hello", { role: "owner", token })).error?.code).toBe(
+      "version_mismatch",
+    );
+    expect((await raw.call("daemon.shutdown", {})).error?.code).toBe("forbidden");
+    expect((await raw.call("daemon.ping", {})).error).toBeUndefined();
     raw.close();
   });
 
@@ -422,7 +491,7 @@ describe("ownership is proven, never declared", () => {
     // Assert: the client in beforeEach connected as the owner through the token
     const session = await client.sessionCreate(WS, PLAN);
 
-    expect((await client.sessionResolve(session.id, "approve", "")).status).toBe("resolved");
+    expect((await client.sessionSendMessage(session.id, "approved", "")).status).toBe("resolved");
     expect(statSync(join(home, "owner.token")).mode & 0o777).toBe(0o600);
   });
 });

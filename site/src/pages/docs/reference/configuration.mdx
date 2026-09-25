@@ -2,9 +2,9 @@
 layout: ../../../layouts/DocsLayout.astro
 title: Configuration
 eyebrow: Docs · Reference
-lede: cueloop reads an optional TOML config. Every key has a default, so you set only what you want to change - keybindings, the review surface, the theme, and the Obsidian export.
+lede: Override keys, layout, theme, integrations, or storage in one optional TOML file.
 prev: { title: "Commands", href: "/docs/reference/commands/" }
-next: { title: "Keyboard & mouse", href: "/docs/reference/keyboard/" }
+next: { title: "Keyboard and mouse", href: "/docs/reference/keyboard/" }
 ---
 
 Configuration is optional. cueloop ships with sensible defaults and reads a TOML
@@ -34,28 +34,26 @@ comment = ["c"]
 submit = ["return", "enter"]
 ```
 
-| Action                                | Default               | What it does                |
-| ------------------------------------- | --------------------- | --------------------------- |
-| `down` / `up`                         | `j`,`down` / `k`,`up` | move the cursor             |
-| `top` / `bottom`                      | `g` / `G`             | jump to top / bottom        |
-| `span`                                | `v`                   | start a span selection      |
-| `comment`                             | `c`                   | add a comment               |
-| `cut`                                 | `x`                   | cut the selected span       |
-| `edit`                                | `e`                   | edit in `$EDITOR`           |
-| `next_annotation` / `prev_annotation` | `n` / `p`             | move between annotations    |
-| `delete_annotation`                   | `backspace`           | delete an annotation        |
-| `submit`                              | `return`,`enter`      | submit the review           |
-| `share`                               | `S`                   | share the plan              |
-| `quit`                                | `q`                   | quit                        |
-| `walk`                                | `w`                   | start the walk wizard       |
-| `review_cycle`                        | `b`                   | cycle the review panel mode |
-| `review_wider` / `review_narrower`    | `]` / `[`             | resize the review panel     |
-| `leader`                              | `ctrl+g`              | the command leader          |
+| Action                                | Default               | What it does                                            |
+| ------------------------------------- | --------------------- | ------------------------------------------------------- |
+| `down` / `up`                         | `j`,`down` / `k`,`up` | move the cursor                                         |
+| `top` / `bottom`                      | `g` / `G`             | jump to top / bottom                                    |
+| `span`                                | `v`                   | start a span selection                                  |
+| `comment`                             | `c`                   | add a comment                                           |
+| `cut`                                 | `x`                   | cut the selected span                                   |
+| `edit`                                | `e`                   | edit the body (inline for a plan, `$EDITOR` for a diff) |
+| `next_annotation` / `prev_annotation` | `n` / `p`             | move between comments                                   |
+| `delete_annotation`                   | `backspace`           | delete a comment                                        |
+| `submit`                              | `return`,`enter`      | submit the review                                       |
+| `share`                               | `S`                   | share the plan                                          |
+| `quit`                                | `q`                   | quit                                                    |
+| `walk`                                | `w`                   | start the walk wizard                                   |
+| `review_cycle`                        | `b`                   | cycle the review panel mode                             |
+| `review_wider` / `review_narrower`    | `]` / `[`             | resize the review panel                                 |
 
-The `leader` is the prefix for the thread view's structural commands: press it,
-then a letter (`ctrl+g` `x` cuts the block). Letters type a comment, so the
-leader keeps the commands reachable without a held modifier. See
-[Keyboard & mouse](/docs/reference/keyboard/#the-command-leader).
+In the thread view a letter types a comment, so the structural commands live in
+nav mode: press `esc`, then a bare letter acts. There is no leader or modifier
+chord to configure. See [Keyboard & mouse](/docs/reference/keyboard/).
 
 ## `[ui]`
 
@@ -66,20 +64,34 @@ editor = "nvim"           # overrides $EDITOR for the edit action
 review_width = 34          # review panel width in columns (24-50)
 review_state = "expanded" # "expanded", "compact", or "hidden"
 diff_view = "split"       # "split" or "stacked" (the wide Changes layout)
+default_message = "approved" # the message the submit card opens on
 theme = "cueloop"         # a built-in theme preset (see below)
 ```
 
-| Key            | Type                                | Default    | Meaning                                                                                                                                     |
-| -------------- | ----------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `auto_close`   | `"off"` or number ≥ 0               | `"off"`    | after a decision: `"off"` prompts, `0` closes at once, `N` counts down N seconds                                                            |
-| `editor`       | string                              | `$EDITOR`  | editor for long annotation bodies                                                                                                           |
-| `review_width` | number, clamped 24-50               | `34`       | width of the expanded review panel                                                                                                          |
-| `review_state` | `expanded` \| `compact` \| `hidden` | `expanded` | review panel mode                                                                                                                           |
-| `diff_view`    | `split` \| `stacked`                | `split`    | the wide Changes layout: old\|new side by side, or one stacked column. A narrow pane is always stacked. `unified` still loads as `stacked`. |
-| `theme`        | a preset name (see `[theme]`)       | `cueloop`  | the built-in color theme; also settable in Settings › Appearance                                                                            |
+| Key               | Type                                           | Default    | Meaning                                                                                                                                     |
+| ----------------- | ---------------------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `auto_close`      | `"off"` or number ≥ 0                          | `"off"`    | after sending: `"off"` prompts, `0` closes at once, `N` counts down N seconds                                                               |
+| `editor`          | string                                         | `$EDITOR`  | editor for long comment bodies                                                                                                              |
+| `review_width`    | number, clamped 24-50                          | `34`       | width of the expanded review panel                                                                                                          |
+| `review_state`    | `expanded` \| `compact` \| `hidden`            | `expanded` | review panel mode                                                                                                                           |
+| `diff_view`       | `split` \| `stacked`                           | `split`    | the wide Changes layout: old\|new side by side, or one stacked column. A narrow pane is always stacked. `unified` still loads as `stacked`. |
+| `default_message` | `comment` \| `approved` \| `changes_requested` | `approved` | the message the submit card opens on                                                                                                        |
+| `theme`           | a preset name (see `[theme]`)                  | `cueloop`  | the built-in color theme; also settable in Settings › Appearance                                                                            |
 
 `review_width` and `review_state` also persist as you adjust them in the UI, so
 your last layout carries over between runs.
+
+## `[review]`
+
+```toml
+[review]
+skill = "code-review"
+workspace = "worktree" # "worktree" or "current"
+```
+
+The review skill inspects a pull request before cueloop opens the Thread.
+Worktree mode keeps the current checkout untouched. Current mode refuses to run
+unless the checkout is already at the pull request head.
 
 ## `[[actions]]`
 
@@ -145,7 +157,7 @@ panel = "#1a1a23"
 ```
 
 Tokens: `background`, `panel`, `elevated`, `border`, `text`, `textMuted`, `textDim`,
-`accent`, `accentInk`, `green`, `red`, `blue`, `cursorBackground`, `markCommentBackground`,
+`accent`, `accentInk`, `green`, `red`, `blue`, `warning`, `cursorBackground`, `markCommentBackground`,
 `insertedForeground`, `deletedForeground`, `insertedBackground`, `insertedEmphasisBackground`,
 `deletedBackground`, `deletedEmphasisBackground`, `backdrop`. The four `*Background` tokens are the
 diff's line bands and the brighter tint under a changed word. Unknown tokens are ignored.
@@ -182,7 +194,7 @@ exportOn = "manual"
 | `folder`         | `cueloop`                    | destination folder in the vault                           |
 | `filenameFormat` | `{YYYY}-{MM}-{DD} - {title}` | note filename template                                    |
 | `separator`      | `space`                      | filename word separator: `space`, `dash`, or `underscore` |
-| `exportOn`       | `manual`                     | when to export: `approve`, any `resolve`, or `manual`     |
+| `exportOn`       | `manual`                     | when to export: `approved`, any `message`, or `manual`    |
 
 <div class="callout callout--warning">
   <div class="callout__label">camelCase here</div>
@@ -195,9 +207,6 @@ exportOn = "manual"
 | Variable         | Default      | Used for                                                 |
 | ---------------- | ------------ | -------------------------------------------------------- |
 | `CUELOOP_CONFIG` | -            | path to your user config file                            |
-| `CUELOOP_HOME`   | `~/.cueloop` | daemon state: socket, sessions, pid, lock                |
+| `CUELOOP_HOME`   | `~/.cueloop` | local cueloop data directory                             |
 | `CUELOOP_GH`     | `gh`         | the GitHub CLI used to fetch and post PR reviews         |
 | `EDITOR`         | -            | editor for the edit action (overridden by `[ui] editor`) |
-
-The gateway that serves shared plans reads its own `CUELOOP_GATEWAY_*` and key
-variables, but those are server-side and do not affect the local CLI.

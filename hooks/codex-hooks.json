@@ -1,0 +1,38 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cueloop codex-hook",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cueloop codex-hook",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "^mcp__cueloop__open_thread$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cueloop codex-hook",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

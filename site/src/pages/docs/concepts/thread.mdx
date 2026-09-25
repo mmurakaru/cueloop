@@ -1,63 +1,39 @@
 ---
 layout: ../../../layouts/DocsLayout.astro
-title: The thread
-eyebrow: Docs · Concepts
-lede: The thread is the one primitive everything else is built on - an artifact, the annotations anchored to it, and a decision.
-prev: { title: "Install & quickstart", href: "/docs/install/" }
-next: { title: "Annotations", href: "/docs/concepts/annotations/" }
+title: Threads
+eyebrow: Docs · Understand cueloop
+lede: A Thread keeps the work, comments, Messages, and revisions together.
+prev: { title: "Connect coding agents", href: "/docs/agents/" }
+next: { title: "Comments", href: "/docs/concepts/comments/" }
 ---
 
-<div class="learn">
-  <div class="learn__label">You'll learn</div>
-  <ul>
-    <li>what an artifact, annotation, and decision are</li>
-    <li>why a session keeps one stable id across revisions</li>
-    <li>how a resubmit folds into the same session instead of spawning a new one</li>
-  </ul>
-</div>
+A Thread is the unit of review in cueloop. It contains:
 
-A thread is the core primitive in cueloop. It pairs three things:
+- the plan, reply, diff, prototype, or pull request you are reviewing,
+- comments attached to exact text, and
+- Messages sent between you and the agent.
 
-- an **artifact** - a plan, an agent's reply, a working-tree diff, a pull
-  request, or a component design doc,
-- **annotations** anchored to the exact text they discuss, and
-- a **decision** - the structured result you hand back.
+## Revisions stay in one Thread
 
-Every review, every share, and every agent gate is built on this one shape. Once
-you understand the session, the rest of the product is small.
+When an agent responds to feedback, cueloop adds the revision to the existing
+Thread. You do not get a new item for every round.
 
-## What a session carries
+Comments remain attached when their quoted text still exists. If cueloop
+cannot match a comment safely, it marks the comment as outdated instead
+of attaching it to the wrong text.
 
-Each session has a stable id, minted once and never reused. It looks like this:
+## Thread status
 
-```text
-ses_20260809210620_13hwi
+A pending Thread is waiting for a Message. Approve or Changes completes
+that review round. Comment sends feedback while leaving the Thread open.
+
+Each Thread has an ID that starts with `ses_`. You can use the ID with any
+command that accepts a Thread.
+
+```bash
+cueloop ses_20260809210620_13hwi
 ```
 
-The id encodes the moment the session was created, so two sessions never collide
-and any tool can refer to a session unambiguously.
-
-Alongside the id, a session carries:
-
-- a **title** - a short human label for the artifact under review,
-- **revisions** - each resubmit pushes a new revision onto the session, so the
-  history of what changed stays in one place, and
-- a **status** - `pending` while it waits for a decision, `resolved` once you
-  send one.
-
-## Why resubmits update the same session
-
-An agent opens a session, and later revises it, by its agent-session id. When the
-agent resubmits after you request changes, cueloop matches that id and pushes a
-new revision onto the **same** session instead of spawning a new one.
-
-That single detail is what keeps a back-and-forth review coherent. Your
-annotations, the decision history, and the id all stay put across revisions, so
-you are always reviewing the next draft of one thing rather than a pile of
-look-alike sessions.
-
-<div class="callout">
-  <div class="callout__label">One id, many revisions</div>A session is stable. The artifact inside
-  it can change revision by revision, but the id, the title, and the annotation history travel with
-  it.
-</div>
+Read [Comments](/docs/concepts/comments/) next, or use
+[History](/docs/concepts/history/) when you need to explore an
+alternative without replacing the current work.

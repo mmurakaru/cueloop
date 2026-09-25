@@ -31,6 +31,10 @@ export interface DiffRow {
   newLine?: number;
 }
 
+function isCodeRow(row: DiffRow | undefined): row is DiffRow {
+  return row !== undefined && row.kind !== "file" && row.kind !== "hunk";
+}
+
 export function diffRows(patchText: string): DiffRow[] {
   const rows: DiffRow[] = [];
   const patches = parsePatchFiles(patchText);
@@ -168,6 +172,73 @@ export function marksByRows(
   return marksByIndex;
 }
 
+function addResolvedMark(
+  marksByIndex: Map<number, Mark[]>,
+  annotation: Annotation,
+  blocks: Block[],
+  startBlockIndex: number,
+  endBlockIndex: number,
+  focusedId?: string,
+): void {
+  const startAnchor = annotation.reviewComment?.startAnchor ?? annotation.anchor;
+  const span: TextSpan = {
+    start: {
+      blockIndex: startBlockIndex,
+      char: Math.min(startAnchor.start ?? 0, blocks[startBlockIndex]!.text.length),
+    },
+    end: {
+      blockIndex: endBlockIndex,
+      char: Math.min(
+        annotation.anchor.end ?? annotation.anchor.quote.length,
+        blocks[endBlockIndex]!.text.length,
+      ),
+    },
+  };
+
+  for (let rowIndex = startBlockIndex; rowIndex <= endBlockIndex; rowIndex++) {
+    const range = spanRangeInBlock(span, rowIndex, blocks[rowIndex]!.text.length);
+
+    const marksEmptyLine =
+      range === null &&
+      startBlockIndex === endBlockIndex &&
+      rowIndex === startBlockIndex &&
+      blocks[rowIndex]!.text.length === 0;
+
+    if (!range && !marksEmptyLine) continue;
+    const marks = marksByIndex.get(rowIndex) ?? [];
+
+    marks.push({
+      start: range?.start ?? 0,
+      end: range?.end ?? 0,
+      role: annotation.id === focusedId ? "mark-focus" : "mark-comment",
+      annotationId: annotation.id,
+      span,
+    });
+    marksByIndex.set(rowIndex, marks);
+  }
+}
+
+function addReviewFindingMark(
+  marksByIndex: Map<number, Mark[]>,
+  annotation: Annotation,
+  rows: DiffRow[],
+  blocks: Block[],
+  focusedId?: string,
+): boolean {
+  const finding = annotation.reviewComment;
+
+  if (!finding || isAddressed(annotation)) return false;
+  const end = resolveReviewAnchorRow(rows, annotation.anchor, finding.path, finding.side);
+  const start = finding.startAnchor
+    ? resolveReviewAnchorRow(rows, finding.startAnchor, finding.path, finding.side)
+    : end;
+
+  if (!start || !end || start.rowIndex > end.rowIndex) return false;
+  addResolvedMark(marksByIndex, annotation, blocks, start.rowIndex, end.rowIndex, focusedId);
+
+  return true;
+}
+
 /**
  * A whole file rendered as context rows, so the diff sheet can show and annotate a plain file the
  * same way it does a diff: every line is unchanged, numbered on both sides (the file view collapses
@@ -225,7 +296,76 @@ export function fileTargetMarks(
 
     if (!range) continue;
     const base = range.start;
-    const fileMarks = marksByRows(fileAnnotations, rows.slice(range.start, range.end), focusedId);
+    const fileRows = rows.slice(range.start, range.end);
+    const reviewRootIds = new Set(
+      fileAnnotations.flatMap((annotation) =>
+        annotation.reviewComment === undefined ? [] : [annotation.id],
+      ),
+    );
+    const ordinaryAnnotations = fileAnnotations.filter(
+      (annotation) =>
+        annotation.reviewComment === undefined &&
+        (annotation.replyTo === undefined || !reviewRootIds.has(annotation.replyTo)),
+    );
+    const fileMarks = marksByRows(ordinaryAnnotations, fileRows, focusedId);
+    const blocks = diffRowBlocks(fileRows);
+    const resolvedIds = new Set(
+      [...fileMarks.values()]
+        .flat()
+        .flatMap((mark) => (mark.annotationId === undefined ? [] : [mark.annotationId])),
+    );
+
+    for (const annotation of fileAnnotations) {
+      const finding = annotation.reviewComment;
+
+      if (!finding || isAddressed(annotation)) continue;
+      if (addReviewFindingMark(fileMarks, annotation, fileRows, blocks, focusedId)) {
+        resolvedIds.add(annotation.id);
+        continue;
+      }
+      const relativeRow = fileRows.findIndex(
+        (row) =>
+          (finding.side === "RIGHT" ? row.newLine : row.oldLine) === finding.line &&
+          row.kind !== "file" &&
+          row.kind !== "hunk",
+      );
+      const fallbackRow = relativeRow === -1 ? 0 : relativeRow;
+      const mark: Mark = {
+        start: 0,
+        end: 0,
+        role: annotation.id === focusedId ? "mark-focus" : "mark-comment",
+        annotationId: annotation.id,
+        outdated: true,
+        span: {
+          start: { blockIndex: fallbackRow, char: 0 },
+          end: { blockIndex: fallbackRow, char: 0 },
+        },
+      };
+
+      fileMarks.set(fallbackRow, [...(fileMarks.get(fallbackRow) ?? []), mark]);
+      resolvedIds.add(annotation.id);
+    }
+
+    for (const annotation of fileAnnotations) {
+      if (!annotation.replyTo || resolvedIds.has(annotation.id) || isAddressed(annotation))
+        continue;
+      const parent = [...fileMarks.entries()].find(([, marks]) =>
+        marks.some((mark) => mark.annotationId === annotation.replyTo),
+      );
+
+      if (!parent) continue;
+      const [fallbackRow, parentMarks] = parent;
+      const parentMark = parentMarks.find((mark) => mark.annotationId === annotation.replyTo)!;
+      const replyMark: Mark = {
+        ...parentMark,
+        role: annotation.id === focusedId ? "mark-focus" : "mark-comment",
+        annotationId: annotation.id,
+        outdated: parentMark.outdated,
+      };
+
+      fileMarks.set(fallbackRow, [...parentMarks, replyMark]);
+      resolvedIds.add(annotation.id);
+    }
 
     for (const [relativeRow, marks] of fileMarks) {
       result.set(
@@ -279,8 +419,17 @@ export function changesMarks(
     const artifactNotes = session.annotations.filter(
       (annotation) => annotationTarget(annotation).kind === "artifact",
     );
+    const marks = marksByRows(artifactNotes, rows, focusedId);
 
-    return marksByRows(artifactNotes, rows, focusedId);
+    // Agent PR findings carry a file target so repeated text cannot bind across files.
+    // Plain diff comments still use the artifact target for backward compatibility.
+    if (session.artifact.meta.pr !== undefined) {
+      for (const [row, fileMarks] of fileTargetMarks(session.annotations, rows, focusedId)) {
+        marks.set(row, [...(marks.get(row) ?? []), ...fileMarks]);
+      }
+    }
+
+    return marks;
   }
 
   return fileTargetMarks(session.annotations, rows, focusedId);
@@ -308,20 +457,61 @@ export function commentCountsByFile(session: Thread, rows: DiffRow[]): Map<strin
 /** Quote-primary anchor for a diff row: neighbors as context selectors. */
 export function diffRowAnchor(rows: DiffRow[], rowIndex: number) {
   const row = rows[rowIndex]!;
+  const context = diffRowAnchorContext(rows, rowIndex);
+
+  return {
+    quote: diffRowText(row),
+    ...context,
+    blockIndex: rowIndex,
+    endBlockIndex: rowIndex,
+    start: 0,
+    end: diffRowText(row).length,
+  };
+}
+
+function diffRowAnchorContext(
+  rows: DiffRow[],
+  rowIndex: number,
+): Pick<Annotation["anchor"], "prefix" | "suffix"> {
   const prev = rows[rowIndex - 1];
   const next = rows[rowIndex + 1];
 
   return {
-    quote: row.text,
-    prefix:
-      prev && (prev.kind === "ctx" || prev.kind === "add" || prev.kind === "del")
-        ? prev.text.slice(-24)
-        : "",
-    suffix:
-      next && (next.kind === "ctx" || next.kind === "add" || next.kind === "del")
-        ? next.text.slice(0, 24)
-        : "",
+    prefix: isCodeRow(prev) ? diffRowText(prev).slice(-24) : "",
+    suffix: isCodeRow(next) ? diffRowText(next).slice(0, 24) : "",
   };
+}
+
+/** Resolve a publishable PR finding exactly; fuzzy matches must remain visibly outdated. */
+export function resolveReviewAnchorRow(
+  rows: DiffRow[],
+  anchor: Annotation["anchor"],
+  path: string,
+  side: "LEFT" | "RIGHT",
+): { row: DiffRow; rowIndex: number } | undefined {
+  const candidates = rows.flatMap((row, rowIndex) => {
+    if (
+      row.file !== path ||
+      diffRowText(row) !== anchor.quote ||
+      (side === "RIGHT" ? row.newLine === undefined : row.oldLine === undefined)
+    )
+      return [];
+    const context = diffRowAnchorContext(rows, rowIndex);
+
+    return [
+      {
+        row,
+        rowIndex,
+        score: Number(context.prefix === anchor.prefix) + Number(context.suffix === anchor.suffix),
+      },
+    ];
+  });
+
+  if (candidates.length === 0) return undefined;
+  const bestScore = Math.max(...candidates.map((candidate) => candidate.score));
+  const best = candidates.filter((candidate) => candidate.score === bestScore);
+
+  return best.length === 1 ? best[0] : undefined;
 }
 
 /** Location label for the rail and feedback: file:newLine (or old for del). */

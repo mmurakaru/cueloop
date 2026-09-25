@@ -13,6 +13,7 @@ import {
   dragText,
   frameRow,
   isolateUserConfig,
+  navCommand,
   pressKey,
   renderReadyApp,
   typeText,
@@ -97,7 +98,7 @@ describe("observer rendering", () => {
 describe("observer primitives are blocked", () => {
   const attempts: Array<[string, (setup: Setup) => Promise<void>]> = [
     ["comment (typing)", (setup) => typeText(setup, "c")],
-    ["cut (option+x)", (setup) => pressKey(setup, "x", { meta: true })],
+    ["cut (option+x)", (setup) => navCommand(setup, "x")],
     ["edit (ctrl+e)", (setup) => pressKey(setup, "e", { ctrl: true })],
     ["submit (cmd+enter)", (setup) => pressKey(setup, "RETURN", { meta: true })],
   ];
@@ -113,7 +114,7 @@ describe("observer primitives are blocked", () => {
 
       // no draft card and no submit card ever appear
       expect(frame).not.toContain("● c");
-      expect(frame).not.toContain("[Approve]");
+      expect(frame).not.toContain("[approve]");
       expect(snapshot()).toEqual(before);
     });
   }
@@ -136,14 +137,14 @@ describe("observer primitives are blocked", () => {
 
 describe("a resolved review is read-only for its owner too", () => {
   test("typing, deleting a card, and editing answer review submitted - read-only", async () => {
-    // Arrange: a comment exists and the verdict is in
+    // Arrange: a comment exists and the message is in
     server.core.sessionAnnotate(session.id, {
       id: "a_done",
       kind: "comment",
       anchor: makeAnchor(parseBlocks(PLAN), 2, 0, 10),
       body: "settled",
     });
-    server.core.sessionResolve(session.id, "approve", "");
+    server.core.sessionSendMessage(session.id, "approved", "");
     const setup = await renderReadyApp(<App home={home} sessionId={session.id} />, {
       width: 120,
       height: 32,
@@ -159,10 +160,10 @@ describe("a resolved review is read-only for its owner too", () => {
     expect(setup.captureCharFrame()).not.toContain("● c");
 
     // Act + Assert: the focused card cannot be deleted or edited
-    await pressKey(setup, "n", { meta: true });
+    await navCommand(setup, "n");
     await pressKey(setup, "BACKSPACE", { meta: true });
-    await pressKey(setup, "e", { meta: true });
-    await pressKey(setup, "x", { meta: true });
+    await pressKey(setup, "e", { ctrl: true });
+    await navCommand(setup, "x");
     expect(snapshot()).toEqual(before);
     expect(server.core.sessionGet(session.id).annotations).toHaveLength(1);
   });
@@ -199,7 +200,7 @@ describe("observer navigation still works", () => {
     const setup = await renderObserver();
 
     // Act - the observer navigates to the annotation without mutating anything
-    await pressKey(setup, "n", { meta: true });
+    await navCommand(setup, "n");
     await setup.renderOnce();
 
     // Assert - the observer reads the controller's comment inline in the thread

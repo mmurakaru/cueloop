@@ -4,10 +4,13 @@ import {
   persistActions,
   persistAutoClose,
   persistDiffView,
+  persistReviewSkill,
+  persistReviewWorkspace,
   persistTheme,
   type AutoClose,
   type DiffViewMode,
   type QuickAction,
+  type ReviewWorkspaceMode,
 } from "./config";
 import {
   composeTheme,
@@ -90,6 +93,11 @@ export function useSettingsDialog(params: {
   identityProvider: "typed" | "github";
   onSyncGithubIdentity: () => void;
   onRenameDisplayName: () => void;
+  reviewSkill: string;
+  reviewSkillOptions: string[];
+  setReviewSkill: Dispatch<SetStateAction<string>>;
+  reviewWorkspace: ReviewWorkspaceMode;
+  setReviewWorkspace: Dispatch<SetStateAction<ReviewWorkspaceMode>>;
 }): SettingsDialogModel {
   const {
     theme,
@@ -109,6 +117,11 @@ export function useSettingsDialog(params: {
     identityProvider,
     onSyncGithubIdentity,
     onRenameDisplayName,
+    reviewSkill,
+    reviewSkillOptions,
+    setReviewSkill,
+    reviewWorkspace,
+    setReviewWorkspace,
   } = params;
 
   // open focused on the left nav, so up/down browses categories until l/tab/enter enters the body
@@ -191,6 +204,24 @@ export function useSettingsDialog(params: {
       ],
     },
     {
+      id: "review",
+      name: "Review",
+      rows: [
+        {
+          key: "reviewSkill",
+          label: "Skill",
+          kind: "cycle",
+          options: reviewSkillOptions,
+        },
+        {
+          key: "reviewWorkspace",
+          label: "Workspace",
+          kind: "cycle",
+          options: ["worktree", "current"],
+        },
+      ],
+    },
+    {
       id: "actions",
       name: "Actions",
       rows: [],
@@ -226,6 +257,8 @@ export function useSettingsDialog(params: {
     displayName: identityName ?? "-- not set --",
     identitySource: identityProvider === "github" ? "GitHub" : "typed",
     syncGithub: "enter to sync",
+    reviewSkill,
+    reviewWorkspace,
   };
   const cycleSetting = (rowKey: string): void => {
     if (rowKey === "autoClose") {
@@ -248,6 +281,17 @@ export function useSettingsDialog(params: {
       onSyncGithubIdentity();
     } else if (rowKey === "displayName") {
       onRenameDisplayName();
+    } else if (rowKey === "reviewSkill") {
+      const current = Math.max(0, reviewSkillOptions.indexOf(reviewSkill));
+      const next = reviewSkillOptions[(current + 1) % reviewSkillOptions.length]!;
+
+      setReviewSkill(next);
+      persistReviewSkill(next);
+    } else if (rowKey === "reviewWorkspace") {
+      const next: ReviewWorkspaceMode = reviewWorkspace === "worktree" ? "current" : "worktree";
+
+      setReviewWorkspace(next);
+      persistReviewWorkspace(next);
     }
   };
 

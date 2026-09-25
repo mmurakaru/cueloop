@@ -1,10 +1,25 @@
 import { describe, expect, test } from "bun:test";
-import { defaultLayout, layoutFromPanes, planLayout, reviewLayout } from "./launch-layout";
+import {
+  defaultLayout,
+  layoutFromPanes,
+  planLayout,
+  pullRequestReviewLayout,
+  reviewLayout,
+} from "./launch-layout";
 
 describe("launch layout factories", () => {
   test("review opens the diff zoomed with the Changes panel", () => {
     // Assert
     expect(reviewLayout()).toEqual({ threads: true, rightSidebar: "changes", zoomChanges: true });
+  });
+
+  test("pull request review keeps its brief beside the Changes panel", () => {
+    // Assert
+    expect(pullRequestReviewLayout()).toEqual({
+      threads: true,
+      rightSidebar: "changes",
+      zoomChanges: false,
+    });
   });
 
   test("plan fills the middle with the thread pane and no right region", () => {

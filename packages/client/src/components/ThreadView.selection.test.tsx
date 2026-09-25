@@ -58,7 +58,7 @@ function session(annotations: Annotation[] = []) {
   });
 }
 
-async function mount(annotations: Annotation[] = []): Promise<void> {
+async function mount(annotations: Annotation[] = [], height = 24): Promise<void> {
   annotate = mock<AnnotateHandler>(() => {});
   reply = mock<ReplyHandler>(() => {});
   const display = buildDisplay(PLAN, undefined);
@@ -75,7 +75,7 @@ async function mount(annotations: Annotation[] = []): Promise<void> {
       onUpdateAnnotation={() => {}}
       onExit={() => {}}
     />,
-    { width: 64, height: 24 },
+    { width: 64, height },
   );
   await settle(setup);
   await settle(setup);
@@ -391,6 +391,20 @@ describe("marking across rows", () => {
     expect(rows.get(origin.row + 1)).toBe("session, t");
   });
 
+  test("shift+down extends a mark to the same column on the next visual row", async () => {
+    const origin = stanzaOrigin();
+    const column = STANZA_ROWS[0]!.indexOf("written");
+
+    await setup.mockMouse.click(origin.column + column, origin.row);
+    await settle(setup);
+    setup.mockInput.pressKey("ARROW_DOWN", { shift: true });
+    await settle(setup);
+
+    expect(highlightedAcrossRows()).toBe(
+      STANZA.slice(stanzaOffset(0, column), stanzaOffset(1, column)).replace("\n", " "),
+    );
+  });
+
   test("a backward drag up two rows normalizes to the same characters", async () => {
     // Arrange: press inside "crash" on row three
     const origin = stanzaOrigin();
@@ -462,6 +476,44 @@ describe("marking across rows", () => {
 
     // Assert
     expect(highlightedByRow().size).toBe(0);
+  });
+
+  test("holding a mark at the viewport edge scrolls and extends it", async () => {
+    setup.renderer.destroy();
+    await mount([], 10);
+    const origin = locate("daemon");
+
+    await setup.mockMouse.pressDown(origin.column, origin.row);
+    await setup.mockMouse.moveTo(63, 9);
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    await settle(setup);
+    await setup.mockMouse.release(63, 9);
+
+    expect(setup.captureCharFrame()).not.toContain("# Plan");
+    expect(highlightedText().length).toBeGreaterThan("daemon".length);
+  });
+
+  test("opening a comment on the document's last line reveals its composer", async () => {
+    setup.renderer.destroy();
+    await mount([], 10);
+
+    for (let step = 0; step < 20; step++) {
+      setup.mockInput.pressKey("ARROW_DOWN");
+      // eslint-disable-next-line no-await-in-loop
+      await settle(setup);
+    }
+    const lastLine = locate(BULLETS[1]!);
+
+    await setup.mockMouse.drag(
+      lastLine.column,
+      lastLine.row,
+      lastLine.column + "schema.ts".length,
+      lastLine.row,
+    );
+    await settle(setup);
+    await typeText(setup, "bottom comment");
+
+    expect(setup.captureCharFrame()).toContain("● bottom comment");
   });
 });
 
