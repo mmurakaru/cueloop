@@ -37,16 +37,36 @@ claude plugin install cueloop@cueloop
 CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1 claude
 ```
 
+To update the plugin:
+
+```bash
+claude plugin marketplace update cueloop
+claude plugin update cueloop@cueloop
+```
+
 ### Codex
 
 ```bash
-codex plugin marketplace add mmurakaru/cueloop && codex plugin add cueloop@cueloop
+codex plugin marketplace add mmurakaru/cueloop
+codex plugin add cueloop@cueloop
+```
+
+To update the plugin:
+
+```bash
+codex plugin marketplace upgrade cueloop
 ```
 
 ### pi
 
 ```bash
 pi install npm:@cueloop/pi
+```
+
+To update the extension:
+
+```bash
+pi update npm:@cueloop/pi
 ```
 
 ## Complete your first review
