@@ -44,7 +44,7 @@ function initialPanes(options?: ChangesWorkbenchOptions): InitialPanes {
     return {
       projectOpen: layout.rightSidebar !== "off",
       changesOpen,
-      projectMode: layout.rightSidebar === "project" ? "tree" : "changes",
+      projectMode: layout.projectMode ?? (layout.rightSidebar === "project" ? "tree" : "changes"),
       // zoom fills the middle with the Changes editor, so a hand-edited layout that zooms without one
       // would strand a blank center with the Thread pane hidden; only honor zoom when Changes is open
       zoomed: layout.zoomChanges && changesOpen,
@@ -99,7 +99,7 @@ export function useChangesWorkbench(options?: ChangesWorkbenchOptions): ChangesW
     seenSession.current = sessionId;
     setProjectOpen(isDiff);
     setChangesOpen(isDiff);
-    setProjectMode(isDiff ? "changes" : "tree");
+    setProjectMode(isDiff ? (options?.layout?.projectMode ?? "changes") : "tree");
     rememberedChanges.current = isDiff;
     // a non-diff thread has no Changes editor; leaving zoom on would strand the hidden Thread pane
     if (!isDiff) setZoomed(false);

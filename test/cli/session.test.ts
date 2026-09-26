@@ -16,9 +16,11 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import * as v from "valibot";
 import { DaemonClient } from "@cueloop/daemon/client";
 import { VcsSourceManager } from "@cueloop/daemon/vcs-source";
 import type { HarnessBinding, PendingDelivery, Thread } from "@cueloop/schema";
+import { hermeticCueloopEnvironment } from "../helpers/env";
 import { cliJson, runCli } from "../helpers/cli";
 import { createTestGitRepo } from "../helpers/git-repo";
 
@@ -600,6 +602,41 @@ printf 'term-1\\n'
     expect(byId.get("nested_cli")).toMatchObject({ replyTo: "root_cli" });
   });
 
+  test("annotate --reply-to keeps a file comment's target", async () => {
+    const client = await DaemonClient.connect({ home });
+
+    await client.sessionAnnotate(sessionId, {
+      id: "file_root_cli",
+      kind: "comment",
+      anchor: { quote: "two phases", prefix: "", suffix: "" },
+      body: "What does this file do?",
+      target: { kind: "file", path: "src/example.ts", rev: "worktree" },
+    });
+    client.close();
+
+    const replied = cliJson<Thread>(
+      await runCli(home, [
+        "session",
+        "annotate",
+        sessionId,
+        "--annotation-id",
+        "file_reply_cli",
+        "--reply-to",
+        "file_root_cli",
+        "--body",
+        "It handles the example flow.",
+        "--author",
+        "agent",
+      ]),
+    );
+    const reply = replied.annotations.find((annotation) => annotation.id === "file_reply_cli");
+
+    expect(reply).toMatchObject({
+      replyTo: "file_root_cli",
+      target: { kind: "file", path: "src/example.ts", rev: "worktree" },
+    });
+  });
+
   test("annotate --selector anchors a prototype comment to an element", async () => {
     // Act
     const annotated = cliJson<Thread>(
@@ -705,10 +742,15 @@ printf 'term-1\\n'
   });
 
   test("events streams a session's changes with the entry each one appended", async () => {
-    // Arrange: a follower that prints the first event and exits
-    const follower = runCli(home, ["session", "events", sessionId, "--once"]);
+    const cliEntry = join(import.meta.dir, "../../packages/cli/src/main.ts");
+    const follower = Bun.spawn(
+      [process.execPath, "run", cliEntry, "session", "events", sessionId, "--ready", "--once"],
+      { env: hermeticCueloopEnvironment(home), stdout: "pipe", stderr: "pipe" },
+    );
+    const reader = follower.stdout.getReader();
+    const ready = await reader.read();
 
-    await Bun.sleep(600);
+    expect(new TextDecoder().decode(ready.value)).toContain('"event":"events.ready"');
 
     // Act: a comment lands while it listens
     const annotated = cliJson<Thread>(
@@ -726,11 +768,46 @@ printf 'term-1\\n'
     );
 
     // Assert
-    const event = cliJson<{ event: string; sessionId: string; entryId?: string }>(await follower);
+    let eventOutput = "";
+    const decoder = new TextDecoder();
+
+    while (!eventOutput.endsWith("\n}\n")) {
+      const chunk = await reader.read();
+
+      expect(chunk.done).toBe(false);
+      eventOutput += decoder.decode(chunk.value, { stream: true });
+    }
+    const event = v.parse(
+      v.object({ event: v.string(), sessionId: v.string(), entryId: v.optional(v.string()) }),
+      JSON.parse(eventOutput),
+    );
 
     expect(event.event).toBe("session.updated");
     expect(event.sessionId).toBe(sessionId);
     expect(event.entryId).toBe(annotated.history!.entries.at(-1)!.id);
+    expect(await follower.exited).toBe(0);
+    reader.releaseLock();
+  });
+
+  test("events exits with an error when its daemon connection closes", async () => {
+    const cliEntry = join(import.meta.dir, "../../packages/cli/src/main.ts");
+    const follower = Bun.spawn(
+      [process.execPath, "run", cliEntry, "session", "events", sessionId, "--ready"],
+      { env: hermeticCueloopEnvironment(home), stdout: "pipe", stderr: "pipe" },
+    );
+    const reader = follower.stdout.getReader();
+    const firstLine = await reader.read();
+
+    expect(new TextDecoder().decode(firstLine.value)).toContain('"event":"events.ready"');
+
+    const client = await DaemonClient.connect({ home });
+
+    await client.shutdown();
+    client.close();
+
+    expect(await follower.exited).toBe(1);
+    expect(await new Response(follower.stderr).text()).toContain("daemon connection closed");
+    reader.releaseLock();
   });
 
   test("cut and restore edit the working copy through the daemon and leave reviewer revisions", async () => {

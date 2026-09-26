@@ -19,6 +19,7 @@ cueloop <session-id>        # open one session by its ses_… id
 cueloop plan [id|title]     # latest pending plan, or one you name
 cueloop reply [id|title]    # latest pending reply review
 cueloop diff [id|title]     # working-tree diff review
+cueloop pair [thread-id]    # live pairing workbench
 cueloop prototype [file]    # review a component design doc (Markdown)
 cueloop review <pr>         # pull a pull request in and review it
 ```
@@ -124,7 +125,7 @@ cueloop session annotate <id> --reply-to <comment-id> --body "Rollout."  # a rep
 cueloop session annotate <id> --selector "main > h1" --body "Too loud."  # a pixel-prototype comment, by element (experimental)
 cueloop session remove <id> <comment-id>                                 # remove a comment
 cueloop session name-self <id> "Ana" --author <fingerprint>              # the display name of an author
-cueloop session events <id> [--once]                                     # follow the session: one JSON line per change
+cueloop session events <id> [--once] [--ready]                           # follow events; --ready prints after subscribing
 ```
 
 Review operations:

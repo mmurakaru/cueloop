@@ -2,7 +2,7 @@ import { join } from "node:path";
 import * as v from "valibot";
 import { DaemonClient, DaemonClientError } from "@cueloop/daemon/client";
 import { cueloopHome } from "@cueloop/daemon/paths";
-import { WORKFLOW_KINDS, type HarnessBinding } from "@cueloop/schema";
+import { WORKFLOW_KINDS, WORKFLOW_SKILL_KINDS, type HarnessBinding } from "@cueloop/schema";
 import {
   createHarnessThreadController,
   type HarnessThreadController,
@@ -356,7 +356,7 @@ export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
       await start(context);
     });
     pi.on("session_shutdown", () => stop());
-    for (const workflow of WORKFLOW_KINDS) {
+    for (const workflow of WORKFLOW_SKILL_KINDS) {
       pi.registerCommand(`cueloop:${workflow}`, {
         description: `Run the cueloop ${workflow} workflow`,
         handler: (args) => {

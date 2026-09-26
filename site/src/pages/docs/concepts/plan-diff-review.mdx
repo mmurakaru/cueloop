@@ -15,6 +15,7 @@ cueloop                 # open all pending Threads
 cueloop plan            # open a plan
 cueloop reply           # open an agent response
 cueloop diff            # review working-tree changes
+cueloop pair            # pair on a live workbench with an agent
 cueloop prototype       # review a component design document
 cueloop review 42       # review pull request 42
 ```
@@ -30,7 +31,8 @@ same Thread view. You can comment on text, edit it, and send a Message.
 ## Review working-tree changes
 
 Run `cueloop diff` in a repository with uncommitted changes. cueloop creates a
-Thread from the working tree and opens it in the Changes view.
+Thread from the working tree and opens it in the Changes view. `cueloop pair`
+opens that live workbench with the Project tree focused for code comments.
 
 See [Review diffs](/docs/concepts/diffs/) for Git, JJ, refresh, and source
 selection.

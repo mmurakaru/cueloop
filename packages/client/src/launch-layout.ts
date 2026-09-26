@@ -12,11 +12,26 @@ export interface LaunchLayout {
   rightSidebar: "changes" | "project" | "off";
   /** The Changes editor is zoomed - the Thread pane hides so the diff fills the middle. */
   zoomChanges: boolean;
+  /** Which Project sidebar tab opens while the Changes editor stays visible. */
+  projectMode?: "changes" | "tree";
+  /** Keyboard focus when opening a selected Thread. */
+  focusPane?: "threads" | "thread" | "changes" | "project";
 }
 
 /** `cueloop diff`: the diff front and center. */
 export function reviewLayout(): LaunchLayout {
   return { threads: true, rightSidebar: "changes", zoomChanges: true };
+}
+
+/** `cueloop pair`: browse project files beside the zoomed Changes editor. */
+export function pairLayout(): LaunchLayout {
+  return {
+    threads: true,
+    rightSidebar: "changes",
+    zoomChanges: true,
+    projectMode: "tree",
+    focusPane: "project",
+  };
 }
 
 /** `cueloop review <pr>`: PR context beside the Changes panel. */
