@@ -111,6 +111,18 @@ describe("openReview", () => {
         firstDiff.patch,
         secondDiff.patch,
       ]);
+      const unmatched = await openReview(client, {
+        type: "diff",
+        content: "diff --git a/elsewhere b/elsewhere\n",
+        cwd: repo,
+        vcs: "jj",
+        agent: "codex",
+        agentSessionId: "one-agent-session",
+      });
+
+      expect(unmatched.id).toBe(first.id);
+      expect(unmatched.session.artifact.files).toEqual([]);
+      expect(unmatched.session.artifact.meta.vcsRevisionId).toBeUndefined();
       sh(["jj", "new", "-m", "next change"], repo);
       writeFileSync(join(repo, "b.txt"), "third\n");
       const thirdDiff = await sources.capture(repo, "jj");

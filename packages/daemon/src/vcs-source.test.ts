@@ -116,4 +116,31 @@ describe("VcsSourceManager", () => {
     expect((await source.select(repo)).adapter.id).toBe("example.sapling");
     expect((await source.capture(repo)).patch).toBe("custom patch");
   });
+
+  test("a failing extension detection leaves the built-in Git source usable", async () => {
+    const root = createTestVcsDirectory(created);
+    const repo = createTestVcsGitRepo(created);
+    const extension = join(root, "broken.ts");
+    const config = join(root, "config.toml");
+
+    writeFileSync(
+      extension,
+      `export default (api) => api.registerVcsAdapter({
+        apiVersion: 1,
+        id: "example.broken",
+        detect: async () => { throw new Error("broken checkout probe"); },
+        captureWorkingDiff: async () => ({ patch: "", files: [] }),
+        listChanges: async () => [],
+        listFiles: async () => [],
+      });\n`,
+    );
+    writeFileSync(config, `[vcs]\nextensions = ["${extension}"]\n`);
+    const source = new VcsSourceManager(config);
+
+    expect((await source.select(repo)).adapter.id).toBe("git");
+    expect((await source.capture(repo)).vcs).toBe("git");
+    expect(source.extensionErrors).toContain(
+      "VCS adapter example.broken detection failed: Error: broken checkout probe",
+    );
+  });
 });

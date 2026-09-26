@@ -40,6 +40,8 @@ test("a Codex reply is delivered without an MCP transport", async () => {
   if (opened.operation !== "open") throw new Error("expected open Thread");
   const previousCodexBin = process.env.CUELOOP_CODEX_BIN;
 
+  // A reused PID belonging to this test process must not impersonate the worker.
+  writeFileSync(join(home, "codex-delivery-worker.pid"), String(process.pid));
   process.env.CUELOOP_CODEX_BIN = codexBin;
   worker = startCodexDeliveryWorker(home, [
     process.execPath,

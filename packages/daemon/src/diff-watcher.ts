@@ -139,7 +139,7 @@ export class DiffWatcher {
     // one watcher per non-ignored working-tree directory; a tracked-file change re-captures
     if (!this.watchTree(repoRoot, repoRoot)) {
       // repo root gone or not watchable on this platform: skip, no hot-reload here
-      this.repoWatches.delete(repoRoot);
+      this.untrackDiffRepo(repoRoot, sessionId);
 
       return;
     }

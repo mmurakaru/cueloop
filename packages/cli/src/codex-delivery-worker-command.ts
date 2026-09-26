@@ -9,10 +9,10 @@ const EMPTY_SESSION_GRACE_MS = 30_000;
 function claimWorker(path: string): boolean {
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      const fd = openSync(path, "wx", 0o600);
+      const descriptor = openSync(path, "wx", 0o600);
 
-      writeSync(fd, String(process.pid));
-      closeSync(fd);
+      writeSync(descriptor, String(process.pid));
+      closeSync(descriptor);
 
       return true;
     } catch (error) {
@@ -23,8 +23,16 @@ function claimWorker(path: string): boolean {
       if (Number.isSafeInteger(owner) && owner > 0) {
         try {
           process.kill(owner, 0);
+          const command = Bun.spawnSync(["ps", "-p", String(owner), "-o", "command="], {
+            stdout: "pipe",
+            stderr: "ignore",
+          });
 
-          return false;
+          if (
+            command.exitCode === 0 &&
+            /(?:^|\s)codex-delivery-worker(?:\s|$)/.test(command.stdout.toString())
+          )
+            return false;
         } catch (cause) {
           if (!(cause instanceof Error && "code" in cause && cause.code === "ESRCH")) return false;
         }

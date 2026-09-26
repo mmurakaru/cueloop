@@ -34,7 +34,7 @@ Save this file as `~/.config/cueloop/sapling.ts`:
 ```ts
 import type { ExtensionAPI, VcsAdapter } from "@cueloop/extension-api";
 
-async function sl(root: string, ...args: string[]): Promise<string> {
+async function runSapling(root: string, ...args: string[]): Promise<string> {
   const child = Bun.spawn(["sl", ...args], {
     cwd: root,
     stdout: "pipe",
@@ -52,16 +52,16 @@ const sapling: VcsAdapter = {
   id: "example.sapling",
   async detect(cwd) {
     try {
-      return (await sl(cwd, "root")).trim();
+      return (await runSapling(cwd, "root")).trim();
     } catch {
       return null;
     }
   },
   async captureWorkingDiff(root) {
-    return { patch: (await sl(root, "diff", "--git")).trim(), files: [] };
+    return { patch: (await runSapling(root, "diff", "--git")).trim(), files: [] };
   },
   async listChanges(root) {
-    const status = await sl(root, "status", "--root-relative", "--print0");
+    const status = await runSapling(root, "status", "--root-relative", "--print0");
 
     return status
       .split("\0")
@@ -78,7 +78,7 @@ const sapling: VcsAdapter = {
       });
   },
   async listFiles(root) {
-    const status = await sl(root, "status", "--all", "--root-relative", "--print0");
+    const status = await runSapling(root, "status", "--all", "--root-relative", "--print0");
 
     return status
       .split("\0")

@@ -132,10 +132,17 @@ export class VcsSourceManager {
     const adapters = await this.adapters();
     const detected = (
       await Promise.all(
-        adapters.map(async (adapter) => ({
-          adapter,
-          repoRoot: await adapter.detect(cwd),
-        })),
+        adapters.map(async (adapter) => {
+          try {
+            return { adapter, repoRoot: await adapter.detect(cwd) };
+          } catch (error) {
+            const message = `VCS adapter ${adapter.id} detection failed: ${String(error)}`;
+
+            if (!this.extensionErrors.includes(message)) this.extensionErrors.push(message);
+
+            return { adapter, repoRoot: null };
+          }
+        }),
       )
     ).filter((item): item is SelectedVcsSource => item.repoRoot !== null);
     const nearest = detected.toSorted((a, b) => b.repoRoot.length - a.repoRoot.length)[0];

@@ -273,7 +273,7 @@ export async function findExistingReview(
 
   if (options.agentSessionId === undefined) return undefined;
 
-  return (await client.sessionList()).find(
+  const candidates = (await client.sessionList()).filter(
     (candidate) =>
       candidate.artifact.meta.agentSessionId === options.agentSessionId &&
       candidate.artifact.meta.agent === options.agent &&
@@ -283,9 +283,19 @@ export async function findExistingReview(
         (options.workflow ?? (options.pr ? "review" : options.type)) &&
       candidate.artifact.meta.pr === options.pr &&
       candidate.workspace.repoRoot === workspace.repoRoot &&
-      candidate.workspace.branch === workspace.branch &&
-      candidate.artifact.meta.vcsChangeId === options.vcsChangeId,
+      candidate.workspace.branch === workspace.branch,
   );
+
+  if (options.vcsChangeId !== undefined)
+    return candidates.find(
+      (candidate) => candidate.artifact.meta.vcsChangeId === options.vcsChangeId,
+    );
+  if (options.type === "diff" && options.vcs === "jj")
+    return candidates
+      .filter((candidate) => candidate.artifact.meta.vcs === "jj")
+      .toSorted((left, right) => right.createdAt.localeCompare(left.createdAt))[0];
+
+  return candidates.find((candidate) => candidate.artifact.meta.vcsChangeId === undefined);
 }
 
 /** Attach VCS provenance only when the submitted patch matches a native capture. */
