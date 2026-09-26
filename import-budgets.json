@@ -9,7 +9,8 @@
       "@cueloop/extension-api"
     ],
     "@cueloop/daemon": [
-      "@cueloop/schema"
+      "@cueloop/schema",
+      "@cueloop/extension-api"
     ],
     "@cueloop/client": [
       "@cueloop/schema",

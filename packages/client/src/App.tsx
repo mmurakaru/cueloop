@@ -167,6 +167,14 @@ function shareThreadName(session: Thread | null): string {
   return session ? threadTitle(session) : "";
 }
 
+/** Show the diff source before long titles can truncate it in the header. */
+function reviewThreadTitle(session: Thread): string {
+  if (session.artifact.type === "diff" && session.artifact.meta.vcs)
+    return `vcs: ${session.artifact.meta.vcs} · ${threadTitle(session)}`;
+
+  return threadTitle(session);
+}
+
 /** The drop-up chrome or a floating popover menu (thread actions, editor split) holds the keyboard. */
 function keyboardHeldByMenu(
   menuDialog: "keybinds" | "settings" | null,
@@ -253,7 +261,7 @@ function ownerThreadActions(actions: {
   );
 }
 
-function refreshPullRequestAction(onRefresh: () => void, theme: Theme): React.ReactNode {
+function refreshDiffAction(onRefresh: () => void, theme: Theme): React.ReactNode {
   return (
     <Toolbar>
       <Button onPress={onRefresh} foreground={theme.warning} theme={theme}>
@@ -1137,21 +1145,16 @@ export function App({
     setMode,
     dispatch,
   });
-  const {
-    showOwnerActions,
-    showPullRequestRefresh,
-    prototypeCanComment,
-    chromeHidden,
-    prototypePath,
-  } = buildRenderFlags({
-    session: activeSession,
-    isOwner,
-    isDiff,
-    isPixelPrototype,
-    resolved,
-    menuDialog,
-    resolvedIds,
-  });
+  const { showOwnerActions, showDiffRefresh, prototypeCanComment, chromeHidden, prototypePath } =
+    buildRenderFlags({
+      session: activeSession,
+      isOwner,
+      isDiff,
+      isPixelPrototype,
+      resolved,
+      menuDialog,
+      resolvedIds,
+    });
 
   const onEditRequest = (): void => {
     // A share viewer/observer has no Edit affordance (the button is hidden), so
@@ -1215,7 +1218,7 @@ export function App({
                   />
                 </scrollbox>
               }
-              threadTitle={threadTitle(activeSession)}
+              threadTitle={reviewThreadTitle(activeSession)}
               threadActions={
                 showOwnerActions
                   ? ownerThreadActions({
@@ -1225,8 +1228,8 @@ export function App({
                       onShare: () => dispatch({ type: "share" }),
                       theme,
                     })
-                  : showPullRequestRefresh
-                    ? refreshPullRequestAction(() => void controller.refreshPullRequest(), theme)
+                  : showDiffRefresh
+                    ? refreshDiffAction(() => void controller.refreshDiff(), theme)
                     : undefined
               }
               threadPanel={

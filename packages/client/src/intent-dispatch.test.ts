@@ -82,7 +82,7 @@ function baseController(): ReviewController {
     repoFiles: mock(() => Promise.resolve<string[]>([])),
     repoReadFile: mock(() => Promise.resolve<string | null>(null)),
     repoChanges: mock(() => Promise.resolve([])),
-    refreshPullRequest: mock(() => Promise.resolve()),
+    refreshDiff: mock(() => Promise.resolve()),
     open: mock(),
     deleteSession: mock(),
     renameSession: mock(),

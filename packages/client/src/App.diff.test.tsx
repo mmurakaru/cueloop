@@ -68,6 +68,25 @@ async function renderApp(sessionId = session.id) {
 }
 
 describe("diff review", () => {
+  test("a submitted JJ review uses the existing refresh action and shows its source", async () => {
+    const jjReview = server.core.sessionCreate({
+      workspace: { repoRoot: "/repo", branch: "jj" },
+      artifact: {
+        type: "diff",
+        content: PATCH,
+        meta: { title: "JJ change", vcs: "jj", vcsChangeId: "abcdefghijklmnopqrstuvwxyzaaaaaa" },
+      },
+    });
+    const setup = await renderReadyApp(<App home={home} sessionId={jjReview.id} />, {
+      width: 120,
+      height: 30,
+    });
+
+    await waitForText(setup, "new Map()");
+    expect(setup.captureCharFrame()).toContain("vcs: jj");
+    expect(setup.captureCharFrame()).toContain("refresh");
+  });
+
   test("pull request review shows its brief beside Changes and signals a moved head", async () => {
     const pullRequest = server.core.sessionCreate({
       workspace: { repoRoot: "/repo", branch: "detached" },

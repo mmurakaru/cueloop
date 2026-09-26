@@ -5,6 +5,7 @@ import {
   type Artifact,
   type ArtifactType,
   type DiffFileContents,
+  type DiffSource,
   type Thread,
   type WorkspaceKey,
   type WorkflowKind,
@@ -13,6 +14,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { messageResponse } from "./api";
 import { ABORTED, pollUntilResolved, raceAbort } from "./interruptible-wait";
+import { VcsSourceManager } from "./vcs-source";
 
 // Adapters and CLI primitives reach the message mapping through this module too,
 // so a session obtained outside a ReviewHandle maps the same way.
@@ -21,6 +23,16 @@ export { messageResponse };
 async function git(args: string[], cwd: string): Promise<string | null> {
   try {
     const { stdout } = await promisify(execFile)("git", args, { cwd });
+
+    return stdout.trim();
+  } catch {
+    return null;
+  }
+}
+
+async function jjRoot(cwd: string): Promise<string | null> {
+  try {
+    const { stdout } = await promisify(execFile)("jj", ["--ignore-working-copy", "root"], { cwd });
 
     return stdout.trim();
   } catch {
@@ -39,15 +51,22 @@ function earliestRootCommit(revList: string | null): string | undefined {
 
 /** Workspace key resolution: repo root, branch, and the project identity (root commit + remote) from the cwd. */
 export async function resolveWorkspace(cwd = process.cwd()): Promise<WorkspaceKey> {
-  const repoRoot = (await git(["rev-parse", "--show-toplevel"], cwd)) ?? cwd;
-  const branch = (await git(["rev-parse", "--abbrev-ref", "HEAD"], cwd)) ?? "detached";
+  const gitRepoRoot = await git(["rev-parse", "--show-toplevel"], cwd);
+  const jjRepoRoot = await jjRoot(cwd);
+  const nativeJjRoot =
+    jjRepoRoot && (!gitRepoRoot || jjRepoRoot.length > gitRepoRoot.length) ? jjRepoRoot : null;
+  const repoRoot = nativeJjRoot ?? gitRepoRoot ?? cwd;
+  const branch = nativeJjRoot
+    ? "jj"
+    : ((await git(["rev-parse", "--abbrev-ref", "HEAD"], cwd)) ?? "detached");
   // a shallow clone's oldest commit is the graft boundary, not the true root, so
   // it would key a different project than a full clone - leave it unset instead
-  const shallow = (await git(["rev-parse", "--is-shallow-repository"], cwd)) === "true";
+  const shallow =
+    nativeJjRoot !== null || (await git(["rev-parse", "--is-shallow-repository"], cwd)) === "true";
   const rootCommit = shallow
     ? undefined
     : earliestRootCommit(await git(["rev-list", "--max-parents=0", "--date-order", "HEAD"], cwd));
-  const remote = await git(["remote", "get-url", "origin"], cwd);
+  const remote = nativeJjRoot ? null : await git(["remote", "get-url", "origin"], cwd);
 
   const workspace: WorkspaceKey = { repoRoot, branch };
   // a repo with no commits (or a shallow clone) has no reliable root, so the thread stays standalone
@@ -70,6 +89,10 @@ export interface OpenReviewOptions {
   content: string;
   /** Workspace resolution root and meta.cwd; defaults to process.cwd(). */
   cwd?: string;
+  /** Optional explicit VCS selection for a diff that matches the checkout capture. */
+  vcs?: string;
+  /** The native logical change, set after a captured JJ diff is verified. */
+  vcsChangeId?: string;
   /** Pre-resolved workspace key; skips git resolution when the caller already has it. */
   workspace?: WorkspaceKey;
   agent?: string;
@@ -114,6 +137,7 @@ export interface ThreadSessionClient {
     content: string,
     addressedAnnotationIds?: string[],
     files?: DiffFileContents[],
+    source?: DiffSource,
   ): Promise<Thread>;
   sessionAnnotate(
     id: string,
@@ -259,8 +283,34 @@ export async function findExistingReview(
         (options.workflow ?? (options.pr ? "review" : options.type)) &&
       candidate.artifact.meta.pr === options.pr &&
       candidate.workspace.repoRoot === workspace.repoRoot &&
-      candidate.workspace.branch === workspace.branch,
+      candidate.workspace.branch === workspace.branch &&
+      candidate.artifact.meta.vcsChangeId === options.vcsChangeId,
   );
+}
+
+/** Attach VCS provenance only when the submitted patch matches a native capture. */
+async function matchingDiffCapture(
+  options: OpenReviewOptions,
+  cwd: string,
+): Promise<{ source?: DiffSource; files?: DiffFileContents[] }> {
+  if (options.type !== "diff" || options.pr || !options.content.trim()) return {};
+  try {
+    const captured = await new VcsSourceManager().capture(cwd, options.vcs);
+
+    if (captured.patch.replace(/\n+$/, "") !== options.content.replace(/\n+$/, "")) return {};
+
+    return {
+      source: {
+        vcs: captured.vcs,
+        changeId: captured.source?.changeId,
+        revisionId: captured.source?.revisionId,
+      },
+      files: captured.files,
+    };
+  } catch {
+    // A supplied patch stays reviewable even when the local source is unavailable.
+    return {};
+  }
 }
 
 /** Open a thread (or revise the agent session's existing one) and hand back the wait surface. */
@@ -270,17 +320,23 @@ export async function openReview(
 ): Promise<ReviewHandle> {
   const cwd = options.cwd ?? process.cwd();
   const workspace = options.workspace ?? (await resolveWorkspace(cwd));
-  const existing = await findExistingReview(client, options);
+  const { source, files: capturedFiles } = await matchingDiffCapture(options, cwd);
+  const existing = await findExistingReview(client, {
+    ...options,
+    vcsChangeId: source?.changeId,
+  });
 
   if (existing !== undefined) {
     // PR diffs have no full file contents. An absent local-diff capture clears
     // old curatable files, while a PR revision must keep curation disabled.
-    const revisionFiles = options.type !== "diff" || options.pr ? undefined : (options.files ?? []);
+    const revisionFiles =
+      options.type !== "diff" || options.pr ? undefined : (options.files ?? capturedFiles ?? []);
     let revised = await client.sessionSubmitRevision(
       existing.id,
       options.content,
       [],
       revisionFiles,
+      source,
     );
 
     if (options.notes?.length) {
@@ -293,7 +349,7 @@ export async function openReview(
   let session = await client.sessionCreate(workspace, {
     type: options.type,
     content: options.content,
-    files: options.files,
+    files: options.files ?? capturedFiles,
     meta: {
       workflow: options.workflow,
       agent: options.agent,
@@ -310,6 +366,9 @@ export async function openReview(
         options.title ??
         (isMarkdownArtifact(options.type) ? firstHeading(options.content) : undefined),
       cwd,
+      vcs: source?.vcs,
+      vcsChangeId: source?.changeId,
+      vcsRevisionId: source?.revisionId,
     },
   });
 

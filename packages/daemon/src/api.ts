@@ -36,6 +36,7 @@ import {
   type Annotation,
   type DiffFileStatus,
   type DiffFileContents,
+  type DiffSource,
   type HunkRejection,
   type NewEntry,
   type Artifact,
@@ -66,9 +67,10 @@ import { HarnessStateStore } from "./harness-state-store";
 import { DiffWatcher } from "./diff-watcher";
 import { PrReviewPoller } from "./pr-poller";
 import { prSnapshot } from "./gh";
-import { workingTreeDiff, workingChangeList, type WorkingTreeDiff } from "./working-tree";
+import type { VcsDiffSnapshot } from "@cueloop/extension-api";
 import { listProjectFiles, readProjectFile } from "./project-files";
 import { resolveWorkspace } from "./thread-review";
+import { VcsSourceManager } from "./vcs-source";
 import { DaemonError } from "./errors";
 
 /** Reviewer-controlled fields that make an annotation new or edited for delivery. */
@@ -132,6 +134,7 @@ export class DaemonCore {
   private readonly diffWatcher: DiffWatcher;
   /** Drives PR-review hot-reload: polls each open PR review for a moved head. */
   private readonly prPoller: PrReviewPoller;
+  private readonly vcsSources = new VcsSourceManager();
   /**
    * Per-diff-session capture generation. Bumped when a refresh begins; a
    * capture whose generation is stale by the time it finishes discards its
@@ -307,7 +310,26 @@ export class DaemonCore {
       id: this.newSessionId(now),
       workspace: params.workspace,
       artifact: params.artifact,
-      revisions: [{ revision: 1, content: params.artifact.content, submittedAt: now }],
+      revisions: [
+        {
+          revision: 1,
+          content: params.artifact.content,
+          submittedAt: now,
+          source: params.artifact.meta.prHeadSha
+            ? {
+                vcs: "git",
+                revisionId: params.artifact.meta.prHeadSha,
+                baseRevisionId: params.artifact.meta.prBaseSha,
+              }
+            : params.artifact.meta.vcsRevisionId && params.artifact.meta.vcs
+              ? {
+                  vcs: params.artifact.meta.vcs,
+                  changeId: params.artifact.meta.vcsChangeId,
+                  revisionId: params.artifact.meta.vcsRevisionId,
+                }
+              : undefined,
+        },
+      ],
       annotations: [],
       message: null,
       status: "pending",
@@ -547,7 +569,12 @@ export class DaemonCore {
 
   /** Tracked, repo-relative file paths for the session's workspace; [] when it has no repo. */
   projectFiles(id: string): Promise<string[]> {
-    return listProjectFiles(this.sessionGet(id).workspace.repoRoot);
+    const session = this.sessionGet(id);
+
+    return this.vcsSources
+      .select(session.workspace.repoRoot, session.artifact.meta.vcs ?? "git")
+      .then(({ adapter, repoRoot }) => adapter.listFiles(repoRoot))
+      .catch(() => listProjectFiles(session.workspace.repoRoot));
   }
 
   /** UTF-8 contents of a repo-relative file in the session's workspace, or null when it cannot be read safely. */
@@ -557,7 +584,9 @@ export class DaemonCore {
 
   /** Tracked, repo-relative file paths for the git repo containing `cwd`; [] when it is not a repo. Owner-only. */
   async repoFiles(cwd: string): Promise<string[]> {
-    return listProjectFiles((await resolveWorkspace(cwd)).repoRoot);
+    const { adapter, repoRoot } = await this.vcsSources.select(cwd);
+
+    return adapter.listFiles(repoRoot);
   }
 
   /** UTF-8 contents of a repo-relative file in the repo containing `cwd`, or null when unreadable. Owner-only. */
@@ -567,7 +596,9 @@ export class DaemonCore {
 
   /** Changed files (repo-relative path plus git status) in the working tree at `cwd`. Owner-only. */
   repoChanges(cwd: string): Promise<{ path: string; status: DiffFileStatus }[]> {
-    return workingChangeList(cwd);
+    return this.vcsSources
+      .select(cwd)
+      .then(({ adapter, repoRoot }) => adapter.listChanges(repoRoot));
   }
 
   /**
@@ -575,8 +606,8 @@ export class DaemonCore {
    * the same unified patch plus full per-file contents a `cueloop diff` captures,
    * so the Changes navigator renders a real diff for any thread. Owner-only.
    */
-  repoDiff(cwd: string): Promise<WorkingTreeDiff> {
-    return workingTreeDiff(cwd);
+  repoDiff(cwd: string, vcs?: string): Promise<VcsDiffSnapshot & { vcs: string }> {
+    return this.vcsSources.capture(cwd, vcs);
   }
 
   /**
@@ -586,8 +617,10 @@ export class DaemonCore {
    * first comment without an agent submission. Owner-only.
    */
   async workbenchSession(cwd: string): Promise<Thread> {
+    const selected = await this.vcsSources.select(cwd);
     const workspace = await resolveWorkspace(cwd);
-    const key = workspace.rootCommit ?? "_standalone";
+    workspace.repoRoot = selected.repoRoot;
+    const key = `${workspace.rootCommit ?? selected.repoRoot}:${selected.adapter.id}`;
     // an open workbench is reused; a resolved one is immutable and would reject the note, so a fresh
     // one is created past it
     const open = this.store
@@ -596,7 +629,9 @@ export class DaemonCore {
         (session) =>
           session.artifact.meta.workbench === true &&
           session.status !== "resolved" &&
-          (session.workspace.rootCommit ?? "_standalone") === key,
+          (session.workspace.rootCommit ?? session.workspace.repoRoot) ===
+            (workspace.rootCommit ?? selected.repoRoot) &&
+          (session.artifact.meta.vcs ?? "git") === selected.adapter.id,
       );
 
     if (open) return open;
@@ -604,14 +639,21 @@ export class DaemonCore {
     const inFlight = this.workbenchCreation.get(key);
 
     if (inFlight) return inFlight;
-    const creation = workingTreeDiff(cwd).then((diff) =>
+    const creation = this.vcsSources.capture(cwd, selected.adapter.id).then((diff) =>
       this.sessionCreate({
         workspace,
         artifact: {
           type: "diff",
           content: diff.patch,
           files: diff.files,
-          meta: { workbench: true, title: "Workbench", cwd },
+          meta: {
+            workbench: true,
+            title: "Workbench",
+            cwd,
+            vcs: diff.vcs,
+            vcsChangeId: diff.source?.changeId,
+            vcsRevisionId: diff.source?.revisionId,
+          },
         },
       }),
     );
@@ -883,13 +925,19 @@ export class DaemonCore {
     content: string,
     addressedAnnotationIds: string[] = [],
     files?: DiffFileContents[],
+    source?: DiffSource,
   ): Thread {
     const session = this.sessionGet(id);
     const now = new Date().toISOString();
     const revisionNumber = session.revisions.length + 1;
 
-    session.revisions.push({ revision: revisionNumber, content, submittedAt: now });
+    session.revisions.push({ revision: revisionNumber, content, submittedAt: now, source });
     session.artifact = { ...session.artifact, content, files: files ?? session.artifact.files };
+    if (source) {
+      session.artifact.meta.vcs = source.vcs;
+      session.artifact.meta.vcsChangeId = source.changeId;
+      session.artifact.meta.vcsRevisionId = source.revisionId;
+    }
     // the agent's revision lands on main wherever its tip sits; the artifact
     // shows the head of the branch the reviewer is on
     const entryId = this.recordOnMain(session, {
@@ -1053,7 +1101,16 @@ export class DaemonCore {
     const generation = (this.diffRefreshGenerations.get(id) ?? 0) + 1;
 
     this.diffRefreshGenerations.set(id, generation);
-    const diff = await workingTreeDiff(session.workspace.repoRoot);
+    const pinnedJjChange =
+      session.artifact.meta.vcs === "jj" && session.artifact.meta.workbench !== true
+        ? session.artifact.meta.vcsChangeId
+        : undefined;
+    const diff = pinnedJjChange
+      ? await this.vcsSources.captureChange(session.workspace.repoRoot, "jj", pinnedJjChange)
+      : await this.vcsSources.capture(
+          session.workspace.repoRoot,
+          session.artifact.meta.vcs ?? "git",
+        );
 
     // The capture yields the event loop: a newer refresh may have started, or a
     // concurrent resolve/delete may have closed the session. Discard a stale
@@ -1064,16 +1121,71 @@ export class DaemonCore {
 
     if (!current || current.status !== "pending" || current.artifact.type !== "diff")
       return { changed: false };
-    if (diff.patch === current.artifact.content) return { changed: false };
-    current.artifact = { ...current.artifact, content: diff.patch, files: diff.files };
-    // the history keeps showing the same revision, re-captured, so a later tree move derives this patch
-    const history = withHistory(current).history;
+    const contentChanged = diff.patch !== current.artifact.content;
+    const sourceChanged = diff.source?.revisionId !== current.artifact.meta.vcsRevisionId;
 
-    if (history) current.history = recaptureMainHead(history, diff.patch);
+    if (!contentChanged && !sourceChanged) return { changed: false };
+    current.artifact = {
+      ...current.artifact,
+      content: diff.patch,
+      files: diff.files,
+      meta: {
+        ...current.artifact.meta,
+        vcs: diff.vcs,
+        vcsChangeId: diff.source?.changeId,
+        vcsRevisionId: diff.source?.revisionId,
+      },
+    };
+    this.recordCapturedDiffRevision(current, diff, Boolean(pinnedJjChange), contentChanged);
     this.store.upsert(current);
     this.emit("session.updated", id);
 
-    return { changed: true };
+    return { changed: contentChanged };
+  }
+
+  /** Live captures replace their revision; a submitted JJ change gets a new review revision. */
+  private recordCapturedDiffRevision(
+    session: Thread,
+    diff: VcsDiffSnapshot & { vcs: string },
+    pinned: boolean,
+    contentChanged: boolean,
+  ): void {
+    if (pinned && contentChanged) {
+      const now = new Date().toISOString();
+
+      session.revisions.push({
+        revision: session.revisions.length + 1,
+        content: diff.patch,
+        submittedAt: now,
+        source: {
+          vcs: diff.vcs,
+          changeId: diff.source?.changeId,
+          revisionId: diff.source?.revisionId,
+        },
+      });
+      this.recordOnMain(session, {
+        type: "revision",
+        by: "agent",
+        content: diff.patch,
+        createdAt: now,
+      });
+
+      return;
+    }
+    if (contentChanged) {
+      const history = withHistory(session).history;
+
+      if (history) session.history = recaptureMainHead(history, diff.patch);
+    }
+    if (pinned) return;
+    const liveRevision = session.revisions.at(-1);
+
+    if (liveRevision) {
+      liveRevision.content = diff.patch;
+      liveRevision.source = diff.source
+        ? { vcs: diff.vcs, changeId: diff.source.changeId, revisionId: diff.source.revisionId }
+        : undefined;
+    }
   }
 
   /**
@@ -1123,9 +1235,26 @@ export class DaemonCore {
         prRefreshHeadSha: undefined,
       },
     };
-    const history = withHistory(current).history;
+    if (contentChanged) {
+      const now = new Date().toISOString();
 
-    if (history && contentChanged) current.history = recaptureMainHead(history, snapshot.patch);
+      current.revisions.push({
+        revision: current.revisions.length + 1,
+        content: snapshot.patch,
+        submittedAt: now,
+        source: {
+          vcs: "git",
+          baseRevisionId: snapshot.baseSha,
+          revisionId: snapshot.headSha,
+        },
+      });
+      this.recordOnMain(current, {
+        type: "revision",
+        by: "agent",
+        content: snapshot.patch,
+        createdAt: now,
+      });
+    }
     this.store.upsert(current);
     this.emit("session.updated", id);
 
@@ -1174,7 +1303,11 @@ export class DaemonCore {
 
   private trackLiveDiffSession(session: Thread): void {
     if (isWorkingTreeDiffSession(session))
-      this.diffWatcher.trackDiffRepo(session.workspace.repoRoot, session.id);
+      this.diffWatcher.trackDiffRepo(
+        session.workspace.repoRoot,
+        session.id,
+        session.artifact.meta.vcs,
+      );
     else if (isPrReviewSession(session))
       this.prPoller.trackPr(
         session.id,
@@ -1331,7 +1464,12 @@ function isWorkingTreeDiffSession(session: Thread): boolean {
   return (
     session.status === "pending" &&
     session.artifact.type === "diff" &&
-    session.artifact.meta.pr === undefined
+    session.artifact.meta.pr === undefined &&
+    !(
+      session.artifact.meta.vcs === "jj" &&
+      session.artifact.meta.vcsChangeId &&
+      session.artifact.meta.workbench !== true
+    )
   );
 }
 

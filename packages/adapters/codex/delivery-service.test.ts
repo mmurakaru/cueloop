@@ -42,6 +42,35 @@ afterEach(() => {
 });
 
 describe("createCodexDeliveryService", () => {
+  test("a running poller delivers a message after the tool call has returned", async () => {
+    const opened = await runHarnessBridge(
+      {
+        operation: "open",
+        harness: "codex",
+        harnessSessionId: "codex-session-1",
+        cwd: home,
+        workflow: "plan",
+        content: "# Wait for feedback",
+      },
+      home,
+    );
+
+    if (opened.operation !== "open") throw new Error("expected open Thread");
+    const service = createCodexDeliveryService({ home, codexBin, pollMs: 20 });
+
+    service.start();
+    try {
+      await Bun.sleep(100);
+      await client.sessionSendMessage(opened.threadId, "approved", "Delayed response.");
+      const deadline = Date.now() + 3000;
+
+      while (!existsSync(join(home, "messages.txt")) && Date.now() < deadline) await Bun.sleep(20);
+      expect(readFileSync(join(home, "messages.txt"), "utf8")).toContain("Delayed response.");
+    } finally {
+      service.stop();
+    }
+  });
+
   test("a malformed session record does not stop healthy sessions", async () => {
     const hash = createHash("sha256").update("broken-session").digest("hex");
 

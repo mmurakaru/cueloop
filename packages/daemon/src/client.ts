@@ -141,7 +141,7 @@ export interface ThreadClient {
   /** Changed files (path plus git status) in the working tree at `cwd`. */
   repoChanges?(cwd: string): Promise<{ path: string; status: DiffFileStatus }[]>;
   /** The live working-tree diff (patch plus per-file contents) at `cwd`. */
-  repoDiff?(cwd: string): Promise<WorkingTreeDiff>;
+  repoDiff?(cwd: string, vcs?: string): Promise<WorkingTreeDiff>;
   /** Refresh a local diff or explicitly pull a moved PR head. */
   sessionRefreshDiff?(id: string): Promise<{ changed: boolean }>;
   /** Find-or-create the per-repo workbench thread for `cwd`, so a bare launch's first comment persists. */
@@ -574,10 +574,10 @@ export class DaemonClient implements ThreadClient {
       v.array(v.object({ path: v.string(), status: v.picklist(["added", "modified", "deleted"]) })),
     );
   }
-  repoDiff(cwd: string): Promise<WorkingTreeDiff> {
+  repoDiff(cwd: string, vcs?: string): Promise<WorkingTreeDiff> {
     return this.request(
       "repo.diff",
-      { cwd },
+      { cwd, vcs },
       v.object({ patch: v.string(), files: v.array(DiffFileContentsSchema) }),
     );
   }
@@ -660,10 +660,11 @@ export class DaemonClient implements ThreadClient {
     content: string,
     addressedAnnotationIds: string[] = [],
     files?: DiffFileContents[],
+    source?: import("@cueloop/schema").DiffSource,
   ): Promise<Thread> {
     return this.request(
       "session.submitRevision",
-      { id, content, addressedAnnotationIds, files },
+      { id, content, addressedAnnotationIds, files, source },
       ThreadRecordSchema,
     );
   }

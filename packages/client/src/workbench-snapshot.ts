@@ -1,7 +1,10 @@
 import { recaptureMainHead, type DiffFileContents, type Thread } from "@cueloop/schema";
 
 /** Reads the live working-tree diff for a repo root (the daemon's `repo.diff` RPC). */
-export type RepoDiff = (repoRoot: string) => Promise<{
+export type RepoDiff = (
+  repoRoot: string,
+  vcs?: string,
+) => Promise<{
   patch: string;
   files: DiffFileContents[];
 }>;
@@ -15,7 +18,7 @@ export type RepoDiff = (repoRoot: string) => Promise<{
 export async function snapshotWorkbench(session: Thread, repoDiff: RepoDiff): Promise<Thread> {
   if (session.artifact.type !== "diff" || session.artifact.meta.workbench !== true) return session;
 
-  const { patch, files } = await repoDiff(session.workspace.repoRoot);
+  const { patch, files } = await repoDiff(session.workspace.repoRoot, session.artifact.meta.vcs);
   const artifact = {
     ...session.artifact,
     content: patch,

@@ -21,7 +21,7 @@ const DIFF_REFRESH_DEBOUNCE_MS = 300;
  * index, lock files) cannot loop; `node_modules` churns on installs and is never
  * review content.
  */
-const ALWAYS_IGNORED_DIRS = new Set([".git", "node_modules"]);
+const ALWAYS_IGNORED_DIRS = new Set([".git", ".jj", "node_modules"]);
 
 /**
  * Absolute paths of the directories git ignores under a repo root, resolved once
@@ -93,6 +93,8 @@ interface RepoWatch {
   handles: FSWatcher[];
   /** Live diff session ids sharing this repo root; the watch closes when the last one leaves. */
   sessionIds: Set<string>;
+  jjSessionIds: Set<string>;
+  jjPoll: ReturnType<typeof setInterval> | null;
   /** Absolute paths git ignores under the root, so the walk skips them. */
   ignored: Set<string>;
   /** Directories already watched, so a runtime-created dir is not watched twice. */
@@ -112,23 +114,27 @@ export class DiffWatcher {
   constructor(private readonly onRepoChange: (repoRoot: string) => void) {}
 
   /** Start (or join) watching a repo root for one diff session. Idempotent per (root, session). */
-  trackDiffRepo(repoRoot: string, sessionId: string): void {
+  trackDiffRepo(repoRoot: string, sessionId: string, vcs = "git"): void {
     const existing = this.repoWatches.get(repoRoot);
 
     if (existing) {
       existing.sessionIds.add(sessionId);
+      if (vcs === "jj") this.startJjPoll(existing, repoRoot, sessionId);
 
       return;
     }
     const repoWatch: RepoWatch = {
       handles: [],
       sessionIds: new Set([sessionId]),
+      jjSessionIds: new Set(),
+      jjPoll: null,
       ignored: ignoredDirectories(repoRoot),
       watchedDirs: new Set(),
       debounce: null,
     };
 
     this.repoWatches.set(repoRoot, repoWatch);
+    if (vcs === "jj") this.startJjPoll(repoWatch, repoRoot, sessionId);
 
     // one watcher per non-ignored working-tree directory; a tracked-file change re-captures
     if (!this.watchTree(repoRoot, repoRoot)) {
@@ -157,6 +163,12 @@ export class DiffWatcher {
           if (isRefChange(filename)) this.scheduleRepoRefresh(repoRoot);
         });
     }
+  }
+
+  private startJjPoll(repoWatch: RepoWatch, repoRoot: string, sessionId: string): void {
+    repoWatch.jjSessionIds.add(sessionId);
+    if (repoWatch.jjPoll !== null) return;
+    repoWatch.jjPoll = setInterval(() => this.scheduleRepoRefresh(repoRoot), 2000);
   }
 
   /**
@@ -246,8 +258,14 @@ export class DiffWatcher {
 
     if (!repoWatch) return;
     repoWatch.sessionIds.delete(sessionId);
+    repoWatch.jjSessionIds.delete(sessionId);
+    if (repoWatch.jjSessionIds.size === 0 && repoWatch.jjPoll !== null) {
+      clearInterval(repoWatch.jjPoll);
+      repoWatch.jjPoll = null;
+    }
     if (repoWatch.sessionIds.size > 0) return;
     if (repoWatch.debounce !== null) clearTimeout(repoWatch.debounce);
+    if (repoWatch.jjPoll !== null) clearInterval(repoWatch.jjPoll);
     for (const handle of repoWatch.handles) handle.close();
     this.repoWatches.delete(repoRoot);
   }
@@ -267,6 +285,7 @@ export class DiffWatcher {
   close(): void {
     for (const repoWatch of this.repoWatches.values()) {
       if (repoWatch.debounce !== null) clearTimeout(repoWatch.debounce);
+      if (repoWatch.jjPoll !== null) clearInterval(repoWatch.jjPoll);
       for (const handle of repoWatch.handles) handle.close();
     }
     this.repoWatches.clear();

@@ -1,13 +1,14 @@
 /** The shared review core against a real DaemonServer in a temp home: workspace resolution, title derivation, open-or-revise by agentSessionId, and both awaitMessage shapes (one long-poll and the chunked loop with progress and abort). */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Thread } from "@cueloop/schema";
 import { DaemonServer } from "./server";
 import { DaemonClient } from "./client";
 import { awaitResolve, openReview, resolveWorkspace } from "./thread-review";
+import { VcsSourceManager } from "./vcs-source";
 
 const PLAN = "# Rollout Plan\n\nShip it in two stages.\n";
 
@@ -66,6 +67,68 @@ describe("resolveWorkspace", () => {
 });
 
 describe("openReview", () => {
+  test("a submitted JJ diff follows the same change through a rewrite", async () => {
+    const repo = mkdtempSync(join(tmpdir(), "cueloop-review-jj-"));
+
+    try {
+      sh(["git", "init", "-q", "-b", "main"], repo);
+      sh(["git", "config", "user.email", "t@t"], repo);
+      sh(["git", "config", "user.name", "t"], repo);
+      writeFileSync(join(repo, "a.txt"), "before\n");
+      sh(["git", "add", "a.txt"], repo);
+      sh(["git", "commit", "-qm", "initial"], repo);
+      sh(["jj", "git", "init", "--colocate", repo], repo);
+      writeFileSync(join(repo, "a.txt"), "first\n");
+      const sources = new VcsSourceManager(join(home, "vcs-config.toml"));
+      const firstDiff = await sources.capture(repo, "jj");
+      const first = await openReview(client, {
+        type: "diff",
+        content: firstDiff.patch,
+        cwd: repo,
+        vcs: "jj",
+        agent: "codex",
+        agentSessionId: "one-agent-session",
+      });
+
+      writeFileSync(join(repo, "a.txt"), "second\n");
+      const secondDiff = await sources.capture(repo, "jj");
+      const second = await openReview(client, {
+        type: "diff",
+        content: secondDiff.patch,
+        cwd: repo,
+        vcs: "jj",
+        agent: "codex",
+        agentSessionId: "one-agent-session",
+      });
+
+      expect(first.session.artifact.meta.vcs).toBe("jj");
+      expect(first.session.artifact.files?.[0]?.newContents).toBe("first\n");
+      expect(first.session.artifact.meta.vcsChangeId).toBe(
+        second.session.artifact.meta.vcsChangeId,
+      );
+      expect(second.id).toBe(first.id);
+      expect(second.session.revisions.map((revision) => revision.content)).toEqual([
+        firstDiff.patch,
+        secondDiff.patch,
+      ]);
+      sh(["jj", "new", "-m", "next change"], repo);
+      writeFileSync(join(repo, "b.txt"), "third\n");
+      const thirdDiff = await sources.capture(repo, "jj");
+      const third = await openReview(client, {
+        type: "diff",
+        content: thirdDiff.patch,
+        cwd: repo,
+        vcs: "jj",
+        agent: "codex",
+        agentSessionId: "one-agent-session",
+      });
+
+      expect(third.id).not.toBe(first.id);
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
   test("shapes the artifact: agent, derived title, cwd", async () => {
     // Act
     const review = await openReview(client, {

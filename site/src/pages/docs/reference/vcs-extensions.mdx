@@ -1,0 +1,112 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: VCS extensions
+eyebrow: Docs · Reference
+lede: Register a diff source without changing the Changes view or Thread format.
+prev: { title: "Configuration", href: "/docs/reference/configuration/" }
+next: { title: "Keyboard and mouse", href: "/docs/reference/keyboard/" }
+---
+
+A VCS extension registers an adapter with `registerVcsAdapter`. The daemon
+selects the adapter and captures the diff. cueloop owns the Thread, comments,
+revision history, and UI.
+
+An adapter has `apiVersion: 1`, a unique namespaced ID, and four required
+operations:
+
+| Operation                  | Returns                                                               |
+| -------------------------- | --------------------------------------------------------------------- |
+| `detect(cwd)`              | Checkout root, or `null`                                              |
+| `captureWorkingDiff(root)` | Git-format patch and full contents for text files that can be curated |
+| `listChanges(root)`        | Changed paths and statuses                                            |
+| `listFiles(root)`          | Project file paths                                                    |
+
+The optional `captureChange(root, changeId)` follows a logical change after a
+rewrite. It must fail when the change is ambiguous. `captureWorkingDiff` can
+return a `source` with a stable `changeId` and exact `revisionId`. Return an
+empty `files` array if exact old and new file contents are unavailable. The
+patch remains reviewable, but hunk curation is disabled.
+
+## Example: Sapling
+
+Save this file as `~/.config/cueloop/sapling.ts`:
+
+```ts
+import type { ExtensionAPI, VcsAdapter } from "@cueloop/extension-api";
+
+async function sl(root: string, ...args: string[]): Promise<string> {
+  const child = Bun.spawn(["sl", ...args], {
+    cwd: root,
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  const output = await new Response(child.stdout).text();
+
+  if ((await child.exited) !== 0) throw new Error(`sl ${args[0]} failed`);
+
+  return output;
+}
+
+const sapling: VcsAdapter = {
+  apiVersion: 1,
+  id: "example.sapling",
+  async detect(cwd) {
+    try {
+      return (await sl(cwd, "root")).trim();
+    } catch {
+      return null;
+    }
+  },
+  async captureWorkingDiff(root) {
+    return { patch: (await sl(root, "diff", "--git")).trim(), files: [] };
+  },
+  async listChanges(root) {
+    const status = await sl(root, "status", "--root-relative", "--print0");
+
+    return status
+      .split("\0")
+      .filter(Boolean)
+      .flatMap((entry) => {
+        const code = entry[0];
+
+        if (code === "M") return [{ path: entry.slice(2), status: "modified" as const }];
+        if (code === "A") return [{ path: entry.slice(2), status: "added" as const }];
+        if (code === "R" || code === "!")
+          return [{ path: entry.slice(2), status: "deleted" as const }];
+
+        return [];
+      });
+  },
+  async listFiles(root) {
+    const status = await sl(root, "status", "--all", "--root-relative", "--print0");
+
+    return status
+      .split("\0")
+      .filter((entry) => /^[CAM] /.test(entry))
+      .map((entry) => entry.slice(2))
+      .sort();
+  },
+};
+
+export default (cueloop: ExtensionAPI) => {
+  cueloop.registerVcsAdapter(sapling);
+};
+```
+
+Add the extension to your **user** config:
+
+```toml
+[vcs]
+provider = "example.sapling"
+extensions = ["./sapling.ts"]
+```
+
+Relative extension paths resolve from the user config file. Repository config
+can select an installed adapter with `provider`, but cannot load executable
+extensions. A failed extension does not remove the built-in Git and JJ adapters.
+
+This example keeps the patch reviewable and reports changed files. It returns
+no full file contents, so hunk curation is unavailable. Add exact old and new
+contents before enabling curation. Sapling's [diff](https://sapling-scm.com/docs/commands/diff/)
+and [status](https://sapling-scm.com/docs/commands/status/) commands define the
+output used here.

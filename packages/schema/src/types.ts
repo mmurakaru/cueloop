@@ -59,6 +59,12 @@ export interface ArtifactMeta {
   /** The workflow that submitted this artifact, distinct from its artifact type. */
   workflow?: WorkflowKind;
   cwd?: string;
+  /** Diff source selected when the Thread was created; an older Thread without this field uses Git. */
+  vcs?: string;
+  /** Logical change identity when the VCS keeps one through rewrites. */
+  vcsChangeId?: string;
+  /** Exact source revision captured for this diff. */
+  vcsRevisionId?: string;
   agent?: string;
   /** Agent-native session id, for resume/fork context. */
   agentSessionId?: string;
@@ -85,6 +91,14 @@ export interface ArtifactMeta {
   workbench?: boolean;
   /** A frozen point-in-time capture of a workbench thread's diff, for a remote reviewer who has no working tree. */
   snapshot?: boolean;
+}
+
+/** VCS provenance for a submitted diff revision. */
+export interface DiffSource {
+  vcs: string;
+  changeId?: string;
+  revisionId?: string;
+  baseRevisionId?: string;
 }
 
 /** Full old/new contents of one changed file, keyed by its repo-relative path. */
@@ -280,6 +294,8 @@ export interface Revision {
   revision: number;
   content: string;
   submittedAt: string;
+  /** Exact VCS source for this reviewed text, when one was captured. */
+  source?: DiffSource;
 }
 
 export type SessionStatus = "pending" | "resolved";

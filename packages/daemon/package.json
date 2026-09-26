@@ -38,6 +38,7 @@
     "access": "public"
   },
   "dependencies": {
+    "@cueloop/extension-api": "0.1.0-alpha.89",
     "@cueloop/schema": "0.1.0-alpha.89",
     "@pierre/diffs": "^1.4.1",
     "effect": "^4.0.0-rc.116",

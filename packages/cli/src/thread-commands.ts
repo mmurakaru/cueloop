@@ -55,6 +55,7 @@ async function sessionCreate({ client, flags }: SessionContext): Promise<number>
     type,
     content,
     cwd: stringFlag(flags, "cwd"),
+    vcs: stringFlag(flags, "vcs"),
     agent: stringFlag(flags, "agent"),
     agentSessionId: stringFlag(flags, "agent-session-id"),
     planPath: stringFlag(flags, "plan-path"),

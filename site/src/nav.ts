@@ -20,6 +20,7 @@ export const docsNav: NavGroup[] = [
     title: "Use cueloop",
     items: [
       { title: "Review agent work", href: "/docs/concepts/plan-diff-review/" },
+      { title: "Review diffs", href: "/docs/concepts/diffs/" },
       { title: "Share a Thread", href: "/docs/sharing/" },
       { title: "Connect coding agents", href: "/docs/agents/" },
     ],
@@ -37,6 +38,7 @@ export const docsNav: NavGroup[] = [
     items: [
       { title: "Commands", href: "/docs/reference/commands/" },
       { title: "Configuration", href: "/docs/reference/configuration/" },
+      { title: "VCS extensions", href: "/docs/reference/vcs-extensions/" },
       { title: "Keyboard and mouse", href: "/docs/reference/keyboard/" },
       { title: "Public API", href: "/docs/reference/api/" },
       { title: "Security and privacy", href: "/docs/sharing/security/" },

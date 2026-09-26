@@ -1,0 +1,71 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Review diffs
+eyebrow: Docs · Use cueloop
+lede: Review your working copy with Git or Jujutsu in the same Changes view.
+prev: { title: "Review agent work", href: "/docs/concepts/plan-diff-review/" }
+next: { title: "Share a Thread", href: "/docs/sharing/" }
+---
+
+Run `cueloop diff` from a checkout to open a workbench Thread. The Changes view
+shows the current diff. It updates in place as files change. Comments stay in
+the Thread.
+
+```bash
+cueloop diff
+```
+
+The header shows the selected source, such as `vcs: git` or `vcs: jj`.
+
+## Git
+
+In a Git checkout, cueloop compares `HEAD` with the working tree. It includes
+tracked changes and untracked files. The diff updates after file edits, commits,
+checkouts, and resets.
+
+## Jujutsu
+
+In a JJ checkout, cueloop shows the change in `@` relative to its parent.
+JJ snapshots the working copy when cueloop captures it. The workbench updates
+in the same Thread as you edit files. JJ changes and commits use their native
+change and commit IDs, even in a colocated Git checkout.
+
+If a checkout contains both `.jj` and `.git`, cueloop selects JJ. You can select
+Git instead in `.cueloop/config.toml`:
+
+```toml
+[vcs]
+provider = "git"
+```
+
+Use `provider = "auto"` to restore detection, or `provider = "jj"` to require
+JJ. A user config can set the same key for all checkouts. `CUELOOP_VCS` overrides
+the config for the process that starts the daemon. An existing Thread keeps the
+source it was created with.
+
+## Live and submitted diffs
+
+The workbench is live. Its current revision updates in place. When an agent
+submits a JJ diff that matches the checkout capture, cueloop records the JJ
+change ID and the exact commit ID. That submitted review stays fixed until you
+press **refresh** in the header. Refresh follows the same change ID and records
+another review revision. If JJ finds more than one version of that change,
+refresh stops instead of choosing one.
+
+An agent can submit the current JJ patch with:
+
+```bash
+jj diff --git > /tmp/review.patch
+cueloop session create --type diff --vcs jj --content-file /tmp/review.patch
+```
+
+For Git, existing agent diff and pull request workflows continue to work as
+before. A pull request stays on its captured commits until you press **refresh**
+after cueloop detects a newer head. Earlier reviewed patches remain in the
+Thread's revision history.
+
+## Use another source
+
+VCS adapters can supply a Git-format patch, changed paths, and project files.
+See [VCS extensions](/docs/reference/vcs-extensions/) for the contract and a
+Sapling example.

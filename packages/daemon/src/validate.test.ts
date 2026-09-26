@@ -205,6 +205,9 @@ describe("wire pins", () => {
   const fullMeta: Required<ArtifactMeta> = {
     workflow: "plan",
     cwd: "/repo",
+    vcs: "jj",
+    vcsChangeId: "change",
+    vcsRevisionId: "revision",
     agent: "claude-code",
     agentSessionId: "sess-1",
     planPath: "/repo/plan.md",
@@ -268,7 +271,12 @@ describe("wire pins", () => {
     annotations: [fullAnnotation],
     sentAt: "now",
   };
-  const fullRevision: Required<Revision> = { revision: 1, content: "# P", submittedAt: "now" };
+  const fullRevision: Required<Revision> = {
+    revision: 1,
+    content: "# P",
+    submittedAt: "now",
+    source: { vcs: "jj", changeId: "change", revisionId: "revision" },
+  };
   const fullWorkspace: Required<WorkspaceKey> = {
     repoRoot: "/repo",
     branch: "main",
