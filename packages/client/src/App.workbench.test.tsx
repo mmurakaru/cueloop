@@ -113,6 +113,27 @@ const rightToggleColumn = (setup: Setup): number => toggleColumn(setup, NERD.sid
 const railToggleColumn = (setup: Setup): number => toggleColumn(setup, NERD.sidebarRightOff);
 
 describe("the four-pane workbench", () => {
+  test("a live thread's Changes tree follows edits and a clean working tree", async () => {
+    const liveSession = server.core.sessionCreate({
+      workspace: { repoRoot: repo, branch: "main" },
+      artifact: { type: "diff", content: "", meta: { title: "live changes", workbench: true } },
+    });
+    writeFileSync(join(repo, "README.md"), "# Edited\n");
+    const setup = await renderReadyApp(
+      <App home={home} sessionId={liveSession.id} layout={reviewLayout()} />,
+      {
+        width: 160,
+        height: 20,
+      },
+    );
+
+    await waitForText(setup, "README.md");
+    writeFileSync(join(repo, "README.md"), "# Workbench Fixture\n\nA tiny tracked repo.\n");
+    await waitForState(setup, () => !setup.captureCharFrame().includes("README.md"));
+    writeFileSync(join(repo, "src", "util.ts"), "export const noop = () => 1;\n");
+    await waitForText(setup, "util.ts");
+  }, 12_000);
+
   test("a diff session lays out the four panes with the diff toggle active", async () => {
     const setup = await renderApp();
 
@@ -421,6 +442,14 @@ describe("the bare-launch welcome shell", () => {
     // changes mode is the default; the edited README shows with its status
     await waitForText(setup, "README.md");
     expect(setup.captureCharFrame()).toContain("README.md");
+  });
+
+  test("the changes tree clears after the launch repo becomes clean", async () => {
+    const setup = await renderWelcome();
+
+    await waitForText(setup, "README.md");
+    writeFileSync(join(welcomeRepo, "README.md"), "# Workbench Fixture\n\nA tiny tracked repo.\n");
+    await waitForState(setup, () => !setup.captureCharFrame().includes("README.md"));
   });
 
   test("a review layout opens the Changes panel, listing the working-tree changes", async () => {

@@ -851,9 +851,21 @@ class Controller implements ReviewController {
       // showing changes from the wrong repo; compare the thread id, not the object, so an unrelated
       // re-render that replaced the snapshot for the SAME thread does not drop its diff to "No changes"
       if (this.snapshot.session?.id !== session?.id) return diff.files;
-      this.liveDiff = diff;
-      // rows() derive from the fresh patch; re-render so an open diff tab repaints
-      this.update({});
+      const changed =
+        this.liveDiff?.patch !== diff.patch ||
+        this.liveDiff.files.length !== diff.files.length ||
+        this.liveDiff.files.some(
+          (file, index) =>
+            file.path !== diff.files[index]?.path ||
+            file.status !== diff.files[index]?.status ||
+            file.oldContents !== diff.files[index]?.oldContents ||
+            file.newContents !== diff.files[index]?.newContents,
+        );
+      if (changed) {
+        this.liveDiff = diff;
+        // rows() derive from the fresh patch; re-render so an open diff tab repaints
+        this.update({});
+      }
 
       return diff.files;
     }

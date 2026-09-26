@@ -55,6 +55,7 @@ import { AppShell, type FocusPane, type ProjectPanelMode } from "./components/Ap
 import { EditorGrid } from "./components/EditorGrid";
 import { GridTabContent } from "./components/GridTabContent";
 import { useChangesWorkbench } from "./use-changes-workbench";
+import { useRepoChanges } from "./use-repo-changes";
 import { useThreadBodyEditing } from "./use-thread-body-editing";
 import { useRememberLayout } from "./use-remember-layout";
 import type { LaunchLayout } from "./launch-layout";
@@ -70,7 +71,7 @@ import {
   treeCommandEntries,
 } from "./thread-chords";
 import { type DiffFoldControls } from "./components/DiffContentView";
-import { commentCountsByFile } from "./view-diff";
+import { commentCountsByFile, readsFrozenDiff } from "./view-diff";
 import { annotationTarget, isAddressed, isAgentNote, threadShareLinks } from "@cueloop/schema";
 import type {
   Annotation,
@@ -320,33 +321,19 @@ function ProjectPanelBody(props: {
   loadChanges: () => Promise<readonly DiffFileContents[]>;
   loadProjectFiles: () => Promise<string[]>;
   reloadKey: string;
+  live: boolean;
   onOpenChangedFile: (path: string) => void;
   onOpenProjectFile: (path: string) => void;
   commentCounts?: ReadonlyMap<string, number>;
   focused?: boolean;
   theme: Theme;
 }): React.ReactNode {
-  const [changes, setChanges] = useState<readonly DiffFileContents[]>([]);
-  const loadRef = useRef(props.loadChanges);
-  useEffect(() => {
-    loadRef.current = props.loadChanges;
-  });
-  useEffect(() => {
-    let alive = true;
-
-    void loadRef.current().then(
-      (files) => {
-        if (alive) setChanges(files);
-      },
-      () => {
-        if (alive) setChanges([]);
-      },
-    );
-
-    return () => {
-      alive = false;
-    };
-  }, [props.reloadKey, props.mode]);
+  const changes = useRepoChanges(
+    props.loadChanges,
+    props.mode === "changes",
+    props.reloadKey,
+    props.live,
+  );
 
   if (props.mode === "changes") {
     return (
@@ -1416,6 +1403,7 @@ export function App({
                   loadChanges={() => controller.repoChanges()}
                   loadProjectFiles={() => controller.repoFiles()}
                   reloadKey={activeSession.id}
+                  live={!readsFrozenDiff(activeSession)}
                   // the Changes navigator always opens a changed file as a diff - a diff review shows its
                   // captured snapshot, every other thread the live working-tree diff
                   onOpenChangedFile={(path) => workbench.openFile(path, "diff")}

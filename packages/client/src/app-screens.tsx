@@ -1,6 +1,6 @@
 import { ScrollArea } from "./components/ScrollArea";
-import React, { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
-import type { DiffFileContents, Thread, MessageOutcome } from "@cueloop/schema";
+import React, { useMemo, type Dispatch, type SetStateAction } from "react";
+import type { Thread, MessageOutcome } from "@cueloop/schema";
 import { returnPaneFor } from "@cueloop/schema";
 import type { Theme } from "./theme";
 import type { QuickAction } from "./config";
@@ -29,6 +29,7 @@ import { ChangesFileTree } from "./components/ChangesColumn";
 import { BareWorkbenchFileView, draftThread } from "./components/BareWorkbenchFileView";
 import { GridTabContent, type DiffSurfaceProps } from "./components/GridTabContent";
 import { useChangesWorkbench } from "./use-changes-workbench";
+import { useRepoChanges } from "./use-repo-changes";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { PromptDialog } from "./components/PromptDialog";
 import { WalkWizard } from "./components/WalkWizard";
@@ -115,24 +116,7 @@ function WelcomeProjectPanel({
   focused?: boolean;
   theme: Theme;
 }): React.ReactNode {
-  const [changes, setChanges] = useState<readonly DiffFileContents[]>([]);
-
-  useEffect(() => {
-    let alive = true;
-
-    void controller.repoChanges().then(
-      (files) => {
-        if (alive) setChanges(files);
-      },
-      () => {
-        if (alive) setChanges([]);
-      },
-    );
-
-    return () => {
-      alive = false;
-    };
-  }, [controller]);
+  const changes = useRepoChanges(() => controller.repoChanges(), mode === "changes", "welcome");
 
   if (mode === "changes") {
     return (
