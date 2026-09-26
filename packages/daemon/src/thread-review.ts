@@ -273,6 +273,10 @@ export async function findExistingReview(
 
   if (options.agentSessionId === undefined) return undefined;
 
+  const isJjDiff = options.type === "diff" && options.vcs === "jj";
+  const hasJjProvenance = (candidate: Thread): boolean =>
+    candidate.artifact.meta.vcs === "jj" ||
+    candidate.revisions.some((revision) => revision.source?.vcs === "jj");
   const candidates = (await client.sessionList()).filter(
     (candidate) =>
       candidate.artifact.meta.agentSessionId === options.agentSessionId &&
@@ -283,17 +287,20 @@ export async function findExistingReview(
         (options.workflow ?? (options.pr ? "review" : options.type)) &&
       candidate.artifact.meta.pr === options.pr &&
       candidate.workspace.repoRoot === workspace.repoRoot &&
-      candidate.workspace.branch === workspace.branch,
+      (candidate.workspace.branch === workspace.branch || (isJjDiff && hasJjProvenance(candidate))),
   );
 
   if (options.vcsChangeId !== undefined)
     return candidates.find(
       (candidate) => candidate.artifact.meta.vcsChangeId === options.vcsChangeId,
     );
-  if (options.type === "diff" && options.vcs === "jj")
-    return candidates
-      .filter((candidate) => candidate.artifact.meta.vcs === "jj")
-      .toSorted((left, right) => right.createdAt.localeCompare(left.createdAt))[0];
+  if (isJjDiff) {
+    const jjCandidates = candidates.filter(hasJjProvenance);
+
+    // An unmatched patch has no verified change ID. Reuse the Thread only when
+    // there is exactly one possible JJ change in this agent session.
+    return jjCandidates.length === 1 ? jjCandidates[0] : undefined;
+  }
 
   return candidates.find((candidate) => candidate.artifact.meta.vcsChangeId === undefined);
 }

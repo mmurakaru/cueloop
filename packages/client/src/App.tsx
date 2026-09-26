@@ -329,6 +329,7 @@ function ProjectPanelBody(props: {
   loadProjectFiles: () => Promise<string[]>;
   diffSourceKey: string;
   liveWorkingTree: boolean;
+  frozenFiles?: readonly DiffFileContents[];
   onOpenChangedFile: (path: string) => void;
   onOpenProjectFile: (path: string) => void;
   commentCounts?: ReadonlyMap<string, number>;
@@ -337,15 +338,14 @@ function ProjectPanelBody(props: {
 }): React.ReactNode {
   const changes = useRepoChanges({
     loadChanges: props.loadChanges,
-    visible: props.mode === "changes",
+    visible: props.mode === "changes" && props.liveWorkingTree,
     diffSourceKey: props.diffSourceKey,
-    refreshAutomatically: props.liveWorkingTree,
   });
 
   if (props.mode === "changes") {
     return (
       <ChangesFileTree
-        files={changes}
+        files={props.liveWorkingTree ? changes : (props.frozenFiles ?? [])}
         onSelectFile={props.onOpenChangedFile}
         commentCounts={props.commentCounts}
         focused={props.focused}
@@ -362,6 +362,21 @@ function ProjectPanelBody(props: {
       theme={props.theme}
     />
   );
+}
+
+/** Frozen reviews read their captured files directly; live workspaces poll the repo. */
+interface ProjectDiffFiles {
+  liveWorkingTree: boolean;
+  frozenFiles?: readonly DiffFileContents[];
+}
+
+function projectDiffFiles(session: Thread): ProjectDiffFiles {
+  const frozen = readsFrozenDiff(session);
+
+  return {
+    liveWorkingTree: !frozen,
+    frozenFiles: frozen ? session.artifact.files : undefined,
+  };
 }
 
 /** The render tree has left the connecting screen: an error, a session, or the no-thread shell. */
@@ -1425,7 +1440,7 @@ export function App({
                   loadChanges={() => controller.repoChanges()}
                   loadProjectFiles={() => controller.repoFiles()}
                   diffSourceKey={activeSession.id}
-                  liveWorkingTree={!readsFrozenDiff(activeSession)}
+                  {...projectDiffFiles(activeSession)}
                   // the Changes navigator always opens a changed file as a diff - a diff review shows its
                   // captured snapshot, every other thread the live working-tree diff
                   onOpenChangedFile={(path) => workbench.openFile(path, "diff")}

@@ -139,4 +139,53 @@ describe("app shell extension zones", () => {
     expect(errors).toEqual(["Client extension example: failed to load"]);
     setup.renderer.destroy();
   });
+
+  test("reports failed visibility callbacks for each UI zone", async () => {
+    const registry = new ClientExtensionRegistry();
+    const errors: string[] = [];
+    const when = () => {
+      throw new Error("visibility broke");
+    };
+
+    await registry.load("broken", (api) => {
+      api.registerSection({
+        id: "section",
+        zone: "threads.sidebar",
+        title: "Hidden section",
+        Component: () => <text>section body</text>,
+        when,
+      });
+      api.registerAction({
+        id: "action",
+        zone: "thread.header",
+        label: "Hidden action",
+        onPress() {},
+        when,
+      });
+      api.registerView({
+        id: "view",
+        zone: "workspace.panels",
+        title: "Hidden view",
+        Component: () => <text>view body</text>,
+        when,
+      });
+    });
+    const setup = await testRender(
+      shell(registry, (message) => errors.push(message)),
+      {
+        width: 100,
+        height: 16,
+      },
+    );
+
+    await settle(setup);
+    expect(errors).toEqual([
+      "Extension broken:section visibility failed: Error: visibility broke",
+      "Extension broken:action visibility failed: Error: visibility broke",
+      "Extension broken:view visibility failed: Error: visibility broke",
+    ]);
+    expect(setup.captureCharFrame()).not.toContain("Hidden section");
+    expect(setup.captureCharFrame()).not.toContain("Hidden view");
+    setup.renderer.destroy();
+  });
 });

@@ -1,10 +1,10 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useKeyboard } from "@opentui/react";
 import type { ExtensionUIContext } from "@cueloop/extension-api/client";
 import type { ClientExtensionRegistry } from "../client-extension-registry";
 import type { Theme } from "../theme";
 import type { ProjectPanelMode } from "./AppShell";
-import { ExtensionZone, useClientExtensionSnapshot, visibleWorkspaceViews } from "./ExtensionZone";
+import { ExtensionZone, useClientExtensionSnapshot, visibleContributions } from "./ExtensionZone";
 import { FileTab, PanelColumn } from "./PanelColumn";
 import { IconButton } from "./primitives/IconButton";
 import { NERD } from "./primitives/icons";
@@ -24,9 +24,19 @@ export function WorkspacePanels(props: {
   theme: Theme;
   onExtensionError?: (message: string) => void;
 }): React.ReactNode {
-  const { registry, context, theme } = props;
+  const { registry, context, theme, onExtensionError } = props;
   const snapshot = useClientExtensionSnapshot(registry);
-  const views = visibleWorkspaceViews(snapshot, context);
+  const { workspace, threadId } = context;
+  const visibility = useMemo(
+    () => visibleContributions(snapshot.views, { workspace, threadId }),
+    [snapshot.views, workspace, threadId],
+  );
+
+  useEffect(() => {
+    for (const error of visibility.errors) onExtensionError?.(error);
+  }, [visibility, onExtensionError]);
+
+  const views = visibility.items;
   const [selectedView, setSelectedView] = useState<(typeof views)[number] | null>(null);
   const selected = views.find(
     ({ key, value }) => key === selectedView?.key && value === selectedView.value,

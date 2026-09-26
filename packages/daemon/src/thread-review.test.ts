@@ -136,6 +136,20 @@ describe("openReview", () => {
       });
 
       expect(third.id).not.toBe(first.id);
+      const unmatchedAfterTwoChanges = await openReview(client, {
+        type: "diff",
+        content: "diff --git a/unmatched b/unmatched\n",
+        cwd: repo,
+        vcs: "jj",
+        agent: "codex",
+        agentSessionId: "one-agent-session",
+      });
+
+      expect(unmatchedAfterTwoChanges.id).not.toBe(first.id);
+      expect(unmatchedAfterTwoChanges.id).not.toBe(third.id);
+      expect((await client.sessionGet(third.id)).artifact.meta.vcsChangeId).toBe(
+        third.session.artifact.meta.vcsChangeId,
+      );
     } finally {
       rmSync(repo, { recursive: true, force: true });
     }

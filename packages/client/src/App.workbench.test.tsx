@@ -134,6 +134,50 @@ describe("the four-pane workbench", () => {
     await waitForText(setup, "util.ts");
   }, 12_000);
 
+  test("a frozen diff's Changes tree follows a new captured revision", async () => {
+    const frozen = server.core.sessionCreate({
+      workspace: { repoRoot: repo, branch: "main" },
+      artifact: {
+        type: "diff",
+        content: "diff --git a/README.md b/README.md\n",
+        files: [
+          {
+            path: "README.md",
+            status: "modified",
+            oldContents: "before\n",
+            newContents: "after\n",
+          },
+        ],
+        meta: { title: "captured diff" },
+      },
+    });
+    const setup = await renderReadyApp(
+      <App home={home} sessionId={frozen.id} layout={reviewLayout()} />,
+      { width: 160, height: 20 },
+    );
+
+    await waitForText(setup, "README.md");
+    server.core.sessionSubmitRevision(
+      frozen.id,
+      "diff --git a/src/util.ts b/src/util.ts\n",
+      [],
+      [
+        {
+          path: "src/util.ts",
+          status: "modified",
+          oldContents: "before\n",
+          newContents: "after\n",
+        },
+      ],
+    );
+    await waitForState(setup, () => {
+      const frame = setup.captureCharFrame();
+
+      return frame.includes("util.ts") && !frame.includes("README.md");
+    });
+    setup.renderer.destroy();
+  });
+
   test("a diff session lays out the four panes with the diff toggle active", async () => {
     const setup = await renderApp();
 

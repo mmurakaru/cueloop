@@ -1,4 +1,4 @@
-import React, { useSyncExternalStore } from "react";
+import React, { useEffect, useMemo, useSyncExternalStore } from "react";
 import type { ExtensionUIContext } from "@cueloop/extension-api/client";
 import type {
   ClientExtensionRegistry,
@@ -15,28 +15,36 @@ export function useClientExtensionSnapshot(
   return useSyncExternalStore(registry.subscribe, registry.snapshot, registry.snapshot);
 }
 
-/** Views eligible for the current workspace, in package registration order. */
-export function visibleWorkspaceViews(
-  snapshot: ClientExtensionSnapshot,
-  context: ExtensionUIContext,
-): ClientExtensionSnapshot["views"] {
-  return snapshot.views.filter(({ value }) => isVisible(value.when, context));
+interface VisibleContributions<T> {
+  items: T[];
+  errors: string[];
 }
 
-function isVisible(
-  when: ((context: ExtensionUIContext) => boolean) | undefined,
-  context: ExtensionUIContext,
-): boolean {
-  if (!when) return true;
+/** Evaluate visibility without letting one extension remove another's UI. */
+export function visibleContributions<
+  T extends {
+    key: string;
+    value: { when?: (context: ExtensionUIContext) => boolean };
+  },
+>(contributions: readonly T[], context: ExtensionUIContext): VisibleContributions<T> {
+  const items: T[] = [];
+  const errors: string[] = [];
 
-  try {
-    return when(context);
-  } catch (error) {
-    console.error("Client extension visibility failed", error);
-
-    return false;
+  for (const contribution of contributions) {
+    try {
+      if (!contribution.value.when || contribution.value.when(context)) items.push(contribution);
+    } catch (error) {
+      errors.push(`Extension ${contribution.key} visibility failed: ${String(error)}`);
+    }
   }
+
+  return { items, errors };
 }
+
+type VisibilityContribution = {
+  key: string;
+  value: { when?: (context: ExtensionUIContext) => boolean };
+};
 
 class ExtensionRenderBoundary extends React.Component<
   { children: React.ReactNode; onError?: (message: string) => void },
@@ -71,10 +79,27 @@ export function ExtensionZone(props: {
   const { zone, registry, context, selectedViewId, onError } = props;
   const snapshot = useClientExtensionSnapshot(registry);
   const theme = useComponentTheme();
+  const { workspace, threadId } = context;
+  const visibility = useMemo(() => {
+    const contributions: readonly VisibilityContribution[] =
+      zone === "threads.sidebar"
+        ? snapshot.sections
+        : zone === "thread.header"
+          ? snapshot.actions
+          : [];
+
+    return visibleContributions(contributions, { workspace, threadId });
+  }, [zone, snapshot, workspace, threadId]);
+
+  useEffect(() => {
+    for (const error of visibility.errors) onError?.(error);
+  }, [visibility, onError]);
+
+  const visibleKeys = new Set(visibility.items.map(({ key }) => key));
 
   if (zone === "threads.sidebar") {
     return snapshot.sections
-      .filter(({ value }) => isVisible(value.when, context))
+      .filter(({ key }) => visibleKeys.has(key))
       .map(({ key, value }) => (
         <box key={key} style={{ flexDirection: "column", maxHeight: 8, flexShrink: 0 }}>
           <text fg={theme.textDim}>{value.title}</text>
@@ -87,7 +112,7 @@ export function ExtensionZone(props: {
 
   if (zone === "thread.header") {
     return snapshot.actions
-      .filter(({ value }) => isVisible(value.when, context))
+      .filter(({ key }) => visibleKeys.has(key))
       .map(({ key, value }) => (
         <IconButton
           key={key}
@@ -110,9 +135,7 @@ export function ExtensionZone(props: {
       ));
   }
 
-  const selected = snapshot.views.find(
-    ({ key, value }) => key === selectedViewId && isVisible(value.when, context),
-  );
+  const selected = snapshot.views.find(({ key }) => key === selectedViewId);
 
   return selected ? (
     <ExtensionRenderBoundary key={selected.key} onError={onError}>
