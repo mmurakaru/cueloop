@@ -107,6 +107,7 @@ const commandHandlers: CommandHandlers = {
   stop: async () => (await import("./daemon-control")).stopCommand(),
   restart: async () => (await import("./daemon-control")).restartCommand(),
   plan: (rest) => planCommand(rest),
+  pair: (rest) => pairCommand(rest),
   reply: (rest) => replyCommand(rest),
   diff: (rest) => diffCommand(rest),
   prototype: (rest) => prototypeCommand(rest),
@@ -278,6 +279,29 @@ async function diffCommand(argv: string[]): Promise<number> {
   return runTui(workbench.id, "review");
 }
 
+async function pairCommand(argv: string[]): Promise<number> {
+  const parsed = parseArgs(argv);
+  const client = await DaemonClient.connect({ autostart: true });
+  let thread: Thread;
+
+  try {
+    const sessionId = parsed.positional[0];
+
+    thread = sessionId
+      ? await client.sessionGet(sessionId)
+      : await client.sessionWorkbench(process.cwd());
+  } finally {
+    client.close();
+  }
+  if (parsed.flags["no-tui"] === true) {
+    console.log(JSON.stringify({ threadId: thread.id }));
+
+    return 0;
+  }
+
+  return runTui(thread.id, "pair");
+}
+
 /**
  * `cueloop review` disambiguates create from open by intent:
  *   - bare `cueloop review`, `--open`/`--latest`, or a `ses_*` selector opens a
@@ -310,10 +334,16 @@ async function reviewEntry(argv: string[]): Promise<number> {
  * omitted) restores the remembered one. Resolve the factory here so the heavy client
  * module stays lazily imported for non-TUI commands.
  */
-async function runTui(sessionId?: string, layout?: "review" | "plan"): Promise<number> {
-  const { runClient, reviewLayout, planLayout } = await import("@cueloop/client");
+async function runTui(sessionId?: string, layout?: "review" | "plan" | "pair"): Promise<number> {
+  const { runClient, pairLayout, reviewLayout, planLayout } = await import("@cueloop/client");
   const resolved =
-    layout === "review" ? reviewLayout() : layout === "plan" ? planLayout() : undefined;
+    layout === "review"
+      ? reviewLayout()
+      : layout === "plan"
+        ? planLayout()
+        : layout === "pair"
+          ? pairLayout()
+          : undefined;
 
   return runClient({ sessionId, layout: resolved });
 }
@@ -331,6 +361,7 @@ function printHelp(): void {
       "  cueloop reply [id|title]         open the latest pending reply review (the agent's previous message)",
       "  cueloop diff [id|title]          review your working tree (untracked files included);",
       "                                   with a clean tree, open the latest pending diff review",
+      "  cueloop pair [thread-id]         open a live workbench; --no-tui prints its Thread ID",
       "  cueloop review <pr>              review a pull request (--no-tui prints the session)",
       "  cueloop prototype <file.md>      review a component design doc (or open the latest by id/title)",
       "",

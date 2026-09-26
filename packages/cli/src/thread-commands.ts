@@ -12,6 +12,7 @@ import {
   newAnnotationId,
   type Anchor,
   type Annotation,
+  type AnnotationTarget,
 } from "@cueloop/schema";
 import * as v from "valibot";
 import { DaemonClient } from "@cueloop/daemon/client";
@@ -127,7 +128,7 @@ async function annotateAnchor(
   flags: Record<string, string | boolean>,
   client: DaemonClient,
   id: string,
-): Promise<{ anchor: Anchor; replyTo?: string }> {
+): Promise<{ anchor: Anchor; replyTo?: string; target?: AnnotationTarget }> {
   const replyTo = stringFlag(flags, "reply-to");
 
   if (replyTo !== undefined) {
@@ -137,7 +138,9 @@ async function annotateAnchor(
     if (!root) throw new Error(`no comment ${replyTo} to reply to`);
 
     // a reply to a reply still hangs off the discussion's root comment
-    return { anchor: root.anchor, replyTo: root.replyTo ?? root.id };
+    return root.target === undefined
+      ? { anchor: root.anchor, replyTo: root.replyTo ?? root.id }
+      : { anchor: root.anchor, replyTo: root.replyTo ?? root.id, target: root.target };
   }
   const selector = stringFlag(flags, "selector");
   const quote =
@@ -163,8 +166,8 @@ async function sessionAnnotateCommand({
   const id = required(positional[1], "session id");
   const author = stringFlag(flags, "author");
   const body = await annotateBody(flags, client, id);
-  const { anchor, replyTo } = await annotateAnchor(flags, client, id);
-  const annotation: Omit<Annotation, "createdAt"> = {
+  const { anchor, replyTo, target } = await annotateAnchor(flags, client, id);
+  const base: Omit<Annotation, "createdAt"> = {
     id: stringFlag(flags, "annotation-id") ?? newAnnotationId(),
     kind: stringFlag(flags, "kind") ?? "comment",
     anchor,
@@ -172,7 +175,9 @@ async function sessionAnnotateCommand({
     author,
   };
 
-  if (replyTo !== undefined) annotation.replyTo = replyTo;
+  if (replyTo !== undefined) base.replyTo = replyTo;
+  const annotation: Omit<Annotation, "createdAt"> =
+    target === undefined ? base : { ...base, target };
   out(await client.sessionAnnotate(id, annotation, stringFlag(flags, "author-name")));
 
   return 0;

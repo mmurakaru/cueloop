@@ -3,6 +3,7 @@ import {
   annotationTarget,
   ARTIFACT_TYPES,
   WORKFLOW_KINDS,
+  WORKFLOW_SKILL_KINDS,
   isArtifactType,
   isMarkdownArtifact,
   newAnnotationId,
@@ -39,6 +40,13 @@ describe("WORKFLOW_KINDS", () => {
     expect(WORKFLOW_KINDS).toEqual(["plan", "reply", "prototype", "diff", "review", "refine"]);
     expect(isArtifactType("review")).toBe(false);
     expect(isArtifactType("refine")).toBe(false);
+  });
+});
+
+describe("WORKFLOW_SKILL_KINDS", () => {
+  test("includes the live pairing skill without adding it to artifact submission workflows", () => {
+    expect(WORKFLOW_SKILL_KINDS).toEqual([...WORKFLOW_KINDS, "pair"]);
+    expect(WORKFLOW_KINDS).not.toContain("pair");
   });
 });
 

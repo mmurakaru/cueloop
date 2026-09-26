@@ -16,7 +16,7 @@ import { DaemonServer } from "@cueloop/daemon";
 import type { Thread } from "@cueloop/schema";
 import { App } from "./App";
 import { loadConfig } from "./config";
-import { planLayout, reviewLayout } from "./launch-layout";
+import { pairLayout, planLayout, reviewLayout } from "./launch-layout";
 import {
   dragText,
   isolateUserConfig,
@@ -113,6 +113,19 @@ const rightToggleColumn = (setup: Setup): number => toggleColumn(setup, NERD.sid
 const railToggleColumn = (setup: Setup): number => toggleColumn(setup, NERD.sidebarRightOff);
 
 describe("the four-pane workbench", () => {
+  test("pair starts focused on the Project tree beside the zoomed Changes editor", async () => {
+    const setup = await renderReadyApp(
+      <App home={home} sessionId={session.id} layout={pairLayout()} />,
+      { width: 160, height: 20 },
+    );
+
+    await waitForText(setup, "README.md");
+    expect(setup.captureCharFrame()).toContain("Changes");
+    await pressKey(setup, "RETURN");
+    await waitForText(setup, "Workbench Fixture");
+    setup.renderer.destroy();
+  });
+
   test("a live thread's Changes tree follows edits and a clean working tree", async () => {
     const liveSession = server.core.sessionCreate({
       workspace: { repoRoot: repo, branch: "main" },

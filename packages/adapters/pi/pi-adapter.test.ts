@@ -3,7 +3,7 @@ import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:f
 import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
 import { DaemonClient, DaemonClientError } from "@cueloop/daemon/client";
-import { WORKFLOW_KINDS } from "@cueloop/schema";
+import { WORKFLOW_KINDS, WORKFLOW_SKILL_KINDS } from "@cueloop/schema";
 import { createCueloopExtension, piUnavailableMessage, type OpenThreadParams } from "./index";
 import type {
   PiCommandOptions,
@@ -142,7 +142,9 @@ describe("pi Thread adapter", () => {
 
     expect(tool.parameters.properties.workflow?.enum).toEqual(WORKFLOW_KINDS);
     expect(fake.tools.has("refine_corpus")).toBe(true);
-    expect([...fake.commands.keys()]).toEqual(WORKFLOW_KINDS.map((kind) => `cueloop:${kind}`));
+    expect([...fake.commands.keys()]).toEqual(
+      WORKFLOW_SKILL_KINDS.map((kind) => `cueloop:${kind}`),
+    );
   });
 
   test("a pi workflow command expands its packaged skill", async () => {

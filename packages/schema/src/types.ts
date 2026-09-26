@@ -38,6 +38,11 @@ export const WORKFLOW_KINDS = ["plan", "reply", "prototype", "diff", "review", "
 
 export type WorkflowKind = (typeof WORKFLOW_KINDS)[number];
 
+/** Agent skills installed by each harness, including workflows that don't submit an artifact. */
+export const WORKFLOW_SKILL_KINDS = [...WORKFLOW_KINDS, "pair"] as const;
+
+export type WorkflowSkillKind = (typeof WORKFLOW_SKILL_KINDS)[number];
+
 /** Trust-boundary guard: is this string one of the artifact primitives? */
 export function isArtifactType(value: string): value is ArtifactType {
   return ARTIFACT_TYPES.some((candidate) => candidate === value);

@@ -1,5 +1,5 @@
 import * as v from "valibot";
-import { WORKFLOW_KINDS } from "@cueloop/schema";
+import { WORKFLOW_SKILL_KINDS } from "@cueloop/schema";
 
 const NamedVersionSchema = v.object({ name: v.string(), version: v.string() });
 const ClaudeMarketplaceSchema = v.object({
@@ -79,7 +79,7 @@ export async function checkHarnessReleaseIntegrity(): Promise<string[]> {
   for (const path of ["hooks/hooks.json", codexPlugin.extensions["com.openai"].hooks, "mcp.json"]) {
     if (!(await Bun.file(path).exists())) problems.push(`${path}: harness entry point is missing`);
   }
-  for (const skill of WORKFLOW_KINDS) {
+  for (const skill of WORKFLOW_SKILL_KINDS) {
     if (!(await Bun.file(`skills/${skill}/SKILL.md`).exists())) {
       problems.push(`skills/${skill}/SKILL.md: harness workflow skill is missing`);
     }

@@ -12,7 +12,7 @@
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { WORKFLOW_KINDS } from "@cueloop/schema";
+import { WORKFLOW_SKILL_KINDS } from "@cueloop/schema";
 import * as v from "valibot";
 
 const RegistryDocSchema = v.object({
@@ -126,7 +126,7 @@ export default function (pi: any) {
 
     return (
       toolNames.includes("open_thread") &&
-      WORKFLOW_KINDS.every(
+      WORKFLOW_SKILL_KINDS.every(
         (workflow) =>
           commandNames.has(`cueloop:${workflow}`) && commandNames.has(`skill:cueloop-${workflow}`),
       )

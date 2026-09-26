@@ -20,8 +20,10 @@ export async function runCli(
   args: string[],
   stdin?: string,
   env?: Record<string, string>,
+  cwd = process.cwd(),
 ): Promise<CliResult> {
   const proc = Bun.spawn([process.execPath, "run", CLI_ENTRY, ...args], {
+    cwd,
     env: hermeticCueloopEnvironment(home, env),
     stdin: stdin !== undefined ? new TextEncoder().encode(stdin) : "ignore",
     stdout: "pipe",

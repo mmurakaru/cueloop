@@ -413,10 +413,14 @@ function initialThreadsOpen(
   return layout ? layout.threads : sessionId === undefined;
 }
 
-function initialFocusedPane(sessionId: string | undefined, zoomed: boolean): FocusPane {
+function initialFocusedPane(
+  sessionId: string | undefined,
+  zoomed: boolean,
+  layout?: LaunchLayout,
+): FocusPane {
   if (sessionId === undefined) return "threads";
 
-  return zoomed ? "changes" : "thread";
+  return layout?.focusPane ?? (zoomed ? "changes" : "thread");
 }
 
 function bareShellDefersKeys(
@@ -609,7 +613,7 @@ export function App({
   // the Changes + Project right region and its editor grid (tabs, splits, zoom)
   const workbench = useChangesWorkbench({ layout });
   const [focusedPane, setFocusedPane] = useState<FocusPane>(() =>
-    initialFocusedPane(sessionId, workbench.zoomed),
+    initialFocusedPane(sessionId, workbench.zoomed, layout),
   );
   // only the session view persists from here; the bare shell owns its own (NoThreadShell), so this
   // workbench stays inactive with no session and never clobbers what the shell saved

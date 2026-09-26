@@ -2,6 +2,7 @@ export { runClient, type RunClientOptions } from "./run";
 export { snapshotWorkbench, type RepoDiff } from "./workbench-snapshot";
 export {
   defaultLayout,
+  pairLayout,
   planLayout,
   pullRequestReviewLayout,
   reviewLayout,

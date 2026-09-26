@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   defaultLayout,
   layoutFromPanes,
+  pairLayout,
   planLayout,
   pullRequestReviewLayout,
   reviewLayout,
@@ -11,6 +12,16 @@ describe("launch layout factories", () => {
   test("review opens the diff zoomed with the Changes panel", () => {
     // Assert
     expect(reviewLayout()).toEqual({ threads: true, rightSidebar: "changes", zoomChanges: true });
+  });
+
+  test("pair opens the Project tree focused beside a zoomed Changes editor", () => {
+    expect(pairLayout()).toEqual({
+      threads: true,
+      rightSidebar: "changes",
+      zoomChanges: true,
+      projectMode: "tree",
+      focusPane: "project",
+    });
   });
 
   test("pull request review keeps its brief beside the Changes panel", () => {

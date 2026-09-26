@@ -600,6 +600,41 @@ printf 'term-1\\n'
     expect(byId.get("nested_cli")).toMatchObject({ replyTo: "root_cli" });
   });
 
+  test("annotate --reply-to keeps a file comment's target", async () => {
+    const client = await DaemonClient.connect({ home });
+
+    await client.sessionAnnotate(sessionId, {
+      id: "file_root_cli",
+      kind: "comment",
+      anchor: { quote: "two phases", prefix: "", suffix: "" },
+      body: "What does this file do?",
+      target: { kind: "file", path: "src/example.ts", rev: "worktree" },
+    });
+    client.close();
+
+    const replied = cliJson<Thread>(
+      await runCli(home, [
+        "session",
+        "annotate",
+        sessionId,
+        "--annotation-id",
+        "file_reply_cli",
+        "--reply-to",
+        "file_root_cli",
+        "--body",
+        "It handles the example flow.",
+        "--author",
+        "agent",
+      ]),
+    );
+    const reply = replied.annotations.find((annotation) => annotation.id === "file_reply_cli");
+
+    expect(reply).toMatchObject({
+      replyTo: "file_root_cli",
+      target: { kind: "file", path: "src/example.ts", rev: "worktree" },
+    });
+  });
+
   test("annotate --selector anchors a prototype comment to an element", async () => {
     // Act
     const annotated = cliJson<Thread>(

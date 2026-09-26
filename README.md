@@ -76,7 +76,7 @@ To update the extension:
 pi update npm:@cueloop/pi
 ```
 
-The pi package includes cueloop workflow skills. Use `/cueloop:plan`, `/cueloop:diff`, `/cueloop:review`, `/cueloop:reply`, `/cueloop:prototype`, or `/cueloop:refine` inside pi.
+The pi package includes cueloop workflow skills. Use `/cueloop:plan`, `/cueloop:diff`, `/cueloop:pair`, `/cueloop:review`, `/cueloop:reply`, `/cueloop:prototype`, or `/cueloop:refine` inside pi.
 
 ## Packages
 

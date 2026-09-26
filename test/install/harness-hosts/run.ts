@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { WORKFLOW_KINDS } from "@cueloop/schema";
+import { WORKFLOW_KINDS, WORKFLOW_SKILL_KINDS } from "@cueloop/schema";
 import * as v from "valibot";
 
 const REPO_ROOT = resolve(import.meta.dir, "../../..");
@@ -35,7 +35,7 @@ function runHostCommand(args: [string, ...string[]], cwd = REPO_ROOT): string {
 }
 
 function checkInstalledSkills(root: string, harness: string): void {
-  for (const workflow of WORKFLOW_KINDS) {
+  for (const workflow of WORKFLOW_SKILL_KINDS) {
     if (!existsSync(join(root, "skills", workflow, "SKILL.md"))) {
       throw new Error(`${harness} installation does not expose ${workflow}`);
     }
@@ -115,7 +115,7 @@ async function inspectPiExtension(work: string): Promise<void> {
     if (commandNames.includes("threads")) {
       throw new Error("pi still registers the cueloop Threads command");
     }
-    for (const workflow of WORKFLOW_KINDS) {
+    for (const workflow of WORKFLOW_SKILL_KINDS) {
       if (!commandNames.includes(`cueloop:${workflow}`)) {
         throw new Error(`pi did not register /cueloop:${workflow}`);
       }
