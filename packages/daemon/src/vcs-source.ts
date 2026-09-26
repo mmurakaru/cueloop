@@ -6,6 +6,10 @@ import { dirname, isAbsolute, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { VcsAdapter, VcsDiffSnapshot, ExtensionFactory } from "@cueloop/extension-api";
 import { Registry } from "@cueloop/extension-api";
+import {
+  discoverInstalledExtensionPackages,
+  extensionInstallRoot,
+} from "@cueloop/extension-api/installed-packages";
 import { parse as parseToml } from "smol-toml";
 import * as v from "valibot";
 import { jjVcsAdapter } from "./jj-working-tree";
@@ -91,6 +95,7 @@ export class VcsSourceManager {
   constructor(
     private readonly userConfigPath = process.env.CUELOOP_CONFIG ??
       join(process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config"), "cueloop", "config.toml"),
+    private readonly installRoot = extensionInstallRoot(),
   ) {}
 
   private async adapters(): Promise<VcsAdapter[]> {
@@ -109,21 +114,31 @@ export class VcsSourceManager {
 
     for (const path of paths) {
       const absolute = isAbsolute(path) ? path : resolve(dirname(this.userConfigPath), path);
-      try {
-        const module: unknown = await import(pathToFileURL(absolute).href);
-        const parsed = v.safeParse(ExtensionModuleSchema, module);
+      await this.loadAdapterExtension(absolute);
+    }
+    const discovery = discoverInstalledExtensionPackages(this.installRoot);
 
-        if (!parsed.success) throw new Error("VCS extension must export a default factory");
-        const factory: ExtensionFactory = async (api) => {
-          await parsed.output.default(api);
-        };
-        const record = await this.registry.load(absolute, factory);
+    this.extensionErrors.push(...discovery.errors);
+    for (const extension of discovery.packages) {
+      if (extension.daemonEntry) await this.loadAdapterExtension(extension.daemonEntry);
+    }
+  }
 
-        for (const error of record.errors)
-          this.extensionErrors.push(`VCS extension ${absolute}: ${error}`);
-      } catch (error) {
-        this.extensionErrors.push(`VCS extension load failed: ${absolute}: ${String(error)}`);
-      }
+  private async loadAdapterExtension(absolute: string): Promise<void> {
+    try {
+      const module: unknown = await import(pathToFileURL(absolute).href);
+      const parsed = v.safeParse(ExtensionModuleSchema, module);
+
+      if (!parsed.success) throw new Error("VCS extension must export a default factory");
+      const factory: ExtensionFactory = async (api) => {
+        await parsed.output.default(api);
+      };
+      const record = await this.registry.load(absolute, factory);
+
+      for (const error of record.errors)
+        this.extensionErrors.push(`VCS extension ${absolute}: ${error}`);
+    } catch (error) {
+      this.extensionErrors.push(`VCS extension load failed: ${absolute}: ${String(error)}`);
     }
   }
 

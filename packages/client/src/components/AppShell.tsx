@@ -5,7 +5,7 @@
 // always present when the region is on, Changes rides on top of it, and a thin rail holds the sidebar
 // toggle when the region is closed. Each pane owns its own header controls; the thread header never does.
 
-import React, { useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import { useTerminalDimensions } from "@opentui/react";
 import type { BoxRenderable } from "@opentui/core";
 import { DARK, type Theme } from "../theme";
@@ -16,6 +16,28 @@ import { IconButton } from "./primitives/IconButton";
 import { NERD, HEADER_UNDERLINE_CHARS } from "./primitives/icons";
 import { TooltipProvider } from "./Tooltip";
 import { RootOverlayProvider } from "./RootOverlay";
+import type { ExtensionUIContext } from "@cueloop/extension-api/client";
+import { ClientExtensionRegistry } from "../client-extension-registry";
+import { ExtensionZone, useClientExtensionSnapshot } from "./ExtensionZone";
+import { WorkspacePanels } from "./WorkspacePanels";
+
+const EMPTY_EXTENSION_REGISTRY = new ClientExtensionRegistry();
+const EMPTY_EXTENSION_CONTEXT: ExtensionUIContext = { workspace: null, threadId: null };
+
+interface ExtensionInputs {
+  registry: ClientExtensionRegistry;
+  context: ExtensionUIContext;
+}
+
+function extensionInputs(
+  registry?: ClientExtensionRegistry,
+  context?: ExtensionUIContext,
+): ExtensionInputs {
+  return {
+    registry: registry ?? EMPTY_EXTENSION_REGISTRY,
+    context: context ?? EMPTY_EXTENSION_CONTEXT,
+  };
+}
 
 export type ProjectPanelMode = "changes" | "tree";
 
@@ -70,6 +92,10 @@ export interface AppShellProps {
   threadsWidth?: number;
   projectWidth?: number;
   onFocusPane?: (pane: FocusPane) => void;
+  focusedPane?: FocusPane;
+  extensionRegistry?: ClientExtensionRegistry;
+  extensionContext?: ExtensionUIContext;
+  onExtensionError?: (message: string) => void;
 }
 
 export type FocusPane = "threads" | "thread" | "changes" | "project";
@@ -126,7 +152,17 @@ export function AppShell({
   threadsWidth = 30,
   projectWidth = 32,
   onFocusPane,
+  focusedPane,
+  extensionRegistry,
+  extensionContext,
+  onExtensionError,
 }: AppShellProps): React.ReactNode {
+  const { registry, context } = extensionInputs(extensionRegistry, extensionContext);
+  const extensionSnapshot = useClientExtensionSnapshot(registry);
+  useEffect(() => {
+    if (extensionSnapshot.lastError) onExtensionError?.(extensionSnapshot.lastError);
+  }, [extensionSnapshot.lastError, onExtensionError]);
+
   const tokens = theme ?? DARK;
   const { width: terminalWidth } = useTerminalDimensions();
   // with both panels closed the right region collapses to nothing: the reopen toggle
@@ -162,31 +198,6 @@ export function AppShell({
         theme={tokens}
       />
       <text fg={tokens.accent}>cueloop</text>
-    </box>
-  );
-
-  const projectToggles = (
-    <box style={{ flexDirection: "row", flexShrink: 0, alignItems: "center" }}>
-      <IconButton
-        glyph="changes"
-        active={projectMode === "changes"}
-        onPress={onToggleChanges}
-        marginRight={2}
-        theme={tokens}
-      />
-      <IconButton
-        glyph="project"
-        active={projectMode === "tree"}
-        onPress={onToggleProject}
-        marginRight={2}
-        theme={tokens}
-      />
-      <IconButton
-        glyph={NERD.sidebarRight}
-        onPress={onToggleRight}
-        tip="Toggle Sidebar"
-        theme={tokens}
-      />
     </box>
   );
 
@@ -226,6 +237,12 @@ export function AppShell({
                 theme={tokens}
               >
                 {threadsPanel}
+                <ExtensionZone
+                  zone="threads.sidebar"
+                  registry={registry}
+                  context={context}
+                  onError={onExtensionError}
+                />
               </PanelColumn>
             ) : null}
             {!zoomHideThread ? (
@@ -243,7 +260,19 @@ export function AppShell({
                 }
                 // with the region closed, the reopen toggle rides the thread header instead of an empty column
                 headerRight={threadHeaderRight(
-                  threadActions,
+                  extensionSnapshot.actions.length > 0 ? (
+                    <box style={{ flexDirection: "row", alignItems: "center" }}>
+                      {threadActions}
+                      <ExtensionZone
+                        zone="thread.header"
+                        registry={registry}
+                        context={context}
+                        onError={onExtensionError}
+                      />
+                    </box>
+                  ) : (
+                    threadActions
+                  ),
                   reopenRightControl,
                   rightRegionClosed,
                 )}
@@ -273,16 +302,20 @@ export function AppShell({
               </box>
             ) : null}
             {projectOpen ? (
-              <PanelColumn
+              <WorkspacePanels
                 width={projectWidth}
-                border="left"
-                header={null}
-                headerRight={projectToggles}
+                projectMode={projectMode}
+                projectPanel={projectPanel}
+                onToggleChanges={onToggleChanges}
+                onToggleProject={onToggleProject}
+                onToggleRight={onToggleRight}
                 onFocus={() => onFocusPane?.("project")}
+                focused={focusedPane === "project"}
+                registry={registry}
+                context={context}
                 theme={tokens}
-              >
-                {projectPanel}
-              </PanelColumn>
+                onExtensionError={onExtensionError}
+              />
             ) : rightRegionClosed ? null : (
               // Changes open but Project closed: a divider tick above the continuous header underline holds the reopen toggle;
               // the rule lives in the header only, never running the pane's full height. The extra column

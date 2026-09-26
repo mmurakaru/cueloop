@@ -23,6 +23,16 @@ cueloop prototype [file]    # review a component design doc (Markdown)
 cueloop review <pr>         # pull a pull request in and review it
 ```
 
+## Install an extension
+
+```bash
+cueloop install npm:<package>[@version]
+```
+
+Installed UI entries load when you next start cueloop. Run `cueloop restart`
+to load daemon entries, including VCS adapters. See
+[Extensions](/docs/reference/extensions/).
+
 - **`cueloop`** with no arguments opens the inbox across all types.
 - **`cueloop plan`** opens the latest pending plan review. Pass an id or title to
   address a specific one.

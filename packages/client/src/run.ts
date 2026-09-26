@@ -10,6 +10,10 @@ import { loadConfig } from "./config";
 import { perfMark } from "./perf/perf-timings";
 import { reportPerfMarks } from "./perf/perf-report";
 import { defaultLayout, type LaunchLayout } from "./launch-layout";
+import {
+  ClientExtensionRegistry,
+  loadInstalledClientExtensions,
+} from "./client-extension-registry";
 
 export interface RunClientOptions {
   sessionId?: string;
@@ -31,6 +35,11 @@ export async function runClient(options: RunClientOptions): Promise<number> {
     options.layout ??
     (options.sessionId === undefined ? (loadConfig().ui.layout ?? defaultLayout()) : undefined);
   const renderer = await createCliRenderer({ enableMouseMovement: true });
+  const extensionRegistry = new ClientExtensionRegistry();
+
+  void loadInstalledClientExtensions(extensionRegistry).catch((error) => {
+    extensionRegistry.reportError(`Client extension discovery: ${String(error)}`);
+  });
   // a full screen of measured elements each holds a frame listener; lift the default-10 ceiling so a
   // busy view does not trip a false leak warning, while a runaway subscription still would
   renderer.setMaxListeners(64);
@@ -66,6 +75,7 @@ export async function runClient(options: RunClientOptions): Promise<number> {
           sessionId: options.sessionId,
           appearance,
           layout,
+          extensionRegistry,
           onExit: shutdown,
           onReady: () => {
             perfMark("firstFrame");

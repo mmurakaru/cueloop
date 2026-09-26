@@ -4,12 +4,17 @@ title: VCS extensions
 eyebrow: Docs · Reference
 lede: Register a diff source without changing the Changes view or Thread format.
 prev: { title: "Configuration", href: "/docs/reference/configuration/" }
-next: { title: "Keyboard and mouse", href: "/docs/reference/keyboard/" }
+next: { title: "Extensions", href: "/docs/reference/extensions/" }
 ---
 
 A VCS extension registers an adapter with `registerVcsAdapter`. The daemon
 selects the adapter and captures the diff. cueloop owns the Thread, comments,
 revision history, and UI.
+
+You can install an npm extension with `cueloop install npm:<package>`. Its
+`package.json` declares a `cueloop.daemon` entry point. See
+[Extensions](/docs/reference/extensions/) for the package format. You can also
+load a local entry point from your user config as shown below.
 
 An adapter has `apiVersion: 1`, a unique namespaced ID, and four required
 operations:

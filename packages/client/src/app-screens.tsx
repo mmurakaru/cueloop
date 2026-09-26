@@ -1,5 +1,5 @@
 import { ScrollArea } from "./components/ScrollArea";
-import React, { useMemo, type Dispatch, type SetStateAction } from "react";
+import React, { useCallback, useMemo, type Dispatch, type SetStateAction } from "react";
 import type { Thread, MessageOutcome } from "@cueloop/schema";
 import { returnPaneFor } from "@cueloop/schema";
 import type { Theme } from "./theme";
@@ -22,6 +22,8 @@ import { CompletionOverlay } from "./components/CompletionOverlay";
 import { ThreadTree } from "./components/ThreadTree";
 import { WelcomePlayground } from "./components/WelcomePlayground";
 import { AppShell, type FocusPane, type ProjectPanelMode } from "./components/AppShell";
+import type { ClientExtensionRegistry } from "./client-extension-registry";
+import type { ExtensionUIContext } from "@cueloop/extension-api/client";
 import { EditorGrid } from "./components/EditorGrid";
 import { MenuControlProvider, type MenuControlApi } from "./components/menu-control";
 import { ProjectTreeView } from "./components/ProjectTreeView";
@@ -150,6 +152,9 @@ function WelcomeProjectPanel({
  * the center for it. Closing the Welcome tab leaves a bare "select a thread" hint.
  */
 export function NoThreadShell(props: {
+  toast?: ToastState | null;
+  extensionRegistry?: ClientExtensionRegistry;
+  extensionContext?: ExtensionUIContext;
   rows: InboxRow[];
   inboxCursor: number;
   /** Open a sidebar thread and move the cursor onto it, so the row shows its selected backdrop at once. */
@@ -199,6 +204,10 @@ export function NoThreadShell(props: {
     onWelcomeComposingChange,
     layout,
   } = props;
+  const showExtensionError = useCallback(
+    (message: string) => controller.showToast(message),
+    [controller],
+  );
   const confirming = mode.type === "confirmDelete" ? mode : null;
   // The bare-launch shell is the same four panes as a thread: the Thread pane waits in its empty state
   // and a disposable Welcome tab rides in the Changes editor until a thread or diff is opened.
@@ -252,10 +261,14 @@ export function NoThreadShell(props: {
     <ThemeProvider theme={theme}>
       <MenuControlProvider value={menuControl}>
         <AppShell
+          extensionRegistry={props.extensionRegistry}
+          extensionContext={props.extensionContext}
+          onExtensionError={showExtensionError}
           sidebarOpen={sidebarOpen}
           onToggleSidebar={onToggleSidebar}
           onOpenMenu={onOpenMenu}
           onFocusPane={onFocusPane}
+          focusedPane={focusedPane}
           threadsPanel={
             <ScrollArea>
               <ThreadTree
@@ -381,6 +394,9 @@ export function NoThreadShell(props: {
               onCancel={() => setMode({ type: "normal" })}
               theme={theme}
             />
+          ) : null}
+          {props.toast ? (
+            <Toast title={props.toast.title} body={props.toast.body} theme={theme} />
           ) : null}
         </AppShell>
       </MenuControlProvider>

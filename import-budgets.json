@@ -22,6 +22,7 @@
       "@cueloop/schema",
       "@cueloop/daemon",
       "@cueloop/client",
+      "@cueloop/extension-api",
       "@cueloop/adapters"
     ],
     "@cueloop/gateway": [
@@ -39,9 +40,9 @@
   },
   "moduleImportBudget": 20,
   "moduleBudgets": {
-    "packages/cli/src/main.ts": 21,
-    "packages/client/src/App.tsx": 48,
-    "packages/client/src/app-screens.tsx": 33,
+    "packages/cli/src/main.ts": 22,
+    "packages/client/src/App.tsx": 50,
+    "packages/client/src/app-screens.tsx": 35,
     "packages/client/src/components/DiffContentView.tsx": 21
   }
 }

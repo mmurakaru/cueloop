@@ -39,6 +39,7 @@ export const docsNav: NavGroup[] = [
       { title: "Commands", href: "/docs/reference/commands/" },
       { title: "Configuration", href: "/docs/reference/configuration/" },
       { title: "VCS extensions", href: "/docs/reference/vcs-extensions/" },
+      { title: "Extensions", href: "/docs/reference/extensions/" },
       { title: "Keyboard and mouse", href: "/docs/reference/keyboard/" },
       { title: "Public API", href: "/docs/reference/api/" },
       { title: "Security and privacy", href: "/docs/sharing/security/" },

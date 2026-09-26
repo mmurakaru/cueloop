@@ -52,6 +52,8 @@ import { ChangesFileTree } from "./components/ChangesColumn";
 import { MenuControlProvider, useMenuControlState } from "./components/menu-control";
 import { ProjectTreeView } from "./components/ProjectTreeView";
 import { AppShell, type FocusPane, type ProjectPanelMode } from "./components/AppShell";
+import type { ClientExtensionRegistry } from "./client-extension-registry";
+import type { ExtensionUIContext } from "@cueloop/extension-api/client";
 import { EditorGrid } from "./components/EditorGrid";
 import { GridTabContent } from "./components/GridTabContent";
 import { useChangesWorkbench } from "./use-changes-workbench";
@@ -146,6 +148,11 @@ export interface AppProps {
   layout?: LaunchLayout;
   /** Serve mode: the frozen working-tree diff an observer reads for the served workbench thread. */
   servedArtifact?: Artifact;
+  extensionRegistry?: ClientExtensionRegistry;
+}
+
+function extensionContext(cwd: string | undefined, threadId: string | null): ExtensionUIContext {
+  return { workspace: cwd ?? process.cwd(), threadId };
 }
 
 /** True while the drop-up or one of its dialogs is open and owns the keyboard. */
@@ -509,6 +516,7 @@ export function App({
   appearance = "dark",
   layout,
   servedArtifact,
+  extensionRegistry,
 }: AppProps): React.ReactNode {
   const { observer, isOwner } = computeRoleCapabilities(readOnly, role);
   const controller = useMemo(
@@ -526,6 +534,10 @@ export function App({
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [home, sessionId],
+  );
+  const showExtensionError = useCallback(
+    (message: string) => controller.showToast(message),
+    [controller],
   );
 
   useEffect(() => {
@@ -1064,6 +1076,9 @@ export function App({
       <SlashSkillsContext.Provider value={skills}>
         <PaletteNamesContext.Provider value={paletteNames}>
           <NoThreadShell
+            toast={toast}
+            extensionRegistry={extensionRegistry}
+            extensionContext={extensionContext(cwd, null)}
             rows={grouped.rows}
             inboxCursor={inboxCursor}
             onOpenThread={openThread}
@@ -1180,10 +1195,17 @@ export function App({
         <ThemeProvider theme={theme}>
           <MenuControlProvider value={menuControl}>
             <AppShell
+              extensionRegistry={extensionRegistry}
+              extensionContext={{
+                workspace: activeSession.workspace.repoRoot,
+                threadId: activeSession.id,
+              }}
+              onExtensionError={showExtensionError}
               sidebarOpen={sidebarOpen}
               onToggleSidebar={() => setSidebarOpen((open) => !open)}
               onOpenMenu={openSettings}
               onFocusPane={setFocusedPane}
+              focusedPane={focusedPane}
               threadsPanel={
                 <scrollbox style={{ flexGrow: 1 }} focused={false}>
                   <ThreadTree

@@ -117,6 +117,40 @@ describe("VcsSourceManager", () => {
     expect((await source.capture(repo)).patch).toBe("custom patch");
   });
 
+  test("an installed package loads its daemon adapter entry", async () => {
+    const root = createTestVcsDirectory(created);
+    const repo = join(root, "repo");
+    const installRoot = join(root, "extensions");
+    const packageRoot = join(installRoot, "node_modules", "example-vcs");
+
+    mkdirSync(repo);
+    mkdirSync(packageRoot, { recursive: true });
+    writeFileSync(
+      join(installRoot, "package.json"),
+      JSON.stringify({ dependencies: { "example-vcs": "1.0.0" } }),
+    );
+    writeFileSync(
+      join(packageRoot, "package.json"),
+      JSON.stringify({ cueloop: { daemon: "./daemon.ts" } }),
+    );
+    writeFileSync(
+      join(packageRoot, "daemon.ts"),
+      `export default (api) => api.registerVcsAdapter({
+      apiVersion: 1,
+      id: "example.installed",
+      detect: async (cwd) => cwd,
+      captureWorkingDiff: async () => ({ patch: "installed patch", files: [] }),
+      listChanges: async () => [],
+      listFiles: async () => [],
+    });`,
+    );
+    writeFileSync(join(root, "config.toml"), '[vcs]\nprovider = "example.installed"\n');
+    const source = new VcsSourceManager(join(root, "config.toml"), installRoot);
+
+    expect((await source.select(repo)).adapter.id).toBe("example.installed");
+    expect((await source.capture(repo)).patch).toBe("installed patch");
+  });
+
   test("a failing extension detection leaves the built-in Git source usable", async () => {
     const root = createTestVcsDirectory(created);
     const repo = createTestVcsGitRepo(created);
