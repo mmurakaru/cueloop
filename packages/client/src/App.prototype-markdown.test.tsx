@@ -8,6 +8,7 @@ import React from "react";
 import { DaemonServer } from "@cueloop/daemon";
 import type { Thread } from "@cueloop/schema";
 import { App } from "./App";
+import { DARK } from "./theme";
 import { isolateUserConfig, renderReadyApp, settle, waitForText } from "./test-support";
 
 const DOC = `# PromoCard
@@ -53,6 +54,41 @@ afterEach(() => {
 });
 
 describe("markdown prototype review", () => {
+  test("syntax-highlights TypeScript fences without changing their text", async () => {
+    const setup = await renderReadyApp(<App home={home} sessionId={session.id} />, {
+      width: 120,
+      height: 40,
+    });
+
+    await waitForText(setup, "PromoCardProps");
+    let keywordHighlighted = false;
+
+    for (let attempt = 0; attempt < 60 && !keywordHighlighted; attempt++) {
+      await setup.renderOnce();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      const accentText = setup
+        .captureSpans()
+        .lines.flatMap((line) =>
+          line.spans
+            .filter((span) => {
+              const [red, green, blue] = span.fg.toInts();
+
+              return (
+                `#${[red, green, blue].map((part) => part.toString(16).padStart(2, "0")).join("")}` ===
+                DARK.accent
+              );
+            })
+            .map((span) => span.text),
+        )
+        .join("");
+
+      keywordHighlighted = accentText.includes("interface");
+    }
+
+    expect(keywordHighlighted).toBe(true);
+    expect(setup.captureCharFrame()).toContain("interface PromoCardProps {");
+  }, 25000);
+
   test("renders as a markdown design doc, not the pixel view", async () => {
     const setup = await renderReadyApp(<App home={home} sessionId={session.id} />, {
       width: 120,
