@@ -1,5 +1,20 @@
 # cueloop
 
+## 0.1.0-alpha.90
+
+### Minor Changes
+
+- [#520](https://github.com/mmurakaru/cueloop/pull/520) [`168af39`](https://github.com/mmurakaru/cueloop/commit/168af39c616ec405b1c83f2dd006de3cc967533f) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Add native JJ diff reviews and a configurable public VCS adapter contract. Preserve Git diff behavior, track exact reviewed revisions across JJ rewrites and pull request refreshes, keep the Changes tree current as files change or become clean, keep Codex reply delivery alive after its MCP connection closes, syntax-highlight fenced code in Threads, and document Git, JJ, and Sapling extension workflows. Add npm extension installation and client UI contributions for Threads, Thread actions, and workspace panels.
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.90
+  - @cueloop/client@0.1.0-alpha.90
+  - @cueloop/daemon@0.1.0-alpha.90
+  - @cueloop/extension-api@0.1.0-alpha.90
+  - @cueloop/schema@0.1.0-alpha.90
+
 ## 0.1.0-alpha.89
 
 ### Patch Changes
