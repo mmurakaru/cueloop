@@ -51,6 +51,90 @@ async function openDiffSession() {
 }
 
 describe("session.refreshDiff", () => {
+  test("a JJ rewrite with the same patch records its new commit identity", async () => {
+    const init = Bun.spawnSync(["jj", "git", "init", "--colocate", repo], {
+      cwd: repo,
+      stdout: "ignore",
+      stderr: "pipe",
+    });
+
+    if (init.exitCode !== 0) throw new Error(init.stderr.toString());
+    writeFileSync(join(repo, "a.ts"), "export const a = 2;\n");
+    const first = await core.repoDiff(repo);
+    const workspace = await resolveWorkspace(repo);
+    const session = core.sessionCreate({
+      workspace,
+      artifact: {
+        type: "diff",
+        content: first.patch,
+        files: first.files,
+        meta: {
+          vcs: "jj",
+          vcsChangeId: first.source!.changeId,
+          vcsRevisionId: first.source!.revisionId,
+        },
+      },
+    });
+    const describe = Bun.spawnSync(["jj", "describe", "-m", "same patch, new commit"], {
+      cwd: repo,
+      stderr: "pipe",
+    });
+
+    if (describe.exitCode !== 0) throw new Error(describe.stderr.toString());
+    const result = await core.sessionRefreshDiff(session.id);
+    const current = core.sessionGet(session.id);
+
+    expect(result.changed).toBe(false);
+    expect(current.revisions).toHaveLength(2);
+    expect(current.revisions[0]?.content).toBe(current.revisions[1]?.content);
+    expect(current.revisions[0]?.source?.revisionId).toBe(first.source!.revisionId);
+    expect(current.revisions[1]?.source?.revisionId).toBe(current.artifact.meta.vcsRevisionId);
+    expect(current.revisions[1]?.source?.revisionId).not.toBe(first.source!.revisionId);
+  });
+
+  test("a submitted JJ change keeps its prior snapshot when refreshed after a rewrite", async () => {
+    const init = Bun.spawnSync(["jj", "git", "init", "--colocate", repo], {
+      cwd: repo,
+      stdout: "ignore",
+      stderr: "pipe",
+    });
+
+    if (init.exitCode !== 0) throw new Error(init.stderr.toString());
+    writeFileSync(join(repo, "a.ts"), "export const a = 2;\n");
+    const first = await core.repoDiff(repo);
+    const workspace = await resolveWorkspace(repo);
+    const session = core.sessionCreate({
+      workspace,
+      artifact: {
+        type: "diff",
+        content: first.patch,
+        files: first.files,
+        meta: {
+          vcs: "jj",
+          vcsChangeId: first.source!.changeId,
+          vcsRevisionId: first.source!.revisionId,
+        },
+      },
+    });
+
+    writeFileSync(join(repo, "a.ts"), "export const a = 3;\n");
+    const result = await core.sessionRefreshDiff(session.id);
+    const current = core.sessionGet(session.id);
+
+    expect(result.changed).toBe(true);
+    expect(current.revisions.map((revision) => revision.content)).toEqual([
+      first.patch,
+      current.artifact.content,
+    ]);
+    expect(current.revisions[0]?.source?.revisionId).toBe(first.source!.revisionId);
+    expect(current.revisions[0]?.files).toEqual(first.files);
+    expect(current.revisions[1]?.source?.revisionId).toBe(current.artifact.meta.vcsRevisionId);
+    expect(current.revisions[1]?.files).toEqual(current.artifact.files);
+    expect(current.artifact.meta.vcsChangeId).toBe(first.source!.changeId);
+    expect(current.artifact.meta.vcsRevisionId).not.toBe(first.source!.revisionId);
+    expect(current.artifact.content).toContain("+export const a = 3;");
+  });
+
   test("re-captures the working tree and updates the artifact when the patch changed", async () => {
     // Given an open diff session whose working tree then gains a new change
     const session = await openDiffSession();
@@ -218,7 +302,26 @@ esac
       expect(refreshed.artifact.meta.prHeadSha).toBe("sha-2");
       expect(refreshed.artifact.meta.prRefreshBaseSha).toBeUndefined();
       expect(refreshed.artifact.meta.prRefreshHeadSha).toBeUndefined();
+      expect(refreshed.revisions.map((revision) => revision.content)).toEqual([
+        "OLD PR DIFF\n",
+        refreshed.artifact.content,
+      ]);
+      expect(refreshed.revisions.map((revision) => revision.source?.revisionId)).toEqual([
+        "sha-1",
+        "sha-2",
+      ]);
+      expect(refreshed.history!.entries.filter((entry) => entry.type === "revision")).toHaveLength(
+        2,
+      );
       expect(readFileSync(ghLog, "utf8")).toContain("https://github.com/org/repo/pull/1");
+      writeFileSync(ghStub, readFileSync(ghStub, "utf8").replace("sha-2", "sha-3"));
+      const samePatch = await core.sessionRefreshDiff(session.id);
+      const movedHead = core.sessionGet(session.id);
+
+      expect(samePatch.changed).toBe(false);
+      expect(movedHead.revisions).toHaveLength(3);
+      expect(movedHead.revisions[2]?.content).toBe(movedHead.revisions[1]?.content);
+      expect(movedHead.revisions[2]?.source?.revisionId).toBe("sha-3");
     } finally {
       if (previousGh === undefined) delete process.env.CUELOOP_GH;
       else process.env.CUELOOP_GH = previousGh;
@@ -227,6 +330,31 @@ esac
 });
 
 describe("the fs watcher drives hot-reload", () => {
+  test("a JJ workbench refreshes in place after the working copy changes", async () => {
+    git(["status"], repo);
+    const init = Bun.spawnSync(["jj", "git", "init", "--colocate", repo], {
+      cwd: repo,
+      stdout: "ignore",
+      stderr: "pipe",
+    });
+
+    if (init.exitCode !== 0) throw new Error(init.stderr.toString());
+    const session = await core.workbenchSession(repo);
+
+    expect(session.artifact.meta.vcs).toBe("jj");
+    writeFileSync(join(repo, "a.ts"), "export const a = 42;\n");
+    const deadline = Date.now() + 8_000;
+    let current = core.sessionGet(session.id);
+
+    while (!current.artifact.content.includes("+export const a = 42;") && Date.now() < deadline) {
+      await Bun.sleep(100);
+      current = core.sessionGet(session.id);
+    }
+    expect(current.artifact.content).toContain("+export const a = 42;");
+    expect(current.revisions).toHaveLength(1);
+    expect(current.artifact.meta.vcsChangeId).toBeTruthy();
+  }, 12_000);
+
   test("a working-tree change under a live diff session refreshes it in place", async () => {
     // Given a live diff session whose repo the daemon is watching
     const session = await openDiffSession();

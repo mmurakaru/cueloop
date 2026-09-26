@@ -4,7 +4,7 @@ title: Configuration
 eyebrow: Docs · Reference
 lede: Override keys, layout, theme, integrations, or storage in one optional TOML file.
 prev: { title: "Commands", href: "/docs/reference/commands/" }
-next: { title: "Keyboard and mouse", href: "/docs/reference/keyboard/" }
+next: { title: "VCS extensions", href: "/docs/reference/vcs-extensions/" }
 ---
 
 Configuration is optional. cueloop ships with sensible defaults and reads a TOML
@@ -22,6 +22,19 @@ ${XDG_CONFIG_HOME:-~/.config}/cueloop/config.toml
 If the current repository has a `.cueloop/config.toml`, it is layered **on top**
 of the user config. Later layers win: built-in defaults, then user config, then
 repo config. A file that fails to parse is ignored, and the defaults stand.
+
+## `[vcs]`
+
+Use `provider = "auto"` to select JJ in a colocated checkout and Git in a Git
+checkout. Set `provider = "git"`, `"jj"`, or a registered adapter ID to choose
+one explicitly. Extensions load from the user config only.
+
+```toml
+[vcs]
+provider = "auto"
+```
+
+See [Review diffs](/docs/concepts/diffs/) and [VCS extensions](/docs/reference/vcs-extensions/).
 
 ## `[keys]`
 

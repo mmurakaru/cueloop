@@ -311,7 +311,7 @@ export interface ReviewController {
   /** The launch repo's working-tree changed files for the no-session welcome Changes tree. */
   repoChanges(): Promise<readonly DiffFileContents[]>;
   /** Explicitly pull a PR diff after its head moved. */
-  refreshPullRequest(): Promise<void>;
+  refreshDiff(): Promise<void>;
   /** Open a session from the inbox. */
   open(id: string): void;
   /** Delete a session for good (inbox delete); the inbox refreshes on the event. */
@@ -843,14 +843,29 @@ class Controller implements ReviewController {
     if (readsFrozenDiff(session)) return session!.artifact.files ?? [];
     // eager: capture the live working-tree diff so the Changes navigator and its file tabs render a real diff
     if (this.client?.repoDiff !== undefined) {
-      const diff = await this.client.repoDiff(this.sidebarRepoRoot());
+      const diff = await this.client.repoDiff(
+        this.sidebarRepoRoot(),
+        session?.artifact.meta.workbench ? (session.artifact.meta.vcs ?? "git") : undefined,
+      );
       // a thread switch during the request would let this response overwrite the new thread's diff,
       // showing changes from the wrong repo; compare the thread id, not the object, so an unrelated
       // re-render that replaced the snapshot for the SAME thread does not drop its diff to "No changes"
       if (this.snapshot.session?.id !== session?.id) return diff.files;
-      this.liveDiff = diff;
-      // rows() derive from the fresh patch; re-render so an open diff tab repaints
-      this.update({});
+      const changed =
+        this.liveDiff?.patch !== diff.patch ||
+        this.liveDiff.files.length !== diff.files.length ||
+        this.liveDiff.files.some(
+          (file, index) =>
+            file.path !== diff.files[index]?.path ||
+            file.status !== diff.files[index]?.status ||
+            file.oldContents !== diff.files[index]?.oldContents ||
+            file.newContents !== diff.files[index]?.newContents,
+        );
+      if (changed) {
+        this.liveDiff = diff;
+        // rows() derive from the fresh patch; re-render so an open diff tab repaints
+        this.update({});
+      }
 
       return diff.files;
     }
@@ -866,10 +881,10 @@ class Controller implements ReviewController {
     }));
   }
 
-  async refreshPullRequest(): Promise<void> {
+  async refreshDiff(): Promise<void> {
     const session = this.snapshot.session;
 
-    if (!session?.artifact.meta.prRefreshHeadSha || !this.client?.sessionRefreshDiff) return;
+    if (session?.artifact.type !== "diff" || !this.client?.sessionRefreshDiff) return;
     try {
       await this.client.sessionRefreshDiff(session.id);
     } catch (cause) {
@@ -1701,7 +1716,7 @@ class Controller implements ReviewController {
     const repoDiff = this.client?.repoDiff;
 
     return repoDiff
-      ? snapshotWorkbench(session, (root) => repoDiff.call(this.client, root))
+      ? snapshotWorkbench(session, (root, vcs) => repoDiff.call(this.client, root, vcs))
       : Promise.resolve(session);
   }
 

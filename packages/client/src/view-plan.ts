@@ -23,6 +23,7 @@ import {
 import { wordLevelChanges } from "./diff-intraline";
 import { spanRangeInBlock, type CharRange, type TextSpan } from "./thread-selection";
 import type { MarkRange, VisualLine } from "./mark-runs";
+import type { SyntaxSpan } from "./diff-syntax";
 
 // ── display model ─────────────────────────────
 
@@ -618,6 +619,26 @@ export interface StyledRun {
   marked: boolean;
   caretOnly: boolean;
   href?: string;
+  syntaxGroup?: string;
+}
+
+function addSyntaxBoundaries(
+  cuts: Set<number>,
+  line: VisualLine,
+  syntaxSpans: readonly SyntaxSpan[],
+): void {
+  for (const span of syntaxSpans) {
+    if (span.start > line.start && span.start < line.end) cuts.add(span.start);
+    if (span.end > line.start && span.end < line.end) cuts.add(span.end);
+  }
+}
+
+function syntaxGroupForRun(
+  syntaxSpans: readonly SyntaxSpan[],
+  start: number,
+  end: number,
+): string | undefined {
+  return syntaxSpans.find((span) => span.start <= start && end <= span.end)?.group;
 }
 
 /**
@@ -630,6 +651,7 @@ export function styledRunsFor(
   roleRuns: RenderedRun[],
   line: VisualLine,
   markRanges: MarkRange[],
+  syntaxSpans: readonly SyntaxSpan[] = [],
 ): StyledRun[] {
   const cuts = new Set<number>([line.start, line.end]);
 
@@ -648,6 +670,7 @@ export function styledRunsFor(
       cuts.add(end);
     }
   }
+  addSyntaxBoundaries(cuts, line, syntaxSpans);
   const edges = [...cuts].toSorted((left, right) => left - right);
   const runs: StyledRun[] = [];
 
@@ -668,6 +691,9 @@ export function styledRunsFor(
     };
 
     if (roleRun?.href !== undefined) styled.href = roleRun.href;
+    const syntaxGroup = syntaxGroupForRun(syntaxSpans, start, end);
+
+    if (syntaxGroup) styled.syntaxGroup = syntaxGroup;
     runs.push(styled);
   }
 

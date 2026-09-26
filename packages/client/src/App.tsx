@@ -52,9 +52,12 @@ import { ChangesFileTree } from "./components/ChangesColumn";
 import { MenuControlProvider, useMenuControlState } from "./components/menu-control";
 import { ProjectTreeView } from "./components/ProjectTreeView";
 import { AppShell, type FocusPane, type ProjectPanelMode } from "./components/AppShell";
+import type { ClientExtensionRegistry } from "./client-extension-registry";
+import type { ExtensionUIContext } from "@cueloop/extension-api/client";
 import { EditorGrid } from "./components/EditorGrid";
 import { GridTabContent } from "./components/GridTabContent";
 import { useChangesWorkbench } from "./use-changes-workbench";
+import { useRepoChanges } from "./use-repo-changes";
 import { useThreadBodyEditing } from "./use-thread-body-editing";
 import { useRememberLayout } from "./use-remember-layout";
 import type { LaunchLayout } from "./launch-layout";
@@ -70,7 +73,7 @@ import {
   treeCommandEntries,
 } from "./thread-chords";
 import { type DiffFoldControls } from "./components/DiffContentView";
-import { commentCountsByFile } from "./view-diff";
+import { commentCountsByFile, readsFrozenDiff } from "./view-diff";
 import { annotationTarget, isAddressed, isAgentNote, threadShareLinks } from "@cueloop/schema";
 import type {
   Annotation,
@@ -145,6 +148,11 @@ export interface AppProps {
   layout?: LaunchLayout;
   /** Serve mode: the frozen working-tree diff an observer reads for the served workbench thread. */
   servedArtifact?: Artifact;
+  extensionRegistry?: ClientExtensionRegistry;
+}
+
+function extensionContext(cwd: string | undefined, threadId: string | null): ExtensionUIContext {
+  return { workspace: cwd ?? process.cwd(), threadId };
 }
 
 /** True while the drop-up or one of its dialogs is open and owns the keyboard. */
@@ -165,6 +173,14 @@ function shareLinksFor(session: Thread | null): ShareLink[] {
 /** The title the share dialog shows and prefills a new link with, or empty with no session. */
 function shareThreadName(session: Thread | null): string {
   return session ? threadTitle(session) : "";
+}
+
+/** Show the diff source before long titles can truncate it in the header. */
+function reviewThreadTitle(session: Thread): string {
+  if (session.artifact.type === "diff" && session.artifact.meta.vcs)
+    return `vcs: ${session.artifact.meta.vcs} · ${threadTitle(session)}`;
+
+  return threadTitle(session);
 }
 
 /** The drop-up chrome or a floating popover menu (thread actions, editor split) holds the keyboard. */
@@ -253,7 +269,7 @@ function ownerThreadActions(actions: {
   );
 }
 
-function refreshPullRequestAction(onRefresh: () => void, theme: Theme): React.ReactNode {
+function refreshDiffAction(onRefresh: () => void, theme: Theme): React.ReactNode {
   return (
     <Toolbar>
       <Button onPress={onRefresh} foreground={theme.warning} theme={theme}>
@@ -311,39 +327,25 @@ function ProjectPanelBody(props: {
   mode: ProjectPanelMode;
   loadChanges: () => Promise<readonly DiffFileContents[]>;
   loadProjectFiles: () => Promise<string[]>;
-  reloadKey: string;
+  diffSourceKey: string;
+  liveWorkingTree: boolean;
+  frozenFiles?: readonly DiffFileContents[];
   onOpenChangedFile: (path: string) => void;
   onOpenProjectFile: (path: string) => void;
   commentCounts?: ReadonlyMap<string, number>;
   focused?: boolean;
   theme: Theme;
 }): React.ReactNode {
-  const [changes, setChanges] = useState<readonly DiffFileContents[]>([]);
-  const loadRef = useRef(props.loadChanges);
-  useEffect(() => {
-    loadRef.current = props.loadChanges;
+  const changes = useRepoChanges({
+    loadChanges: props.loadChanges,
+    visible: props.mode === "changes" && props.liveWorkingTree,
+    diffSourceKey: props.diffSourceKey,
   });
-  useEffect(() => {
-    let alive = true;
-
-    void loadRef.current().then(
-      (files) => {
-        if (alive) setChanges(files);
-      },
-      () => {
-        if (alive) setChanges([]);
-      },
-    );
-
-    return () => {
-      alive = false;
-    };
-  }, [props.reloadKey, props.mode]);
 
   if (props.mode === "changes") {
     return (
       <ChangesFileTree
-        files={changes}
+        files={props.liveWorkingTree ? changes : (props.frozenFiles ?? [])}
         onSelectFile={props.onOpenChangedFile}
         commentCounts={props.commentCounts}
         focused={props.focused}
@@ -353,13 +355,28 @@ function ProjectPanelBody(props: {
   }
   return (
     <ProjectTreeView
-      key={props.reloadKey}
+      key={props.diffSourceKey}
       loadFiles={props.loadProjectFiles}
       onSelectFile={props.onOpenProjectFile}
       focused={props.focused}
       theme={props.theme}
     />
   );
+}
+
+/** Frozen reviews read their captured files directly; live workspaces poll the repo. */
+interface ProjectDiffFiles {
+  liveWorkingTree: boolean;
+  frozenFiles?: readonly DiffFileContents[];
+}
+
+function projectDiffFiles(session: Thread): ProjectDiffFiles {
+  const frozen = readsFrozenDiff(session);
+
+  return {
+    liveWorkingTree: !frozen,
+    frozenFiles: frozen ? session.artifact.files : undefined,
+  };
 }
 
 /** The render tree has left the connecting screen: an error, a session, or the no-thread shell. */
@@ -514,6 +531,7 @@ export function App({
   appearance = "dark",
   layout,
   servedArtifact,
+  extensionRegistry,
 }: AppProps): React.ReactNode {
   const { observer, isOwner } = computeRoleCapabilities(readOnly, role);
   const controller = useMemo(
@@ -531,6 +549,10 @@ export function App({
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [home, sessionId],
+  );
+  const showExtensionError = useCallback(
+    (message: string) => controller.showToast(message),
+    [controller],
   );
 
   useEffect(() => {
@@ -1069,6 +1091,9 @@ export function App({
       <SlashSkillsContext.Provider value={skills}>
         <PaletteNamesContext.Provider value={paletteNames}>
           <NoThreadShell
+            toast={toast}
+            extensionRegistry={extensionRegistry}
+            extensionContext={extensionContext(cwd, null)}
             rows={grouped.rows}
             inboxCursor={inboxCursor}
             onOpenThread={openThread}
@@ -1137,21 +1162,16 @@ export function App({
     setMode,
     dispatch,
   });
-  const {
-    showOwnerActions,
-    showPullRequestRefresh,
-    prototypeCanComment,
-    chromeHidden,
-    prototypePath,
-  } = buildRenderFlags({
-    session: activeSession,
-    isOwner,
-    isDiff,
-    isPixelPrototype,
-    resolved,
-    menuDialog,
-    resolvedIds,
-  });
+  const { showOwnerActions, showDiffRefresh, prototypeCanComment, chromeHidden, prototypePath } =
+    buildRenderFlags({
+      session: activeSession,
+      isOwner,
+      isDiff,
+      isPixelPrototype,
+      resolved,
+      menuDialog,
+      resolvedIds,
+    });
 
   const onEditRequest = (): void => {
     // A share viewer/observer has no Edit affordance (the button is hidden), so
@@ -1190,10 +1210,17 @@ export function App({
         <ThemeProvider theme={theme}>
           <MenuControlProvider value={menuControl}>
             <AppShell
+              extensionRegistry={extensionRegistry}
+              extensionContext={{
+                workspace: activeSession.workspace.repoRoot,
+                threadId: activeSession.id,
+              }}
+              onExtensionError={showExtensionError}
               sidebarOpen={sidebarOpen}
               onToggleSidebar={() => setSidebarOpen((open) => !open)}
               onOpenMenu={openSettings}
               onFocusPane={setFocusedPane}
+              focusedPane={focusedPane}
               threadsPanel={
                 <scrollbox style={{ flexGrow: 1 }} focused={false}>
                   <ThreadTree
@@ -1215,7 +1242,7 @@ export function App({
                   />
                 </scrollbox>
               }
-              threadTitle={threadTitle(activeSession)}
+              threadTitle={reviewThreadTitle(activeSession)}
               threadActions={
                 showOwnerActions
                   ? ownerThreadActions({
@@ -1225,8 +1252,8 @@ export function App({
                       onShare: () => dispatch({ type: "share" }),
                       theme,
                     })
-                  : showPullRequestRefresh
-                    ? refreshPullRequestAction(() => void controller.refreshPullRequest(), theme)
+                  : showDiffRefresh
+                    ? refreshDiffAction(() => void controller.refreshDiff(), theme)
                     : undefined
               }
               threadPanel={
@@ -1412,7 +1439,8 @@ export function App({
                   mode={workbench.projectMode}
                   loadChanges={() => controller.repoChanges()}
                   loadProjectFiles={() => controller.repoFiles()}
-                  reloadKey={activeSession.id}
+                  diffSourceKey={activeSession.id}
+                  {...projectDiffFiles(activeSession)}
                   // the Changes navigator always opens a changed file as a diff - a diff review shows its
                   // captured snapshot, every other thread the live working-tree diff
                   onOpenChangedFile={(path) => workbench.openFile(path, "diff")}

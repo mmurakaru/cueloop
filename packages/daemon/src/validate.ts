@@ -82,6 +82,9 @@ export const WorkspaceSchema = v.object({
 export const ArtifactMetaSchema = v.object({
   workflow: v.optional(v.picklist(WORKFLOW_KINDS)),
   cwd: v.optional(v.string()),
+  vcs: v.optional(NonEmpty),
+  vcsChangeId: v.optional(NonEmpty),
+  vcsRevisionId: v.optional(NonEmpty),
   agent: v.optional(v.string()),
   agentSessionId: v.optional(v.string()),
   planPath: v.optional(v.string()),
@@ -270,7 +273,7 @@ export const Params = {
   "repo.files": v.object({ cwd: NonEmpty }),
   "repo.fileContents": v.object({ cwd: NonEmpty, path: NonEmpty }),
   "repo.changes": v.object({ cwd: NonEmpty }),
-  "repo.diff": v.object({ cwd: NonEmpty }),
+  "repo.diff": v.object({ cwd: NonEmpty, vcs: v.optional(NonEmpty) }),
   "session.workbench": v.object({ cwd: NonEmpty }),
   "session.navigate": v.object({
     id: SessionId,
@@ -321,6 +324,14 @@ export const Params = {
     id: SessionId,
     content: v.string(),
     files: v.optional(v.array(DiffFileContentsSchema)),
+    source: v.optional(
+      v.object({
+        vcs: NonEmpty,
+        changeId: v.optional(NonEmpty),
+        revisionId: v.optional(NonEmpty),
+        baseRevisionId: v.optional(NonEmpty),
+      }),
+    ),
     /** Annotation ids the agent acted on; each is marked addressed. */
     addressedAnnotationIds: v.optional(v.array(NonEmpty), []),
   }),
@@ -379,6 +390,15 @@ export const RevisionSchema = v.object({
   revision: v.number(),
   content: v.string(),
   submittedAt: v.string(),
+  files: v.optional(v.array(DiffFileContentsSchema)),
+  source: v.optional(
+    v.object({
+      vcs: NonEmpty,
+      changeId: v.optional(NonEmpty),
+      revisionId: v.optional(NonEmpty),
+      baseRevisionId: v.optional(NonEmpty),
+    }),
+  ),
 } satisfies EntriesOf<Revision>);
 
 export const MessageSchema = v.object({

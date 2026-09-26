@@ -12,7 +12,7 @@
  * dismisses · tab folds · cmd+[ / cmd+] cycle discussions · blur-save on click.
  */
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useTerminalDimensions } from "@opentui/react";
 import type { KeyEvent, ScrollBoxRenderable } from "@opentui/core";
 import type { Annotation, Thread } from "@cueloop/schema";
@@ -40,11 +40,29 @@ import { useAnnotationSurface, type LineSource } from "../use-annotation-surface
 import { NavModeHint } from "./NavModeHint";
 import { DiscussionMarkerRail } from "./DiscussionMarkerRail";
 import { useComponentTheme } from "./theme-context";
+import { colorForSyntaxGroup } from "./syntax-highlight";
+import { highlightThreadCodeBlocks, type SyntaxSpan } from "../thread-code-syntax";
 
 /** Blocks kept mounted beyond the viewport, so a scroll step or a drag past the edge never shows a gap. */
 const OVERSCAN_BLOCKS = 8;
 
 export { lighten } from "../annotation-palette";
+
+interface CodeSyntaxState {
+  display: DisplayBlock[];
+  byBlock: Map<number, SyntaxSpan[]>;
+}
+
+function syntaxSpansForBlock(
+  block: DisplayBlock,
+  blockIndex: number,
+  display: DisplayBlock[],
+  codeSyntax: CodeSyntaxState | null,
+): readonly SyntaxSpan[] {
+  if (block.type === "del" || codeSyntax?.display !== display) return [];
+
+  return codeSyntax.byBlock.get(blockIndex) ?? [];
+}
 
 /**
  * How a block's rows are painted: heading weight, muted kinds, and the list or
@@ -222,6 +240,24 @@ export function ThreadView({
     (left, right) => left === right,
     0,
   );
+  const [codeSyntax, setCodeSyntax] = useState<CodeSyntaxState | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    void highlightThreadCodeBlocks(display).then(
+      (byBlock) => {
+        if (active) setCodeSyntax({ display, byBlock });
+      },
+      (error) => {
+        if (active) console.error("thread code syntax highlighting failed", error);
+      },
+    );
+
+    return () => {
+      active = false;
+    };
+  }, [display]);
 
   // only the viewport's blocks (plus an overscan) mount; a block is estimated at its wrapped-line
   // count until its box, cards included, is measured. The initial viewport seeds the first render so a
@@ -257,6 +293,7 @@ export function ThreadView({
     marker: string;
     baseFg: string;
     baseAttributes: number;
+    syntaxSpans: readonly SyntaxSpan[];
   }
 
   const paintedSpan = (
@@ -267,7 +304,11 @@ export function ThreadView({
   ) => (
     <span
       key={runIndex}
-      fg={roleForeground(run.role, baseFg, tokens)}
+      fg={
+        run.role === "plain" && run.syntaxGroup
+          ? (colorForSyntaxGroup(run.syntaxGroup, tokens) ?? baseFg)
+          : roleForeground(run.role, baseFg, tokens)
+      }
       bg={run.caretOnly ? palette.caretCell : run.marked ? palette.markBackdrop : undefined}
       attributes={roleAttributes(run.role, baseAttributes) | (run.marked ? UNDERLINE : 0)}
     >
@@ -276,8 +317,17 @@ export function ThreadView({
   );
 
   const lineRowFor = (context: LineContext): React.ReactNode => {
-    const { blockIndex, roleRuns, line, lineIndex, ranges, marker, baseFg, baseAttributes } =
-      context;
+    const {
+      blockIndex,
+      roleRuns,
+      line,
+      lineIndex,
+      ranges,
+      marker,
+      baseFg,
+      baseAttributes,
+      syntaxSpans,
+    } = context;
 
     return (
       <box key={`line-${lineIndex}`} style={{ flexDirection: "row" }}>
@@ -291,7 +341,7 @@ export function ThreadView({
           ref={surface.registerLine(blockIndex, lineIndex, line)}
           onMouseDown={surface.onLineMouseDown}
         >
-          {styledRunsFor(roleRuns, line, ranges).map((run, runIndex) =>
+          {styledRunsFor(roleRuns, line, ranges, syntaxSpans).map((run, runIndex) =>
             paintedSpan(run, runIndex, baseFg, baseAttributes),
           )}
         </text>
@@ -365,6 +415,7 @@ export function ThreadView({
     const roleRuns = renderedStyleRuns(block);
     const ranges = surface.rangesFor(blockIndex);
     const lines = wrapLines(renderedText(block), viewWidth > 0 ? viewWidth - marker.length - 6 : 0);
+    const syntaxSpans = syntaxSpansForBlock(block, blockIndex, display, codeSyntax);
     const lineRows: React.ReactNode[] = [];
 
     for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
@@ -381,6 +432,7 @@ export function ThreadView({
           marker,
           baseFg,
           baseAttributes,
+          syntaxSpans,
         }),
       );
       if (isLastLine) lineRows.push(headingRule(block));

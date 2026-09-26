@@ -594,6 +594,18 @@ exports[`stories catalog Surfaces/EditorGrid/SplitGroups renders, snapshots, and
 "
 `;
 
+exports[`stories catalog Extensions/ExtensionZone/SidebarSection renders, snapshots, and carries its colors: Extensions/ExtensionZone/SidebarSection 1`] = `
+"Summary                         
+Two pending Threads             
+                                
+                                
+                                
+                                
+                                
+                                
+"
+`;
+
 exports[`stories catalog Surfaces/FileContentsView/Loaded renders, snapshots, and carries its colors: Surfaces/FileContentsView/Loaded 1`] = `
 "                                                            
     1 export function add(a: number, b: number): number {   
@@ -1593,6 +1605,20 @@ exports[`stories catalog Surfaces/WelcomePlayground/Welcome renders, snapshots, 
   17   - docs        https://cueloop.dev/docs/                          
   18                                                                    
    type to comment · esc for nav mode                                   
+"
+`;
+
+exports[`stories catalog Extensions/WorkspacePanels/RegisteredView renders, snapshots, and carries its colors: Extensions/WorkspacePanels/RegisteredView 1`] = `
+"│ Details   changes  project   
+│‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
+│Project files                  
+                                
+                                
+                                
+                                
+                                
+                                
+                                
 "
 `;
 

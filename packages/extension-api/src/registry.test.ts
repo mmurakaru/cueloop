@@ -48,4 +48,46 @@ describe("Registry", () => {
     expect(record.exporters.size).toBe(0);
     expect(registry.extensions.length).toBe(1);
   });
+
+  test("a failed factory discards VCS adapters and exporters registered before it threw", async () => {
+    const registry = new Registry();
+    const record = await registry.load("broken-vcs", (api) => {
+      api.registerExporter("draft", async () => ({ success: true }));
+      api.registerVcsAdapter({
+        apiVersion: 1,
+        id: "example.sapling",
+        detect: async () => "/repo",
+        captureWorkingDiff: async () => ({ patch: "", files: [] }),
+        listChanges: async () => [],
+        listFiles: async () => [],
+      });
+      throw new Error("incomplete extension");
+    });
+
+    expect(record.errors).toEqual(["incomplete extension"]);
+    expect(record.exporters.size).toBe(0);
+    expect(record.vcsAdapters.size).toBe(0);
+  });
+
+  test("VCS IDs cannot replace built-in or previously registered adapters", async () => {
+    const registry = new Registry();
+    const adapter = {
+      apiVersion: 1 as const,
+      id: "example.sapling",
+      detect: async () => "/repo",
+      captureWorkingDiff: async () => ({ patch: "", files: [] }),
+      listChanges: async () => [],
+      listFiles: async () => [],
+    };
+
+    await registry.load("first", (api) => api.registerVcsAdapter(adapter));
+    const duplicate = await registry.load("second", (api) => api.registerVcsAdapter(adapter));
+    const builtin = await registry.load("third", (api) =>
+      api.registerVcsAdapter({ ...adapter, id: "git" }),
+    );
+
+    expect(duplicate.errors).toEqual(["Invalid or duplicate VCS adapter ID: example.sapling"]);
+    expect(builtin.errors).toEqual(["Invalid or duplicate VCS adapter ID: git"]);
+    expect(registry.extensions[0]!.vcsAdapters.has("example.sapling")).toBe(true);
+  });
 });

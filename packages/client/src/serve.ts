@@ -45,7 +45,7 @@ async function captureFrozenArtifact(
 
     if (thread === undefined) return undefined;
 
-    const snapshot = await snapshotWorkbench(thread, (root) => probe.repoDiff(root));
+    const snapshot = await snapshotWorkbench(thread, (root, vcs) => probe.repoDiff(root, vcs));
 
     return snapshot === thread ? undefined : snapshot.artifact;
   } finally {

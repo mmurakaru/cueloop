@@ -1368,8 +1368,10 @@ html[data-theme="dark"] .shot--light {
   position: sticky;
   top: 5rem;
   align-self: start;
-  max-height: calc(100vh - 6rem);
+  /* The aside starts below the header and docs-shell padding before it sticks. */
+  max-height: calc(100dvh - 9rem);
   overflow-y: auto;
+  overscroll-behavior-y: contain;
   /* Scrollable but no visible scrollbar. */
   scrollbar-width: none;
   -ms-overflow-style: none;
@@ -1377,54 +1379,20 @@ html[data-theme="dark"] .shot--light {
 .docs-aside::-webkit-scrollbar {
   display: none;
 }
-/* Fade the sidebar's top/bottom edges into the page while it can scroll. The
- * mask (alpha) reveals the page background, so it always matches --paper. The
- * scroll timeline shows the bottom fade at the top, both in the middle, and the
- * top fade at the bottom. Added by JS only when the nav overflows. */
+/* Keep the first and last links clear of the clipped edges. The bottom fade
+ * remains a cue that the navigation has more content. */
 @media (min-width: 901px) {
+  .docs-aside.is-scrollable .docs-sidebar {
+    padding-block: 1.5rem 2rem;
+  }
   .docs-aside.is-scrollable {
     --fade: 28px;
-    animation: docs-nav-fade linear both;
-    animation-timeline: scroll(self);
-  }
-  @keyframes docs-nav-fade {
-    0% {
-      -webkit-mask-image: linear-gradient(
-        to bottom,
-        #000,
-        #000 calc(100% - var(--fade)),
-        transparent
-      );
-      mask-image: linear-gradient(to bottom, #000, #000 calc(100% - var(--fade)), transparent);
-    }
-    2%,
-    98% {
-      -webkit-mask-image: linear-gradient(
-        to bottom,
-        transparent,
-        #000 var(--fade),
-        #000 calc(100% - var(--fade)),
-        transparent
-      );
-      mask-image: linear-gradient(
-        to bottom,
-        transparent,
-        #000 var(--fade),
-        #000 calc(100% - var(--fade)),
-        transparent
-      );
-    }
-    100% {
-      -webkit-mask-image: linear-gradient(to bottom, transparent, #000 var(--fade), #000);
-      mask-image: linear-gradient(to bottom, transparent, #000 var(--fade), #000);
-    }
+    -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - var(--fade)), transparent);
+    mask-image: linear-gradient(to bottom, #000 calc(100% - var(--fade)), transparent);
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .docs-aside.is-scrollable {
-    animation: none;
-  }
-  /* No scroll-fade for these users, so restore a scrollbar as the overflow cue. */
+  /* Keep a visible scrollbar as an overflow cue when motion is reduced. */
   .docs-aside {
     scrollbar-width: thin;
   }

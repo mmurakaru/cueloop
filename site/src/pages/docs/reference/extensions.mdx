@@ -1,0 +1,125 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Extensions
+eyebrow: Docs · Reference
+lede: Install packages that add a sidebar section, Thread action, workspace view, or VCS adapter.
+prev: { title: "VCS extensions", href: "/docs/reference/vcs-extensions/" }
+next: { title: "Keyboard and mouse", href: "/docs/reference/keyboard/" }
+---
+
+## Install an extension
+
+Install a package from npm, then restart the app. If the package has a daemon
+entry point, restart the daemon too:
+
+```bash
+cueloop install npm:@example/cueloop-tools@1.0.0
+cueloop restart
+```
+
+`cueloop install` accepts `npm:<package>` and `npm:<package>@<version>`. It
+installs packages for the current user under
+`~/.local/share/cueloop/extensions` by default. Set `CUELOOP_EXTENSION_HOME`
+to use another directory. Package install scripts are disabled. Installed
+entry points run with the same local permissions as cueloop.
+
+## Create a package
+
+A package needs a `package.json` and at least one declared entry point. Here is
+a client-only package with one sidebar section:
+
+```text
+cueloop-summary/
+  package.json
+  client.js
+```
+
+```json
+{
+  "name": "@example/cueloop-summary",
+  "version": "1.0.0",
+  "type": "module",
+  "cueloop": {
+    "client": "./client.js"
+  }
+}
+```
+
+```js
+// client.js
+export default function register(api) {
+  const React = api.react;
+
+  api.registerSection({
+    id: "summary",
+    zone: "threads.sidebar",
+    title: "Summary",
+    Component: ({ context }) =>
+      React.createElement("text", null, context.workspace ?? "No workspace"),
+  });
+}
+```
+
+Publish the package to npm, then run
+`cueloop install npm:@example/cueloop-summary`. Restart cueloop to see the
+section below the Threads list.
+
+The `cueloop` field can declare separate client and daemon entry points:
+
+```json
+{
+  "name": "@example/cueloop-tools",
+  "cueloop": {
+    "client": "./client.js",
+    "daemon": "./daemon.js"
+  }
+}
+```
+
+Either entry point can be omitted. The client entry runs in the local terminal
+app and registers UI. The daemon entry registers capabilities such as a VCS
+adapter. Paths start with `./`, point to files inside the published package,
+and must exist when it is installed. The entry point exports a default
+registration function, which may be async. For a package with a daemon entry,
+run `cueloop restart` after installing it.
+
+You can also write components in TSX. Set `jsx` to `react-jsx` and
+`jsxImportSource` to `@opentui/react` in the package's TypeScript config, and
+include the referenced entry files when publishing.
+
+## Client API
+
+Import `ClientExtensionAPI` from `@cueloop/extension-api/client` for TypeScript
+types. The client entry receives this API in its default function:
+
+| Method            | Zone               | What it adds                                |
+| ----------------- | ------------------ | ------------------------------------------- |
+| `registerSection` | `threads.sidebar`  | Titled section below the Threads list       |
+| `registerAction`  | `thread.header`    | Button in the Thread header                 |
+| `registerView`    | `workspace.panels` | Selectable view in the right workspace pane |
+
+Each registration needs an `id` unique within the package. IDs start with a
+lowercase letter and contain only lowercase letters, numbers, and dashes.
+Sections and views take a `title` and a React `Component`. Actions take a
+`label`, an optional `glyph`, and an `onPress(context)` callback. The callback
+may be async. Each registration returns a handle with `dispose()`.
+
+Every component and action receives `context.workspace` and
+`context.threadId`, each a string or `null`. Add `when(context)` to show a
+contribution only in relevant workspaces or Threads. The host owns the layout:
+sidebar sections have a height limit, header actions use cueloop's button
+style, and views share the existing right pane.
+
+With the workspace pane focused, press `]` or `[` to cycle through its built-in
+view and installed views. Use `api.react` for React hooks and
+`api.useKeyboard` for keyboard input inside an extension. These references use
+the host's React and terminal runtime. The client API does not expose session
+storage or daemon internals.
+
+## Daemon API
+
+The daemon entry exports a default function that calls `registerVcsAdapter`.
+The [VCS extensions guide](/docs/reference/vcs-extensions/) defines the
+adapter contract and includes a Sapling example. Put that example in the
+package's daemon entry and declare it under `cueloop.daemon` to distribute it
+as an installable package.

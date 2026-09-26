@@ -33,6 +33,7 @@
     "@cueloop/adapters": "0.1.0-alpha.89",
     "@cueloop/client": "0.1.0-alpha.89",
     "@cueloop/daemon": "0.1.0-alpha.89",
+    "@cueloop/extension-api": "0.1.0-alpha.89",
     "@cueloop/schema": "0.1.0-alpha.89",
     "@modelcontextprotocol/server": "2.0.0",
     "@valibot/to-json-schema": "1.4.0",

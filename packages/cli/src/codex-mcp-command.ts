@@ -8,6 +8,7 @@ import { runHarnessBridge } from "@cueloop/adapters/harness-bridge";
 import { cueloopHome } from "@cueloop/daemon/paths";
 import { WORKFLOW_KINDS } from "@cueloop/schema";
 import { CLI_VERSION } from "./version";
+import { startCodexDeliveryWorker } from "./codex-delivery-worker-command";
 
 const OpenThreadInputSchema = v.object({
   workflow: v.picklist(WORKFLOW_KINDS),
@@ -59,6 +60,8 @@ export function createCodexMcpServer(home = cueloopHome()): McpServer {
           { operation: "open", harness: "codex", ...threadInput },
           home,
         );
+
+        if (result.operation === "open") startCodexDeliveryWorker(home);
 
         return { content: [{ type: "text", text: JSON.stringify(result) }] };
       } catch (error) {

@@ -450,8 +450,11 @@ export class DaemonServer {
     },
     "repo.changes": (_connection, request) =>
       this.core.repoChanges(parseParams("repo.changes", request.params).cwd),
-    "repo.diff": (_connection, request) =>
-      this.core.repoDiff(parseParams("repo.diff", request.params).cwd),
+    "repo.diff": (_connection, request) => {
+      const params = parseParams("repo.diff", request.params);
+
+      return this.core.repoDiff(params.cwd, params.vcs);
+    },
     "session.workbench": (_connection, request) =>
       this.core.workbenchSession(parseParams("session.workbench", request.params).cwd),
     "session.refreshDiff": (_connection, request) => {
@@ -535,6 +538,7 @@ export class DaemonServer {
         params.content,
         params.addressedAnnotationIds,
         params.files,
+        params.source,
       );
     },
     "herdr.getThreadSurface": (_connection, request) =>

@@ -17,8 +17,10 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DaemonClient } from "@cueloop/daemon/client";
+import { VcsSourceManager } from "@cueloop/daemon/vcs-source";
 import type { HarnessBinding, PendingDelivery, Thread } from "@cueloop/schema";
 import { cliJson, runCli } from "../helpers/cli";
+import { createTestGitRepo } from "../helpers/git-repo";
 
 const PLAN = "# Plan\n\n## Steps\n\nDo the migration in two phases.\n";
 
@@ -203,6 +205,48 @@ describe("cueloop session (black box)", () => {
     // Assert
     expect(revised.status).toBe("pending");
     expect(revised.revisions.length).toBe(2);
+  });
+
+  test("a JJ diff resubmission keeps exact files and commit provenance", async () => {
+    const repo = createTestGitRepo([{ path: "a.txt", before: "before\n", after: "first\n" }]);
+
+    try {
+      const init = Bun.spawnSync(["jj", "git", "init", "--colocate", repo.dir], {
+        cwd: repo.dir,
+        stderr: "pipe",
+      });
+
+      if (init.exitCode !== 0) throw new Error(init.stderr.toString());
+      const source = new VcsSourceManager(join(home, "missing-config.toml"));
+      const first = await source.capture(repo.dir, "jj");
+      const created = cliJson<Thread>(
+        await runCli(
+          home,
+          ["session", "create", "--type", "diff", "--cwd", repo.dir, "--vcs", "jj"],
+          first.patch,
+        ),
+      );
+
+      writeFileSync(join(repo.dir, "a.txt"), "second\n");
+      const second = await source.capture(repo.dir, "jj");
+      const revised = cliJson<Thread>(
+        await runCli(home, ["session", "submit-revision", created.id], second.patch),
+      );
+
+      expect(revised.revisions[0]?.files?.[0]?.newContents).toBe("first\n");
+      expect(revised.revisions[1]?.files?.[0]?.newContents).toBe("second\n");
+      expect(revised.revisions[1]?.source?.revisionId).toBe(second.source?.revisionId);
+      expect(revised.artifact.meta.vcsRevisionId).toBe(second.source?.revisionId);
+      const unmatched = cliJson<Thread>(
+        await runCli(home, ["session", "submit-revision", created.id], "foreign patch"),
+      );
+
+      expect(unmatched.revisions[2]?.files).toEqual([]);
+      expect(unmatched.revisions[2]?.source).toBeUndefined();
+      expect(unmatched.artifact.meta.vcsRevisionId).toBeUndefined();
+    } finally {
+      repo.cleanup();
+    }
   });
 
   test("--addressed marks the reported annotation addressed on resubmit", async () => {

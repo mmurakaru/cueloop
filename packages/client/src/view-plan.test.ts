@@ -518,4 +518,28 @@ describe("rendered-text projection (markers concealed)", () => {
     expect(link.marked).toBe(true);
     expect(runs.find((run) => run.text === "see ")!.marked).toBe(false);
   });
+
+  test("syntax tokens split painted code runs without moving annotation marks", () => {
+    const roles = [{ text: "export value", role: "plain" as const, start: 0 }];
+    const runs = styledRunsFor(
+      roles,
+      { start: 0, end: 12 },
+      [{ start: 5, end: 9 }],
+      [{ start: 0, end: 6, group: "keyword" }],
+    );
+
+    expect(runs.map((run) => run.text).join("")).toBe("export value");
+    expect(
+      runs
+        .filter((run) => run.syntaxGroup === "keyword")
+        .map((run) => run.text)
+        .join(""),
+    ).toBe("export");
+    expect(
+      runs
+        .filter((run) => run.marked)
+        .map((run) => run.text)
+        .join(""),
+    ).toBe("t va");
+  });
 });

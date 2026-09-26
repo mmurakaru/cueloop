@@ -369,6 +369,7 @@ jobs:
           registry-url: "https://registry.npmjs.org"
       - run: npm install -g npm@latest
       - run: bun install --frozen-lockfile
+      - run: brew install jj
       - run: bun run typecheck
       - run: bun run test
       - name: Publish

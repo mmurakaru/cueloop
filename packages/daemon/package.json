@@ -21,6 +21,7 @@
     ".": "./src/index.ts",
     "./client": "./src/client.ts",
     "./thread-review": "./src/thread-review.ts",
+    "./vcs-source": "./src/vcs-source.ts",
     "./api": "./src/api.ts",
     "./working-tree": "./src/working-tree.ts",
     "./store": "./src/store.ts",
@@ -38,6 +39,7 @@
     "access": "public"
   },
   "dependencies": {
+    "@cueloop/extension-api": "0.1.0-alpha.89",
     "@cueloop/schema": "0.1.0-alpha.89",
     "@pierre/diffs": "^1.4.1",
     "effect": "^4.0.0-rc.116",
