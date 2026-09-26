@@ -287,9 +287,14 @@ async function pairCommand(argv: string[]): Promise<number> {
   try {
     const sessionId = parsed.positional[0];
 
-    thread = sessionId
-      ? await client.sessionGet(sessionId)
-      : await client.sessionWorkbench(process.cwd());
+    if (sessionId !== undefined) {
+      thread = await client.sessionGet(sessionId);
+      if (thread.artifact.meta.workbench !== true || thread.status !== "pending") {
+        throw new Error(`Thread ${sessionId} is not an open workbench`);
+      }
+    } else {
+      thread = await client.sessionWorkbench(process.cwd());
+    }
   } finally {
     client.close();
   }

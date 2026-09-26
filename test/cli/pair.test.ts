@@ -54,4 +54,37 @@ describe("cueloop pair", () => {
 
     expect(cliJson<{ threadId: string }>(second).threadId).toBe(firstId);
   });
+
+  test("rejects a non-workbench Thread ID", async () => {
+    const plan = cliJson<Thread>(
+      await runCli(home, ["session", "create", "--type", "plan", "--agent", "test"], "# Plan"),
+    );
+    const result = await runCli(
+      home,
+      ["pair", plan.id, "--no-tui"],
+      undefined,
+      undefined,
+      repo.dir,
+    );
+
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain(`Thread ${plan.id} is not an open workbench`);
+  });
+
+  test("rejects a resolved workbench Thread ID", async () => {
+    const created = await runCli(home, ["pair", "--no-tui"], undefined, undefined, repo.dir);
+    const threadId = cliJson<{ threadId: string }>(created).threadId;
+
+    await runCli(home, ["session", "send-message", threadId, "--outcome", "approved"]);
+    const result = await runCli(
+      home,
+      ["pair", threadId, "--no-tui"],
+      undefined,
+      undefined,
+      repo.dir,
+    );
+
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain(`Thread ${threadId} is not an open workbench`);
+  });
 });

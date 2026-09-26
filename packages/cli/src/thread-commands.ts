@@ -345,6 +345,7 @@ async function sessionEventsCommand({
 }: SessionContext): Promise<number> {
   const id = required(positional[1], "session id");
   const once = flags.once === true;
+  const ready = flags.ready === true;
   const stream = new Promise<number>((resolve) => {
     client.onEvent((event) => {
       if (event.sessionId !== id) return;
@@ -352,11 +353,24 @@ async function sessionEventsCommand({
       if (once) resolve(0);
     });
   });
+  let finished = false;
+  const disconnect = new Promise<number>((resolve) => {
+    client.onDisconnect(() => {
+      if (finished) return;
+      console.error("daemon connection closed - restart cueloop session events to resume");
+      resolve(1);
+    });
+  });
 
   await client.subscribe();
   await client.sessionGet(id);
+  if (ready) console.log(JSON.stringify({ event: "events.ready", sessionId: id }));
 
-  return stream;
+  const code = await Promise.race([stream, disconnect]);
+
+  finished = true;
+
+  return code;
 }
 
 async function sessionSendMessageCommand({
