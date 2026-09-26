@@ -1,5 +1,20 @@
 # cueloop
 
+## 0.1.0-alpha.91
+
+### Minor Changes
+
+- [#522](https://github.com/mmurakaru/cueloop/pull/522) [`f93b4b5`](https://github.com/mmurakaru/cueloop/commit/f93b4b53bd8e99bbb6ba25f9143efbc5b2196170) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Add the `pair` command and `/cueloop:pair` workflow. Open the live workbench with Changes zoomed and the Project tree focused while the agent handles code comments.
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.91
+  - @cueloop/client@0.1.0-alpha.91
+  - @cueloop/daemon@0.1.0-alpha.91
+  - @cueloop/extension-api@0.1.0-alpha.91
+  - @cueloop/schema@0.1.0-alpha.91
+
 ## 0.1.0-alpha.90
 
 ### Minor Changes
