@@ -116,7 +116,11 @@ function WelcomeProjectPanel({
   focused?: boolean;
   theme: Theme;
 }): React.ReactNode {
-  const changes = useRepoChanges(() => controller.repoChanges(), mode === "changes", "welcome");
+  const changes = useRepoChanges({
+    loadChanges: () => controller.repoChanges(),
+    visible: mode === "changes",
+    diffSourceKey: "welcome",
+  });
 
   if (mode === "changes") {
     return (

@@ -1,9 +1,22 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useState } from "react";
 import type { DiffFileContents } from "@cueloop/schema";
 
-const REFRESH_MS = 2000;
+const CHANGES_REFRESH_MS = 2000;
+const EMPTY_CHANGED_FILES: readonly DiffFileContents[] = [];
 
-function sameFiles(a: readonly DiffFileContents[], b: readonly DiffFileContents[]): boolean {
+interface RepoChangesOptions {
+  loadChanges: () => Promise<readonly DiffFileContents[]>;
+  visible: boolean;
+  diffSourceKey: string;
+  refreshAutomatically?: boolean;
+}
+
+interface RepoChangesSnapshot {
+  diffSourceKey: string;
+  files: readonly DiffFileContents[];
+}
+
+function sameChangedFiles(a: readonly DiffFileContents[], b: readonly DiffFileContents[]): boolean {
   return (
     a.length === b.length &&
     a.every(
@@ -16,50 +29,59 @@ function sameFiles(a: readonly DiffFileContents[], b: readonly DiffFileContents[
   );
 }
 
-/** Keep the visible Changes tree aligned with the live repo, including commits that leave it clean. */
-export function useRepoChanges(
-  load: () => Promise<readonly DiffFileContents[]>,
-  active: boolean,
-  reloadKey: string,
-  live = true,
-): readonly DiffFileContents[] {
-  const [files, setFiles] = useState<readonly DiffFileContents[]>([]);
-  const loadRef = useRef(load);
-  const lastKey = useRef(reloadKey);
+/** Refresh the visible Changes tree from the working repo; keep captured diff reviews fixed. */
+export function useRepoChanges({
+  loadChanges,
+  visible,
+  diffSourceKey,
+  refreshAutomatically = true,
+}: RepoChangesOptions): readonly DiffFileContents[] {
+  const [snapshot, setSnapshot] = useState<RepoChangesSnapshot | null>(null);
+  const loadLatestChanges = useEffectEvent(loadChanges);
 
   useEffect(() => {
-    loadRef.current = load;
-  });
-  useEffect(() => {
-    if (!active) return;
-    if (lastKey.current !== reloadKey) {
-      lastKey.current = reloadKey;
-      setFiles([]);
-    }
-    let alive = true;
-    let loading = false;
+    if (!visible) return;
 
-    const refresh = async (): Promise<void> => {
-      if (loading) return;
-      loading = true;
+    let cancelled = false;
+    let requestInFlight = false;
+
+    const refreshChanges = async (): Promise<void> => {
+      if (requestInFlight) return;
+      requestInFlight = true;
+
       try {
-        const next = await loadRef.current();
-        if (alive) setFiles((previous) => (sameFiles(previous, next) ? previous : next));
+        const files = await loadLatestChanges();
+
+        if (!cancelled) {
+          setSnapshot((previous) =>
+            previous?.diffSourceKey === diffSourceKey && sameChangedFiles(previous.files, files)
+              ? previous
+              : { diffSourceKey, files },
+          );
+        }
       } catch {
-        if (alive) setFiles((previous) => (previous.length === 0 ? previous : []));
+        if (!cancelled) {
+          setSnapshot((previous) =>
+            previous?.diffSourceKey === diffSourceKey && previous.files.length === 0
+              ? previous
+              : { diffSourceKey, files: EMPTY_CHANGED_FILES },
+          );
+        }
       } finally {
-        loading = false;
+        requestInFlight = false;
       }
     };
 
-    void refresh();
-    const timer = live ? setInterval(() => void refresh(), REFRESH_MS) : null;
+    void refreshChanges();
+    const timer = refreshAutomatically
+      ? setInterval(() => void refreshChanges(), CHANGES_REFRESH_MS)
+      : null;
 
     return () => {
-      alive = false;
+      cancelled = true;
       if (timer !== null) clearInterval(timer);
     };
-  }, [active, reloadKey, live]);
+  }, [visible, diffSourceKey, refreshAutomatically]);
 
-  return files;
+  return snapshot?.diffSourceKey === diffSourceKey ? snapshot.files : EMPTY_CHANGED_FILES;
 }

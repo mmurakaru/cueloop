@@ -320,20 +320,20 @@ function ProjectPanelBody(props: {
   mode: ProjectPanelMode;
   loadChanges: () => Promise<readonly DiffFileContents[]>;
   loadProjectFiles: () => Promise<string[]>;
-  reloadKey: string;
-  live: boolean;
+  diffSourceKey: string;
+  liveWorkingTree: boolean;
   onOpenChangedFile: (path: string) => void;
   onOpenProjectFile: (path: string) => void;
   commentCounts?: ReadonlyMap<string, number>;
   focused?: boolean;
   theme: Theme;
 }): React.ReactNode {
-  const changes = useRepoChanges(
-    props.loadChanges,
-    props.mode === "changes",
-    props.reloadKey,
-    props.live,
-  );
+  const changes = useRepoChanges({
+    loadChanges: props.loadChanges,
+    visible: props.mode === "changes",
+    diffSourceKey: props.diffSourceKey,
+    refreshAutomatically: props.liveWorkingTree,
+  });
 
   if (props.mode === "changes") {
     return (
@@ -348,7 +348,7 @@ function ProjectPanelBody(props: {
   }
   return (
     <ProjectTreeView
-      key={props.reloadKey}
+      key={props.diffSourceKey}
       loadFiles={props.loadProjectFiles}
       onSelectFile={props.onOpenProjectFile}
       focused={props.focused}
@@ -1402,8 +1402,8 @@ export function App({
                   mode={workbench.projectMode}
                   loadChanges={() => controller.repoChanges()}
                   loadProjectFiles={() => controller.repoFiles()}
-                  reloadKey={activeSession.id}
-                  live={!readsFrozenDiff(activeSession)}
+                  diffSourceKey={activeSession.id}
+                  liveWorkingTree={!readsFrozenDiff(activeSession)}
                   // the Changes navigator always opens a changed file as a diff - a diff review shows its
                   // captured snapshot, every other thread the live working-tree diff
                   onOpenChangedFile={(path) => workbench.openFile(path, "diff")}
