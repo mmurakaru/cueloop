@@ -296,6 +296,8 @@ export interface Revision {
   submittedAt: string;
   /** Exact VCS source for this reviewed text, when one was captured. */
   source?: DiffSource;
+  /** File contents captured with this diff revision, retained across refreshes. */
+  files?: DiffFileContents[];
 }
 
 export type SessionStatus = "pending" | "resolved";

@@ -119,7 +119,6 @@ export function buildRenderFlags(params: {
       !resolved &&
       (session.artifact.meta.prRefreshHeadSha !== undefined ||
         (session.artifact.type === "diff" &&
-          session.artifact.meta.vcs === "jj" &&
           session.artifact.meta.vcsChangeId !== undefined &&
           session.artifact.meta.workbench !== true)),
     prototypeCanComment: isOwner && !resolved,

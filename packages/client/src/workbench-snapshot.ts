@@ -1,4 +1,9 @@
-import { recaptureMainHead, type DiffFileContents, type Thread } from "@cueloop/schema";
+import {
+  recaptureMainHead,
+  type DiffFileContents,
+  type DiffSource,
+  type Thread,
+} from "@cueloop/schema";
 
 /** Reads the live working-tree diff for a repo root (the daemon's `repo.diff` RPC). */
 export type RepoDiff = (
@@ -7,6 +12,8 @@ export type RepoDiff = (
 ) => Promise<{
   patch: string;
   files: DiffFileContents[];
+  source?: Omit<DiffSource, "vcs">;
+  vcs?: string;
 }>;
 
 /**
@@ -18,15 +25,35 @@ export type RepoDiff = (
 export async function snapshotWorkbench(session: Thread, repoDiff: RepoDiff): Promise<Thread> {
   if (session.artifact.type !== "diff" || session.artifact.meta.workbench !== true) return session;
 
-  const { patch, files } = await repoDiff(session.workspace.repoRoot, session.artifact.meta.vcs);
+  const { patch, files, source, vcs } = await repoDiff(
+    session.workspace.repoRoot,
+    session.artifact.meta.vcs,
+  );
+  const provider = vcs ?? session.artifact.meta.vcs;
   const artifact = {
     ...session.artifact,
     content: patch,
     files,
-    meta: { ...session.artifact.meta, snapshot: true },
+    meta: {
+      ...session.artifact.meta,
+      snapshot: true,
+      vcs: provider,
+      vcsChangeId: source?.changeId,
+      vcsRevisionId: source?.revisionId,
+    },
   };
   // the share path rebuilds content from history; recapture the branch head so it matches the fresh patch
   const history = session.history ? recaptureMainHead(session.history, patch) : session.history;
+  const revisions = session.revisions.map((revision, index) =>
+    index === session.revisions.length - 1
+      ? {
+          ...revision,
+          content: patch,
+          files,
+          source: provider && source ? { vcs: provider, ...source } : undefined,
+        }
+      : revision,
+  );
 
-  return { ...session, artifact, history };
+  return { ...session, artifact, history, revisions };
 }

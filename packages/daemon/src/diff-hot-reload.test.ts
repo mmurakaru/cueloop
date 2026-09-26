@@ -51,6 +51,47 @@ async function openDiffSession() {
 }
 
 describe("session.refreshDiff", () => {
+  test("a JJ rewrite with the same patch records its new commit identity", async () => {
+    const init = Bun.spawnSync(["jj", "git", "init", "--colocate", repo], {
+      cwd: repo,
+      stdout: "ignore",
+      stderr: "pipe",
+    });
+
+    if (init.exitCode !== 0) throw new Error(init.stderr.toString());
+    writeFileSync(join(repo, "a.ts"), "export const a = 2;\n");
+    const first = await core.repoDiff(repo);
+    const workspace = await resolveWorkspace(repo);
+    const session = core.sessionCreate({
+      workspace,
+      artifact: {
+        type: "diff",
+        content: first.patch,
+        files: first.files,
+        meta: {
+          vcs: "jj",
+          vcsChangeId: first.source!.changeId,
+          vcsRevisionId: first.source!.revisionId,
+        },
+      },
+    });
+    const describe = Bun.spawnSync(["jj", "describe", "-m", "same patch, new commit"], {
+      cwd: repo,
+      stderr: "pipe",
+    });
+
+    if (describe.exitCode !== 0) throw new Error(describe.stderr.toString());
+    const result = await core.sessionRefreshDiff(session.id);
+    const current = core.sessionGet(session.id);
+
+    expect(result.changed).toBe(false);
+    expect(current.revisions).toHaveLength(2);
+    expect(current.revisions[0]?.content).toBe(current.revisions[1]?.content);
+    expect(current.revisions[0]?.source?.revisionId).toBe(first.source!.revisionId);
+    expect(current.revisions[1]?.source?.revisionId).toBe(current.artifact.meta.vcsRevisionId);
+    expect(current.revisions[1]?.source?.revisionId).not.toBe(first.source!.revisionId);
+  });
+
   test("a submitted JJ change keeps its prior snapshot when refreshed after a rewrite", async () => {
     const init = Bun.spawnSync(["jj", "git", "init", "--colocate", repo], {
       cwd: repo,
@@ -77,9 +118,6 @@ describe("session.refreshDiff", () => {
     });
 
     writeFileSync(join(repo, "a.ts"), "export const a = 3;\n");
-    const snapshot = Bun.spawnSync(["jj", "status"], { cwd: repo, stdout: "ignore" });
-
-    expect(snapshot.exitCode).toBe(0);
     const result = await core.sessionRefreshDiff(session.id);
     const current = core.sessionGet(session.id);
 
@@ -89,7 +127,9 @@ describe("session.refreshDiff", () => {
       current.artifact.content,
     ]);
     expect(current.revisions[0]?.source?.revisionId).toBe(first.source!.revisionId);
+    expect(current.revisions[0]?.files).toEqual(first.files);
     expect(current.revisions[1]?.source?.revisionId).toBe(current.artifact.meta.vcsRevisionId);
+    expect(current.revisions[1]?.files).toEqual(current.artifact.files);
     expect(current.artifact.meta.vcsChangeId).toBe(first.source!.changeId);
     expect(current.artifact.meta.vcsRevisionId).not.toBe(first.source!.revisionId);
     expect(current.artifact.content).toContain("+export const a = 3;");
@@ -274,6 +314,14 @@ esac
         2,
       );
       expect(readFileSync(ghLog, "utf8")).toContain("https://github.com/org/repo/pull/1");
+      writeFileSync(ghStub, readFileSync(ghStub, "utf8").replace("sha-2", "sha-3"));
+      const samePatch = await core.sessionRefreshDiff(session.id);
+      const movedHead = core.sessionGet(session.id);
+
+      expect(samePatch.changed).toBe(false);
+      expect(movedHead.revisions).toHaveLength(3);
+      expect(movedHead.revisions[2]?.content).toBe(movedHead.revisions[1]?.content);
+      expect(movedHead.revisions[2]?.source?.revisionId).toBe("sha-3");
     } finally {
       if (previousGh === undefined) delete process.env.CUELOOP_GH;
       else process.env.CUELOOP_GH = previousGh;

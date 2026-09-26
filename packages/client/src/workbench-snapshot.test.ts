@@ -69,6 +69,24 @@ describe("snapshotWorkbench", () => {
     expect(viewFollowing(frozen).artifact.content).toBe("FRESH PATCH");
   });
 
+  test("pins the captured source and revision in a shared workbench", async () => {
+    const frozen = await snapshotWorkbench(
+      diffThread({ workbench: true, vcs: "jj", vcsRevisionId: "old" }),
+      async () => ({
+        ...LIVE,
+        vcs: "jj",
+        source: { changeId: "change", revisionId: "new" },
+      }),
+    );
+
+    expect(frozen.artifact.meta.vcsRevisionId).toBe("new");
+    expect(frozen.revisions[0]).toMatchObject({
+      content: LIVE.patch,
+      files: LIVE.files,
+      source: { vcs: "jj", changeId: "change", revisionId: "new" },
+    });
+  });
+
   test("passes a plain diff review through untouched and never queries the tree", async () => {
     const session = diffThread({ title: "PR #7" });
     const repoDiff = mock(async () => LIVE);

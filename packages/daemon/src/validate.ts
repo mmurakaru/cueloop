@@ -390,6 +390,7 @@ export const RevisionSchema = v.object({
   revision: v.number(),
   content: v.string(),
   submittedAt: v.string(),
+  files: v.optional(v.array(DiffFileContentsSchema)),
   source: v.optional(
     v.object({
       vcs: NonEmpty,

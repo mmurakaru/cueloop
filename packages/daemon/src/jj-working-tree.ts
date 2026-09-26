@@ -107,8 +107,10 @@ export const jjVcsAdapter: VcsAdapter = {
   captureWorkingDiff(repoRoot) {
     return captureJjRevision(repoRoot, "@");
   },
-  captureChange(repoRoot, changeId) {
+  async captureChange(repoRoot, changeId) {
     if (!/^[a-z]{32}$/.test(changeId)) throw new Error(`Jujutsu change ID is invalid: ${changeId}`);
+    if ((await jj(["status"], repoRoot)) === null)
+      throw new Error("Jujutsu diff capture failed: could not snapshot the working copy");
 
     return captureJjRevision(repoRoot, changeId);
   },

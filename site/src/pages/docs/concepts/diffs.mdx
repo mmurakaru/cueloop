@@ -64,6 +64,11 @@ before. A pull request stays on its captured commits until you press **refresh**
 after cueloop detects a newer head. Earlier reviewed patches remain in the
 Thread's revision history.
 
+When you resubmit a diff with `cueloop session submit-revision`, cueloop saves
+the current source ID and file contents if the submitted patch matches the
+checkout. A patch from another source remains reviewable without file curation
+or a source ID.
+
 ## Use another source
 
 VCS adapters can supply a Git-format patch, changed paths, and project files.

@@ -574,11 +574,21 @@ export class DaemonClient implements ThreadClient {
       v.array(v.object({ path: v.string(), status: v.picklist(["added", "modified", "deleted"]) })),
     );
   }
-  repoDiff(cwd: string, vcs?: string): Promise<WorkingTreeDiff> {
+  repoDiff(
+    cwd: string,
+    vcs?: string,
+  ): Promise<
+    WorkingTreeDiff & { vcs?: string; source?: { changeId?: string; revisionId: string } }
+  > {
     return this.request(
       "repo.diff",
       { cwd, vcs },
-      v.object({ patch: v.string(), files: v.array(DiffFileContentsSchema) }),
+      v.object({
+        patch: v.string(),
+        files: v.array(DiffFileContentsSchema),
+        vcs: v.optional(v.string()),
+        source: v.optional(v.object({ changeId: v.optional(v.string()), revisionId: v.string() })),
+      }),
     );
   }
   sessionWorkbench(cwd: string): Promise<Thread> {

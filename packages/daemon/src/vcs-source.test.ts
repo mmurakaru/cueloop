@@ -1,39 +1,15 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import {
+  createTestVcsDirectory,
+  createTestVcsGitRepo,
+  runTestVcsCommand,
+} from "../../../test/helpers/vcs-repo";
 import { VcsSourceManager } from "./vcs-source";
 import { workingTreeDiff } from "./working-tree";
 
 const created: string[] = [];
-
-function temporaryDirectory(): string {
-  const path = mkdtempSync(join(tmpdir(), "cueloop-vcs-"));
-
-  created.push(path);
-
-  return path;
-}
-
-function command(cwd: string, ...args: string[]): void {
-  const result = Bun.spawnSync(args, { cwd, stdout: "pipe", stderr: "pipe" });
-
-  if (result.exitCode !== 0)
-    throw new Error(`${args.join(" ")} failed: ${result.stderr.toString()}`);
-}
-
-function gitRepo(): string {
-  const repo = temporaryDirectory();
-
-  command(repo, "git", "init", "-q", "-b", "main");
-  command(repo, "git", "config", "user.name", "Test");
-  command(repo, "git", "config", "user.email", "test@example.com");
-  writeFileSync(join(repo, "a.txt"), "before\n");
-  command(repo, "git", "add", ".");
-  command(repo, "git", "commit", "-qm", "initial");
-
-  return repo;
-}
 
 afterEach(() => {
   for (const path of created.splice(0)) rmSync(path, { recursive: true, force: true });
@@ -41,8 +17,8 @@ afterEach(() => {
 
 describe("VcsSourceManager", () => {
   test("a directory without a VCS keeps the empty Git workbench behavior", async () => {
-    const plain = temporaryDirectory();
-    const config = join(temporaryDirectory(), "config.toml");
+    const plain = createTestVcsDirectory(created);
+    const config = join(createTestVcsDirectory(created), "config.toml");
     const source = new VcsSourceManager(config);
 
     expect((await source.select(plain)).adapter.id).toBe("git");
@@ -50,8 +26,8 @@ describe("VcsSourceManager", () => {
   });
 
   test("Git auto capture preserves the existing patch and curatable files", async () => {
-    const repo = gitRepo();
-    const config = join(temporaryDirectory(), "config.toml");
+    const repo = createTestVcsGitRepo(created);
+    const config = join(createTestVcsDirectory(created), "config.toml");
 
     writeFileSync(join(repo, "a.txt"), "after\n");
     writeFileSync(join(repo, "new.txt"), "new\n");
@@ -66,10 +42,10 @@ describe("VcsSourceManager", () => {
   });
 
   test("JJ wins a colocated checkout and captures its native working-copy revision", async () => {
-    const repo = gitRepo();
-    const config = join(temporaryDirectory(), "config.toml");
+    const repo = createTestVcsGitRepo(created);
+    const config = join(createTestVcsDirectory(created), "config.toml");
 
-    command(repo, "jj", "git", "init", "--colocate", repo);
+    runTestVcsCommand(repo, "jj", "git", "init", "--colocate", repo);
     writeFileSync(join(repo, "a.txt"), "after\n");
     writeFileSync(join(repo, "new.txt"), "new\n");
     writeFileSync(join(repo, "space name.txt"), "space\n");
@@ -104,10 +80,10 @@ describe("VcsSourceManager", () => {
   });
 
   test("repo config can select Git in a colocated checkout", async () => {
-    const repo = gitRepo();
-    const config = join(temporaryDirectory(), "config.toml");
+    const repo = createTestVcsGitRepo(created);
+    const config = join(createTestVcsDirectory(created), "config.toml");
 
-    command(repo, "jj", "git", "init", "--colocate", repo);
+    runTestVcsCommand(repo, "jj", "git", "init", "--colocate", repo);
     mkdirSync(join(repo, ".cueloop"));
     writeFileSync(join(repo, ".cueloop", "config.toml"), '[vcs]\nprovider = "git"\n');
     const source = new VcsSourceManager(config);
@@ -117,7 +93,7 @@ describe("VcsSourceManager", () => {
   });
 
   test("a personal extension can register a custom adapter", async () => {
-    const root = temporaryDirectory();
+    const root = createTestVcsDirectory(created);
     const repo = join(root, "repo");
     const extension = join(root, "adapter.ts");
     const config = join(root, "config.toml");

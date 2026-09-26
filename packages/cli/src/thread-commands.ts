@@ -421,8 +421,26 @@ async function sessionSubmitRevisionCommand({
     .split(",")
     .map((annotationId) => annotationId.trim())
     .filter(Boolean);
+  const session = await client.sessionGet(id);
+  let files;
+  let source;
 
-  out(await client.sessionSubmitRevision(id, content, addressed));
+  if (session.artifact.type === "diff" && session.artifact.meta.pr === undefined) {
+    files = [];
+    try {
+      const captured = await client.repoDiff(session.workspace.repoRoot, session.artifact.meta.vcs);
+
+      if (captured.patch.replace(/\n+$/, "") === content.replace(/\n+$/, "")) {
+        files = captured.files;
+        source =
+          captured.source && captured.vcs ? { vcs: captured.vcs, ...captured.source } : undefined;
+      }
+    } catch {
+      // Keep a supplied patch reviewable without attaching stale file contents.
+    }
+  }
+
+  out(await client.sessionSubmitRevision(id, content, addressed, files, source));
 
   return 0;
 }

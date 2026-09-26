@@ -276,6 +276,7 @@ describe("wire pins", () => {
     content: "# P",
     submittedAt: "now",
     source: { vcs: "jj", changeId: "change", revisionId: "revision" },
+    files: [{ path: "a.ts", oldContents: "a", newContents: "b", status: "modified" }],
   };
   const fullWorkspace: Required<WorkspaceKey> = {
     repoRoot: "/repo",

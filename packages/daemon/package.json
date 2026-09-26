@@ -21,6 +21,7 @@
     ".": "./src/index.ts",
     "./client": "./src/client.ts",
     "./thread-review": "./src/thread-review.ts",
+    "./vcs-source": "./src/vcs-source.ts",
     "./api": "./src/api.ts",
     "./working-tree": "./src/working-tree.ts",
     "./store": "./src/store.ts",

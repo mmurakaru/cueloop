@@ -114,6 +114,8 @@ const commandHandlers: CommandHandlers = {
   share: (rest) => shareEntry(rest),
   harness: async () => (await import("./harness-command")).harnessCommand(),
   "codex-hook": async () => (await import("./codex-hook-command")).codexHookCommand(),
+  "codex-delivery-worker": async () =>
+    (await import("./codex-delivery-worker-command")).codexDeliveryWorkerCommand(),
   mcp: async () => (await import("./codex-mcp-command")).codexMcpCommand(),
   actions: async (rest) => (await import("./actions-command")).actionsCommand(rest),
   refine: async (rest) => (await import("./refine-command")).refineCommand(rest),
