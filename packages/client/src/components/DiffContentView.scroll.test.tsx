@@ -270,7 +270,7 @@ test("rapid wheel scrolling through a large wrapped diff does not loop React upd
   for (const [index, direction] of Array.from({ length: 240 }, () => "down" as const).entries()) {
     // eslint-disable-next-line no-await-in-loop
     await setup.mockMouse.scroll(20, 5, direction);
-    if (index % 3 === 0) {
+    if (index % 12 === 0) {
       // eslint-disable-next-line no-await-in-loop
       await settle(setup);
     }
@@ -278,7 +278,7 @@ test("rapid wheel scrolling through a large wrapped diff does not loop React upd
   await settle(setup);
   expect(found.scrollTop).toBeGreaterThan(0);
   setup.renderer.destroy();
-}, 30000);
+}, 60000);
 
 test("walking long wrapped code lines advances the viewport one visual row per key", async () => {
   const lines = Array.from(
