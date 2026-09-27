@@ -10,8 +10,8 @@
         "@cueloop/client": "workspace:*",
         "@cueloop/daemon": "workspace:*",
         "@cueloop/schema": "workspace:*",
-        "@opentui/core": "^0.5.11",
-        "@opentui/react": "^0.5.11",
+        "@opentui/core": "^0.5.12",
+        "@opentui/react": "^0.5.12",
         "@oxlint/plugins": "1.82.0",
         "@types/bun": "^1.4.2",
         "@types/react": "^19.3.0",
@@ -26,25 +26,25 @@
     },
     "packages/adapters": {
       "name": "@cueloop/adapters",
-      "version": "0.1.0-alpha.92",
+      "version": "0.1.0-alpha.93",
       "dependencies": {
-        "@cueloop/daemon": "0.1.0-alpha.89",
-        "@cueloop/schema": "0.1.0-alpha.89",
+        "@cueloop/daemon": "0.1.0-alpha.93",
+        "@cueloop/schema": "0.1.0-alpha.93",
         "valibot": "^1.5.0",
       },
     },
     "packages/cli": {
       "name": "cueloop",
-      "version": "0.1.0-alpha.92",
+      "version": "0.1.0-alpha.93",
       "bin": {
         "cueloop": "./src/main.ts",
       },
       "dependencies": {
-        "@cueloop/adapters": "0.1.0-alpha.89",
-        "@cueloop/client": "0.1.0-alpha.89",
-        "@cueloop/daemon": "0.1.0-alpha.89",
-        "@cueloop/extension-api": "0.1.0-alpha.89",
-        "@cueloop/schema": "0.1.0-alpha.89",
+        "@cueloop/adapters": "0.1.0-alpha.93",
+        "@cueloop/client": "0.1.0-alpha.93",
+        "@cueloop/daemon": "0.1.0-alpha.93",
+        "@cueloop/extension-api": "0.1.0-alpha.93",
+        "@cueloop/schema": "0.1.0-alpha.93",
         "@modelcontextprotocol/server": "2.0.0",
         "@valibot/to-json-schema": "1.4.0",
         "valibot": "^1.5.0",
@@ -52,16 +52,16 @@
     },
     "packages/client": {
       "name": "@cueloop/client",
-      "version": "0.1.0-alpha.92",
+      "version": "0.1.0-alpha.93",
       "dependencies": {
-        "@cueloop/daemon": "0.1.0-alpha.92",
-        "@cueloop/extension-api": "0.1.0-alpha.92",
-        "@cueloop/integration-obsidian": "0.1.0-alpha.92",
-        "@cueloop/schema": "0.1.0-alpha.92",
-        "@opentui/core": "^0.5.11",
-        "@opentui/keymap": "0.5.11",
-        "@opentui/react": "^0.5.11",
-        "@opentui/ssh": "0.5.11",
+        "@cueloop/daemon": "0.1.0-alpha.93",
+        "@cueloop/extension-api": "0.1.0-alpha.93",
+        "@cueloop/integration-obsidian": "0.1.0-alpha.93",
+        "@cueloop/schema": "0.1.0-alpha.93",
+        "@opentui/core": "^0.5.12",
+        "@opentui/keymap": "0.5.12",
+        "@opentui/react": "^0.5.12",
+        "@opentui/ssh": "0.5.12",
         "@pierre/diffs": "^1.4.1",
         "@tanstack/virtual-core": "^3.17.11",
         "diff": "^9",
@@ -78,10 +78,10 @@
     },
     "packages/daemon": {
       "name": "@cueloop/daemon",
-      "version": "0.1.0-alpha.92",
+      "version": "0.1.0-alpha.93",
       "dependencies": {
-        "@cueloop/extension-api": "0.1.0-alpha.92",
-        "@cueloop/schema": "0.1.0-alpha.92",
+        "@cueloop/extension-api": "0.1.0-alpha.93",
+        "@cueloop/schema": "0.1.0-alpha.93",
         "@pierre/diffs": "^1.4.1",
         "effect": "^4.0.0-rc.116",
         "smol-toml": "^1.8.0",
@@ -90,9 +90,9 @@
     },
     "packages/extension-api": {
       "name": "@cueloop/extension-api",
-      "version": "0.1.0-alpha.92",
+      "version": "0.1.0-alpha.93",
       "dependencies": {
-        "@cueloop/schema": "0.1.0-alpha.92",
+        "@cueloop/schema": "0.1.0-alpha.93",
         "valibot": "^1.5.0",
       },
       "peerDependencies": {
@@ -102,16 +102,16 @@
     },
     "packages/gateway": {
       "name": "@cueloop/gateway",
-      "version": "0.1.0-alpha.92",
+      "version": "0.1.0-alpha.93",
       "bin": {
         "cueloop-gateway": "./src/main.ts",
       },
       "dependencies": {
-        "@cueloop/client": "0.1.0-alpha.89",
-        "@cueloop/daemon": "0.1.0-alpha.89",
-        "@cueloop/schema": "0.1.0-alpha.89",
-        "@opentui/core": "^0.5.11",
-        "@opentui/react": "^0.5.11",
+        "@cueloop/client": "0.1.0-alpha.93",
+        "@cueloop/daemon": "0.1.0-alpha.93",
+        "@cueloop/schema": "0.1.0-alpha.93",
+        "@opentui/core": "^0.5.12",
+        "@opentui/react": "^0.5.12",
         "react": "^19.3.0",
         "ssh2": "^1.17.0",
         "valibot": "^1.5.0",
@@ -122,18 +122,18 @@
     },
     "packages/integrations/obsidian": {
       "name": "@cueloop/integration-obsidian",
-      "version": "0.1.0-alpha.92",
+      "version": "0.1.0-alpha.93",
       "dependencies": {
-        "@cueloop/extension-api": "0.1.0-alpha.92",
-        "@cueloop/schema": "0.1.0-alpha.92",
+        "@cueloop/extension-api": "0.1.0-alpha.93",
+        "@cueloop/schema": "0.1.0-alpha.93",
         "valibot": "^1.5.0",
       },
     },
     "packages/pi": {
       "name": "@cueloop/pi",
-      "version": "0.1.0-alpha.92",
+      "version": "0.1.0-alpha.93",
       "dependencies": {
-        "@cueloop/adapters": "0.1.0-alpha.89",
+        "@cueloop/adapters": "0.1.0-alpha.93",
       },
       "peerDependencies": {
         "@earendil-works/pi-coding-agent": "^0.86.0",
@@ -141,7 +141,7 @@
     },
     "packages/schema": {
       "name": "@cueloop/schema",
-      "version": "0.1.0-alpha.92",
+      "version": "0.1.0-alpha.93",
     },
   },
   "packages": {
@@ -317,29 +317,29 @@
 
     "@modelcontextprotocol/server": ["@modelcontextprotocol/server@2.0.0", "", { "dependencies": { "@modelcontextprotocol/core": "2.0.0", "zod": "^4.2.0" } }, "sha512-YhHWdHfpFMQfd0prsEnxKeS3Qz3ytIGmsS0sth4KDjnacIT7hxk6hXHkJ9KysxlkvTM+WZAtQbbcUhdoP4Hvtw=="],
 
-    "@opentui/core": ["@opentui/core@0.5.11", "", { "dependencies": { "bun-ffi-structs": "0.3.1", "diff": "9.0.0", "marked": "17.0.1", "string-width": "7.2.0", "strip-ansi": "7.1.2" }, "optionalDependencies": { "@opentui/core-darwin-arm64": "0.5.11", "@opentui/core-darwin-x64": "0.5.11", "@opentui/core-linux-arm64": "0.5.11", "@opentui/core-linux-arm64-musl": "0.5.11", "@opentui/core-linux-x64": "0.5.11", "@opentui/core-linux-x64-musl": "0.5.11", "@opentui/core-win32-arm64": "0.5.11", "@opentui/core-win32-x64": "0.5.11" }, "peerDependencies": { "web-tree-sitter": "0.25.10" } }, "sha512-pImMfjCNx7JUp9Df1LRZBDLisWqgzOLXZKXO+hh3jA9ujBFPQnZOqbG+/N5uVAAX8IZGaqhYSQRwSZIFBmcfbQ=="],
+    "@opentui/core": ["@opentui/core@0.5.12", "", { "dependencies": { "bun-ffi-structs": "0.3.1", "diff": "9.0.0", "marked": "17.0.1", "string-width": "7.2.0", "strip-ansi": "7.1.2" }, "optionalDependencies": { "@opentui/core-darwin-arm64": "0.5.12", "@opentui/core-darwin-x64": "0.5.12", "@opentui/core-linux-arm64": "0.5.12", "@opentui/core-linux-arm64-musl": "0.5.12", "@opentui/core-linux-x64": "0.5.12", "@opentui/core-linux-x64-musl": "0.5.12", "@opentui/core-win32-arm64": "0.5.12", "@opentui/core-win32-x64": "0.5.12" }, "peerDependencies": { "web-tree-sitter": "0.25.10" } }, "sha512-ZXBE5gmvdovmV8zJQrOQf6E44v1tJRDEgrM2MYhEglzgXZ+smIUp95O8zeRYGsuIzQIiMPMgQqKtTJuzvAb7BQ=="],
 
-    "@opentui/core-darwin-arm64": ["@opentui/core-darwin-arm64@0.5.11", "", { "os": "darwin", "cpu": "arm64" }, "sha512-DRXY5ioq+n1ZNAMAcaFaBunr0cmi2gqucjbTW7lgFp8t9uN3fNZnLTDOqkCTQtT2XhrU4GXqySaPSQ4qFG/EAQ=="],
+    "@opentui/core-darwin-arm64": ["@opentui/core-darwin-arm64@0.5.12", "", { "os": "darwin", "cpu": "arm64" }, "sha512-YdVnP0tAyerBNl0mIcmQEOotPeZzW1VnSXKBl5cyZ5e6nDd2Y+ui/8eRPpn1oqcamf1NCnzS4ohMgejOvna8Zg=="],
 
-    "@opentui/core-darwin-x64": ["@opentui/core-darwin-x64@0.5.11", "", { "os": "darwin", "cpu": "x64" }, "sha512-yP/8GliJDiJNm8YYJKvgWuy6xyCEd8d4GwBVOIzCFOI7ZIbGP8GOTvmwIjRW4Paw20pTttWMWyRoQiCvOXvH2g=="],
+    "@opentui/core-darwin-x64": ["@opentui/core-darwin-x64@0.5.12", "", { "os": "darwin", "cpu": "x64" }, "sha512-uRrQJdHmLUSj3PV23QPi3WSimYTTxcXnVouxF6U4xMXlOv4N3SxnHfVwMRQkPqbGOfvVWHeLE6FdK4C+ubU0sQ=="],
 
-    "@opentui/core-linux-arm64": ["@opentui/core-linux-arm64@0.5.11", "", { "os": "linux", "cpu": "arm64" }, "sha512-zBIsRFHlLUYFNhapRSNt9dz4mC8gZ4Wxcfy3A+2AwqsgCipcr2FkIuAXYqN08q+IvqFX7DfqgIFGWDNedHTPUg=="],
+    "@opentui/core-linux-arm64": ["@opentui/core-linux-arm64@0.5.12", "", { "os": "linux", "cpu": "arm64" }, "sha512-XeKhuIaEtgipvuPHbl4qPOBj+Ut+2zObmsxMVM1jDcjz/FatG9PGeGQPx1G1SnvH2AgpT4K+eCu7DUF0+yIqoQ=="],
 
-    "@opentui/core-linux-arm64-musl": ["@opentui/core-linux-arm64-musl@0.5.11", "", { "os": "linux", "cpu": "arm64" }, "sha512-x+xeR2LYibvIi/qQetRjJR008sFRve60QuDcO8ItxUwzFeKTDzl5CEiZpBXfm5I4FhRNuyuj0TSPIFadMvrjFQ=="],
+    "@opentui/core-linux-arm64-musl": ["@opentui/core-linux-arm64-musl@0.5.12", "", { "os": "linux", "cpu": "arm64" }, "sha512-VZ2sNMw1d/r1SLPjUbOP9LKscKz1CQjID8adTL6gG8Lrrq+mYcIUxutyB+P/eG0J/7oRZLPR6OMt7dUOap6RTg=="],
 
-    "@opentui/core-linux-x64": ["@opentui/core-linux-x64@0.5.11", "", { "os": "linux", "cpu": "x64" }, "sha512-pSOXqOADrv+zINOgR3FDFA9zVRaim3zl8/yhtO+X9rEJ6f34z3gDund0Gf88hNJSMpZK5xWtipEVm28RY5VF8w=="],
+    "@opentui/core-linux-x64": ["@opentui/core-linux-x64@0.5.12", "", { "os": "linux", "cpu": "x64" }, "sha512-eZiCjEzwbb6qClPPfk32Nha9xmr9obt69Xj0+9SKsXxWLBKkjQEGOMRoh/R9ObaQF4aq8If1xV3VEY0sD9W9vg=="],
 
-    "@opentui/core-linux-x64-musl": ["@opentui/core-linux-x64-musl@0.5.11", "", { "os": "linux", "cpu": "x64" }, "sha512-MyqOnSs8pTYG2xmFr1xt6xZIuHu2Xu4pkle9my9JdE+WClmusHf0YN9Eas6jQLAq5XUi34r22wMeK0juk93zyw=="],
+    "@opentui/core-linux-x64-musl": ["@opentui/core-linux-x64-musl@0.5.12", "", { "os": "linux", "cpu": "x64" }, "sha512-WWW0hVBoSYZ3D6AgZ4u2Y5/u/IyIq2pDb+4yI3WgJ70Wyt6ofHy+6kRGRgbXFn1p+rPInAHjCXD2v6C7iEKSrA=="],
 
-    "@opentui/core-win32-arm64": ["@opentui/core-win32-arm64@0.5.11", "", { "os": "win32", "cpu": "arm64" }, "sha512-MGGRXIDJ//HyaqC5ndSr7/CUl+ICdYEAMcjbA00UWsthh4ZO/rYhPkyqOaTn5ck6+G4ca3/+M76J+jImMYTjNg=="],
+    "@opentui/core-win32-arm64": ["@opentui/core-win32-arm64@0.5.12", "", { "os": "win32", "cpu": "arm64" }, "sha512-aLbm6870Ybls6CYL4zMOCImTBPLZHZMUXJFGqMI44lIWxitkAtT6zg5lYA4oRqFRzzryDclxr29+hDgT3p3Blw=="],
 
-    "@opentui/core-win32-x64": ["@opentui/core-win32-x64@0.5.11", "", { "os": "win32", "cpu": "x64" }, "sha512-sMEGX9rhiPd1gBa190jzj5uIdzKCMImxHmr22hJLxIRWqejxWvqGnRBkW68wT8NfMViDiMtZWavgWL7GgmYCAQ=="],
+    "@opentui/core-win32-x64": ["@opentui/core-win32-x64@0.5.12", "", { "os": "win32", "cpu": "x64" }, "sha512-KTwtwpfd2zF9opVh3SyRJYDd1o3Xv4XL8OZb8Zi+CqWUel6Y2IDCiVivCv8fGJt3J7wOIXXtuZI9ZUkLyKJCiQ=="],
 
-    "@opentui/keymap": ["@opentui/keymap@0.5.11", "", { "dependencies": { "@opentui/core": "0.5.11" }, "peerDependencies": { "@opentui/react": "0.5.11", "@opentui/solid": "0.5.11", "react": ">=19.2.0", "solid-js": "1.9.12" }, "optionalPeers": ["@opentui/react", "@opentui/solid", "react", "solid-js"] }, "sha512-2c7Qsi2H5tg2ODxf1uOhEEao6JsaBAZRQ43z7nmHdtX5XK5VTNPgScZKBGaYTx/zBIaq/MkCCgPpr/m5wHdssw=="],
+    "@opentui/keymap": ["@opentui/keymap@0.5.12", "", { "dependencies": { "@opentui/core": "0.5.12" }, "peerDependencies": { "@opentui/react": "0.5.12", "@opentui/solid": "0.5.12", "react": ">=19.2.0", "solid-js": "1.9.12" }, "optionalPeers": ["@opentui/react", "@opentui/solid", "react", "solid-js"] }, "sha512-yWPvJjRhJTRoRSUucQq9Ua8ZW7n/2YQ/j6JxWq5Qekm4WuFiTplEkebR/Aj2/xA8tX68NOE5qv1LrY0Jk3NLNQ=="],
 
-    "@opentui/react": ["@opentui/react@0.5.11", "", { "dependencies": { "@opentui/core": "0.5.11", "react-reconciler": "^0.33.0" }, "peerDependencies": { "react": ">=19.2.0", "react-devtools-core": "^7.0.1", "ws": "^8.18.0" } }, "sha512-ACH6Kpl3/O1zdNL0sZtzrnxfw0+auJu4eefIbPTAPuNEessyuhd2xvV4agrdWRJCeogywS7er5k7uS/8YRWnZg=="],
+    "@opentui/react": ["@opentui/react@0.5.12", "", { "dependencies": { "@opentui/core": "0.5.12", "react-reconciler": "^0.33.0" }, "peerDependencies": { "react": ">=19.2.0", "react-devtools-core": "^7.0.1", "ws": "^8.18.0" } }, "sha512-cHzTW0Pyr2kl/sMX7nviP2TM0kLwE8x1Dny5KweqCj0PFBAQsISboTxq0jjjeVAUEYWY89xfDzz+rGpwBzWbRg=="],
 
-    "@opentui/ssh": ["@opentui/ssh@0.5.11", "", { "dependencies": { "ssh2": "^1.16.0" }, "peerDependencies": { "@opentui/core": "0.5.11" } }, "sha512-flb96eKcQnlaiYI7TeumRQaSaTXSZupNN6dZOaaEmpcv4AIo4gPrw43iEYQu8M6qmSwGD/vLRrmLCijdXjcyig=="],
+    "@opentui/ssh": ["@opentui/ssh@0.5.12", "", { "dependencies": { "ssh2": "^1.16.0" }, "peerDependencies": { "@opentui/core": "0.5.12" } }, "sha512-2v8glcc54RoIrk1hiDQPe9cialA1ZKOGtYO5anHJiORRJjWJKybIejRYxeOt8L94m89Ek6KD+9sZMWFkDZJYnA=="],
 
     "@oxfmt/binding-android-arm-eabi": ["@oxfmt/binding-android-arm-eabi@0.67.0", "", { "os": "android", "cpu": "arm" }, "sha512-2olh3ioEmc4gRzQm7jxyB1b/PFBoFvTq8KdgYySeNpysDtA6DEg2Mvya4/I6flhL7G0eOrE8RD7JCNCIMhE16Q=="],
 
