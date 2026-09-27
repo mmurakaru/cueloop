@@ -353,6 +353,7 @@ export const Params = {
     tabId: NonEmpty,
     paneId: NonEmpty,
     mode: v.optional(v.picklist(["tab", "pane"])),
+    layout: v.optional(v.literal("pair")),
   }),
   "ghostty.getThreadSurface": v.object({ id: SessionId }),
   "ghostty.setThreadSurface": v.object({ id: SessionId, terminalId: NonEmpty }),

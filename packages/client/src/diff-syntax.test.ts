@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { highlightJobs, spansByLine } from "./diff-syntax";
-import type { DiffRow } from "./view-diff";
+import { fileContentsRows, type DiffRow } from "./view-diff";
 import type { SimpleHighlight } from "@opentui/core";
 
 function row(kind: DiffRow["kind"], text: string, file = "src/x.ts"): DiffRow {
@@ -74,6 +74,19 @@ describe("spansByLine", () => {
 });
 
 describe("highlightJobs", () => {
+  for (const { path, filetype } of [
+    { path: "src/add.ts", filetype: "typescript" },
+    { path: "src/add.py", filetype: "python" },
+    { path: "config.json", filetype: "json" },
+  ]) {
+    test(`detects ${filetype} in a plain project file without a diff header`, () => {
+      const source = "first line\nsecond line";
+      const rows = fileContentsRows(path, source);
+
+      expect(highlightJobs(rows)).toEqual([{ filetype, source, rowIndexByLine: [0, 1] }]);
+    });
+  }
+
   test("reconstructs old and new sides of a hunk with row indices", () => {
     // Arrange
     const rows = [
@@ -100,7 +113,7 @@ describe("highlightJobs", () => {
     const rows = [
       row("file", "notes/thing.unknownext", "notes/thing.unknownext"),
       row("hunk", "@@"),
-      row("add", "whatever"),
+      row("add", "whatever", "notes/thing.unknownext"),
     ];
 
     // Act

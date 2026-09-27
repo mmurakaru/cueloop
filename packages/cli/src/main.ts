@@ -23,7 +23,7 @@ import {
 import { sessionCommand } from "./thread-commands";
 import { CLI_VERSION } from "./version";
 import { DaemonClient } from "@cueloop/daemon/client";
-import type { Thread } from "@cueloop/schema";
+import type { Thread, ThreadSurfaceOpenStatus } from "@cueloop/schema";
 import { openReview } from "@cueloop/daemon/thread-review";
 
 const argv = process.argv.slice(2);
@@ -280,9 +280,11 @@ async function diffCommand(argv: string[]): Promise<number> {
 }
 
 async function pairCommand(argv: string[]): Promise<number> {
-  const parsed = parseArgs(argv);
+  const startedAt = new Date().toISOString();
+  const parsed = parseArgs(argv, ["open-tab", "no-tui"]);
   const client = await DaemonClient.connect({ autostart: true });
   let thread: Thread;
+  let openStatus: ThreadSurfaceOpenStatus | undefined;
 
   try {
     const sessionId = parsed.positional[0];
@@ -295,11 +297,18 @@ async function pairCommand(argv: string[]): Promise<number> {
     } else {
       thread = await client.sessionWorkbench(process.cwd());
     }
+    if (parsed.flags["open-tab"] === true) {
+      const { openHerdrThreadSurface } = await import("@cueloop/daemon/herdr-thread-surface");
+
+      openStatus = await openHerdrThreadSurface(thread, client, process.env, "tab", "pair");
+    }
   } finally {
     client.close();
   }
-  if (parsed.flags["no-tui"] === true) {
-    console.log(JSON.stringify({ threadId: thread.id }));
+  if (parsed.flags["no-tui"] === true || parsed.flags["open-tab"] === true) {
+    console.log(
+      JSON.stringify({ threadId: thread.id, startedAt, ...(openStatus && { openStatus }) }),
+    );
 
     return 0;
   }
@@ -366,7 +375,7 @@ function printHelp(): void {
       "  cueloop reply [id|title]         open the latest pending reply review (the agent's previous message)",
       "  cueloop diff [id|title]          review your working tree (untracked files included);",
       "                                   with a clean tree, open the latest pending diff review",
-      "  cueloop pair [thread-id]         open a live workbench; --no-tui prints its Thread ID",
+      "  cueloop pair [thread-id]         open a live workbench; --open-tab opens Herdr; --no-tui prints its Thread ID",
       "  cueloop review <pr>              review a pull request (--no-tui prints the session)",
       "  cueloop prototype <file.md>      review a component design doc (or open the latest by id/title)",
       "",

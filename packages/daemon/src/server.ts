@@ -550,6 +550,7 @@ export class DaemonServer {
         tabId: params.tabId,
         paneId: params.paneId,
         mode: params.mode,
+        layout: params.layout,
       });
 
       return {};

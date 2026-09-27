@@ -4,12 +4,13 @@
  */
 
 import { describe, expect, mock, test } from "bun:test";
+import type { RGBA } from "@opentui/core";
 import { testRender } from "@opentui/react/test-utils";
 import React from "react";
 import { SCHEMA_VERSION, type Anchor, type Thread } from "@cueloop/schema";
 import { AnnotatableFileView } from "./AnnotatableFileView";
 import { DARK } from "../theme";
-import { dragText, typeText, pressKey, waitForText } from "../test-support";
+import { allowEventLoopUpdates, dragText, typeText, pressKey, waitForText } from "../test-support";
 
 const SAMPLE = "export function add(a: number, b: number) {\n  return a + b;\n}\n";
 
@@ -29,7 +30,53 @@ function planSession(): Thread {
 
 const noop = (): void => {};
 
+function colorHex(color: RGBA): string {
+  const [red, green, blue] = color.toInts();
+
+  return "#" + [red, green, blue].map((part) => part.toString(16).padStart(2, "0")).join("");
+}
+
 describe("AnnotatableFileView", () => {
+  for (const { path, source, keyword } of [
+    { path: "src/add.ts", source: "export const add = 1;", keyword: "export" },
+    { path: "src/add.js", source: "const add = 1;", keyword: "const" },
+  ]) {
+    test(`highlights ${path} by its detected language`, async () => {
+      allowEventLoopUpdates();
+      const setup = await testRender(
+        <AnnotatableFileView
+          path={path}
+          loadContents={() => Promise.resolve(source)}
+          session={planSession()}
+          quickActions={[]}
+          observer={false}
+          onAddComment={noop}
+          onReply={noop}
+          onUpdateAnnotation={noop}
+          onExit={noop}
+          theme={DARK}
+        />,
+        { width: 64, height: 12 },
+      );
+      let highlighted = false;
+
+      for (let attempt = 0; attempt < 60 && !highlighted; attempt++) {
+        await setup.renderOnce();
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        highlighted = setup.captureSpans().lines.some((line) =>
+          line.spans
+            .filter((span) => colorHex(span.fg) === DARK.accent)
+            .map((span) => span.text)
+            .join("")
+            .includes(keyword),
+        );
+      }
+
+      expect(highlighted).toBe(true);
+      setup.renderer.destroy();
+    }, 25000);
+  }
+
   test("commenting a file line hands up an anchor that quotes the line", async () => {
     const onAddComment = mock((_anchor: Anchor, _body: string) => {});
     const setup = await testRender(

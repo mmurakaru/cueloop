@@ -86,6 +86,7 @@ const HerdrThreadSurfaceResultSchema = v.nullable(
     tabId: v.string(),
     paneId: v.string(),
     mode: v.optional(v.picklist(["tab", "pane"])),
+    layout: v.optional(v.literal("pair")),
   }),
 );
 const GhosttyThreadSurfaceResultSchema = v.nullable(v.object({ terminalId: v.string() }));
