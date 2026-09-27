@@ -136,6 +136,8 @@ export interface AnnotationSurface {
   focusedDiscussion: string | null;
   /** The block to keep in view: an opening card, a focused discussion, else the caret. */
   revealBlockIndex: number;
+  /** Screen row of the mounted visual line carrying the caret. */
+  headVisualY: () => number | undefined;
   /** The text a span covers, blocks joined by a space, for previews. */
   spanQuote: (span: TextSpan) => string;
   /** Ref callback for one visual line, so a drag can hit-test it. */
@@ -344,6 +346,17 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
       x: entry.renderable.x,
       y: entry.renderable.y,
     }));
+  const headVisualY = (): number | undefined => {
+    const textLength = textLengthOf(head.blockIndex);
+    const cell = Math.max(0, Math.min(textLength - 1, head.char));
+
+    return allGeometry().find(
+      (line) =>
+        line.blockIndex === head.blockIndex &&
+        line.start <= cell &&
+        (cell < line.end || line.start === line.end),
+    )?.y;
+  };
   const verticalTextPosition = (
     position: TextPosition,
     direction: -1 | 1,
@@ -986,6 +999,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     navMode,
     focusedDiscussion,
     revealBlockIndex,
+    headVisualY,
     spanQuote,
     registerLine,
     onLineMouseDown,

@@ -7,7 +7,7 @@ import { launchTuiSession } from "../helpers/pty-tui-session";
 import { ptyTest } from "../helpers/pty-reviews";
 
 ptyTest(
-  "diff navigation scrolls at most one screen row per Down key across a comment",
+  "diff navigation scrolls at most one screen row per arrow key across a comment",
   async () => {
     const reviewHome = createTestReviewHome();
     const added = Array.from(
@@ -75,6 +75,19 @@ ptyTest(
       }
 
       expect(crossedComment).toBe(true);
+      for (let step = 0; step < 55; step++) {
+        await session.press("up");
+        await session.waitIdle();
+        const after = visibleRows(session.text());
+        const shared = [...before].filter(([line]) => after.has(line));
+
+        expect(shared.length).toBeGreaterThan(0);
+        for (const [line, screenRow] of shared) {
+          expect(Math.abs(after.get(line)! - screenRow)).toBeLessThanOrEqual(1);
+        }
+        expect(session.text()).toContain("▎");
+        before = after;
+      }
     } finally {
       await session.close();
       reviewHome.cleanup();

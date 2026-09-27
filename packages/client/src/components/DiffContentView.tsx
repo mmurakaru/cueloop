@@ -644,8 +644,9 @@ export function DiffContentView({
     return distance > 1;
   };
 
-  // an opening card shifts the layout, so the row it belongs to is revealed again; a
-  // discussion focused from the rail is scrolled into view the same way
+  // An opening card or focused discussion reveals its owning item. Ordinary caret
+  // movement reveals the exact visual line, since an item's first wrapped line may
+  // sit above the viewport while the caret is already on screen.
   const revealItem = layout.itemOfRow[surface.revealBlockIndex];
 
   useEffect(() => {
@@ -656,9 +657,22 @@ export function DiffContentView({
       return;
     }
     const scrollbox = scrollRef.current;
+
+    if (!scrollbox) return;
+    const headY = surface.headVisualY();
+
+    if (headY !== undefined) {
+      const top = scrollbox.viewport.y;
+      const bottom = top + scrollbox.viewport.height - 1;
+
+      if (headY < top) scrollbox.scrollBy(-1);
+      else if (headY > bottom) scrollbox.scrollBy(1);
+
+      return;
+    }
     const start = virtual.startOfIndex(revealItem);
 
-    if (!scrollbox || start === undefined) return;
+    if (start === undefined) return;
     const top = scrollbox.scrollTop;
     const bottom = top + scrollbox.viewport.height - 1;
 

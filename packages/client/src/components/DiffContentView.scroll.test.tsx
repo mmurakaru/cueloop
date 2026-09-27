@@ -263,3 +263,58 @@ test("opening a comment on the diff's last line reveals its composer", async () 
   expect(setup.captureCharFrame()).toContain("● bottom comment");
   setup.renderer.destroy();
 }, 25000);
+
+test("Up keeps the caret on the first screen row while wrapped lines scroll", async () => {
+  const lines = Array.from({ length: 24 }, (_, index) =>
+    index % 3 === 2 ? "-" : `-line ${index} ${"wrapped words here ".repeat(5)}`,
+  );
+  const rows = diffRows(
+    [
+      "diff --git a/long.md b/long.md",
+      "--- a/long.md",
+      "+++ /dev/null",
+      "@@ -1,24 +0,0 @@",
+      ...lines,
+      "",
+    ].join("\n"),
+  );
+  const setup = await testRender(
+    <DiffContentView
+      rows={rows}
+      session={fixtureDiffSession()}
+      marks={marksByRows([], rows)}
+      quickActions={[]}
+      observer={false}
+      onAnnotate={noop}
+      onReply={noop}
+      onUpdateAnnotation={noop}
+      onExit={noop}
+    />,
+    { width: 60, height: 12 },
+  );
+  await settle(setup);
+  const found = findById(setup.renderer.root, "diff-scroll");
+
+  if (!(found instanceof ScrollBoxRenderable)) throw new Error("diff-scroll is not a scrollbox");
+  const scrollbox = found;
+
+  for (let index = 0; index < 40; index++) await press(setup, "down");
+  let previousTop = scrollbox.scrollTop;
+  let scrolled = false;
+
+  for (let index = 0; index < 22; index++) {
+    await press(setup, "up");
+    const frame = setup.captureCharFrame().split("\n");
+    const marker = frame.findIndex((line) => line.includes("▎"));
+    const top = scrollbox.scrollTop;
+
+    expect(previousTop - top).toBeLessThanOrEqual(1);
+    if (top < previousTop) {
+      expect(marker).toBe(0);
+      scrolled = true;
+    }
+    previousTop = top;
+  }
+  expect(scrolled).toBe(true);
+  setup.renderer.destroy();
+});
