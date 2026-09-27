@@ -7,7 +7,7 @@ export interface ParsedArgs {
   flags: Record<string, string | boolean>;
 }
 
-export function parseArgs(argv: string[]): ParsedArgs {
+export function parseArgs(argv: string[], booleanFlags: readonly string[] = []): ParsedArgs {
   const positional: string[] = [];
   const flags: Record<string, string | boolean> = {};
 
@@ -26,7 +26,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       const key = argument.slice(2);
       const next = argv[i + 1];
 
-      if (next !== undefined && !next.startsWith("--")) {
+      if (!booleanFlags.includes(key) && next !== undefined && !next.startsWith("--")) {
         flags[key] = next;
         i++;
       } else {

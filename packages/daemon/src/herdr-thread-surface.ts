@@ -60,6 +60,7 @@ export interface OpenHerdrThreadTabOptions {
   binPath: string;
   label: string;
   workspaceId?: string;
+  layout?: "pair";
 }
 
 /** Daemon-owned native handles, separate from canonical Thread records. */
@@ -72,7 +73,7 @@ export interface HerdrThreadSurfacePersistence {
 export function openHerdrThreadTab(
   options: OpenHerdrThreadTabOptions,
 ): HerdrThreadSurfaceHandle | null {
-  const { sessionId, cwd, binPath, label, workspaceId } = options;
+  const { sessionId, cwd, binPath, label, workspaceId, layout } = options;
 
   try {
     const created = runHerdrCommand(
@@ -99,13 +100,13 @@ export function openHerdrThreadTab(
 
     if (!paneId || !tabId) return null;
 
-    if (!sendCueloopThreadCommand(binPath, paneId, sessionId)) {
-      closeUnlaunchedHerdrSurface(binPath, "tab", tabId);
+    if (!sendCueloopThreadCommand(binPath, paneId, sessionId, layout)) {
+      closeHerdrThreadSurface(binPath, "tab", tabId);
 
       return null;
     }
 
-    return { tabId, paneId };
+    return { tabId, paneId, ...(layout && { layout }) };
   } catch {
     return null;
   }
@@ -118,13 +119,14 @@ export interface OpenHerdrThreadPaneOptions {
   binPath: string;
   sourcePaneId: string;
   tabId: string;
+  layout?: "pair";
 }
 
 /** Split the calling Herdr pane right at 50 percent and launch cueloop in it. */
 export function openHerdrThreadPane(
   options: OpenHerdrThreadPaneOptions,
 ): HerdrThreadSurfaceHandle | null {
-  const { sessionId, cwd, binPath, sourcePaneId, tabId } = options;
+  const { sessionId, cwd, binPath, sourcePaneId, tabId, layout } = options;
 
   try {
     const created = runHerdrCommand(
@@ -149,19 +151,19 @@ export function openHerdrThreadPane(
     const paneId = parsed.success ? parsed.output.result?.pane?.pane_id : undefined;
 
     if (!paneId) return null;
-    if (!sendCueloopThreadCommand(binPath, paneId, sessionId)) {
-      closeUnlaunchedHerdrSurface(binPath, "pane", paneId);
+    if (!sendCueloopThreadCommand(binPath, paneId, sessionId, layout)) {
+      closeHerdrThreadSurface(binPath, "pane", paneId);
 
       return null;
     }
 
-    return { mode: "pane", tabId, paneId };
+    return { mode: "pane", tabId, paneId, ...(layout && { layout }) };
   } catch {
     return null;
   }
 }
 
-function closeUnlaunchedHerdrSurface(binPath: string, kind: "tab" | "pane", id: string): void {
+function closeHerdrThreadSurface(binPath: string, kind: "tab" | "pane", id: string): void {
   try {
     runHerdrCommand([binPath, kind, "close", id], {
       stdout: "ignore",
@@ -173,8 +175,14 @@ function closeUnlaunchedHerdrSurface(binPath: string, kind: "tab" | "pane", id: 
   }
 }
 
-function sendCueloopThreadCommand(binPath: string, paneId: string, sessionId: string): boolean {
-  const typed = runHerdrCommand([binPath, "pane", "send-text", paneId, `cueloop ${sessionId}`], {
+function sendCueloopThreadCommand(
+  binPath: string,
+  paneId: string,
+  sessionId: string,
+  layout?: "pair",
+): boolean {
+  const command = layout === "pair" ? `cueloop pair ${sessionId}` : `cueloop ${sessionId}`;
+  const typed = runHerdrCommand([binPath, "pane", "send-text", paneId, command], {
     stdout: "ignore",
     stderr: "ignore",
     timeout: HERDR_SPAWN_TIMEOUT_MS,
@@ -292,6 +300,7 @@ export async function openHerdrThreadSurface(
   persistence: HerdrThreadSurfacePersistence,
   env: HerdrEnv = process.env,
   mode: HerdrThreadSurface = loadHerdrThreadSurface(),
+  layout?: "pair",
 ): Promise<ThreadSurfaceOpenStatus> {
   const herdr = detectHerdr(env);
 
@@ -300,7 +309,12 @@ export async function openHerdrThreadSurface(
   if (mode === "none") return "disabled";
   const recorded = await recallHerdrThreadSurface(persistence, session.id);
 
-  if (recorded && herdrPaneAlive(herdr.binPath, recorded.paneId)) {
+  if (
+    recorded &&
+    (recorded.mode ?? "tab") === mode &&
+    recorded.layout === layout &&
+    herdrPaneAlive(herdr.binPath, recorded.paneId)
+  ) {
     return focusHerdrThreadSurface(herdr.binPath, recorded) ? "focused" : "failed";
   }
   const cwd = session.artifact.meta.cwd ?? session.workspace.repoRoot;
@@ -313,6 +327,7 @@ export async function openHerdrThreadSurface(
             binPath: herdr.binPath,
             sourcePaneId: herdr.paneId,
             tabId: env.HERDR_TAB_ID,
+            layout,
           })
         : null
       : openHerdrThreadTab({
@@ -321,9 +336,17 @@ export async function openHerdrThreadSurface(
           binPath: herdr.binPath,
           label: session.artifact.meta.title ?? session.id,
           workspaceId: env.HERDR_WORKSPACE_ID,
+          layout,
         });
 
   if (!opened) return "failed";
+  if (recorded && recorded.paneId !== opened.paneId) {
+    closeHerdrThreadSurface(
+      herdr.binPath,
+      recorded.mode === "pane" ? "pane" : "tab",
+      recorded.mode === "pane" ? recorded.paneId : recorded.tabId,
+    );
+  }
   await rememberHerdrThreadSurface(persistence, session.id, opened);
 
   return "opened";

@@ -5,6 +5,7 @@ import { herdrThreadSurfacesPath } from "./paths";
 /** Herdr-native handle, stored outside the canonical Thread. */
 export interface HerdrThreadSurfaceHandle {
   mode?: "tab" | "pane";
+  layout?: "pair";
   tabId: string;
   paneId: string;
 }
@@ -13,6 +14,7 @@ const HerdrThreadSurfaceHandleSchema = v.object({
   tabId: v.string(),
   paneId: v.string(),
   mode: v.optional(v.picklist(["tab", "pane"])),
+  layout: v.optional(v.literal("pair")),
 });
 const HerdrThreadSurfaceMapSchema = v.record(v.string(), v.unknown());
 

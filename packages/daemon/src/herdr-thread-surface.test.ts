@@ -358,6 +358,60 @@ describe("openHerdrThreadSurface", () => {
     expect(store.saved()).toEqual({ tabId: "w9:t9", paneId: "w9:p9" });
   });
 
+  test("opens a tab when the recorded live surface is a pane", async () => {
+    const stub = makeStub("pane-to-tab", true);
+    const herdrEnvironment = {
+      HERDR_ENV: "1",
+      HERDR_PANE_ID: "w1:p1",
+      HERDR_BIN_PATH: stub.binPath,
+    };
+    const store = fakePersistence({ mode: "pane", tabId: "w1:t1", paneId: "w1:p3" });
+
+    expect(
+      await openHerdrThreadSurface(
+        newSession(),
+        store.persistence,
+        herdrEnvironment,
+        "tab",
+        "pair",
+      ),
+    ).toBe("opened");
+    expect(readLines(stub.logPath)).toEqual([
+      "tab create --cwd /repo/work --label Rollout Plan --focus",
+      "pane send-text w1:p2 cueloop pair ses_new1",
+      "pane send-keys w1:p2 enter",
+      "pane close w1:p3",
+    ]);
+    expect(store.saved()).toEqual({ tabId: "w1:t2", paneId: "w1:p2", layout: "pair" });
+  });
+
+  test("replaces a generic review tab with the pairing layout", async () => {
+    const stub = makeStub("review-to-pair", true);
+    const herdrEnvironment = {
+      HERDR_ENV: "1",
+      HERDR_PANE_ID: "w1:p1",
+      HERDR_BIN_PATH: stub.binPath,
+    };
+    const store = fakePersistence({ tabId: "w9:t9", paneId: "w9:p9" });
+
+    expect(
+      await openHerdrThreadSurface(
+        newSession(),
+        store.persistence,
+        herdrEnvironment,
+        "tab",
+        "pair",
+      ),
+    ).toBe("opened");
+    expect(readLines(stub.logPath)).toEqual([
+      "tab create --cwd /repo/work --label Rollout Plan --focus",
+      "pane send-text w1:p2 cueloop pair ses_new1",
+      "pane send-keys w1:p2 enter",
+      "tab close w9:t9",
+    ]);
+    expect(store.saved()).toEqual({ tabId: "w1:t2", paneId: "w1:p2", layout: "pair" });
+  });
+
   test("a persistence failure never escapes - review creation stays best-effort", async () => {
     const stub = makeStub("gated-persist-fail");
     const env = { HERDR_ENV: "1", HERDR_PANE_ID: "w1:p1", HERDR_BIN_PATH: stub.binPath };

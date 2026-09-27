@@ -31,9 +31,8 @@ interface HighlightJob {
 }
 
 /**
- * Split diff rows into per-hunk highlight jobs, one per side. A hunk's rows are
- * contiguous file lines, so each side reconstructs to valid code; file/hunk
- * header rows and files without a known filetype are skipped.
+ * Split diff rows into per-hunk highlight jobs, one per side. Plain project
+ * files contain only context rows, so detect their language from the row path.
  */
 export function highlightJobs(rows: DiffRow[]): HighlightJob[] {
   const jobs: HighlightJob[] = [];
@@ -42,10 +41,12 @@ export function highlightJobs(rows: DiffRow[]): HighlightJob[] {
   let oldRowIndexByLine: number[] = [];
   let newRowIndexByLine: number[] = [];
   let filetype: string | undefined;
+  let path: string | undefined;
+  let hasChange = false;
 
   const flush = (): void => {
     if (filetype) {
-      if (oldLines.length)
+      if (oldLines.length && (hasChange || newLines.length === 0))
         jobs.push({ filetype, source: oldLines.join("\n"), rowIndexByLine: oldRowIndexByLine });
       if (newLines.length)
         jobs.push({ filetype, source: newLines.join("\n"), rowIndexByLine: newRowIndexByLine });
@@ -54,14 +55,20 @@ export function highlightJobs(rows: DiffRow[]): HighlightJob[] {
     newLines = [];
     oldRowIndexByLine = [];
     newRowIndexByLine = [];
+    hasChange = false;
   };
 
   for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
     const row = rows[rowIndex]!;
 
+    if (row.file !== path) {
+      flush();
+      path = row.file;
+      filetype = filetypeForPath(path);
+    }
+
     if (row.kind === "file" || row.kind === "hunk") {
       flush();
-      filetype = row.kind === "file" ? filetypeForPath(row.file) : filetype;
       continue;
     }
     const text = stripTrailingNewline(row.text);
@@ -74,6 +81,7 @@ export function highlightJobs(rows: DiffRow[]): HighlightJob[] {
       newLines.push(text);
       newRowIndexByLine.push(rowIndex);
     }
+    if (row.kind === "add" || row.kind === "del") hasChange = true;
   }
   flush();
 
