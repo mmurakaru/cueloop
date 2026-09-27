@@ -1,5 +1,21 @@
 # @cueloop/client
 
+## 0.1.0-alpha.93
+
+### Patch Changes
+
+- [#532](https://github.com/mmurakaru/cueloop/pull/532) [`d06d6f5`](https://github.com/mmurakaru/cueloop/commit/d06d6f5e1928436c3e0c97b078b8f1688f250699) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Keep file keyboard navigation and its caret marker to one visual row across wrapped lines, comments, and empty lines; reveal the exact caret line when scrolling; stop at file boundaries; use gesture-based wheel acceleration in diff views; and keep the caret visible at the viewport edge during wheel scrolling.
+
+- [#532](https://github.com/mmurakaru/cueloop/pull/532) [`d06d6f5`](https://github.com/mmurakaru/cueloop/commit/d06d6f5e1928436c3e0c97b078b8f1688f250699) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Keep selection visible while scrolling Changes and Project trees, show complete file names, restore diff actions and zoomed split view, keep preview tab labels upright, show the TOML-selected review skill, and dismiss toasts on outside click. Clicking the Changes sidebar opens its editor tab beside Welcome or other files. File titles toggle folding with hover guidance, copied paths report success in their tooltip, and split controls remain available in every editor group while zoom stays in the upper-right header at a stable size. Document Enter as the file tree action in Keybinds.
+
+  Limit the editor grid to eight tiles and disable splits that would leave a tile too small. Share renderer frame, resize, and keypress subscriptions across tiles so repeated splits do not trigger listener warnings.
+
+- Updated dependencies []:
+  - @cueloop/daemon@0.1.0-alpha.93
+  - @cueloop/extension-api@0.1.0-alpha.93
+  - @cueloop/integration-obsidian@0.1.0-alpha.93
+  - @cueloop/schema@0.1.0-alpha.93
+
 ## 0.1.0-alpha.92
 
 ### Patch Changes

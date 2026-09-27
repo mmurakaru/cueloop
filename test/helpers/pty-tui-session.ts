@@ -214,6 +214,13 @@ export const OFFLINE_SSH_MESSAGE = "test: network disabled";
 
 /** A live TUI in a PTY with a Ghostty screen behind it. Always `close()` it in `afterAll`. */
 export class PtyTuiSession implements PtyScreenReader {
+  captureTerminalFrames = false;
+  onTerminalFrame?: (
+    frame: string,
+    cellAt: (column: number, row: number) => GhosttyCell | null,
+  ) => void;
+  terminalFrames: string[] = [];
+  terminalFrameTimes: number[] = [];
   private readonly encoder = new TextEncoder();
   /** Bumped on every PTY chunk and resize; screen reads are cached against it so idle polls cost no FFI. */
   private generation = 0;
@@ -227,9 +234,29 @@ export class PtyTuiSession implements PtyScreenReader {
     private readonly readyFile: string,
   ) {
     pty.onData((chunk) => {
-      this.terminal.write(this.encoder.encode(chunk));
       this.generation += 1;
       this.lastDataAt = Date.now();
+      if (!this.captureTerminalFrames) {
+        this.terminal.write(this.encoder.encode(chunk));
+        this.textCache = null;
+
+        return;
+      }
+      const completedFrameMarker = "\x1b[?2026l";
+
+      for (const [index, segment] of chunk.split(completedFrameMarker).entries()) {
+        if (index > 0) {
+          this.terminal.write(this.encoder.encode(completedFrameMarker));
+          this.textCache = null;
+          const frame = this.text();
+
+          this.terminalFrames.push(frame);
+          this.terminalFrameTimes.push(performance.now());
+          this.onTerminalFrame?.(frame, (column, row) => this.terminal.readCell(column, row));
+        }
+        this.terminal.write(this.encoder.encode(segment));
+        this.textCache = null;
+      }
     });
     pty.onExit((event) => {
       this.exitRecord = event;
@@ -306,6 +333,13 @@ export class PtyTuiSession implements PtyScreenReader {
     const y = row + 1;
 
     await this.writeAndSettle(`\x1b[<0;${x};${y}M\x1b[<0;${x};${y}m`);
+  }
+
+  /** Scroll one wheel step at a 0-based cell and wait for its repaint. */
+  async wheelAt(column: number, row: number, direction: "up" | "down"): Promise<void> {
+    const button = direction === "up" ? 64 : 65;
+
+    await this.writeAndSettle(`\x1b[<${button};${column + 1};${row + 1}M`);
   }
 
   /** Drag between 0-based cells with the left button held. */

@@ -10,7 +10,7 @@ import React from "react";
 import { WelcomePlayground } from "./WelcomePlayground";
 import { DARK } from "../theme";
 import { CLIENT_VERSION } from "../version";
-import { dragText, typeText, pressKey, waitForText } from "../test-support";
+import { dragText, locateText, press, typeText, pressKey, waitForText } from "../test-support";
 
 describe("WelcomePlayground", () => {
   test("the copy prompts the select-and-type and the slash gestures", async () => {
@@ -43,6 +43,33 @@ describe("WelcomePlayground", () => {
 
     // Assert - the note renders on the surface, no controller or daemon involved
     await waitForText(setup, "my first note");
+
+    setup.renderer.destroy();
+  });
+
+  test("the caret marker remains visible when Up crosses an empty line", async () => {
+    const setup = await testRender(<WelcomePlayground quickActions={[]} theme={DARK} />, {
+      width: 100,
+      height: 28,
+    });
+
+    await waitForText(setup, "Start");
+    const start = locateText(setup, "Start");
+
+    await setup.mockMouse.click(start.column, start.row);
+    await press(setup, "escape");
+
+    const markerRows = () =>
+      setup
+        .captureCharFrame()
+        .split("\n")
+        .flatMap((line, row) => (line.includes("▎") ? [row] : []));
+
+    expect(markerRows()).toEqual([start.row]);
+    await press(setup, "up");
+    expect(markerRows()).toEqual([start.row - 1]);
+    await press(setup, "up");
+    expect(markerRows()).toEqual([start.row - 2]);
 
     setup.renderer.destroy();
   });

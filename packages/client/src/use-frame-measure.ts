@@ -8,6 +8,45 @@
 import { useEffect, useState } from "react";
 import { useRenderer } from "@opentui/react";
 
+type Renderer = NonNullable<ReturnType<typeof useRenderer>>;
+type Measure = () => void;
+
+interface FrameSubscriptions {
+  measures: Set<Measure>;
+  notify: Measure;
+}
+
+const subscribers = new WeakMap<Renderer, FrameSubscriptions>();
+
+export function subscribeToFrames(renderer: Renderer, measure: Measure): () => void {
+  let subscription = subscribers.get(renderer);
+
+  if (!subscription) {
+    const measures = new Set<Measure>();
+    const notify = (): void => {
+      for (const subscriber of measures) subscriber();
+    };
+
+    subscription = { measures, notify };
+    subscribers.set(renderer, subscription);
+    renderer.on("frame", notify);
+    renderer.on("resize", notify);
+  }
+
+  const { measures, notify } = subscription;
+
+  measures.add(measure);
+
+  return () => {
+    measures.delete(measure);
+    if (measures.size > 0) return;
+
+    renderer.off("frame", notify);
+    renderer.off("resize", notify);
+    subscribers.delete(renderer);
+  };
+}
+
 export function useFrameMeasure<T>(
   read: () => T,
   isEqual: (left: T, right: T) => boolean,
@@ -27,13 +66,7 @@ export function useFrameMeasure<T>(
     };
 
     measure();
-    renderer?.on("frame", measure);
-    renderer?.on("resize", measure);
-
-    return () => {
-      renderer?.off("frame", measure);
-      renderer?.off("resize", measure);
-    };
+    if (renderer) return subscribeToFrames(renderer, measure);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [renderer, active]);
 

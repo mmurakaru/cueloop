@@ -45,6 +45,7 @@ export function ChangesTabBody(props: {
   surface: DiffSurfaceProps;
   rejectedRows: Set<number>;
   fold?: DiffFoldControls;
+  showFileCollapse?: boolean;
   fileStats?: ReadonlyMap<string, { additions: number; deletions: number }>;
   split?: boolean;
   dimmed: boolean;
@@ -81,6 +82,7 @@ export function ChangesTabBody(props: {
       {...props.surface}
       rejectedRows={props.rejectedRows}
       fold={props.fold}
+      showFileCollapse={props.showFileCollapse}
       fileStats={props.fileStats}
       split={props.split}
       theme={props.dimmed ? dimmedTheme(props.theme) : undefined}
@@ -148,7 +150,7 @@ export function GridTabContent(props: {
     );
   }
   // a single-file tab shows that file's rows alone, so its row indices are its own: comments and
-  // the caret report back in whole-diff indices, and the fold controls (a band to fold) do not apply
+  // the caret report back in whole-diff indices; a single-file tab omits only the collapse action
   const fileRowIndices = props.rows.flatMap((row, index) => (row.file === tab.path ? [index] : []));
   const rows = fileRowIndices.map((index) => props.rows[index]!);
   const wholeIndex = (rowIndex: number): number => fileRowIndices[rowIndex] ?? rowIndex;
@@ -173,6 +175,8 @@ export function GridTabContent(props: {
       }}
       rejectedRows={rejectedRows}
       fileStats={props.fileStats}
+      fold={props.fold}
+      showFileCollapse={false}
       split={props.split}
       dimmed={props.dimmed}
       emptyBottomPadding={props.emptyBottomPadding}
