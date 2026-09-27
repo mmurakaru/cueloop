@@ -230,6 +230,56 @@ test("wheel scrolling up keeps the caret on the bottom visible code row", async 
   setup.renderer.destroy();
 });
 
+test("rapid wheel scrolling through a large wrapped diff does not loop React updates", async () => {
+  const filePatches = Array.from({ length: 80 }, (_, fileIndex) => [
+    `diff --git a/file-${fileIndex}.ts b/file-${fileIndex}.ts`,
+    `--- a/file-${fileIndex}.ts`,
+    `+++ b/file-${fileIndex}.ts`,
+    "@@ -0,0 +1,12 @@",
+    ...Array.from(
+      { length: 12 },
+      (_, lineIndex) => `+line ${lineIndex} ${"dense source text ".repeat(80)}`,
+    ),
+  ]).flat();
+  const rows = diffRows([...filePatches, ""].join("\n"));
+  const StatefulDiff = (): React.ReactNode => {
+    const [, setCursor] = React.useState(0);
+
+    return (
+      <DiffContentView
+        rows={rows}
+        session={fixtureDiffSession()}
+        marks={marksByRows([], rows)}
+        quickActions={[]}
+        observer={false}
+        onCursorChange={setCursor}
+        onAnnotate={noop}
+        onReply={noop}
+        onUpdateAnnotation={noop}
+        onExit={noop}
+      />
+    );
+  };
+  const setup = await testRender(<StatefulDiff />, { width: 60, height: 12 });
+
+  await settle(setup);
+  const found = findById(setup.renderer.root, "diff-scroll");
+
+  if (!(found instanceof ScrollBoxRenderable)) throw new Error("diff-scroll is not a scrollbox");
+
+  for (const [index, direction] of Array.from({ length: 240 }, () => "down" as const).entries()) {
+    // eslint-disable-next-line no-await-in-loop
+    await setup.mockMouse.scroll(20, 5, direction);
+    if (index % 3 === 0) {
+      // eslint-disable-next-line no-await-in-loop
+      await settle(setup);
+    }
+  }
+  await settle(setup);
+  expect(found.scrollTop).toBeGreaterThan(0);
+  setup.renderer.destroy();
+}, 30000);
+
 test("walking long wrapped code lines advances the viewport one visual row per key", async () => {
   const lines = Array.from(
     { length: 36 },

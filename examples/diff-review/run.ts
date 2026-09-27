@@ -1,8 +1,8 @@
 #!/usr/bin/env bun
 /**
- * Example 4: a diff whose hunk both modifies a line and inserts an adjacent one,
+ * Review a diff whose hunk both modifies a line and inserts an adjacent one,
  * so the intra-line word highlighting and line alignment are visible.
- *   bun run examples/4-diff-intraline/run.ts
+ *   bun run examples/diff-review/run.ts
  * Uses an isolated home under /tmp so it never touches your real inbox.
  *
  * What to look for:

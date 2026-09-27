@@ -38,6 +38,7 @@ const DEFAULT_SCRIPTS = [
   "launch-many-threads",
   "tui-first-frame",
   "diff-scroll-paint",
+  "sidebar-scroll-paint",
   "thread-switch",
   "nav-latency",
   "interaction-latency",

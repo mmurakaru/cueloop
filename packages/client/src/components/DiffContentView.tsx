@@ -21,7 +21,7 @@ import type { TextSpan } from "../thread-selection";
 import type { QuickAction } from "../config";
 import type { Theme } from "../theme";
 import { useComponentTheme } from "./theme-context";
-import { IconButton } from "./primitives/IconButton";
+import { useTooltip } from "./Tooltip";
 import { NERD } from "./primitives/icons";
 import { createIntralineResolver, type IntralineRun } from "../diff-intraline";
 import { highlightDiffRows, type SyntaxSpan } from "../diff-syntax";
@@ -43,9 +43,6 @@ const EMPTY_REJECTED: Set<number> = new Set();
 
 /** A rejected (curated-out) change row renders struck through and dimmed. */
 const REJECTED_ATTRIBUTES = createTextAttributes({ strikethrough: true, dim: true });
-
-/** A file band renders its name in bold between an equal rule above and below. */
-const FILE_HEADER_ATTRIBUTES = createTextAttributes({ bold: true });
 
 /** The split-view gutter before a code line: caret bar, four-digit line number, a space, the sign, a space. */
 const GUTTER_COLUMNS = 8;
@@ -72,7 +69,7 @@ export interface DiffFoldControls {
   canExpand: (file: string) => boolean;
   onToggleCollapse: (file: string) => void;
   onToggleExpand: (file: string) => void;
-  onCopyPath: (file: string) => void;
+  onCopyPath: (file: string) => boolean | Promise<boolean>;
 }
 
 export interface DiffContentViewProps {
@@ -109,6 +106,8 @@ export interface DiffContentViewProps {
   rejectedRows?: Set<number>;
   /** File-band chevron/copy/unfold actions; when absent the band shows no controls. */
   fold?: DiffFoldControls;
+  /** A single-file tab has no file-collapse chevron, but keeps copy and expand. */
+  showFileCollapse?: boolean;
   /** Per-file +/- counts from the base rows, so a collapsed file keeps its badge; else computed here. */
   fileStats?: ReadonlyMap<string, { additions: number; deletions: number }>;
   /** Render old|new side by side instead of one inline column; the App gates this on zoom. */
@@ -168,21 +167,56 @@ function ExpandToggle({
   );
 }
 
-/**
- * A file band: chevron, bold name, and the added/removed counts between an equal rule above and
- * below. `fold` absent (story renders) drops the controls.
- */
+/** Copy feedback stays at the control the user clicked. */
+function CopyPathButton({
+  file,
+  onCopyPath,
+  marginRight,
+  tokens,
+}: {
+  file: string;
+  onCopyPath: (file: string) => boolean | Promise<boolean>;
+  marginRight: number;
+  tokens: Theme;
+}): React.ReactNode {
+  const { showTooltip, hideTooltip } = useTooltip();
+
+  return (
+    <box
+      onMouseUp={(event) => {
+        event.stopPropagation();
+        const { x, y } = event;
+
+        void Promise.resolve(onCopyPath(file)).then((copied) => {
+          showTooltip(copied ? "copied" : "copy failed", x, y);
+        });
+      }}
+      onMouseOver={(event) => {
+        showTooltip("Copy path", event.x, event.y);
+      }}
+      onMouseOut={hideTooltip}
+      style={{ flexShrink: 0, alignSelf: "center", marginRight }}
+    >
+      <text fg={tokens.textMuted}>{NERD.copy}</text>
+    </box>
+  );
+}
+
+/** A file band: clickable title and file actions between rules above and below. */
 function FileBand({
   row,
   stats,
   fold,
+  showFileCollapse,
   tokens,
 }: {
   row: DiffRow;
   stats: { additions: number; deletions: number } | undefined;
   fold: DiffFoldControls | undefined;
+  showFileCollapse: boolean;
   tokens: Theme;
 }): React.ReactNode {
+  const { showTooltip, hideTooltip } = useTooltip();
   const file = row.file;
   const collapsed = fold?.isCollapsed(file) ?? false;
   const expanded = fold?.isExpanded(file) ?? false;
@@ -192,32 +226,43 @@ function FileBand({
     <box style={{ borderStyle: "single", border: ["top", "bottom"], borderColor: tokens.border }}>
       <box style={{ flexDirection: "row", justifyContent: "space-between" }}>
         <box style={{ flexDirection: "row", flexShrink: 1, minWidth: 0 }}>
-          {fold ? (
-            <IconButton
-              glyph={collapsed ? NERD.chevronRight : NERD.chevronDown}
-              onPress={() => fold.onToggleCollapse(file)}
-              tip={collapsed ? "Expand file" : "Collapse file"}
-              marginRight={1}
-            />
-          ) : null}
-          <text
-            fg={tokens.text}
-            attributes={FILE_HEADER_ATTRIBUTES}
-            style={{ flexShrink: 1, minWidth: 0, wrapMode: "none" }}
+          <box
+            id={`file-title-${file}`}
+            onMouseUp={
+              fold && showFileCollapse
+                ? (event) => {
+                    event.stopPropagation();
+                    fold.onToggleCollapse(file);
+                    showTooltip(collapsed ? "collapse" : "uncollapse", event.x, event.y);
+                  }
+                : undefined
+            }
+            onMouseOver={
+              fold && showFileCollapse
+                ? (event) => showTooltip(collapsed ? "uncollapse" : "collapse", event.x, event.y)
+                : undefined
+            }
+            onMouseOut={fold && showFileCollapse ? hideTooltip : undefined}
+            style={{ flexShrink: 1, minWidth: 0 }}
           >
-            {diffRowText(row)}
-          </text>
+            <text
+              fg={collapsed ? tokens.textDim : tokens.textMuted}
+              style={{ flexShrink: 1, minWidth: 0, wrapMode: "none" }}
+            >
+              {diffRowText(row)}
+            </text>
+          </box>
         </box>
         <box style={{ flexDirection: "row", flexShrink: 0 }}>
           {stats ? (
             <FileCountsBadge stats={stats} tokens={tokens} marginRight={fold ? 1 : 0} />
           ) : null}
           {fold ? (
-            <IconButton
-              glyph={NERD.copy}
-              onPress={() => fold.onCopyPath(file)}
-              tip="Copy path"
+            <CopyPathButton
+              file={file}
+              onCopyPath={fold.onCopyPath}
               marginRight={canExpand ? 1 : 0}
+              tokens={tokens}
             />
           ) : null}
           {fold && canExpand ? (
@@ -502,6 +547,7 @@ export function DiffContentView({
   onExit,
   rejectedRows = EMPTY_REJECTED,
   fold,
+  showFileCollapse = true,
   fileStats: fileStatsProp,
   split = false,
   fileView = false,
@@ -835,7 +881,13 @@ export function DiffContentView({
   const headerNode = (row: DiffRow, rowIndex: number): React.ReactNode =>
     row.kind === "file" ? (
       <box key={rowIndex} id={`diff-row-${rowIndex}`}>
-        <FileBand row={row} stats={fileStats.get(row.file)} fold={fold} tokens={tokens} />
+        <FileBand
+          row={row}
+          stats={fileStats.get(row.file)}
+          fold={fold}
+          showFileCollapse={showFileCollapse}
+          tokens={tokens}
+        />
       </box>
     ) : (
       <text

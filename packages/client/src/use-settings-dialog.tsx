@@ -4,7 +4,6 @@ import {
   persistActions,
   persistAutoClose,
   persistDiffView,
-  persistReviewSkill,
   persistReviewWorkspace,
   persistTheme,
   type AutoClose,
@@ -94,8 +93,6 @@ export function useSettingsDialog(params: {
   onSyncGithubIdentity: () => void;
   onRenameDisplayName: () => void;
   reviewSkill: string;
-  reviewSkillOptions: string[];
-  setReviewSkill: Dispatch<SetStateAction<string>>;
   reviewWorkspace: ReviewWorkspaceMode;
   setReviewWorkspace: Dispatch<SetStateAction<ReviewWorkspaceMode>>;
 }): SettingsDialogModel {
@@ -118,8 +115,6 @@ export function useSettingsDialog(params: {
     onSyncGithubIdentity,
     onRenameDisplayName,
     reviewSkill,
-    reviewSkillOptions,
-    setReviewSkill,
     reviewWorkspace,
     setReviewWorkspace,
   } = params;
@@ -210,8 +205,7 @@ export function useSettingsDialog(params: {
         {
           key: "reviewSkill",
           label: "Skill",
-          kind: "cycle",
-          options: reviewSkillOptions,
+          kind: "text",
         },
         {
           key: "reviewWorkspace",
@@ -281,12 +275,6 @@ export function useSettingsDialog(params: {
       onSyncGithubIdentity();
     } else if (rowKey === "displayName") {
       onRenameDisplayName();
-    } else if (rowKey === "reviewSkill") {
-      const current = Math.max(0, reviewSkillOptions.indexOf(reviewSkill));
-      const next = reviewSkillOptions[(current + 1) % reviewSkillOptions.length]!;
-
-      setReviewSkill(next);
-      persistReviewSkill(next);
     } else if (rowKey === "reviewWorkspace") {
       const next: ReviewWorkspaceMode = reviewWorkspace === "worktree" ? "current" : "worktree";
 

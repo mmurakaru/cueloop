@@ -3,7 +3,7 @@
 // on the session id so switching sessions remounts it and never shows the previous repository's paths.
 
 import { ScrollArea } from "./ScrollArea";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useEffectEvent, useMemo, useState } from "react";
 import { useKeyboard } from "@opentui/react";
 import type { Theme } from "../theme";
 import { useComponentTheme } from "./theme-context";
@@ -11,10 +11,12 @@ import { Tree } from "./primitives/Tree";
 import { flattenTree } from "./primitives/tree-model";
 import { buildPathTree } from "./file-tree";
 
+const PROJECT_FILES_REFRESH_MS = 2000;
+
 export interface ProjectTreeViewProps {
   loadFiles: () => Promise<string[]>;
-  onSelectFile: (path: string) => void;
-  /** The pane owns the keyboard: j/k and arrows move the cursor, tab/enter open or fold. */
+  onSelectFile: (path: string, persistent?: boolean) => void;
+  /** The pane owns the keyboard: j/k and arrows move the cursor; Enter opens or folds. */
   focused?: boolean;
   theme?: Theme;
 }
@@ -32,10 +34,7 @@ export function ProjectTreeView({
   const nodes = useMemo(() => (paths ? buildPathTree(paths) : []), [paths]);
   const rows = useMemo(() => flattenTree(nodes, { expandedIds }), [nodes, expandedIds]);
   const cursorIndex = Math.min(cursor, Math.max(0, rows.length - 1));
-  const loadRef = useRef(loadFiles);
-  useEffect(() => {
-    loadRef.current = loadFiles;
-  });
+  const loadLatestFiles = useEffectEvent(loadFiles);
 
   const toggle = (id: string): void =>
     setExpandedIds((current) => {
@@ -54,25 +53,44 @@ export function ProjectTreeView({
     if (key.name === "k" || key.name === "up") return setCursor(Math.max(cursorIndex - 1, 0));
     const row = rows[cursorIndex];
     if (!row) return;
-    if (key.name === "tab" || key.name === "return" || key.name === "enter")
-      return row.isFolder ? toggle(row.id) : onSelectFile(row.id);
+    if (key.name === "return" || key.name === "enter")
+      return row.isFolder ? toggle(row.id) : onSelectFile(row.id, true);
     if (key.name === "l" && row.isFolder && !expandedIds.has(row.id)) return toggle(row.id);
     if (key.name === "h" && row.isFolder && expandedIds.has(row.id)) return toggle(row.id);
   });
 
   useEffect(() => {
-    let alive = true;
-    void loadRef.current().then(
-      (files) => {
-        if (alive) setPaths(files);
-      },
-      () => {
-        if (alive) setPaths([]);
-      },
-    );
+    let cancelled = false;
+    let requestInFlight = false;
+
+    const refreshFiles = async (): Promise<void> => {
+      if (requestInFlight) return;
+      requestInFlight = true;
+
+      try {
+        const files = await loadLatestFiles();
+
+        if (!cancelled) {
+          setPaths((previous) =>
+            previous?.length === files.length &&
+            previous.every((path, index) => path === files[index])
+              ? previous
+              : files,
+          );
+        }
+      } catch {
+        if (!cancelled) setPaths((previous) => previous ?? []);
+      } finally {
+        requestInFlight = false;
+      }
+    };
+
+    void refreshFiles();
+    const timer = setInterval(() => void refreshFiles(), PROJECT_FILES_REFRESH_MS);
 
     return () => {
-      alive = false;
+      cancelled = true;
+      clearInterval(timer);
     };
   }, []);
 
@@ -106,17 +124,23 @@ export function ProjectTreeView({
   }
 
   return (
-    <ScrollArea>
+    <ScrollArea
+      id="tree-scroll"
+      revealId={focused ? rows[cursorIndex]?.id : undefined}
+      gestureWheel
+    >
       <Tree
         nodes={nodes}
         expandedIds={expandedIds}
         selectedId={focused ? rows[cursorIndex]?.id : undefined}
+        singleLine
         onSelect={(id) => {
           const index = rows.findIndex((row) => row.id === id);
 
           if (index >= 0) setCursor(index);
           onSelectFile(id);
         }}
+        onDoubleSelect={(id) => onSelectFile(id, true)}
         onToggle={toggle}
         theme={theme}
       />

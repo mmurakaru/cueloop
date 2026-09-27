@@ -181,12 +181,12 @@ exports[`stories catalog Chrome/Breadcrumb/SessionHeader renders, snapshots, and
 exports[`stories catalog Surfaces/ChangesColumn/Changed renders, snapshots, and carries its colors: Surfaces/ChangesColumn/Changed 1`] = `
 "│  packages                                                
 │    client/src                                            
-│      App.tsx              M                              
+│      App.tsx               M                             
 │      components                                          
-│        ChangesColumn.tsx  A                              
+│        ChangesColumn.tsx   A                             
 │    daemon/src                                            
-│      thread-review.ts     D                              
-│  README.md                M                              
+│      thread-review.ts      D                             
+│  README.md                 M                             
 │                                                           
 │                                                           
 │                                                           
@@ -555,7 +555,7 @@ exports[`stories catalog Chrome/DiscussionMarkerRail/Dots renders, snapshots, an
 `;
 
 exports[`stories catalog Surfaces/EditorGrid/OneGroup renders, snapshots, and carries its colors: Surfaces/EditorGrid/OneGroup 1`] = `
-" Changes   │ App.tsx   │                                                      ⛶ 
+" Changes   │ App.tsx   │                                               split  ⛶ 
 ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
                                                                                 
  the whole diff                                                                 
@@ -575,22 +575,42 @@ exports[`stories catalog Surfaces/EditorGrid/OneGroup renders, snapshots, and ca
 `;
 
 exports[`stories catalog Surfaces/EditorGrid/SplitGroups renders, snapshots, and carries its colors: Surfaces/EditorGrid/SplitGroups 1`] = `
-" plugin.json   │                         split  ⛶ │ plugin.json   │                         split  ⛶
-‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾│‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
-                                                  │                                                 
- .claude-plugin/plugin.json                       │ .claude-plugin/plugin.json                      
-                                                  │                                                 
-                                                  │                                                 
-                                                  │                                                 
-                                                  │                                                 
-                                                  │                                                 
-                                                  │                                                 
-                                                  │                                                 
-                                                  │                                                 
-                                                  │                                                 
-                                                  │                                                 
-                                                  │                                                 
-                                                  │                                                 
+" Changes   │                               split │ plugin.json   │                         split  ⛶ 
+‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾│‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
+                                                 │                                                  
+ the whole diff                                  │ .claude-plugin/plugin.json                       
+                                                 │                                                  
+                                                 │                                                  
+                                                 │                                                  
+                                                 │                                                  
+                                                 │                                                  
+                                                 │                                                  
+                                                 │                                                  
+                                                 │                                                  
+                                                 │                                                  
+                                                 │                                                  
+                                                 │                                                  
+                                                 │                                                  
+"
+`;
+
+exports[`stories catalog Surfaces/EditorGrid/WholeCellSizing renders, snapshots, and carries its colors: Surfaces/EditorGrid/WholeCellSizing 1`] = `
+"Whole-cell split sizing                                                                             
+100 cells = 49 left + 1 divider + 50 right                                                          
+Fix the leading width; let the last group take the remainder.                                       
+ Changes   │                               split │ plugin.json   │                         split  ⛶ 
+‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾│‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
+                                                 │                                                  
+ the whole diff                                  │ .claude-plugin/plugin.json                       
+                                                 │                                                  
+                                                 │                                                  
+                                                 │                                                  
+                                                 │                                                  
+                                                 │                                                  
+                                                 │                                                  
+                                                 │                                                  
+                                                 │                                                  
+                                                 │                                                  
 "
 `;
 

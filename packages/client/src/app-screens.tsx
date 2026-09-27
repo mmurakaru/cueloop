@@ -3,7 +3,7 @@ import React, { useCallback, useMemo, type Dispatch, type SetStateAction } from 
 import type { Thread, MessageOutcome } from "@cueloop/schema";
 import { returnPaneFor } from "@cueloop/schema";
 import type { Theme } from "./theme";
-import type { QuickAction } from "./config";
+import type { DiffViewMode, QuickAction } from "./config";
 import type { LaunchLayout } from "./launch-layout";
 import { useRememberLayout } from "./use-remember-layout";
 import type { Mode, TreeAsk } from "./intent-dispatch";
@@ -30,6 +30,7 @@ import { ProjectTreeView } from "./components/ProjectTreeView";
 import { ChangesFileTree } from "./components/ChangesColumn";
 import { BareWorkbenchFileView, draftThread } from "./components/BareWorkbenchFileView";
 import { GridTabContent, type DiffSurfaceProps } from "./components/GridTabContent";
+import type { DiffFoldControls } from "./components/DiffContentView";
 import { useChangesWorkbench } from "./use-changes-workbench";
 import { useRepoChanges } from "./use-repo-changes";
 import { ConfirmDialog } from "./components/ConfirmDialog";
@@ -112,9 +113,9 @@ function WelcomeProjectPanel({
   mode: ProjectPanelMode;
   controller: ReviewController;
   /** Changes tree click -> open the file's working-tree diff. */
-  onOpenChangedFile: (path: string) => void;
+  onOpenChangedFile: (path: string, persistent?: boolean) => void;
   /** Project tree click -> open the file's read-only contents. */
-  onOpenProjectFile: (path: string) => void;
+  onOpenProjectFile: (path: string, persistent?: boolean) => void;
   focused?: boolean;
   theme: Theme;
 }): React.ReactNode {
@@ -177,6 +178,7 @@ export function NoThreadShell(props: {
   onRename: (id: string, title: string) => void;
   /** Drives the "/" quick actions and skills in the welcome playground's composer. */
   quickActions: QuickAction[];
+  diffView: DiffViewMode;
   /** Reports the welcome composer's open state, so the shell suspends its inbox keys while typing. */
   onWelcomeComposingChange: (composing: boolean) => void;
   /** The pane composition this vanilla launch restores; changes here are remembered for the next one. */
@@ -201,6 +203,7 @@ export function NoThreadShell(props: {
     onPin,
     onRename,
     quickActions,
+    diffView,
     onWelcomeComposingChange,
     layout,
   } = props;
@@ -222,13 +225,14 @@ export function NoThreadShell(props: {
     workbench.zoomed,
   );
   // the Changes tree opens a file's working-tree diff; the Project tree opens read-only contents
-  const openChangedFile = (path: string): void => {
+  const openChangedFile = (path: string, persistent?: boolean): void => {
     // no thread means no live-diff refresh loop, so re-capture on open or a long-lived shell goes
     // stale; the catch keeps a fire-and-forget refresh from throwing when the shell tears down
     void controller.repoChanges().catch(() => undefined);
-    workbench.openFile(path, "diff");
+    workbench.openFile(path, "diff", persistent);
   };
-  const openProjectFile = (path: string): void => workbench.openFile(path, "contents");
+  const openProjectFile = (path: string, persistent?: boolean): void =>
+    workbench.openFile(path, "contents", persistent);
   // a bare launch has no thread yet, so the diff renders against a draft session; the first note
   // promotes it to the per-repo workbench thread (commentOnWorkbenchDiff)
   const draft = useMemo(() => draftThread(), []);
@@ -255,6 +259,15 @@ export function NoThreadShell(props: {
     onReply: () => undefined,
     onUpdateAnnotation: () => {},
     onExit: () => {},
+  };
+  const diffFold: DiffFoldControls = {
+    isCollapsed: (file) => controller.isFileCollapsed(file),
+    isExpanded: (file) => controller.isFileExpanded(file),
+    canExpand: (file) => controller.canExpandFile(file),
+    onToggleCollapse: (file) =>
+      controller.setFileCollapsed(file, !controller.isFileCollapsed(file)),
+    onToggleExpand: (file) => controller.setFileExpanded(file, !controller.isFileExpanded(file)),
+    onCopyPath: (file) => controller.copyFilePath(file),
   };
 
   return (
@@ -313,6 +326,7 @@ export function NoThreadShell(props: {
               focusedGroupId={workbench.activeGroup}
               onFocusGroup={workbench.focusGroup}
               onActivateTab={workbench.activate}
+              onKeepTab={workbench.keepTab}
               onCloseTab={workbench.close}
               onSplit={workbench.split}
               onZoom={workbench.toggleZoom}
@@ -340,6 +354,9 @@ export function NoThreadShell(props: {
                     rows={controller.rows()}
                     surface={bareSurface}
                     rejectedRows={EMPTY_ROWS}
+                    fold={diffFold}
+                    fileStats={controller.fileStats()}
+                    split={diffView === "split" && workbench.zoomed}
                     dimmed={false}
                     readFile={(path) => controller.repoReadFile(path)}
                     onAddFileComment={(path, anchor, body) =>
@@ -396,7 +413,12 @@ export function NoThreadShell(props: {
             />
           ) : null}
           {props.toast ? (
-            <Toast title={props.toast.title} body={props.toast.body} theme={theme} />
+            <Toast
+              title={props.toast.title}
+              body={props.toast.body}
+              onDismiss={() => controller.dismissToast()}
+              theme={theme}
+            />
           ) : null}
         </AppShell>
       </MenuControlProvider>
@@ -460,6 +482,7 @@ export function TrailingOverlays(props: {
   theme: Theme;
   mode: Mode;
   toast: ToastState | null;
+  onDismissToast: () => void;
   setMode: Dispatch<SetStateAction<Mode>>;
   dispatch: (intent: Intent) => void;
 }): React.ReactNode {
@@ -473,6 +496,7 @@ export function TrailingOverlays(props: {
     theme,
     mode,
     toast,
+    onDismissToast,
     setMode,
     dispatch,
   } = props;
@@ -571,7 +595,9 @@ export function TrailingOverlays(props: {
           theme={theme}
         />
       ) : null}
-      {toast ? <Toast title={toast.title} body={toast.body} theme={theme} /> : null}
+      {toast ? (
+        <Toast title={toast.title} body={toast.body} onDismiss={onDismissToast} theme={theme} />
+      ) : null}
     </>
   );
 }

@@ -1,6 +1,6 @@
 /** The share toast is non-modal: while it is up, escape still cancels an open overlay. */
 
-import { afterEach, beforeEach, describe, mock, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -13,6 +13,7 @@ import type { ShareTransport } from "./thread-controller";
 import {
   clickText,
   isolateUserConfig,
+  locateText,
   press,
   pressKey,
   typeText,
@@ -63,6 +64,31 @@ afterEach(() => {
 });
 
 describe("share toast", () => {
+  test("clicking outside dismisses the toast while clicking inside keeps it open", async () => {
+    const setup = await testRender(
+      <App home={home} sessionId={session.id} shareTransport={shareTransport} />,
+      { width: 120, height: 32 },
+    );
+
+    await waitForText(setup, "cueloop");
+    await pressKey(setup, "s", { ctrl: true });
+    await waitForText(setup, "+ new link");
+    await press(setup, "enter");
+    await press(setup, "enter");
+    await waitForText(setup, "link name");
+    await press(setup, "enter");
+    await waitForText(setup, "link copied");
+    await press(setup, "escape");
+    await waitForTextGone(setup, "share externally");
+    const body = locateText(setup, "ssh p_share01@cueloop.dev");
+
+    await setup.mockMouse.click(body.column, body.row);
+    expect(setup.captureCharFrame()).toContain("link copied");
+    await setup.mockMouse.click(1, 1);
+    await waitForTextGone(setup, "link copied");
+    setup.renderer.destroy();
+  });
+
   test("escape cancels an open composer even while the toast is up", async () => {
     // Arrange
     const setup = await testRender(

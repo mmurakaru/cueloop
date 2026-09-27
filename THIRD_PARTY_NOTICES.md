@@ -1,3 +1,9 @@
+# Third-party notices
+
+## code-review skill
+
+The review instructions in `skills/code-review/SKILL.md` are from [Matt Pocock's code-review skill](https://github.com/mattpocock/skills/tree/c55ee46073ed923f86ce59a5eb3b6d895095d1b7/skills/engineering/code-review), commit `c55ee46073ed923f86ce59a5eb3b6d895095d1b7`, imported on 2026-09-24.
+
 MIT License
 
 Copyright (c) 2026 Matt Pocock

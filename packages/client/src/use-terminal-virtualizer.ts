@@ -12,6 +12,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "re
 import type { BoxRenderable, ScrollBoxRenderable } from "@opentui/core";
 import { useRenderer } from "@opentui/react";
 import { Virtualizer, type VirtualItem } from "@tanstack/virtual-core";
+import { subscribeToFrames } from "./use-frame-measure";
 
 export interface TerminalVirtualizerOptions {
   scrollbox: RefObject<ScrollBoxRenderable | null>;
@@ -154,9 +155,8 @@ export function useTerminalVirtualizer(options: TerminalVirtualizerOptions): Ter
   // render, and the callbacks only fire the core when the value actually changed
   const onFrame = (read: () => void): (() => void) => {
     read();
-    renderer?.on("frame", read);
 
-    return () => renderer?.off("frame", read);
+    return renderer ? subscribeToFrames(renderer, read) : () => {};
   };
 
   const coreOptions = () => ({

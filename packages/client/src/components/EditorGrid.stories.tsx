@@ -57,3 +57,30 @@ export const SplitGroups: Story = {
   expectedColors: [DARK.textMuted, DARK.border],
   size: { width: 100, height: 16 },
 };
+
+/** The rightmost group takes the remainder after whole-cell leading groups and divider cells. */
+export const WholeCellSizing: Story = {
+  render: () => (
+    <box style={{ flexDirection: "column", width: 100, height: 16 }}>
+      <text fg={DARK.text}>Whole-cell split sizing</text>
+      <text fg={DARK.textMuted}>100 cells = 49 left + 1 divider + 50 right</text>
+      <text fg={DARK.textDim}>Fix the leading width; let the last group take the remainder.</text>
+      <box style={{ flexGrow: 1, minHeight: 0 }}>
+        <EditorGrid
+          tree={splitTree}
+          focusedGroupId={null}
+          onFocusGroup={noop}
+          onActivateTab={noop}
+          onCloseTab={noop}
+          onSplit={noop}
+          onZoom={noop}
+          zoomed={false}
+          renderTab={renderTab}
+          theme={DARK}
+        />
+      </box>
+    </box>
+  ),
+  expectedColors: [DARK.textMuted, DARK.border],
+  size: { width: 100, height: 16 },
+};

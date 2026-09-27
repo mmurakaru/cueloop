@@ -64,16 +64,17 @@ start, module load, daemon connect, and paint, in a real pseudo terminal.
 
 ## Scripts
 
-| script                | measures                                                                                                         |
-| --------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `binary-startup`      | `--version` cold and warm, `--help`; needs the executable env, else none                                         |
-| `artifact-parse`      | plan parse, anchor resolution on the exact and fuzzy tier, diff rows                                             |
-| `daemon-roundtrip`    | daemon start to listen, client connect, session create and get p95                                               |
-| `tui-first-frame`     | spawn to ready signal in a real pseudo terminal, cold and warm                                                   |
-| `interaction-latency` | render to ready, then eight caret moves down a large plan, median and p95                                        |
-| `diff-scroll-paint`   | real-terminal boundary arrows: completed frames, caret and row completeness, paint latency, and a fast key burst |
-| `large-stream`        | render to ready of a 180-file diff and caret steps through it, plus memory                                       |
-| `non-ascii-stream`    | the same on wide characters and emoji                                                                            |
+| script                 | measures                                                                                                         |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `binary-startup`       | `--version` cold and warm, `--help`; needs the executable env, else none                                         |
+| `artifact-parse`       | plan parse, anchor resolution on the exact and fuzzy tier, diff rows                                             |
+| `daemon-roundtrip`     | daemon start to listen, client connect, session create and get p95                                               |
+| `tui-first-frame`      | spawn to ready signal in a real pseudo terminal, cold and warm                                                   |
+| `interaction-latency`  | render to ready, then eight caret moves down a large plan, median and p95                                        |
+| `diff-scroll-paint`    | real-terminal boundary arrows: completed frames, caret and row completeness, paint latency, and a fast key burst |
+| `sidebar-scroll-paint` | real-terminal boundary arrows in Changes and Project: completed frames, selected row visibility, paint latency   |
+| `large-stream`         | render to ready of a 180-file diff and caret steps through it, plus memory                                       |
+| `non-ascii-stream`     | the same on wide characters and emoji                                                                            |
 
 ## Add a metric
 

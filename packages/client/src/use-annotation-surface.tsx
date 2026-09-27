@@ -14,7 +14,8 @@
 
 import React, { useContext, useEffect, useRef, useState } from "react";
 import type { KeyEvent, MouseEvent as TerminalMouseEvent, TextRenderable } from "@opentui/core";
-import { flushSync, useKeyboard } from "@opentui/react";
+import { flushSync } from "@opentui/react";
+import { useSharedKeyboard } from "./use-shared-keyboard";
 import type { Annotation, Thread } from "@cueloop/schema";
 import type { Mark } from "./view-plan";
 import type { QuickAction } from "./config";
@@ -790,7 +791,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     openNewCompose(sequence);
   };
 
-  useKeyboard((key) => {
+  useSharedKeyboard((key) => {
     if (suspended) return;
     if (key.ctrl && key.name === "q") return onExit();
     const activeCompose = composeRef.current;
