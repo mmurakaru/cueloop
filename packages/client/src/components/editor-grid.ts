@@ -251,14 +251,17 @@ export function splitGroup(
     const active = group.tabs.find((tab) => tab.id === group.activeTabId) ?? group.tabs[0];
     if (active === undefined) return group;
     const movedTab: EditorTab =
-      active.kind === "file" ? { ...active, preview: false } : { ...active, id: freshId() };
+      active.kind === "welcome" ? { ...active, id: freshId() } : { ...active, preview: false };
     const newGroup = makeGroup([movedTab]);
     focusGroupId = newGroup.id;
     const orientation = direction === "left" || direction === "right" ? "horizontal" : "vertical";
     const newFirst = direction === "left" || direction === "up";
     const remainingTabs =
-      active.kind === "file" ? group.tabs.filter((tab) => tab.id !== active.id) : group.tabs;
-    const sourceTabs = remainingTabs.length > 0 ? remainingTabs : [changesTab()];
+      active.kind === "welcome" ? group.tabs : group.tabs.filter((tab) => tab.id !== active.id);
+    const sourceTabs =
+      remainingTabs.length > 0
+        ? remainingTabs
+        : [findTabByKind(node, "changes") ? welcomeTab() : changesTab()];
     const sourceGroup = {
       ...group,
       tabs: sourceTabs,

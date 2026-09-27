@@ -30,10 +30,13 @@ export function ProjectTreeView({
   const tokens = useComponentTheme(theme);
   const [paths, setPaths] = useState<readonly string[] | null>(null);
   const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(new Set());
-  const [cursor, setCursor] = useState(0);
+  const [cursorId, setCursorId] = useState<string | null>(null);
   const nodes = useMemo(() => (paths ? buildPathTree(paths) : []), [paths]);
   const rows = useMemo(() => flattenTree(nodes, { expandedIds }), [nodes, expandedIds]);
-  const cursorIndex = Math.min(cursor, Math.max(0, rows.length - 1));
+  const cursorIndex = Math.max(
+    0,
+    rows.findIndex((row) => row.id === cursorId),
+  );
   const loadLatestFiles = useEffectEvent(loadFiles);
 
   const toggle = (id: string): void =>
@@ -49,8 +52,9 @@ export function ProjectTreeView({
   useKeyboard((key) => {
     if (!focused || rows.length === 0) return;
     if (key.name === "j" || key.name === "down")
-      return setCursor(Math.min(cursorIndex + 1, rows.length - 1));
-    if (key.name === "k" || key.name === "up") return setCursor(Math.max(cursorIndex - 1, 0));
+      return setCursorId(rows[Math.min(cursorIndex + 1, rows.length - 1)]!.id);
+    if (key.name === "k" || key.name === "up")
+      return setCursorId(rows[Math.max(cursorIndex - 1, 0)]!.id);
     const row = rows[cursorIndex];
     if (!row) return;
     if (key.name === "return" || key.name === "enter")
@@ -135,9 +139,7 @@ export function ProjectTreeView({
         selectedId={focused ? rows[cursorIndex]?.id : undefined}
         singleLine
         onSelect={(id) => {
-          const index = rows.findIndex((row) => row.id === id);
-
-          if (index >= 0) setCursor(index);
+          setCursorId(id);
           onSelectFile(id);
         }}
         onDoubleSelect={(id) => onSelectFile(id, true)}

@@ -49,8 +49,9 @@ ptyTest("right sidebar changes and project trees reveal keyboard selection", asy
     session.captureTerminalFrames = true;
     await session.press("j");
     session.captureTerminalFrames = false;
-    expect(session.terminalFrames).toHaveLength(1);
-    expect(session.terminalFrames[0]).toContain("file-17.ts");
+    expect(session.terminalFrames.length).toBeGreaterThan(0);
+    for (const frame of session.terminalFrames) expect(frame).toContain("file-17.ts");
+    expect(new Set(session.terminalFrames).size).toBe(1);
 
     await session.click("project");
     await session.waitForText("aaa-project-only.ts");

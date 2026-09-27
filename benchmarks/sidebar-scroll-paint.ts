@@ -20,11 +20,11 @@ if (!ptyTuiAvailable()) {
       after: "new\n",
     })),
   ];
-  const repo = createTestGitRepo(files);
+  const repository = createTestGitRepo(files);
   const reviewHome = createTestReviewHome();
-  const diff = await repo.diff();
+  const diff = await repository.diff();
   const review = reviewHome.server.core.sessionCreate({
-    workspace: { repoRoot: repo.dir, branch: "main" },
+    workspace: { repoRoot: repository.dir, branch: "main" },
     artifact: {
       type: "diff",
       content: diff.patch,
@@ -89,6 +89,6 @@ if (!ptyTuiAvailable()) {
   } finally {
     await session.close();
     reviewHome.cleanup();
-    repo.cleanup();
+    repository.cleanup();
   }
 }

@@ -185,6 +185,31 @@ test("the visible tree removes deleted files without remounting", async () => {
   setup.renderer.destroy();
 });
 
+test("refresh keeps the selected file when an earlier file disappears", async () => {
+  let files = ["a.ts", "b.ts", "c.ts"];
+  const opened: string[] = [];
+  const setup = await testRender(
+    <ProjectTreeView
+      loadFiles={async () => files}
+      onSelectFile={(path) => opened.push(path)}
+      focused
+      theme={DARK}
+    />,
+    { width: 40, height: 12 },
+  );
+
+  await waitForText(setup, "b.ts");
+  setup.mockInput.pressKey("j");
+  await settle(setup);
+  files = ["b.ts", "c.ts"];
+  await waitForTextGone(setup, "a.ts");
+  setup.mockInput.pressKey("RETURN");
+  await settle(setup);
+
+  expect(opened).toEqual(["b.ts"]);
+  setup.renderer.destroy();
+});
+
 test("a double-click requests a persistent file tab", async () => {
   const opened: { path: string; persistent: boolean }[] = [];
   const setup = await testRender(

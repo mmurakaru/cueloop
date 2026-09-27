@@ -234,15 +234,28 @@ export class PtyTuiSession implements PtyScreenReader {
     private readonly readyFile: string,
   ) {
     pty.onData((chunk) => {
-      this.terminal.write(this.encoder.encode(chunk));
       this.generation += 1;
       this.lastDataAt = Date.now();
-      if (this.captureTerminalFrames && chunk.includes("\x1b[?2026l")) {
-        const frame = this.text();
+      if (!this.captureTerminalFrames) {
+        this.terminal.write(this.encoder.encode(chunk));
+        this.textCache = null;
 
-        this.terminalFrames.push(frame);
-        this.terminalFrameTimes.push(performance.now());
-        this.onTerminalFrame?.(frame, (column, row) => this.terminal.readCell(column, row));
+        return;
+      }
+      const completedFrameMarker = "\x1b[?2026l";
+
+      for (const [index, segment] of chunk.split(completedFrameMarker).entries()) {
+        if (index > 0) {
+          this.terminal.write(this.encoder.encode(completedFrameMarker));
+          this.textCache = null;
+          const frame = this.text();
+
+          this.terminalFrames.push(frame);
+          this.terminalFrameTimes.push(performance.now());
+          this.onTerminalFrame?.(frame, (column, row) => this.terminal.readCell(column, row));
+        }
+        this.terminal.write(this.encoder.encode(segment));
+        this.textCache = null;
       }
     });
     pty.onExit((event) => {

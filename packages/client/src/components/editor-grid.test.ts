@@ -99,6 +99,32 @@ describe("editor grid", () => {
     expect(branch.children[0]!.id).toBe(focusGroupId);
   });
 
+  test("splitting a file-only group keeps the Changes tab unique", () => {
+    const changes = makeGroup([changesTab()]);
+    const file = makeGroup([fileTab("a.ts", "a.ts", "diff")]);
+    const tree: EditorNode = {
+      type: "branch",
+      id: "two-groups",
+      orientation: "horizontal",
+      children: [changes, file],
+    };
+    const split = splitGroup(tree, file.id, "down");
+
+    expect(asBranch(split.tree).children[0]).toBe(changes);
+    expect(asBranch(asBranch(split.tree).children[1]!).children[0]).toMatchObject({
+      tabs: [{ kind: "welcome" }],
+    });
+  });
+
+  test("splitting Changes moves it to the new group", () => {
+    const group = makeGroup([changesTab()]);
+    const split = splitGroup(group, group.id, "right");
+    const branch = asBranch(split.tree);
+
+    expect(asGroup(branch.children[0]!).tabs[0]?.kind).toBe("welcome");
+    expect(asGroup(branch.children[1]!).tabs[0]?.kind).toBe("changes");
+  });
+
   test("closing the last tab of a split collapses the branch back to one group", () => {
     const group = makeGroup([fileTab("a.ts", "a.ts", "diff")]);
     const { tree } = splitGroup(group, group.id, "right");
