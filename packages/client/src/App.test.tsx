@@ -442,6 +442,7 @@ describe("the thread view and the menu", () => {
     const dialog = setup.captureCharFrame();
 
     expect(dialog).toContain("nav mode");
+    expect(dialog).toContain("open selected file or toggle folder");
     expect(dialog).toContain("place the caret");
     expect(dialog).not.toContain("grow/shrink");
 

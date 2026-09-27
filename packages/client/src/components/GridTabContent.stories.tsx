@@ -36,7 +36,7 @@ export const ChangesTab: Story = {
       theme={DARK}
     />
   ),
-  expectedColors: [DARK.text],
+  expectedColors: [DARK.textMuted],
   size: { width: 80, height: 18 },
 };
 
@@ -54,6 +54,6 @@ export const FileDiffTab: Story = {
       theme={DARK}
     />
   ),
-  expectedColors: [DARK.text],
+  expectedColors: [DARK.textMuted],
   size: { width: 80, height: 18 },
 };

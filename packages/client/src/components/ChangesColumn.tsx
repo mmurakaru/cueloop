@@ -86,7 +86,7 @@ export interface ChangesColumnProps {
   files?: readonly DiffFileContents[];
   /** The path whose diff the sheet is scrolled to, highlighted in the tree. */
   selectedPath?: string;
-  onSelectFile: (path: string) => void;
+  onSelectFile: (path: string, persistent?: boolean) => void;
   /** Comments per file path, shown as a dot-and-count badge on each entry. */
   commentCounts?: ReadonlyMap<string, number>;
   focused?: boolean;
@@ -141,18 +141,23 @@ export function ChangesFileTree({
     if (key.name === "k" || key.name === "up") return setCursor(Math.max(cursorIndex - 1, 0));
     const row = rows[cursorIndex];
     if (!row) return;
-    if (key.name === "tab" || key.name === "return" || key.name === "enter")
-      return row.isFolder ? toggle(row.id) : onSelectFile(row.id);
+    if (key.name === "return" || key.name === "enter")
+      return row.isFolder ? toggle(row.id) : onSelectFile(row.id, true);
     if (key.name === "l" && row.isFolder && collapsedIds.has(row.id)) return toggle(row.id);
     if (key.name === "h" && row.isFolder && !collapsedIds.has(row.id)) return toggle(row.id);
   });
 
   return (
-    <ScrollArea>
+    <ScrollArea
+      id="tree-scroll"
+      revealId={focused ? rows[cursorIndex]?.id : undefined}
+      gestureWheel
+    >
       <Tree
         nodes={nodes}
         expandedIds={expandedIds}
         selectedId={focused ? rows[cursorIndex]?.id : selectedPath}
+        singleLine
         flattenEmptyDirectories
         showStatus
         onSelect={(id) => {
@@ -161,6 +166,7 @@ export function ChangesFileTree({
           if (index >= 0) setCursor(index);
           onSelectFile(id);
         }}
+        onDoubleSelect={(id) => onSelectFile(id, true)}
         onToggle={toggle}
         theme={theme}
       />

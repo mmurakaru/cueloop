@@ -7,13 +7,14 @@ import { Dialog } from "./primitives/Dialog";
 export interface ToastProps {
   title?: string;
   body: string;
+  onDismiss?: () => void;
   theme?: Theme;
 }
 
 /** A toast never spans the screen: a long message wraps inside this, like the settings dialog. */
 const TOAST_MAX_WIDTH = 64;
 
-export function Toast({ title, body, theme }: ToastProps): React.ReactNode {
+export function Toast({ title, body, onDismiss, theme }: ToastProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
   const { width: terminalWidth, height: terminalHeight } = useTerminalDimensions();
   const width = Math.min(
@@ -34,6 +35,7 @@ export function Toast({ title, body, theme }: ToastProps): React.ReactNode {
       width={width}
       height={height}
       background={tokens.elevated}
+      onDismiss={onDismiss}
       theme={theme}
     >
       <box

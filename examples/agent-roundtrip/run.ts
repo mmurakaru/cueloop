@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Terminal A: bun run examples/2-agent-roundtrip/run.ts
+ * Terminal A: bun run examples/agent-roundtrip/run.ts
  * Terminal B: cueloop
  * This simulates a harness submitting a Thread and waiting for its Message.
  */
