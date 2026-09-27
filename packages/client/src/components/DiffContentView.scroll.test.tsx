@@ -175,6 +175,61 @@ test("wheel input accelerates a continuous gesture and settles back to precise s
   setup.renderer.destroy();
 });
 
+test("wheel scrolling up keeps the caret on the bottom visible code row", async () => {
+  const rows = diffRows(tallPatch(80));
+  const setup = await testRender(
+    <DiffContentView
+      rows={rows}
+      session={fixtureDiffSession()}
+      marks={marksByRows([], rows)}
+      quickActions={[]}
+      observer={false}
+      onAnnotate={noop}
+      onReply={noop}
+      onUpdateAnnotation={noop}
+      onExit={noop}
+    />,
+    { width: 60, height: 12 },
+  );
+
+  await settle(setup);
+  const found = findById(setup.renderer.root, "diff-scroll");
+
+  if (!(found instanceof ScrollBoxRenderable)) throw new Error("diff-scroll is not a scrollbox");
+  const scrollbox = found;
+
+  for (const key of Array.from({ length: 30 }, () => "down" as const)) {
+    // eslint-disable-next-line no-await-in-loop
+    await press(setup, key);
+  }
+  const before = scrollbox.scrollTop;
+  const markerRows = (): number[] =>
+    setup
+      .captureCharFrame()
+      .split("\n")
+      .flatMap((line, row) => (line.includes("▎") ? [row] : []));
+  const top = scrollbox.viewport.screenY;
+  const bottom = top + scrollbox.viewport.height - 1;
+
+  for (const direction of Array.from({ length: 8 }, () => "up" as const)) {
+    // eslint-disable-next-line no-await-in-loop
+    await setup.mockMouse.scroll(20, 5, direction);
+    // eslint-disable-next-line no-await-in-loop
+    await settle(setup);
+    expect(markerRows()).toEqual([bottom]);
+  }
+  expect(scrollbox.scrollTop).toBeLessThan(before);
+  for (const direction of Array.from({ length: 20 }, () => "down" as const)) {
+    // eslint-disable-next-line no-await-in-loop
+    await setup.mockMouse.scroll(20, 5, direction);
+    // eslint-disable-next-line no-await-in-loop
+    await settle(setup);
+    expect(markerRows()).toHaveLength(1);
+  }
+  expect(markerRows()).toEqual([top]);
+  setup.renderer.destroy();
+});
+
 test("walking long wrapped code lines advances the viewport one visual row per key", async () => {
   const lines = Array.from(
     { length: 36 },
@@ -233,6 +288,14 @@ test("walking long wrapped code lines advances the viewport one visual row per k
 
   expect(Math.max(...steps)).toBeLessThanOrEqual(1);
   expect(steps.some((step) => step > 0)).toBe(true);
+  await setup.mockMouse.scroll(20, 5, "up");
+  await settle(setup);
+  const wrappedMarkerRows = setup
+    .captureCharFrame()
+    .split("\n")
+    .flatMap((line, row) => (line.includes("▎") ? [row] : []));
+
+  expect(wrappedMarkerRows).toEqual([scrollbox.viewport.screenY + scrollbox.viewport.height - 1]);
   setup.renderer.destroy();
 });
 

@@ -105,6 +105,33 @@ if (!ptyTuiAvailable()) {
 
     session.terminalFrames.length = 0;
     session.terminalFrameTimes.length = 0;
+    let fastColorSamples = 0;
+    let fastColorMismatches = 0;
+    let fastFaintCells = 0;
+
+    session.onTerminalFrame = (frame, cellAt) => {
+      const rows = frame.split("\n").flatMap((line, y) => {
+        const match = /(\d+)\s+\+\s+(row\d{3} text)/.exec(line);
+
+        return match ? [{ y, numberX: match.index, textX: line.indexOf(match[2]!) + 7 }] : [];
+      });
+      const current = rows.at(-1);
+      const previous = rows.at(-2);
+
+      if (!current || !previous) return;
+      for (const xOf of ["numberX", "textX"] as const) {
+        const edge = cellAt(current[xOf], current.y);
+        const reference = cellAt(previous[xOf], previous.y);
+
+        if (!edge || !reference) continue;
+        fastColorSamples++;
+        fastColorMismatches += Number(
+          JSON.stringify(edge.fg) !== JSON.stringify(reference.fg) ||
+            JSON.stringify(edge.bg) !== JSON.stringify(reference.bg),
+        );
+        fastFaintCells += Number(edge.faint);
+      }
+    };
     session.captureTerminalFrames = true;
     for (const key of Array.from({ length: BURST_PRESSES }, () => "\x1b[B")) {
       session.writeRaw(key);
@@ -113,6 +140,7 @@ if (!ptyTuiAvailable()) {
     }
     await session.waitIdle(100, 5000);
     session.captureTerminalFrames = false;
+    session.onTerminalFrame = undefined;
 
     emitMetric("diff_scroll_boundary_presses", MEASURED_PRESSES);
     emitMetric("diff_scroll_boundary_frames_per_press", completedFrames / MEASURED_PRESSES);
@@ -124,6 +152,9 @@ if (!ptyTuiAvailable()) {
     emitLatencyMetrics("diff_scroll_row_paint", paintMs);
     emitMetric("diff_scroll_fast_presses", BURST_PRESSES);
     emitMetric("diff_scroll_fast_frames", session.terminalFrames.length);
+    emitMetric("diff_scroll_fast_edge_color_samples", fastColorSamples);
+    emitMetric("diff_scroll_fast_edge_color_mismatches", fastColorMismatches);
+    emitMetric("diff_scroll_fast_edge_faint_cells", fastFaintCells);
     emitMetric(
       "diff_scroll_fast_incomplete_rows",
       session.terminalFrames.reduce((total, frame) => total + incompleteRows(frame), 0),

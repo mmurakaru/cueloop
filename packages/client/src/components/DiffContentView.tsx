@@ -973,6 +973,21 @@ export function DiffContentView({
           focused={false}
           scrollAcceleration={wheelAcceleration}
           verticalScrollbarOptions={{ visible: false }}
+          onMouseScroll={(event) => {
+            const scrollbox = scrollRef.current;
+
+            if (!scrollbox || !event.scroll || event.modifiers.shift) return;
+            if (event.scroll.direction !== "up" && event.scroll.direction !== "down") return;
+            const before = scrollbox.scrollTop;
+            const followCaret = surface.prepareViewportScroll();
+
+            queueMicrotask(() => {
+              const delta = scrollbox.scrollTop - before;
+              const top = scrollbox.viewport.screenY;
+
+              followCaret(delta, top, top + scrollbox.viewport.height - 1);
+            });
+          }}
         >
           {materialized}
         </scrollbox>

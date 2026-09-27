@@ -101,3 +101,52 @@ ptyTest(
     }
   },
 );
+
+ptyTest("wheel scrolling keeps a bottom-edge caret visible in completed frames", async () => {
+  const reviewHome = createTestReviewHome();
+  const added = Array.from({ length: 80 }, (_, row) => `+line ${String(row).padStart(2, "0")}`);
+  const patch = [
+    "diff --git a/scroll.txt b/scroll.txt",
+    "--- a/scroll.txt",
+    "+++ b/scroll.txt",
+    "@@ -0,0 +1,80 @@",
+    ...added,
+    "",
+  ].join("\n");
+  const review = reviewHome.createDiffSession(patch);
+  const session = launchTuiSession({
+    home: reviewHome.home,
+    args: [review.id],
+    cols: 90,
+    rows: 18,
+  });
+
+  try {
+    await session.waitForReady();
+    await session.waitForText("line 00");
+    for (const key of Array.from({ length: 30 }, () => "down" as const)) {
+      // eslint-disable-next-line no-await-in-loop
+      await session.press(key);
+    }
+    const markerRow = session
+      .text()
+      .split("\n")
+      .findIndex((line) => line.includes("▎"));
+
+    expect(markerRow).toBeGreaterThan(0);
+    session.captureTerminalFrames = true;
+    await session.wheelAt(39, 9, "up");
+    session.captureTerminalFrames = false;
+    const frames = session.terminalFrames;
+
+    expect(frames.length).toBeGreaterThan(0);
+    for (const frame of frames) {
+      const markers = frame.split("\n").flatMap((line, row) => (line.includes("▎") ? [row] : []));
+
+      expect(markers).toEqual([markerRow]);
+    }
+  } finally {
+    await session.close();
+    reviewHome.cleanup();
+  }
+});

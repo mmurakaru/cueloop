@@ -215,6 +215,10 @@ export const OFFLINE_SSH_MESSAGE = "test: network disabled";
 /** A live TUI in a PTY with a Ghostty screen behind it. Always `close()` it in `afterAll`. */
 export class PtyTuiSession implements PtyScreenReader {
   captureTerminalFrames = false;
+  onTerminalFrame?: (
+    frame: string,
+    cellAt: (column: number, row: number) => GhosttyCell | null,
+  ) => void;
   terminalFrames: string[] = [];
   terminalFrameTimes: number[] = [];
   private readonly encoder = new TextEncoder();
@@ -234,8 +238,11 @@ export class PtyTuiSession implements PtyScreenReader {
       this.generation += 1;
       this.lastDataAt = Date.now();
       if (this.captureTerminalFrames && chunk.includes("\x1b[?2026l")) {
-        this.terminalFrames.push(this.text());
+        const frame = this.text();
+
+        this.terminalFrames.push(frame);
         this.terminalFrameTimes.push(performance.now());
+        this.onTerminalFrame?.(frame, (column, row) => this.terminal.readCell(column, row));
       }
     });
     pty.onExit((event) => {
@@ -313,6 +320,13 @@ export class PtyTuiSession implements PtyScreenReader {
     const y = row + 1;
 
     await this.writeAndSettle(`\x1b[<0;${x};${y}M\x1b[<0;${x};${y}m`);
+  }
+
+  /** Scroll one wheel step at a 0-based cell and wait for its repaint. */
+  async wheelAt(column: number, row: number, direction: "up" | "down"): Promise<void> {
+    const button = direction === "up" ? 64 : 65;
+
+    await this.writeAndSettle(`\x1b[<${button};${column + 1};${row + 1}M`);
   }
 
   /** Drag between 0-based cells with the left button held. */

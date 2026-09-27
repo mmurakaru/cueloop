@@ -14,7 +14,7 @@
 
 import React, { useContext, useEffect, useRef, useState } from "react";
 import type { KeyEvent, MouseEvent as TerminalMouseEvent, TextRenderable } from "@opentui/core";
-import { useKeyboard } from "@opentui/react";
+import { flushSync, useKeyboard } from "@opentui/react";
 import type { Annotation, Thread } from "@cueloop/schema";
 import type { Mark } from "./view-plan";
 import type { QuickAction } from "./config";
@@ -138,6 +138,8 @@ export interface AnnotationSurface {
   revealBlockIndex: number;
   /** Screen row of the mounted visual line carrying the caret. */
   headVisualY: () => number | undefined;
+  /** Capture mounted lines before a viewport scroll, then keep an exiting caret at its visible edge. */
+  prepareViewportScroll: () => (delta: number, top: number, bottom: number) => void;
   /** The text a span covers, blocks joined by a space, for previews. */
   spanQuote: (span: TextSpan) => string;
   /** Ref callback for one visual line, so a drag can hit-test it. */
@@ -356,6 +358,30 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
         line.start <= cell &&
         (cell < line.end || line.start === line.end),
     )?.y;
+  };
+  const prepareViewportScroll = (): ((delta: number, top: number, bottom: number) => void) => {
+    const lines = allGeometry().filter((line) => source.annotatable(line.blockIndex));
+    const oldHeadY = headVisualY();
+
+    return (delta, top, bottom) => {
+      if (delta === 0 || oldHeadY === undefined || compose || focusedDiscussion || caretIsSelection)
+        return;
+      const shiftedHeadY = oldHeadY - delta;
+
+      if (shiftedHeadY >= top && shiftedHeadY <= bottom) return;
+      const visible = lines
+        .filter((line) => line.y - delta >= top && line.y - delta <= bottom)
+        .toSorted((left, right) => left.y - right.y || left.x - right.x);
+      const target = delta < 0 ? visible.at(-1) : visible[0];
+
+      if (!target) return;
+      const next = { blockIndex: target.blockIndex, char: target.start };
+
+      flushSync(() => {
+        setCaret({ head: next, anchor: next });
+        setCursor(next.blockIndex);
+      });
+    };
   };
   const verticalTextPosition = (
     position: TextPosition,
@@ -1002,6 +1028,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     focusedDiscussion,
     revealBlockIndex,
     headVisualY,
+    prepareViewportScroll,
     spanQuote,
     registerLine,
     onLineMouseDown,
