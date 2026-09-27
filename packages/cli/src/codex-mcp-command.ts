@@ -1,6 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/server";
 import { serveStdio } from "@modelcontextprotocol/server/stdio";
-import { toJsonSchema } from "@valibot/to-json-schema";
+import { toStandardJsonSchema } from "@valibot/to-json-schema";
 import * as v from "valibot";
 import { createCodexDeliveryService } from "@cueloop/adapters/codex/delivery-service";
 import { createCodexSessionRegistry } from "@cueloop/adapters/codex/session-registry";
@@ -22,20 +22,6 @@ const OpenThreadInputSchema = v.object({
 });
 const RefineCorpusInputSchema = v.object({});
 
-function mcpInputSchema<TSchema extends v.BaseSchema<unknown, unknown, v.BaseIssue<unknown>>>(
-  schema: TSchema,
-) {
-  const convert = () => toJsonSchema(schema);
-
-  return {
-    ...schema,
-    "~standard": {
-      ...schema["~standard"],
-      jsonSchema: { input: convert, output: convert },
-    },
-  };
-}
-
 /** Expose the shared Thread workflows to a standard Codex session. */
 export function createCodexMcpServer(home = cueloopHome()): McpServer {
   const server = new McpServer({ name: "cueloop", version: CLI_VERSION });
@@ -46,7 +32,7 @@ export function createCodexMcpServer(home = cueloopHome()): McpServer {
     {
       description:
         "Submit or revise a cueloop Thread for plan, reply, prototype, diff, review, or refine.",
-      inputSchema: mcpInputSchema(OpenThreadInputSchema),
+      inputSchema: toStandardJsonSchema(OpenThreadInputSchema),
     },
     async (input) => {
       try {
@@ -73,7 +59,7 @@ export function createCodexMcpServer(home = cueloopHome()): McpServer {
     "refine_corpus",
     {
       description: "Analyze past cueloop Threads before proposing a refine writeback.",
-      inputSchema: mcpInputSchema(RefineCorpusInputSchema),
+      inputSchema: toStandardJsonSchema(RefineCorpusInputSchema),
     },
     async () => {
       try {
