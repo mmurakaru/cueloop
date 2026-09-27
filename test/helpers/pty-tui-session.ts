@@ -214,6 +214,8 @@ export const OFFLINE_SSH_MESSAGE = "test: network disabled";
 
 /** A live TUI in a PTY with a Ghostty screen behind it. Always `close()` it in `afterAll`. */
 export class PtyTuiSession implements PtyScreenReader {
+  captureTerminalFrames = false;
+  terminalFrames: string[] = [];
   private readonly encoder = new TextEncoder();
   /** Bumped on every PTY chunk and resize; screen reads are cached against it so idle polls cost no FFI. */
   private generation = 0;
@@ -230,6 +232,9 @@ export class PtyTuiSession implements PtyScreenReader {
       this.terminal.write(this.encoder.encode(chunk));
       this.generation += 1;
       this.lastDataAt = Date.now();
+      if (this.captureTerminalFrames && chunk.includes("\x1b[?2026l")) {
+        this.terminalFrames.push(this.text());
+      }
     });
     pty.onExit((event) => {
       this.exitRecord = event;

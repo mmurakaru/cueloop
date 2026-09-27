@@ -8,7 +8,7 @@
  * so a drag can hit-test any row, unified or side by side.
  */
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   MacOSScrollAccel,
   createTextAttributes,
@@ -639,6 +639,8 @@ export function DiffContentView({
     }
 
     if (distance <= 0) return false;
+    // Let the caret commit before scrolling the next visual row into view.
+    if (distance === 1) return false;
     scrollbox.scrollBy(direction);
 
     return distance > 1;
@@ -650,12 +652,13 @@ export function DiffContentView({
   const revealItem = layout.itemOfRow[surface.revealBlockIndex];
 
   useEffect(() => {
-    if (revealItem === undefined) return;
-    if (surface.compose || surface.focusedDiscussion) {
-      virtual.scrollToIndex(revealItem, surface.compose ? "end" : "auto");
+    if (revealItem === undefined || (!surface.compose && !surface.focusedDiscussion)) return;
+    virtual.scrollToIndex(revealItem, surface.compose ? "end" : "auto");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [surface.revealBlockIndex, surface.compose, surface.focusedDiscussion]);
 
-      return;
-    }
+  useLayoutEffect(() => {
+    if (revealItem === undefined || surface.compose || surface.focusedDiscussion) return;
     const scrollbox = scrollRef.current;
 
     if (!scrollbox) return;
@@ -679,7 +682,7 @@ export function DiffContentView({
     if (start < top) virtual.scrollToOffset(start);
     else if (start > bottom) virtual.scrollToOffset(start - scrollbox.viewport.height + 1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [surface.revealBlockIndex, surface.compose]);
+  }, [surface.revealBlockIndex, surface.head.char, surface.compose, surface.focusedDiscussion]);
 
   /**
    * The visual lines of one code row painted with gutter, colors, and marks; cards collected after.
