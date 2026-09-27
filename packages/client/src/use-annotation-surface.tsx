@@ -361,14 +361,16 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     position: TextPosition,
     direction: -1 | 1,
   ): { position: TextPosition; y: number } | null => {
+    const textLength = textLengthOf(position.blockIndex);
+    const cell = Math.max(0, Math.min(textLength - 1, position.char));
     const lines = allGeometry()
       .filter((line) => source.annotatable(line.blockIndex))
       .toSorted((left, right) => left.y - right.y || left.x - right.x);
     const currentIndex = lines.findIndex(
       (line) =>
         line.blockIndex === position.blockIndex &&
-        line.start <= position.char &&
-        position.char <= line.end,
+        line.start <= cell &&
+        (cell < line.end || line.start === line.end),
     );
     const target = currentIndex === -1 ? undefined : lines[currentIndex + direction];
 

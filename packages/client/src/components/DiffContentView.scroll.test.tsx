@@ -302,7 +302,7 @@ test("Up keeps the caret on the first screen row while wrapped lines scroll", as
   let previousTop = scrollbox.scrollTop;
   let scrolled = false;
 
-  for (let index = 0; index < 22; index++) {
+  for (let index = 0; index < 80; index++) {
     await press(setup, "up");
     const frame = setup.captureCharFrame().split("\n");
     const marker = frame.findIndex((line) => line.includes("▎"));

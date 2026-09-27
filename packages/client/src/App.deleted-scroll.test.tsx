@@ -46,10 +46,10 @@ test("deleted file caret scrolls one row and stays at the file boundaries", asyn
 
   try {
     const file = join(repo, "long.md");
-    const lines = Array.from(
-      { length: 90 },
-      (_, index) =>
-        `row ${String(index).padStart(2, "0")} ${"a paragraph with wrapped text and a link [source](https://example.test/page) ".repeat((index % 3) + 1)}`,
+    const lines = Array.from({ length: 180 }, (_, index) =>
+      index === 113
+        ? "[nodejs/node#36005](https://github.com/nodejs/node/issues/36005)."
+        : `row ${String(index).padStart(3, "0")} ${"a paragraph with wrapped text and a link [source](https://example.test/page) ".repeat((index % 3) + 1)}`,
     );
     const git = (args: string[]) => Bun.spawnSync(["git", "-C", repo, ...args]);
 
@@ -73,12 +73,12 @@ test("deleted file caret scrolls one row and stays at the file boundaries", asyn
     const box = findScrollbox(setup.renderer.root);
 
     if (!box) throw new Error("file diff scrollbox missing");
-    for (let offset = 0; offset < 500; offset += 10) {
+    for (let offset = 0; offset < 1000; offset += 20) {
       box.scrollTo({ x: 0, y: offset });
       await settle(setup);
-      if (setup.captureCharFrame().includes("row 48")) break;
+      if (setup.captureCharFrame().includes("row 130")) break;
     }
-    const target = locateText(setup, "row 48");
+    const target = locateText(setup, "row 130");
 
     await setup.mockMouse.click(target.column, target.row);
     await press(setup, "escape");
@@ -116,9 +116,22 @@ test("deleted file caret scrolls one row and stays at the file boundaries", asyn
 
     expect(Math.max(...steps)).toBeLessThanOrEqual(1);
     expect(Math.min(...steps)).toBeGreaterThanOrEqual(0);
+    let anchored = false;
+
+    for (let index = 0; index < 80; index++) {
+      await press(setup, "up");
+      const marker = setup
+        .captureCharFrame()
+        .split("\n")
+        .findIndex((line) => line.includes("▎"));
+
+      if (marker === box.viewport.screenY) anchored = true;
+      if (anchored && box.scrollTop > 0) expect(marker).toBe(box.viewport.screenY);
+    }
+    expect(anchored).toBe(true);
     box.scrollTo({ x: 0, y: 100000 });
     await settle(setup);
-    const last = locateText(setup, "row 89");
+    const last = locateText(setup, "row 179");
 
     await setup.mockMouse.click(last.column, last.row);
     await press(setup, "escape");
@@ -141,7 +154,7 @@ test("deleted file caret scrolls one row and stays at the file boundaries", asyn
     }
     box.scrollTo({ x: 0, y: 0 });
     await settle(setup);
-    const first = locateText(setup, "row 00");
+    const first = locateText(setup, "row 000");
 
     await setup.mockMouse.click(first.column, first.row);
     await press(setup, "escape");
