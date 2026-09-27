@@ -330,8 +330,8 @@ function ProjectPanelBody(props: {
   diffSourceKey: string;
   liveWorkingTree: boolean;
   frozenFiles?: readonly DiffFileContents[];
-  onOpenChangedFile: (path: string) => void;
-  onOpenProjectFile: (path: string) => void;
+  onOpenChangedFile: (path: string, persistent?: boolean) => void;
+  onOpenProjectFile: (path: string, persistent?: boolean) => void;
   commentCounts?: ReadonlyMap<string, number>;
   focused?: boolean;
   theme: Theme;
@@ -391,12 +391,20 @@ function usableScreenReached(
 /** The keybinds dialog content: the thread grammar while the thread view owns the keys. */
 function cheatsheetFor(keyBindings: KeyBindings, threadViewActive: boolean): CheatsheetSection[] {
   const base = keyBindings.cheatsheet();
+  const fileTree: CheatsheetSection = {
+    title: "Changes / Project files",
+    entries: [
+      { keys: "enter", label: "open selected file or toggle folder" },
+      { keys: "tab", label: "cycle panes" },
+    ],
+  };
 
   if (!threadViewActive) {
-    return base;
+    return [fileTree, ...base];
   }
 
   return [
+    fileTree,
     ...THREAD_VIEW_CHEATSHEET,
     { title: "Nav mode · session", entries: sessionCommandEntries() },
     { title: "Nav mode · diff", entries: diffCommandEntries() },
@@ -630,7 +638,7 @@ export function App({
   const [menuDialog, setMenuDialog] = useState<"keybinds" | "settings" | null>(null);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [autoClose, setAutoClose] = useState<AutoClose>("off");
-  // unified or side-by-side diff; split only lays out when the Changes pane is zoomed
+  // unified or side-by-side diff; split lays out when the Changes pane is zoomed
   const [diffView, setDiffView] = useState<DiffViewMode>("split");
   const [defaultMessage, setDefaultMessage] = useState<MessageOutcome>("approved");
   const [focusedAnnotationId, setFocusedAnnotationId] = useState<string | undefined>(undefined);
@@ -656,10 +664,6 @@ export function App({
   const [skills, setSkills] = useState<SlashItem[]>([]);
   const [reviewSkill, setReviewSkill] = useState("code-review");
   const [reviewWorkspace, setReviewWorkspace] = useState<ReviewWorkspaceMode>("worktree");
-  const reviewSkillOptions = useMemo(
-    () => [...new Set([reviewSkill, "code-review", ...skills.map((skill) => skill.name)])],
-    [reviewSkill, skills],
-  );
   const paletteNames = useMemo(
     () => new Set(mergeSlashItems(slashItemsFrom(quickActions), skills).map((item) => item.name)),
     [quickActions, skills],
@@ -767,8 +771,6 @@ export function App({
       setMode({ type: "renameSelf", text: identity.name ?? "" });
     },
     reviewSkill,
-    reviewSkillOptions,
-    setReviewSkill,
     reviewWorkspace,
     setReviewWorkspace,
   });
@@ -1116,6 +1118,7 @@ export function App({
             onPin={togglePin}
             onRename={(id, title) => setMode({ type: "renameThread", sessionId: id, text: title })}
             quickActions={quickActions}
+            diffView={diffView}
             onWelcomeComposingChange={setWelcomeComposing}
             layout={layout}
           />
@@ -1367,6 +1370,7 @@ export function App({
                   commentCounts={diffCommentCounts}
                   onFocusGroup={workbench.focusGroup}
                   onActivateTab={workbench.activate}
+                  onKeepTab={workbench.keepTab}
                   onCloseTab={workbench.close}
                   onSplit={workbench.split}
                   onZoom={workbench.toggleZoom}
@@ -1447,8 +1451,12 @@ export function App({
                   {...projectDiffFiles(activeSession)}
                   // the Changes navigator always opens a changed file as a diff - a diff review shows its
                   // captured snapshot, every other thread the live working-tree diff
-                  onOpenChangedFile={(path) => workbench.openFile(path, "diff")}
-                  onOpenProjectFile={(path) => workbench.openFile(path, "contents")}
+                  onOpenChangedFile={(path, persistent) =>
+                    workbench.openFile(path, "diff", persistent)
+                  }
+                  onOpenProjectFile={(path, persistent) =>
+                    workbench.openFile(path, "contents", persistent)
+                  }
                   commentCounts={diffCommentCounts}
                   focused={focusedPane === "project"}
                   theme={theme}
@@ -1466,6 +1474,7 @@ export function App({
                 theme={theme}
                 mode={mode}
                 toast={toast}
+                onDismissToast={() => controller.dismissToast()}
                 setMode={setMode}
                 dispatch={dispatch}
               />

@@ -265,16 +265,14 @@ describe("nav mode in a diff review", () => {
     expect(session.text()).not.toContain("split diff");
   });
 
-  ptyTest("c folds the file to its band; clicking the band's chevron unfolds it", async () => {
+  ptyTest("c folds the file to its band; clicking its title unfolds it", async () => {
     await navPress(
       session,
       "diff",
       "c",
       (screen) => screen.includes("src/store.ts") && !screen.includes("new Map()"),
     );
-    const band = session.locate("src/store.ts");
-
-    await session.clickAt(band.column - 2, band.row);
+    await session.click("src/store.ts");
     await session.waitForText("new Map()", { what: "the unfolded file body" });
     await session.click("new Map()");
   });

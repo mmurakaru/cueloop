@@ -431,6 +431,33 @@ function tailSession(): Thread {
 }
 
 describe("diff file fold", () => {
+  test("added and deleted files with a zero-sided hunk retain their expand action", async () => {
+    const patch = [
+      "diff --git a/src/new.ts b/src/new.ts",
+      "--- /dev/null",
+      "+++ b/src/new.ts",
+      "@@ -0,0 +1,1 @@",
+      "+new line",
+      "diff --git a/src/gone.ts b/src/gone.ts",
+      "--- a/src/gone.ts",
+      "+++ /dev/null",
+      "@@ -1,1 +0,0 @@",
+      "-old line",
+      "",
+    ].join("\n");
+    const files: DiffFileContents[] = [
+      { path: "src/new.ts", oldContents: "", newContents: "new line\n", status: "added" },
+      { path: "src/gone.ts", oldContents: "old line\n", newContents: "", status: "deleted" },
+    ];
+    const session = diffSession(files);
+    session.artifact.content = patch;
+    session.revisions[0]!.content = patch;
+    const { controller } = await connected(session);
+
+    expect(controller.canExpandFile("src/new.ts")).toBe(true);
+    expect(controller.canExpandFile("src/gone.ts")).toBe(true);
+  });
+
   test("collapse leaves only the file band; expand restores the body", async () => {
     // Arrange
     const { controller } = await connected(tailSession());

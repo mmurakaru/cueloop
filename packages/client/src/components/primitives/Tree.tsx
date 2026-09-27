@@ -1,7 +1,8 @@
 // OpenTUI renderer for the headless tree-model; the caller owns expansion and selection.
 
-import React from "react";
+import React, { useRef } from "react";
 import { DARK, type Theme } from "../../theme";
+import { isDoubleClick, type ClickStamp } from "../../thread-selection";
 import { flattenTree, statusMeta, type TreeNode, type TreeTone } from "./tree-model";
 import { NERD_TREE_ICONS, type TreeIcons } from "./icons";
 
@@ -13,11 +14,14 @@ export interface TreeProps {
   showStatus?: boolean;
   /** Drop the folder/file glyph prefix, for a plain text tree (e.g. the settings nav). */
   hideIcons?: boolean;
+  /** Keep file navigator entries to one visual row, truncating long names. */
+  singleLine?: boolean;
   /** The selected row's backdrop; defaults to `elevated` (invisible on an elevated dialog, use `border` there). */
   selectedBackground?: string;
   indentWidth?: number;
   icons?: TreeIcons;
   onSelect?: (id: string) => void;
+  onDoubleSelect?: (id: string) => void;
   onToggle?: (id: string) => void;
   theme?: Theme;
 }
@@ -43,16 +47,19 @@ export function Tree({
   flattenEmptyDirectories,
   showStatus,
   hideIcons,
+  singleLine = false,
   selectedBackground,
   indentWidth = 2,
   icons = NERD_TREE_ICONS,
   onSelect,
+  onDoubleSelect,
   onToggle,
   theme,
 }: TreeProps): React.ReactNode {
   const tokens = theme ?? DARK;
   const selectedBackdrop = selectedBackground ?? tokens.elevated;
   const rows = flattenTree(nodes, { expandedIds, flattenEmptyDirectories });
+  const lastClick = useRef<{ id: string; stamp: ClickStamp } | null>(null);
 
   return (
     <box style={{ flexDirection: "column" }}>
@@ -73,25 +80,54 @@ export function Tree({
             id={`tree-row-${row.id}`}
             style={{
               flexDirection: "row",
+              justifyContent: "space-between",
+              height: singleLine ? 1 : undefined,
+              overflow: singleLine ? "hidden" : undefined,
               paddingLeft: 1 + row.depth * indentWidth,
-              paddingRight: 1,
+              paddingRight: singleLine && status ? 0 : 1,
               backgroundColor: selected ? selectedBackdrop : undefined,
             }}
-            onMouseUp={() => (row.isFolder ? onToggle?.(row.id) : onSelect?.(row.id))}
+            onMouseUp={(event) => {
+              const stamp = { time: Date.now(), x: event.x, y: event.y };
+              const doubleClick =
+                lastClick.current?.id === row.id && isDoubleClick(lastClick.current.stamp, stamp);
+
+              lastClick.current = { id: row.id, stamp };
+              if (row.isFolder) onToggle?.(row.id);
+              else {
+                onSelect?.(row.id);
+                if (doubleClick) onDoubleSelect?.(row.id);
+              }
+            }}
           >
-            {hideIcons ? null : (
-              <text fg={row.isFolder ? tokens.blue : tokens.textDim}>
-                {row.icon ?? rowGlyph(row.isFolder, row.expanded, icons)}{" "}
-              </text>
-            )}
-            <box style={{ flexShrink: 1, minWidth: 0 }}>
-              <text fg={selected ? tokens.accent : labelColor} truncate>
-                {row.label}
-              </text>
+            <box
+              style={{
+                flexDirection: "row",
+                flexShrink: 1,
+                minWidth: 0,
+                overflow: singleLine ? "hidden" : undefined,
+              }}
+            >
+              {hideIcons ? null : (
+                <text fg={row.isFolder ? tokens.blue : tokens.textDim}>
+                  {row.icon ?? rowGlyph(row.isFolder, row.expanded, icons)}{" "}
+                </text>
+              )}
+              <box style={{ flexShrink: 1, minWidth: 0 }}>
+                <text
+                  id={`tree-label-${row.id}`}
+                  fg={selected ? tokens.accent : labelColor}
+                  wrapMode={singleLine ? "none" : undefined}
+                  truncate={!singleLine}
+                >
+                  {singleLine ? `${row.label}  ` : row.label}
+                </text>
+              </box>
             </box>
-            <box style={{ flexGrow: 1 }} />
-            {row.badge !== undefined ? <text fg={tokens.textDim}>{row.badge}</text> : null}
-            {status ? <text fg={toneColor(status.tone, tokens)}> {status.letter}</text> : null}
+            <box style={{ flexDirection: "row", flexShrink: 0 }}>
+              {row.badge !== undefined ? <text fg={tokens.textDim}>{row.badge}</text> : null}
+              {status ? <text fg={toneColor(status.tone, tokens)}> {status.letter}</text> : null}
+            </box>
           </box>
         );
       })}

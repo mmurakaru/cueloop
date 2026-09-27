@@ -10,7 +10,6 @@ import type { Thread } from "@cueloop/schema";
 import { App } from "./App";
 import { pullRequestReviewLayout } from "./launch-layout";
 import { DARK } from "./theme";
-import { NERD } from "./components/primitives/icons";
 import {
   clickText,
   dragText,
@@ -220,7 +219,7 @@ describe("diff review", () => {
     await waitForText(setup, "● Existing note.");
   });
 
-  test("option+c folds the caret's file to its band; the chevron restores its body", async () => {
+  test("option+c folds the caret's file to its band; its title restores the body", async () => {
     // Arrange - the caret opens on the file's first code line
     const setup = await renderApp();
 
@@ -234,8 +233,8 @@ describe("diff review", () => {
     expect(collapsed).toContain("src/store.ts");
     expect(collapsed).toContain("+1");
 
-    // Act - the band's chevron unfolds it again
-    await clickText(setup, NERD.chevronRight);
+    // Act - the title unfolds it again
+    await clickText(setup, "src/store.ts");
 
     // Assert
     await waitForText(setup, "new Map()");

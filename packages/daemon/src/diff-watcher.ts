@@ -163,6 +163,9 @@ export class DiffWatcher {
           if (isRefChange(filename)) this.scheduleRepoRefresh(repoRoot);
         });
     }
+
+    // Reconcile changes made while the platform activates its new watch.
+    this.scheduleRepoRefresh(repoRoot);
   }
 
   private startJjPoll(repoWatch: RepoWatch, repoRoot: string, sessionId: string): void {

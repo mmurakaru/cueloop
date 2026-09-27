@@ -8,20 +8,32 @@ const MAX_FILES = 5000;
 /** Ceiling on a served file; the panel renders source, not multi-megabyte blobs. */
 const MAX_FILE_BYTES = 1024 * 1024;
 
-/** Tracked, repo-relative paths from `git ls-files`, sorted ascending and capped; [] on any failure or non-repo. */
+async function gitFileList(repoRoot: string, args: string[]): Promise<string[] | null> {
+  const gitProcess = Bun.spawn(["git", "-C", repoRoot, "ls-files", "-z", ...args], {
+    stdout: "pipe",
+    stderr: "ignore",
+  });
+  const stdout = await new Response(gitProcess.stdout).text();
+
+  return (await gitProcess.exited) === 0 ? stdout.split("\0").filter(Boolean) : null;
+}
+
+/** Existing tracked paths, sorted ascending and capped; [] on failure or a non-repo. */
 export async function listProjectFiles(repoRoot: string | undefined): Promise<string[]> {
   if (repoRoot === undefined || repoRoot.length === 0) return [];
   try {
-    const gitProcess = Bun.spawn(["git", "-C", repoRoot, "ls-files", "-z"], {
-      stdout: "pipe",
-      stderr: "ignore",
-    });
-    const stdout = await new Response(gitProcess.stdout).text();
+    const [tracked, deleted] = await Promise.all([
+      gitFileList(repoRoot, ["--cached"]),
+      gitFileList(repoRoot, ["--deleted"]),
+    ]);
 
-    if ((await gitProcess.exited) !== 0) return [];
-    const paths = stdout.split("\0").filter((path) => path.length > 0);
+    if (tracked === null || deleted === null) return [];
+    const missing = new Set(deleted);
 
-    return paths.toSorted().slice(0, MAX_FILES);
+    return tracked
+      .filter((path) => !missing.has(path))
+      .toSorted()
+      .slice(0, MAX_FILES);
   } catch {
     return [];
   }

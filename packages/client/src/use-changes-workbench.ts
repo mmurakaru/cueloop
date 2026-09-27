@@ -7,13 +7,14 @@ import type { ProjectPanelMode } from "./components/AppShell";
 import type { LaunchLayout } from "./launch-layout";
 import {
   activateTab,
-  addTab,
   changesTab,
   closeTab,
   containsGroup,
-  fileTab,
   firstGroupId,
+  keepFileTab,
   makeGroup,
+  openChangesTab,
+  openFileTab,
   splitGroup,
   welcomeTab,
   type EditorNode,
@@ -73,9 +74,10 @@ export interface ChangesWorkbench {
   toggleZoom: () => void;
   focusGroup: (groupId: string) => void;
   activate: (groupId: string, tabId: string) => void;
+  keepTab: (groupId: string, tabId: string) => void;
   close: (groupId: string, tabId: string) => void;
   split: (groupId: string, direction: SplitDirection) => void;
-  openFile: (path: string, fileView: "diff" | "contents") => void;
+  openFile: (path: string, fileView: "diff" | "contents", persistent?: boolean) => void;
   /** Re-open defaults when the session changes: a diff opens the region in changed-files mode. */
   syncSession: (sessionId: string | undefined, isDiff: boolean) => void;
 }
@@ -121,16 +123,16 @@ export function useChangesWorkbench(options?: ChangesWorkbenchOptions): ChangesW
     }
   };
   const toggleChanges = (): void => {
-    if (projectMode === "changes") {
-      setChangesOpen(false);
-      setProjectMode("tree");
-      // never leave zoom on with the Changes editor gone - the Thread pane would stay hidden
-      setZoomed(false);
-    } else {
-      setChangesOpen(true);
-      setProjectOpen(true);
-      setProjectMode("changes");
-    }
+    setChangesOpen(true);
+    setProjectOpen(true);
+    setProjectMode("changes");
+    setGrid((tree) => {
+      const result = openChangesTab(tree, focusedGroup ?? firstGroupId(tree));
+
+      setFocusedGroup(result.focusGroupId);
+
+      return result.tree;
+    });
   };
   const toggleProject = (): void => {
     setProjectOpen(true);
@@ -160,13 +162,22 @@ export function useChangesWorkbench(options?: ChangesWorkbenchOptions): ChangesW
       return result.tree;
     });
   };
-  const openFile = (path: string, fileView: "diff" | "contents"): void => {
+  const openFile = (path: string, fileView: "diff" | "contents", persistent = false): void => {
     setProjectOpen(true);
     setChangesOpen(true);
-    const label = path.split("/").pop() ?? path;
-    setGrid((tree) =>
-      addTab(tree, focusedGroup ?? firstGroupId(tree), fileTab(label, path, fileView)),
-    );
+    setGrid((tree) => {
+      const result = openFileTab(
+        tree,
+        focusedGroup ?? firstGroupId(tree),
+        path,
+        fileView,
+        persistent,
+      );
+
+      setFocusedGroup(result.focusGroupId);
+
+      return result.tree;
+    });
   };
 
   return {
@@ -182,6 +193,7 @@ export function useChangesWorkbench(options?: ChangesWorkbenchOptions): ChangesW
     toggleZoom: () => setZoomed((value) => !value),
     focusGroup: setFocusedGroup,
     activate: (groupId, tabId) => setGrid((tree) => activateTab(tree, groupId, tabId)),
+    keepTab: (groupId, tabId) => setGrid((tree) => keepFileTab(tree, groupId, tabId)),
     close,
     split,
     openFile,

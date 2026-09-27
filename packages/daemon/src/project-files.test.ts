@@ -41,6 +41,16 @@ describe("listProjectFiles", () => {
     expect(files).toEqual(["a.ts", "m.ts", "z.ts"]);
   });
 
+  test("omits a tracked file deleted from the working tree", async () => {
+    writeFileSync(join(repo, "keep.ts"), "export const keep = true;\n");
+    writeFileSync(join(repo, "gone.ts"), "export const gone = true;\n");
+    git(["add", "."], repo);
+    git(["commit", "-qm", "init"], repo);
+    rmSync(join(repo, "gone.ts"));
+
+    expect(await listProjectFiles(repo)).toEqual(["keep.ts"]);
+  });
+
   test("returns [] for a directory that is not a git repo", async () => {
     // Given a plain directory with a file but no git repo
     const plain = mkdtempSync(join(tmpdir(), "cueloop-project-files-plain-"));

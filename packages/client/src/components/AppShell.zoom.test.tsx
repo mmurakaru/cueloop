@@ -11,7 +11,7 @@ import { testRender } from "@opentui/react/test-utils";
 import React from "react";
 import { AppShell } from "./AppShell";
 import { EditorGrid } from "./EditorGrid";
-import { changesTab, makeGroup } from "./editor-grid";
+import { changesTab, makeGroup, splitGroup } from "./editor-grid";
 import { NERD } from "./primitives/icons";
 import { allowEventLoopUpdates } from "../test-support";
 
@@ -21,7 +21,11 @@ async function zoomIconColumn(
   width: number,
   zoomed: boolean,
   sidebarOpen: boolean,
+  splitEditor = false,
 ): Promise<number> {
+  const editor = splitEditor
+    ? splitGroup(grid, grid.id, "right")
+    : { tree: grid, focusGroupId: grid.id };
   const setup = await testRender(
     <AppShell
       sidebarOpen={sidebarOpen}
@@ -40,8 +44,8 @@ async function zoomIconColumn(
       projectPanel={<text>project</text>}
       changesPanel={
         <EditorGrid
-          tree={grid}
-          focusedGroupId={grid.id}
+          tree={editor.tree}
+          focusedGroupId={editor.focusGroupId}
           onFocusGroup={() => {}}
           onActivateTab={() => {}}
           onCloseTab={() => {}}
@@ -131,5 +135,14 @@ describe("zoom icon in the shell", () => {
     // Assert - width 160, project pane 32: the border sits at 128 and the glyph one padding cell
     // before it, the same inset the right-sidebar icon keeps from its own edge
     for (const column of setupColumns) expect(128 - column).toBe(2);
+  });
+
+  test("a split editor keeps the zoom icon clear of the Project border", async () => {
+    const columns = await Promise.all([
+      zoomIconColumn(160, false, false, true),
+      zoomIconColumn(160, true, false, true),
+    ]);
+
+    for (const column of columns) expect(128 - column).toBe(2);
   });
 });
