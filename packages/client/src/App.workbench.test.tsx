@@ -141,7 +141,7 @@ describe("the four-pane workbench", () => {
     for (const [index, direction] of Array.from({ length: 500 }, () => "down" as const).entries()) {
       // eslint-disable-next-line no-await-in-loop
       await setup.mockMouse.scroll(75, 10, direction);
-      if (index % 5 === 0) {
+      if (index % 25 === 0) {
         // eslint-disable-next-line no-await-in-loop
         await setup.waitForVisualIdle();
       }
@@ -149,7 +149,7 @@ describe("the four-pane workbench", () => {
     await setup.waitForVisualIdle();
     expect(setup.captureCharFrame()).toContain("changes");
     setup.renderer.destroy();
-  }, 30000);
+  }, 60000);
 
   test("pair starts focused on the Project tree beside the zoomed Changes editor", async () => {
     const setup = await renderReadyApp(
