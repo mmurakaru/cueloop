@@ -1,5 +1,17 @@
 # cueloop
 
+## 0.1.0-alpha.92
+
+### Patch Changes
+
+- [#524](https://github.com/mmurakaru/cueloop/pull/524) [`2144ae1`](https://github.com/mmurakaru/cueloop/commit/2144ae1dc72a37f6b68d428a6be3559c4c5cdfbe) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Open a focused Herdr tab for `cueloop pair --open-tab` as the pairing skill's first action. Detect project-file languages from their paths so supported syntax highlighting appears in the file editor.
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.92
+  - @cueloop/client@0.1.0-alpha.92
+  - @cueloop/daemon@0.1.0-alpha.92
+  - @cueloop/extension-api@0.1.0-alpha.92
+  - @cueloop/schema@0.1.0-alpha.92
+
 ## 0.1.0-alpha.91
 
 ### Minor Changes
