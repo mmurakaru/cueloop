@@ -9,7 +9,12 @@
  */
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { createTextAttributes, type KeyEvent, type ScrollBoxRenderable } from "@opentui/core";
+import {
+  MacOSScrollAccel,
+  createTextAttributes,
+  type KeyEvent,
+  type ScrollBoxRenderable,
+} from "@opentui/core";
 import type { Annotation, Thread } from "@cueloop/schema";
 import { diffRowText, fileChangeCounts, type DiffRow, type Mark } from "../view-diff";
 import type { TextSpan } from "../thread-selection";
@@ -504,6 +509,13 @@ export function DiffContentView({
 }: DiffContentViewProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
   const scrollRef = useRef<ScrollBoxRenderable | null>(null);
+  const wheelAcceleration = useMemo(
+    () => new MacOSScrollAccel({ A: 0.4, tau: 4, maxMultiplier: 3 }),
+    [],
+  );
+  const verticalStepRef = useRef<
+    (from: number, to: number, direction: -1 | 1, targetY?: number) => boolean
+  >(() => false);
   const source: LineSource = {
     count: rows.length,
     textAt: (rowIndex) => diffRowText(rows[rowIndex]!),
@@ -545,6 +557,8 @@ export function DiffContentView({
     onComposingChange,
     onObserverBlocked,
     onCursorChange,
+    onVerticalStep: (from, to, direction, targetY) =>
+      verticalStepRef.current(from, to, direction, targetY),
     focusedAnnotationId,
     onFocusAnnotation,
     onAnnotate,
@@ -595,14 +609,61 @@ export function DiffContentView({
     overscan: OVERSCAN_LINES,
   });
 
+  useEffect(() => {
+    const scrollbox = scrollRef.current;
+
+    if (scrollbox) scrollbox.verticalScrollBar.scrollStep = 1;
+  }, []);
+
+  verticalStepRef.current = (from, to, direction, targetY) => {
+    const scrollbox = scrollRef.current;
+
+    if (!scrollbox) return false;
+    let distance: number;
+
+    if (targetY !== undefined) {
+      const top = scrollbox.viewport.y;
+      const bottom = top + scrollbox.viewport.height - 1;
+
+      distance = direction === 1 ? targetY - bottom : top - targetY;
+    } else {
+      if (from === to) return false;
+      const item = layout.itemOfRow[to];
+      const target = item === undefined ? undefined : virtual.startOfIndex(item);
+
+      if (target === undefined) return false;
+      const top = scrollbox.scrollTop;
+      const bottom = top + scrollbox.viewport.height - 1;
+
+      distance = direction === 1 ? target - bottom : top - target;
+    }
+
+    if (distance <= 0) return false;
+    scrollbox.scrollBy(direction);
+
+    return distance > 1;
+  };
+
   // an opening card shifts the layout, so the row it belongs to is revealed again; a
   // discussion focused from the rail is scrolled into view the same way
   const revealItem = layout.itemOfRow[surface.revealBlockIndex];
 
   useEffect(() => {
-    if (revealItem !== undefined) {
+    if (revealItem === undefined) return;
+    if (surface.compose || surface.focusedDiscussion) {
       virtual.scrollToIndex(revealItem, surface.compose ? "end" : "auto");
+
+      return;
     }
+    const scrollbox = scrollRef.current;
+    const start = virtual.startOfIndex(revealItem);
+
+    if (!scrollbox || start === undefined) return;
+    const top = scrollbox.scrollTop;
+    const bottom = top + scrollbox.viewport.height - 1;
+
+    if (start < top) virtual.scrollToOffset(start);
+    else if (start > bottom) virtual.scrollToOffset(start - scrollbox.viewport.height + 1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [surface.revealBlockIndex, surface.compose]);
 
@@ -638,9 +699,7 @@ export function DiffContentView({
     const isCaretRow = paintMarks && surface.head.blockIndex === rowIndex;
     // split view carries one number per side; the stacked view shows the old and new numbers together
     const splitLineNumber = row.kind === "del" ? row.oldLine : row.newLine;
-    const splitGutter = `${isCaretRow ? "▎" : " "}${String(splitLineNumber ?? "").padStart(4, " ")} ${rowSign(row)} `;
-    const barChar = isCaretRow ? "▎" : " ";
-    const barColor = isCaretRow ? tokens.accent : tokens.textDim;
+    const splitGutter = `${String(splitLineNumber ?? "").padStart(4, " ")} ${rowSign(row)} `;
     const oldNumber =
       row.kind === "add"
         ? " ".repeat(numberWidth)
@@ -649,34 +708,44 @@ export function DiffContentView({
       row.kind === "del"
         ? " ".repeat(numberWidth)
         : String(row.newLine ?? "").padStart(numberWidth);
-    const gutterFor = (lineIndex: number): React.ReactNode => {
+    const gutterFor = (lineIndex: number, isCaretLine: boolean): React.ReactNode => {
+      const bar = (
+        <span fg={isCaretLine ? tokens.accent : tokens.textDim}>{isCaretLine ? "▎" : " "}</span>
+      );
+
       if (fileView) {
         // a plain file has no old/new sides, so one line number reads like an ordinary file viewer
-        return lineIndex === 0 ? (
+        return (
           <>
-            <span fg={barColor}>{barChar}</span>
-            <span fg={tokens.textDim}>{String(row.newLine ?? "").padStart(numberWidth)}</span>
-            <span> </span>
+            {bar}
+            {lineIndex === 0 ? (
+              <span fg={tokens.textDim}>{String(row.newLine ?? "").padStart(numberWidth)} </span>
+            ) : (
+              " ".repeat(numberWidth + 1)
+            )}
           </>
-        ) : (
-          " ".repeat(numberWidth + 2)
         );
       }
       if (split) {
-        return lineIndex === 0 ? (
+        return (
           <>
-            <span fg={isCaretRow ? tokens.accent : tokens.textDim}>{splitGutter.slice(0, 6)}</span>
-            <span fg={rowBaseColor(row, tokens)}>{splitGutter.slice(6)}</span>
+            {bar}
+            {lineIndex === 0 ? (
+              <>
+                <span fg={tokens.textDim}>{splitGutter.slice(0, 5)}</span>
+                <span fg={rowBaseColor(row, tokens)}>{splitGutter.slice(5)}</span>
+              </>
+            ) : (
+              " ".repeat(GUTTER_COLUMNS - 1)
+            )}
           </>
-        ) : (
-          " ".repeat(GUTTER_COLUMNS)
         );
       }
       // stacked: caret bar, old new (each tinted red/green on its side), then the change sign;
       // the numbers sit on the row's soft band, only the changed code carries the brighter backdrop
       return lineIndex === 0 ? (
         <>
-          <span fg={barColor}>{barChar}</span>
+          {bar}
           <span fg={row.kind === "del" ? tokens.deletedForeground : tokens.textDim}>
             {oldNumber}
           </span>
@@ -689,7 +758,7 @@ export function DiffContentView({
         </>
       ) : (
         <>
-          <span fg={barColor}>{barChar}</span>
+          {bar}
           {" ".repeat(unifiedGutterColumns - 1)}
         </>
       );
@@ -700,6 +769,9 @@ export function DiffContentView({
     for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
       const line = lines[lineIndex]!;
       const isLastLine = lineIndex === lines.length - 1;
+      const lineRanges = lineMarkRanges(ranges, line);
+      const isCaretLine =
+        isCaretRow && (text.length === 0 || lineRanges.some((range) => range.caretOnly));
 
       lineNodes.push(
         <box
@@ -708,10 +780,10 @@ export function DiffContentView({
         >
           <text
             selectable={false}
-            fg={isCaretRow && lineIndex === 0 ? tokens.accent : tokens.textDim}
-            style={{ flexShrink: 0, wrapMode: "none" }}
+            fg={isCaretLine ? tokens.accent : tokens.textDim}
+            style={{ flexShrink: 0, height: 1, alignSelf: "flex-start", wrapMode: "none" }}
           >
-            {gutterFor(lineIndex)}
+            {gutterFor(lineIndex, isCaretLine)}
           </text>
           <text
             selectable={false}
@@ -722,7 +794,7 @@ export function DiffContentView({
             {codeLineSpans(
               text.slice(line.start, line.end),
               line.start,
-              lineMarkRanges(ranges, line),
+              lineRanges,
               fgByColumn,
               emphasisBgByColumn,
               rejected,
@@ -880,7 +952,9 @@ export function DiffContentView({
           id="diff-scroll"
           ref={scrollRef}
           style={{ flexGrow: 1 }}
+          focusable={false}
           focused={false}
+          scrollAcceleration={wheelAcceleration}
           verticalScrollbarOptions={{ visible: false }}
         >
           {materialized}

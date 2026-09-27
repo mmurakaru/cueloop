@@ -107,9 +107,24 @@ test("walking the caret down past wrapped discussion cards keeps it on screen an
     await press(setup, "down");
   }
 
-  // Assert - scrollTop only ever grows going down (never rebounds/jitters)
+  // A key advances the viewport by at most one visual line, even across a tall card.
   for (let step = 1; step < scrollTops.length; step++) {
     expect(scrollTops[step]!).toBeGreaterThanOrEqual(scrollTops[step - 1]!);
+    expect(scrollTops[step]! - scrollTops[step - 1]!).toBeLessThanOrEqual(1);
+  }
+
+  // Walk back through the same cards: upward reveal must also stay one row at a time.
+  const upwardTops: number[] = [];
+
+  for (let step = 0; step < codeRowCount + 20; step++) {
+    upwardTops.push(scrollbox.scrollTop);
+    screenRows.push(caretScreenRow());
+    await press(setup, "up");
+  }
+
+  for (let step = 1; step < upwardTops.length; step++) {
+    expect(upwardTops[step]!).toBeLessThanOrEqual(upwardTops[step - 1]!);
+    expect(upwardTops[step - 1]! - upwardTops[step]!).toBeLessThanOrEqual(1);
   }
 
   // Assert - the caret never scrolls off screen while it walks past each wrapped card
@@ -119,6 +134,107 @@ test("walking the caret down past wrapped discussion cards keeps it on screen an
 
   setup.renderer.destroy();
 }, 25000);
+
+test("wheel input accelerates a continuous gesture and settles back to precise steps", async () => {
+  const rows = diffRows(tallPatch(80));
+  const setup = await testRender(
+    <DiffContentView
+      rows={rows}
+      session={fixtureDiffSession()}
+      marks={marksByRows([], rows)}
+      quickActions={[]}
+      observer={false}
+      onAnnotate={noop}
+      onReply={noop}
+      onUpdateAnnotation={noop}
+      onExit={noop}
+    />,
+    { width: 60, height: 12 },
+  );
+
+  await settle(setup);
+  const found = findById(setup.renderer.root, "diff-scroll");
+
+  if (!(found instanceof ScrollBoxRenderable)) throw new Error("diff-scroll is not a scrollbox");
+  const scrollbox = found;
+  const acceleration = scrollbox.scrollAcceleration;
+  const first = acceleration.tick(1000);
+  const burst = Array.from({ length: 10 }, (_, index) => acceleration.tick(1016 + index * 16));
+  const tail = acceleration.tick(1400);
+
+  expect(scrollbox.verticalScrollBar.scrollStep).toBe(1);
+  expect(first).toBe(1);
+  expect(Math.max(...burst)).toBeGreaterThan(first);
+  expect(tail).toBe(1);
+
+  acceleration.reset();
+  await setup.mockMouse.scroll(20, 5, "down");
+  await settle(setup);
+  expect(scrollbox.scrollTop).toBeGreaterThan(0);
+
+  setup.renderer.destroy();
+});
+
+test("walking long wrapped code lines advances the viewport one visual row per key", async () => {
+  const lines = Array.from(
+    { length: 36 },
+    (_, index) =>
+      `+line ${String(index).padStart(2, "0")} ${"a paragraph with several wrapped phrases ".repeat(5)}`,
+  );
+  const rows = diffRows(
+    [
+      "diff --git a/long.md b/long.md",
+      "--- a/long.md",
+      "+++ b/long.md",
+      "@@ -0,0 +1,36 @@",
+      ...lines,
+      "",
+    ].join("\n"),
+  );
+  const setup = await testRender(
+    <DiffContentView
+      rows={rows}
+      session={fixtureDiffSession()}
+      marks={marksByRows([], rows)}
+      quickActions={[]}
+      observer={false}
+      onAnnotate={noop}
+      onReply={noop}
+      onUpdateAnnotation={noop}
+      onExit={noop}
+    />,
+    { width: 60, height: 12 },
+  );
+
+  await settle(setup);
+  const found = findById(setup.renderer.root, "diff-scroll");
+
+  if (!(found instanceof ScrollBoxRenderable)) throw new Error("diff-scroll is not a scrollbox");
+  const scrollbox = found;
+  const steps: number[] = [];
+  const caretCell = annotationPaletteFor(DARK).caretCell;
+
+  for (let index = 0; index < 45; index++) {
+    const before = scrollbox.scrollTop;
+
+    await press(setup, "down");
+    steps.push(scrollbox.scrollTop - before);
+    const caretRow = setup
+      .captureSpans()
+      .lines.findIndex((line) => line.spans.some((span) => hex(span.bg) === caretCell));
+    const markerRows = setup
+      .captureCharFrame()
+      .split("\n")
+      .flatMap((line, row) => (line.includes("▎") ? [row] : []));
+
+    expect(caretRow).toBeGreaterThanOrEqual(0);
+    expect(markerRows).toEqual([caretRow]);
+  }
+
+  expect(Math.max(...steps)).toBeLessThanOrEqual(1);
+  expect(steps.some((step) => step > 0)).toBe(true);
+  setup.renderer.destroy();
+});
 
 test("opening a comment on the diff's last line reveals its composer", async () => {
   const rows = diffRows(tallPatch(24));

@@ -97,6 +97,13 @@ export interface AnnotationSurfaceOptions {
   onObserverBlocked?: (reason: "observer" | "resolved") => void;
   /** Reports the caret's block, so block-level primitives (cut, restore) act where the caret is. */
   onCursorChange?: (blockIndex: number) => void;
+  /** Scroll a visual row before crossing a tall gap; true defers the caret move. */
+  onVerticalStep?: (
+    fromBlock: number,
+    toBlock: number,
+    direction: -1 | 1,
+    targetY?: number,
+  ) => boolean;
   /** The rail's focused card; the discussion holding it takes focus here. */
   focusedAnnotationId?: string;
   /** Reports the focused discussion's root comment, so the rail follows. */
@@ -192,6 +199,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     onComposingChange,
     onObserverBlocked,
     onCursorChange,
+    onVerticalStep,
     focusedAnnotationId,
     onFocusAnnotation,
     onAnnotate,
@@ -336,7 +344,10 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
       x: entry.renderable.x,
       y: entry.renderable.y,
     }));
-  const verticalTextPosition = (position: TextPosition, direction: -1 | 1): TextPosition | null => {
+  const verticalTextPosition = (
+    position: TextPosition,
+    direction: -1 | 1,
+  ): { position: TextPosition; y: number } | null => {
     const lines = allGeometry()
       .filter((line) => source.annotatable(line.blockIndex))
       .toSorted((left, right) => left.y - right.y || left.x - right.x);
@@ -353,8 +364,11 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     const column = Math.max(0, position.char - current.start);
 
     return {
-      blockIndex: target.blockIndex,
-      char: Math.min(target.end, target.start + column),
+      position: {
+        blockIndex: target.blockIndex,
+        char: Math.min(target.end, target.start + column),
+      },
+      y: target.y,
     };
   };
 
@@ -671,22 +685,31 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     );
   };
 
+  const moveCaretVertical = (key: KeyEvent, vertical: -1 | 1): void => {
+    const nextBlock = nearestAnnotatable(source, cursor, vertical);
+    const visualTarget = verticalTextPosition(head, vertical);
+
+    if (!visualTarget && nextBlock === head.blockIndex) return;
+    const nextHead = visualTarget?.position ?? {
+      blockIndex: nextBlock,
+      char: key.shift ? Math.min(head.char, textLengthOf(nextBlock)) : 0,
+    };
+
+    if (onVerticalStep?.(head.blockIndex, nextHead.blockIndex, vertical, visualTarget?.y)) return;
+
+    setCaret({
+      head: nextHead,
+      anchor: key.shift ? caret.anchor : nextHead,
+    });
+    setFocusedDiscussion(null);
+    setCursor(nextHead.blockIndex);
+  };
+
   const handleCaretKey = (key: KeyEvent): boolean => {
     const vertical = verticalCaretDelta(key);
 
     if (vertical !== 0) {
-      const nextBlock = nearestAnnotatable(source, cursor, vertical);
-      const nextHead = verticalTextPosition(head, vertical) ?? {
-        blockIndex: nextBlock,
-        char: key.shift ? Math.min(head.char, textLengthOf(nextBlock)) : 0,
-      };
-
-      setCaret({
-        head: nextHead,
-        anchor: key.shift ? caret.anchor : nextHead,
-      });
-      setFocusedDiscussion(null);
-      setCursor(nextHead.blockIndex);
+      moveCaretVertical(key, vertical);
 
       return true;
     }

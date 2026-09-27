@@ -29,6 +29,10 @@ export interface TerminalVirtualizer {
   measureRef: (index: number) => (renderable: BoxRenderable | null) => void | (() => void);
   /** Scroll the item into view; "auto" only scrolls when it is off screen. */
   scrollToIndex: (index: number, align?: "auto" | "start" | "center" | "end") => void;
+  /** Measured or estimated visual-row offset of an item. */
+  startOfIndex: (index: number) => number | undefined;
+  /** Move the native viewport to an exact visual-row offset. */
+  scrollToOffset: (offset: number) => void;
 }
 
 /** Visible rows and one-row scrolling for a held mouse mark at a viewport edge. */
@@ -255,5 +259,7 @@ export function useTerminalVirtualizer(options: TerminalVirtualizerOptions): Ter
       };
     },
     scrollToIndex: (index, align = "auto") => virtualizer.scrollToIndex(index, { align }),
+    startOfIndex: (index) => virtualizer.getOffsetForIndex(index, "start")?.[0],
+    scrollToOffset: (offset) => virtualizer.scrollToOffset(offset, { align: "start" }),
   };
 }
