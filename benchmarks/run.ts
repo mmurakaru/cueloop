@@ -37,6 +37,7 @@ const DEFAULT_SCRIPTS = [
   "daemon-roundtrip",
   "launch-many-threads",
   "tui-first-frame",
+  "diff-scroll-paint",
   "thread-switch",
   "nav-latency",
   "interaction-latency",

@@ -64,15 +64,16 @@ start, module load, daemon connect, and paint, in a real pseudo terminal.
 
 ## Scripts
 
-| script                | measures                                                                   |
-| --------------------- | -------------------------------------------------------------------------- |
-| `binary-startup`      | `--version` cold and warm, `--help`; needs the executable env, else none   |
-| `artifact-parse`      | plan parse, anchor resolution on the exact and fuzzy tier, diff rows       |
-| `daemon-roundtrip`    | daemon start to listen, client connect, session create and get p95         |
-| `tui-first-frame`     | spawn to ready signal in a real pseudo terminal, cold and warm             |
-| `interaction-latency` | render to ready, then eight caret moves down a large plan, median and p95  |
-| `large-stream`        | render to ready of a 180-file diff and caret steps through it, plus memory |
-| `non-ascii-stream`    | the same on wide characters and emoji                                      |
+| script                | measures                                                                                                         |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `binary-startup`      | `--version` cold and warm, `--help`; needs the executable env, else none                                         |
+| `artifact-parse`      | plan parse, anchor resolution on the exact and fuzzy tier, diff rows                                             |
+| `daemon-roundtrip`    | daemon start to listen, client connect, session create and get p95                                               |
+| `tui-first-frame`     | spawn to ready signal in a real pseudo terminal, cold and warm                                                   |
+| `interaction-latency` | render to ready, then eight caret moves down a large plan, median and p95                                        |
+| `diff-scroll-paint`   | real-terminal boundary arrows: completed frames, caret and row completeness, paint latency, and a fast key burst |
+| `large-stream`        | render to ready of a 180-file diff and caret steps through it, plus memory                                       |
+| `non-ascii-stream`    | the same on wide characters and emoji                                                                            |
 
 ## Add a metric
 
@@ -127,6 +128,10 @@ Pushes to main cannot bypass the gate.
 
 The native shims ship for darwin-arm64 only, so the pseudo-terminal first
 frame is measured on that target and the other three compare binary startup.
+The diff-scroll paint script also runs in the release gate against the previous
+binary. Its frame and completeness counts are informational; row-paint latency
+uses the gate's normal timing threshold. The PTY test asserts one complete
+caret frame at a known scroll boundary.
 
 ## Pull requests and history
 
