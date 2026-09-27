@@ -3,10 +3,14 @@ import {
   addTab,
   changesTab,
   closeTab,
+  countEditorGroups,
   containsGroup,
   fileTab,
   firstGroupId,
+  keepFileTab,
   makeGroup,
+  MAX_EDITOR_GROUPS,
+  openFileTab,
   splitGroup,
   type EditorBranch,
   type EditorGroup,
@@ -38,6 +42,42 @@ describe("editor grid", () => {
     expect(next.activeTabId).toBe(file.id);
   });
 
+  test("a new preview replaces the group's previous preview", () => {
+    const group = makeGroup([changesTab()]);
+    const first = asGroup(openFileTab(group, group.id, "src/a.ts", "contents", false).tree);
+    const second = asGroup(openFileTab(first, group.id, "src/b.ts", "contents", false).tree);
+
+    expect(second.tabs.map((tab) => tab.path)).toEqual([undefined, "src/b.ts"]);
+    expect(second.tabs[1]?.preview).toBe(true);
+  });
+
+  test("keeping a preview makes subsequent previews open beside it", () => {
+    const group = makeGroup([changesTab()]);
+    const preview = asGroup(openFileTab(group, group.id, "src/a.ts", "contents", false).tree);
+    const kept = asGroup(keepFileTab(preview, group.id, preview.activeTabId!));
+    const next = asGroup(openFileTab(kept, group.id, "src/b.ts", "contents", false).tree);
+
+    expect(next.tabs.map((tab) => tab.path)).toEqual([undefined, "src/a.ts", "src/b.ts"]);
+    expect(next.tabs[1]?.preview).toBe(false);
+  });
+
+  test("reopening a file focuses its existing tab across groups and changes its view", () => {
+    const group = makeGroup([changesTab()]);
+    const open = asGroup(openFileTab(group, group.id, "src/a.ts", "contents", true).tree);
+    const { tree } = splitGroup(open, group.id, "right");
+    const branch = asBranch(tree);
+    const right = asGroup(branch.children[1]!);
+    const reopened = openFileTab(tree, group.id, "src/a.ts", "diff", false);
+
+    expect(reopened.focusGroupId).toBe(right.id);
+    expect(asGroup(asBranch(reopened.tree).children[1]!).tabs).toHaveLength(1);
+    expect(asGroup(asBranch(reopened.tree).children[1]!).tabs[0]).toMatchObject({
+      path: "src/a.ts",
+      fileView: "diff",
+      preview: false,
+    });
+  });
+
   test("splitting right makes a horizontal branch and focuses the new group", () => {
     const group = makeGroup([fileTab("App.tsx", "src/App.tsx", "diff")]);
     const { tree, focusGroupId } = splitGroup(group, group.id, "right");
@@ -48,6 +88,7 @@ describe("editor grid", () => {
     // the new group is the second child (right edge) and takes focus
     expect(branch.children[1]!.id).toBe(focusGroupId);
     expect(firstGroupId(tree)).toBe(group.id);
+    expect(asGroup(branch.children[0]!).tabs.some((tab) => tab.path === "src/App.tsx")).toBe(false);
   });
 
   test("splitting up makes a vertical branch with the new group first", () => {
@@ -56,6 +97,32 @@ describe("editor grid", () => {
     const branch = asBranch(tree);
     expect(branch.orientation).toBe("vertical");
     expect(branch.children[0]!.id).toBe(focusGroupId);
+  });
+
+  test("splitting a file-only group keeps the Changes tab unique", () => {
+    const changes = makeGroup([changesTab()]);
+    const file = makeGroup([fileTab("a.ts", "a.ts", "diff")]);
+    const tree: EditorNode = {
+      type: "branch",
+      id: "two-groups",
+      orientation: "horizontal",
+      children: [changes, file],
+    };
+    const split = splitGroup(tree, file.id, "down");
+
+    expect(asBranch(split.tree).children[0]).toBe(changes);
+    expect(asBranch(asBranch(split.tree).children[1]!).children[0]).toMatchObject({
+      tabs: [{ kind: "welcome" }],
+    });
+  });
+
+  test("splitting Changes moves it to the new group", () => {
+    const group = makeGroup([changesTab()]);
+    const split = splitGroup(group, group.id, "right");
+    const branch = asBranch(split.tree);
+
+    expect(asGroup(branch.children[0]!).tabs[0]?.kind).toBe("welcome");
+    expect(asGroup(branch.children[1]!).tabs[0]?.kind).toBe("changes");
   });
 
   test("closing the last tab of a split collapses the branch back to one group", () => {
@@ -82,5 +149,25 @@ describe("editor grid", () => {
     expect(containsGroup(tree, group.id)).toBe(true);
     const collapsed = closeTab(tree, rightGroup.id, rightGroup.tabs[0]!.id);
     expect(containsGroup(asGroup(collapsed), rightGroup.id)).toBe(false);
+  });
+
+  test("mixed split directions stop at eight editor groups", () => {
+    const first = makeGroup([changesTab()]);
+    let tree: EditorNode = first;
+    let focusGroupId = first.id;
+    const directions = ["right", "up", "left", "down"] as const;
+
+    for (const direction of [...directions, ...directions]) {
+      const result = splitGroup(tree, focusGroupId, direction);
+
+      tree = result.tree;
+      focusGroupId = result.focusGroupId;
+    }
+
+    expect(countEditorGroups(tree)).toBe(MAX_EDITOR_GROUPS);
+    const excess = splitGroup(tree, focusGroupId, "right");
+
+    expect(excess.tree).toBe(tree);
+    expect(excess.focusGroupId).toBe(focusGroupId);
   });
 });

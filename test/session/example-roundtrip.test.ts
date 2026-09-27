@@ -12,7 +12,7 @@ test("the two-terminal example receives and acknowledges a Message", async () =>
   server.start();
   const client = await DaemonClient.connect({ home });
   const child = Bun.spawn(
-    [process.execPath, "run", join(import.meta.dir, "../../examples/2-agent-roundtrip/run.ts")],
+    [process.execPath, "run", join(import.meta.dir, "../../examples/agent-roundtrip/run.ts")],
     {
       env: {
         ...process.env,

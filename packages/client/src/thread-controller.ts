@@ -293,8 +293,8 @@ export interface ReviewController {
   isFileExpanded(file: string): boolean;
   /** Whether the file carries the full contents weaving needs (curatable diffs do). */
   canExpandFile(file: string): boolean;
-  /** Copy a file's path to the clipboard; reports the outcome via status. */
-  copyFilePath(file: string): void;
+  /** Copy a file's path to the clipboard; the control reports the outcome. */
+  copyFilePath(file: string): Promise<boolean>;
   /** Per-file added/removed line counts from the base rows (survives collapse). */
   fileStats(): Map<string, { additions: number; deletions: number }>;
   /** The walk's step list, derived from the diff rows. */
@@ -782,10 +782,8 @@ class Controller implements ReviewController {
     return (this.foldFiles() ?? []).some((entry) => entry.path === file);
   }
 
-  copyFilePath(file: string): void {
-    void copyToClipboard(file).then((copied) =>
-      this.setStatus(copied ? `copied ${file}` : "no clipboard tool available"),
-    );
+  copyFilePath(file: string): Promise<boolean> {
+    return copyToClipboard(file);
   }
 
   fileStats(): Map<string, { additions: number; deletions: number }> {

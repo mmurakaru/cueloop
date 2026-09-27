@@ -113,6 +113,44 @@ const rightToggleColumn = (setup: Setup): number => toggleColumn(setup, NERD.sid
 const railToggleColumn = (setup: Setup): number => toggleColumn(setup, NERD.sidebarRightOff);
 
 describe("the four-pane workbench", () => {
+  test("rapid wheel scrolling a large Changes diff keeps the app responsive", async () => {
+    const filePatches = Array.from({ length: 40 }, (_, fileIndex) => [
+      `diff --git a/file-${fileIndex}.ts b/file-${fileIndex}.ts`,
+      `--- a/file-${fileIndex}.ts`,
+      `+++ b/file-${fileIndex}.ts`,
+      "@@ -0,0 +1,10 @@",
+      ...Array.from(
+        { length: 10 },
+        (_, lineIndex) => `+line ${lineIndex} ${"dense source text ".repeat(40)}`,
+      ),
+    ]).flat();
+    const large = server.core.sessionCreate({
+      workspace: { repoRoot: repo, branch: "main" },
+      artifact: {
+        type: "diff",
+        content: [...filePatches, ""].join("\n"),
+        meta: { title: "large changes" },
+      },
+    });
+    const setup = await renderReadyApp(<App home={home} sessionId={large.id} />, {
+      width: 160,
+      height: 20,
+    });
+
+    await waitForText(setup, "file-0.ts");
+    for (const [index, direction] of Array.from({ length: 500 }, () => "down" as const).entries()) {
+      // eslint-disable-next-line no-await-in-loop
+      await setup.mockMouse.scroll(75, 10, direction);
+      if (index % 25 === 0) {
+        // eslint-disable-next-line no-await-in-loop
+        await setup.waitForVisualIdle();
+      }
+    }
+    await setup.waitForVisualIdle();
+    expect(setup.captureCharFrame()).toContain("changes");
+    setup.renderer.destroy();
+  }, 60000);
+
   test("pair starts focused on the Project tree beside the zoomed Changes editor", async () => {
     const setup = await renderReadyApp(
       <App home={home} sessionId={session.id} layout={pairLayout()} />,
@@ -198,6 +236,8 @@ describe("the four-pane workbench", () => {
     expect(frame).toContain("cueloop");
     expect(frame).toContain("Changes");
     expect(frame).toContain("store.ts");
+    expect(frame).toContain("src/store.ts");
+    expect(frame).toContain(NERD.copy);
     // the diff (±) toggle exists in the Project header
     expect(diffToggleColumn(setup)).toBeGreaterThan(0);
   });
@@ -233,6 +273,43 @@ describe("the four-pane workbench", () => {
     expect(frame.split("\n")[HEADER_ROW]!).toContain("README.md");
   });
 
+  test("project clicks reuse one preview and a double-click keeps the file open once", async () => {
+    const setup = await renderApp();
+
+    await setup.mockMouse.click(treeToggleColumn(setup), HEADER_ROW);
+    await waitForText(setup, "README.md");
+    const readme = locateText(setup, "README.md");
+    await setup.mockMouse.click(readme.column, readme.row);
+    await waitForState(setup, () =>
+      setup.captureCharFrame().split("\n")[HEADER_ROW]!.includes("README.md"),
+    );
+
+    const folder = locateText(setup, "src");
+    await setup.mockMouse.click(folder.column, folder.row);
+    await waitForText(setup, "util.ts");
+    const util = locateText(setup, "util.ts");
+    await setup.mockMouse.click(util.column, util.row);
+    await waitForState(setup, () => {
+      const header = setup.captureCharFrame().split("\n")[HEADER_ROW]!;
+
+      return header.includes("util.ts") && !header.includes("README.md");
+    });
+
+    await setup.mockMouse.doubleClick(util.column, util.row);
+    await setup.mockMouse.click(readme.column, readme.row);
+    await waitForState(setup, () => {
+      const header = setup.captureCharFrame().split("\n")[HEADER_ROW]!;
+
+      return header.includes("util.ts") && header.includes("README.md");
+    });
+    await setup.mockMouse.click(util.column, util.row);
+    const header = setup.captureCharFrame().split("\n")[HEADER_ROW]!;
+
+    expect(header.match(/util\.ts/g)).toHaveLength(1);
+    expect(header.match(/README\.md/g)).toHaveLength(1);
+    setup.renderer.destroy();
+  });
+
   test("the split control offers four directions and arrow-right makes two groups", async () => {
     const setup = await renderApp();
 
@@ -255,8 +332,15 @@ describe("the four-pane workbench", () => {
 
     // the arrow keys drive the popover: right splits the group into two
     await pressKey(setup, "ARROW_RIGHT");
-    await waitForState(setup, () => setup.captureCharFrame().split("split").length - 1 >= 2);
-    expect((setup.captureCharFrame().match(/README\.md/g) ?? []).length).toBeGreaterThanOrEqual(2);
+    await waitForState(setup, () =>
+      /│ Changes\s+│.*│ README\.md/.test(setup.captureCharFrame().split("\n")[HEADER_ROW]!),
+    );
+    expect(
+      setup
+        .captureCharFrame()
+        .split("\n")
+        [HEADER_ROW]!.match(/README\.md/g),
+    ).toHaveLength(1);
   });
 
   test("dismissing the Changes tab collapses the Changes pane but keeps the Project sidebar", async () => {
@@ -461,6 +545,28 @@ describe("the bare-launch welcome shell", () => {
     expect(setup.captureCharFrame()).toContain("README.md");
   });
 
+  test("Review shows only the skill selected in TOML", async () => {
+    writeFileSync(process.env.CUELOOP_CONFIG!, '[review]\nskill = "custom-review"\n');
+    const setup = await renderWelcome();
+
+    await setup.mockMouse.click(1, HEADER_ROW);
+    await waitForText(setup, "settings");
+    const settings = locateText(setup, "settings");
+
+    await setup.mockMouse.click(settings.column, settings.row);
+    await waitForText(setup, "General");
+    const review = locateText(setup, "Review");
+
+    await setup.mockMouse.click(review.column, review.row);
+    await waitForText(setup, "custom-review");
+    expect(setup.captureCharFrame()).not.toContain("research");
+    const skill = locateText(setup, "custom-review");
+
+    await setup.mockMouse.click(skill.column, skill.row);
+    expect(setup.captureCharFrame()).toContain("custom-review");
+    setup.renderer.destroy();
+  });
+
   test("the first comment in the bare shell creates and persists a per-repo workbench thread", async () => {
     const setup = await renderWelcome();
 
@@ -499,6 +605,63 @@ describe("the bare-launch welcome shell", () => {
     // changes mode is the default; the edited README shows with its status
     await waitForText(setup, "README.md");
     expect(setup.captureCharFrame()).toContain("README.md");
+  });
+
+  test("a changed file tab keeps copy and expand without a collapse action", async () => {
+    const setup = await renderWelcome();
+
+    await waitForText(setup, "README.md");
+    const readme = locateText(setup, "README.md");
+
+    await setup.mockMouse.click(readme.column, readme.row);
+    await waitForText(setup, "edited in the working tree");
+    const frame = setup.captureCharFrame();
+
+    expect(frame).toContain(NERD.copy);
+    expect(frame).not.toContain("v README.md");
+    expect(frame).toContain("expand");
+    setup.renderer.destroy();
+  });
+
+  test("a bare changed-file tab uses Split only when zoomed in", async () => {
+    const setup = await renderWelcome();
+
+    await waitForText(setup, "README.md");
+    const readme = locateText(setup, "README.md");
+
+    await setup.mockMouse.click(readme.column, readme.row);
+    await waitForText(setup, "edited in the working tree");
+    const pairedLine = (line: string): boolean =>
+      line.includes("Workbench Fixture") && line.includes("+ # Fixture");
+
+    expect(setup.captureCharFrame().split("\n").some(pairedLine)).toBe(false);
+    const zoom = locateText(setup, NERD.zoom);
+
+    await setup.mockMouse.click(zoom.column, zoom.row);
+    await waitForState(setup, () => setup.captureCharFrame().split("\n").some(pairedLine));
+    expect(setup.captureCharFrame().split("\n").some(pairedLine)).toBe(true);
+    setup.renderer.destroy();
+  });
+
+  test("reopening Changes after dismissing Welcome keeps file actions", async () => {
+    const setup = await renderWelcome();
+    const welcome = locateText(setup, "Welcome");
+
+    await setup.mockMouse.click(welcome.column + 8, welcome.row);
+    await setup.mockMouse.click(diffToggleColumn(setup), HEADER_ROW);
+    await waitForText(setup, "edited in the working tree");
+    const frame = setup.captureCharFrame();
+
+    expect(frame).toContain("README.md");
+    expect(frame).toContain(NERD.copy);
+    const title = locateText(setup, "README.md");
+
+    await setup.mockMouse.click(title.column, title.row);
+    await waitForTextGone(setup, "edited in the working tree");
+    expect(setup.captureCharFrame()).toContain("README.md");
+    await setup.mockMouse.click(title.column, title.row);
+    await waitForText(setup, "edited in the working tree");
+    setup.renderer.destroy();
   });
 
   test("the changes tree clears after the launch repo becomes clean", async () => {
@@ -764,6 +927,49 @@ describe("the bare-launch welcome shell", () => {
     // the sidebar toggle closes the region
     await setup.mockMouse.click(rightToggleColumn(setup), HEADER_ROW);
     await waitForState(setup, () => diffToggleColumn(setup) === -1);
+  });
+
+  test("the changes sidebar label opens one Changes tab beside Welcome and reactivates it", async () => {
+    const setup = await renderWelcome();
+
+    await setup.mockMouse.click(diffToggleColumn(setup), HEADER_ROW);
+    await waitForText(setup, "edited in the working tree");
+    const firstHeader = setup.captureCharFrame().split("\n")[HEADER_ROW]!;
+
+    expect(firstHeader).toContain("Welcome");
+    expect(firstHeader).toContain("Changes");
+
+    const welcome = locateText(setup, "Welcome");
+
+    await setup.mockMouse.click(welcome.column, welcome.row);
+    await waitForText(setup, "Getting started");
+    await setup.mockMouse.click(diffToggleColumn(setup), HEADER_ROW);
+    await waitForText(setup, "edited in the working tree");
+    expect(
+      setup
+        .captureCharFrame()
+        .split("\n")
+        [HEADER_ROW]!.match(/Changes/g),
+    ).toHaveLength(1);
+    setup.renderer.destroy();
+  });
+
+  test("the changes sidebar label activates Changes beside an open file tab", async () => {
+    const setup = await renderWelcome();
+
+    await waitForText(setup, "README.md");
+    const file = locateText(setup, "README.md");
+
+    await setup.mockMouse.click(file.column, file.row);
+    await waitForText(setup, "README.md");
+    await setup.mockMouse.click(diffToggleColumn(setup), HEADER_ROW);
+    await waitForText(setup, "edited in the working tree");
+    const header = setup.captureCharFrame().split("\n")[HEADER_ROW]!;
+
+    expect(header).toContain("Welcome");
+    expect(header).toContain("README.md");
+    expect(header).toContain("Changes");
+    setup.renderer.destroy();
   });
 
   test("a closed region draws its reopen divider in the header only, not full-height", async () => {

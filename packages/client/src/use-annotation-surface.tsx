@@ -14,7 +14,8 @@
 
 import React, { useContext, useEffect, useRef, useState } from "react";
 import type { KeyEvent, MouseEvent as TerminalMouseEvent, TextRenderable } from "@opentui/core";
-import { useKeyboard } from "@opentui/react";
+import { flushSync } from "@opentui/react";
+import { useSharedKeyboard } from "./use-shared-keyboard";
 import type { Annotation, Thread } from "@cueloop/schema";
 import type { Mark } from "./view-plan";
 import type { QuickAction } from "./config";
@@ -97,6 +98,13 @@ export interface AnnotationSurfaceOptions {
   onObserverBlocked?: (reason: "observer" | "resolved") => void;
   /** Reports the caret's block, so block-level primitives (cut, restore) act where the caret is. */
   onCursorChange?: (blockIndex: number) => void;
+  /** Scroll a visual row before crossing a tall gap; true defers the caret move. */
+  onVerticalStep?: (
+    fromBlock: number,
+    toBlock: number,
+    direction: -1 | 1,
+    targetY?: number,
+  ) => boolean;
   /** The rail's focused card; the discussion holding it takes focus here. */
   focusedAnnotationId?: string;
   /** Reports the focused discussion's root comment, so the rail follows. */
@@ -129,6 +137,10 @@ export interface AnnotationSurface {
   focusedDiscussion: string | null;
   /** The block to keep in view: an opening card, a focused discussion, else the caret. */
   revealBlockIndex: number;
+  /** Screen row of the mounted visual line carrying the caret. */
+  headVisualY: () => number | undefined;
+  /** Capture mounted lines before a viewport scroll, then keep an exiting caret at its visible edge. */
+  prepareViewportScroll: () => (delta: number, top: number, bottom: number) => void;
   /** The text a span covers, blocks joined by a space, for previews. */
   spanQuote: (span: TextSpan) => string;
   /** Ref callback for one visual line, so a drag can hit-test it. */
@@ -192,6 +204,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     onComposingChange,
     onObserverBlocked,
     onCursorChange,
+    onVerticalStep,
     focusedAnnotationId,
     onFocusAnnotation,
     onAnnotate,
@@ -336,15 +349,55 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
       x: entry.renderable.x,
       y: entry.renderable.y,
     }));
-  const verticalTextPosition = (position: TextPosition, direction: -1 | 1): TextPosition | null => {
+  const headVisualY = (): number | undefined => {
+    const textLength = textLengthOf(head.blockIndex);
+    const cell = Math.max(0, Math.min(textLength - 1, head.char));
+
+    return allGeometry().find(
+      (line) =>
+        line.blockIndex === head.blockIndex &&
+        line.start <= cell &&
+        (cell < line.end || line.start === line.end),
+    )?.y;
+  };
+  const prepareViewportScroll = (): ((delta: number, top: number, bottom: number) => void) => {
+    const lines = allGeometry().filter((line) => source.annotatable(line.blockIndex));
+    const oldHeadY = headVisualY();
+
+    return (delta, top, bottom) => {
+      if (delta === 0 || oldHeadY === undefined || compose || focusedDiscussion || caretIsSelection)
+        return;
+      const shiftedHeadY = oldHeadY - delta;
+
+      if (shiftedHeadY >= top && shiftedHeadY <= bottom) return;
+      const visible = lines
+        .filter((line) => line.y - delta >= top && line.y - delta <= bottom)
+        .toSorted((left, right) => left.y - right.y || left.x - right.x);
+      const target = delta < 0 ? visible.at(-1) : visible[0];
+
+      if (!target) return;
+      const next = { blockIndex: target.blockIndex, char: target.start };
+
+      flushSync(() => {
+        setCaret({ head: next, anchor: next });
+        setCursor(next.blockIndex);
+      });
+    };
+  };
+  const verticalTextPosition = (
+    position: TextPosition,
+    direction: -1 | 1,
+  ): { position: TextPosition; y: number } | null => {
+    const textLength = textLengthOf(position.blockIndex);
+    const cell = Math.max(0, Math.min(textLength - 1, position.char));
     const lines = allGeometry()
       .filter((line) => source.annotatable(line.blockIndex))
       .toSorted((left, right) => left.y - right.y || left.x - right.x);
     const currentIndex = lines.findIndex(
       (line) =>
         line.blockIndex === position.blockIndex &&
-        line.start <= position.char &&
-        position.char <= line.end,
+        line.start <= cell &&
+        (cell < line.end || line.start === line.end),
     );
     const target = currentIndex === -1 ? undefined : lines[currentIndex + direction];
 
@@ -353,8 +406,11 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     const column = Math.max(0, position.char - current.start);
 
     return {
-      blockIndex: target.blockIndex,
-      char: Math.min(target.end, target.start + column),
+      position: {
+        blockIndex: target.blockIndex,
+        char: Math.min(target.end, target.start + column),
+      },
+      y: target.y,
     };
   };
 
@@ -671,22 +727,31 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     );
   };
 
+  const moveCaretVertical = (key: KeyEvent, vertical: -1 | 1): void => {
+    const nextBlock = nearestAnnotatable(source, cursor, vertical);
+    const visualTarget = verticalTextPosition(head, vertical);
+
+    if (!visualTarget && nextBlock === head.blockIndex) return;
+    const nextHead = visualTarget?.position ?? {
+      blockIndex: nextBlock,
+      char: key.shift ? Math.min(head.char, textLengthOf(nextBlock)) : 0,
+    };
+
+    if (onVerticalStep?.(head.blockIndex, nextHead.blockIndex, vertical, visualTarget?.y)) return;
+
+    setCaret({
+      head: nextHead,
+      anchor: key.shift ? caret.anchor : nextHead,
+    });
+    setFocusedDiscussion(null);
+    setCursor(nextHead.blockIndex);
+  };
+
   const handleCaretKey = (key: KeyEvent): boolean => {
     const vertical = verticalCaretDelta(key);
 
     if (vertical !== 0) {
-      const nextBlock = nearestAnnotatable(source, cursor, vertical);
-      const nextHead = verticalTextPosition(head, vertical) ?? {
-        blockIndex: nextBlock,
-        char: key.shift ? Math.min(head.char, textLengthOf(nextBlock)) : 0,
-      };
-
-      setCaret({
-        head: nextHead,
-        anchor: key.shift ? caret.anchor : nextHead,
-      });
-      setFocusedDiscussion(null);
-      setCursor(nextHead.blockIndex);
+      moveCaretVertical(key, vertical);
 
       return true;
     }
@@ -726,7 +791,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     openNewCompose(sequence);
   };
 
-  useKeyboard((key) => {
+  useSharedKeyboard((key) => {
     if (suspended) return;
     if (key.ctrl && key.name === "q") return onExit();
     const activeCompose = composeRef.current;
@@ -963,6 +1028,8 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     navMode,
     focusedDiscussion,
     revealBlockIndex,
+    headVisualY,
+    prepareViewportScroll,
     spanQuote,
     registerLine,
     onLineMouseDown,

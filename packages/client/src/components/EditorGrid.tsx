@@ -3,21 +3,31 @@
 // stays layout-only - a tab becomes a diff, a file's contents, or the aggregate Changes view upstream.
 
 import React, { useEffect, useRef, useState } from "react";
-import { useKeyboard } from "@opentui/react";
 import type { BoxRenderable } from "@opentui/core";
+import { isDoubleClick, type ClickStamp } from "../thread-selection";
 import { DARK, type Theme } from "../theme";
 import { useFrameMeasure } from "../use-frame-measure";
+import { useSharedKeyboard } from "../use-shared-keyboard";
 import { useRootOverlay } from "./RootOverlay";
 import { useMenuControl } from "./menu-control";
 import { IconButton } from "./primitives/IconButton";
 import { NERD, HEADER_UNDERLINE_CHARS } from "./primitives/icons";
-import type { EditorGroup, EditorNode, EditorTab, SplitDirection } from "./editor-grid";
+import {
+  countEditorGroups,
+  MAX_EDITOR_GROUPS,
+  type EditorBranch,
+  type EditorGroup,
+  type EditorNode,
+  type EditorTab,
+  type SplitDirection,
+} from "./editor-grid";
 
 export interface EditorGridProps {
   tree: EditorNode;
   focusedGroupId: string | null;
   onFocusGroup: (groupId: string) => void;
   onActivateTab: (groupId: string, tabId: string) => void;
+  onKeepTab?: (groupId: string, tabId: string) => void;
   onCloseTab: (groupId: string, tabId: string) => void;
   onSplit: (groupId: string, direction: SplitDirection) => void;
   onZoom: () => void;
@@ -37,6 +47,14 @@ const SPLIT_ITEMS: ReadonlyArray<{ label: string; direction: SplitDirection; arr
 ];
 
 const MENU_WIDTH = 12;
+const MIN_GROUP_WIDTH = 24;
+const MIN_GROUP_HEIGHT = 8;
+
+function canSplitGroup(width: number, height: number, direction: SplitDirection): boolean {
+  return direction === "left" || direction === "right"
+    ? width >= MIN_GROUP_WIDTH * 2 + 1
+    : height >= MIN_GROUP_HEIGHT * 2 + 1;
+}
 
 /** An arrow key maps straight to its split direction; other keys leave the menu untouched. */
 function splitDirectionForKey(name: string): SplitDirection | null {
@@ -50,6 +68,7 @@ function EditorTabButton({
   active,
   commentCount,
   onSelect,
+  onKeep,
   onClose,
   tokens,
 }: {
@@ -58,15 +77,24 @@ function EditorTabButton({
   /** Comments on this tab's file, shown as a dot-and-count badge; 0 shows nothing. */
   commentCount: number;
   onSelect: () => void;
+  onKeep?: () => void;
   onClose: () => void;
   tokens: Theme;
 }): React.ReactNode {
   const [hovered, setHovered] = useState(false);
+  const lastClick = useRef<ClickStamp | null>(null);
 
   return (
     <box
       id={tab.id}
-      onMouseUp={onSelect}
+      onMouseUp={(event) => {
+        const stamp = { time: Date.now(), x: event.x, y: event.y };
+        const doubleClick = isDoubleClick(lastClick.current, stamp);
+
+        lastClick.current = stamp;
+        onSelect();
+        if (doubleClick && tab.preview) onKeep?.();
+      }}
       onMouseOver={() => setHovered(true)}
       onMouseOut={() => setHovered(false)}
       style={{
@@ -156,9 +184,11 @@ export function visibleTabWindow(
 
 function SplitMenu({
   onPick,
+  canPick,
   tokens,
 }: {
   onPick: (direction: SplitDirection) => void;
+  canPick: (direction: SplitDirection) => boolean;
   tokens: Theme;
 }): React.ReactNode {
   return (
@@ -175,10 +205,10 @@ function SplitMenu({
       {SPLIT_ITEMS.map((item) => (
         <box
           key={item.direction}
-          onMouseUp={() => onPick(item.direction)}
+          onMouseUp={canPick(item.direction) ? () => onPick(item.direction) : undefined}
           style={{ flexDirection: "row", paddingLeft: 1, paddingRight: 1 }}
         >
-          <text fg={tokens.text}>{item.label}</text>
+          <text fg={canPick(item.direction) ? tokens.text : tokens.textDim}>{item.label}</text>
           <box style={{ flexGrow: 1 }} />
           <text fg={tokens.textDim}>{item.arrow}</text>
         </box>
@@ -190,15 +220,28 @@ function SplitMenu({
 function EditorGroupPane({
   group,
   props,
+  showZoom,
+  splitDisabled,
 }: {
   group: EditorGroup;
   props: EditorGridProps;
+  showZoom: boolean;
+  splitDisabled: boolean;
 }): React.ReactNode {
   const tokens = props.theme ?? DARK;
   const menuControl = useMenuControl();
   const { setOverlay, clearOverlay } = useRootOverlay();
   const menuId = `split:${group.id}`;
   const menuOpen = menuControl.openMenuId === menuId;
+  const groupRef = useRef<BoxRenderable | null>(null);
+  const groupSize = useFrameMeasure(
+    () => ({ width: groupRef.current?.width ?? 0, height: groupRef.current?.height ?? 0 }),
+    (left, right) => left.width === right.width && left.height === right.height,
+    { width: 0, height: 0 },
+  );
+  const canSplit = (direction: SplitDirection): boolean =>
+    !splitDisabled && canSplitGroup(groupSize.width, groupSize.height, direction);
+  const cannotSplit = !SPLIT_ITEMS.some((item) => canSplit(item.direction));
   const splitRef = useRef<BoxRenderable | null>(null);
   const anchor = useFrameMeasure(
     () => ({
@@ -211,13 +254,13 @@ function EditorGroupPane({
     menuOpen,
   );
   const active = group.tabs.find((tab) => tab.id === group.activeTabId) ?? group.tabs[0];
-  const isFile = active?.kind === "file";
 
-  useKeyboard((key) => {
+  useSharedKeyboard((key) => {
     if (!menuOpen) return;
     if (key.name === "escape") return menuControl.closeMenu();
     const direction = splitDirectionForKey(key.name);
-    if (direction) {
+
+    if (direction && canSplit(direction)) {
       props.onSplit(group.id, direction);
       menuControl.closeMenu();
     }
@@ -240,9 +283,11 @@ function EditorGroupPane({
         >
           <SplitMenu
             onPick={(direction) => {
+              if (!canSplit(direction)) return;
               props.onSplit(group.id, direction);
               menuControl.closeMenu();
             }}
+            canPick={canSplit}
             tokens={tokens}
           />
         </box>
@@ -251,7 +296,7 @@ function EditorGroupPane({
 
     return () => clearOverlay("split-menu");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [menuOpen, anchor, tokens]);
+  }, [menuOpen, anchor, tokens, groupSize.width, groupSize.height, splitDisabled]);
   // The strip windows its tabs rather than scrolling a nested scrollbox (which stalls the
   // renderer inside this header): tabs keep the width of their names, only the run that fits
   // renders, and the window follows the active tab so a tab opened past the edge is never hidden.
@@ -281,6 +326,8 @@ function EditorGroupPane({
 
   return (
     <box
+      id={`editor-group:${group.id}`}
+      ref={groupRef}
       onMouseDown={() => props.onFocusGroup(group.id)}
       style={{ flexDirection: "column", flexGrow: 1, flexBasis: 0, minWidth: 0, minHeight: 0 }}
     >
@@ -326,6 +373,7 @@ function EditorGroupPane({
               active={tab.id === active?.id}
               commentCount={tab.path ? (props.commentCounts?.get(tab.path) ?? 0) : 0}
               onSelect={() => props.onActivateTab(group.id, tab.id)}
+              onKeep={() => props.onKeepTab?.(group.id, tab.id)}
               onClose={() => props.onCloseTab(group.id, tab.id)}
               tokens={tokens}
             />
@@ -346,40 +394,97 @@ function EditorGroupPane({
         </box>
         <box style={{ flexDirection: "row", flexShrink: 0, paddingLeft: 1, paddingRight: 1 }}>
           {/* search sits out until it does something; split takes its place */}
-          {isFile ? (
-            <box ref={splitRef} style={{ flexShrink: 0, marginRight: 2 }}>
-              <IconButton
-                glyph="split"
-                active={menuOpen}
-                onPress={() => menuControl.toggleMenu(menuId)}
-                theme={tokens}
-              />
-            </box>
+          <box
+            id={`split-button:${group.id}`}
+            ref={splitRef}
+            style={{ flexShrink: 0, marginRight: showZoom ? 2 : 0 }}
+          >
+            <IconButton
+              glyph="split"
+              active={menuOpen}
+              disabled={cannotSplit}
+              onPress={() => menuControl.toggleMenu(menuId)}
+              tip={
+                splitDisabled
+                  ? "Maximum 8 editor groups"
+                  : cannotSplit
+                    ? "Tile too small to split"
+                    : undefined
+              }
+              theme={tokens}
+            />
+          </box>
+          {showZoom ? (
+            <IconButton
+              glyph={NERD.zoom}
+              active={props.zoomed}
+              onPress={props.onZoom}
+              tip={props.zoomed ? "Zoom Out" : "Zoom In"}
+              theme={tokens}
+            />
           ) : null}
-          <IconButton
-            glyph={NERD.zoom}
-            active={props.zoomed}
-            onPress={props.onZoom}
-            tip={props.zoomed ? "Zoom Out" : "Zoom In"}
-            theme={tokens}
-          />
         </box>
       </box>
-      <box style={{ flexGrow: 1, flexDirection: "column" }}>
+      <box
+        style={{ flexGrow: 1, flexBasis: 0, minHeight: 0, minWidth: 0, flexDirection: "column" }}
+      >
         {active ? props.renderTab(active, props.focusedGroupId === group.id) : null}
       </box>
     </box>
   );
 }
 
-function GridNode({ node, props }: { node: EditorNode; props: EditorGridProps }): React.ReactNode {
+function GridNode({
+  node,
+  props,
+  showZoom,
+  splitDisabled,
+}: {
+  node: EditorNode;
+  props: EditorGridProps;
+  showZoom: boolean;
+  splitDisabled: boolean;
+}): React.ReactNode {
   if (node.type === "group") {
-    return <EditorGroupPane group={node} props={props} />;
+    return (
+      <EditorGroupPane
+        group={node}
+        props={props}
+        showZoom={showZoom}
+        splitDisabled={splitDisabled}
+      />
+    );
   }
+
+  return (
+    <GridBranchPane node={node} props={props} showZoom={showZoom} splitDisabled={splitDisabled} />
+  );
+}
+
+function GridBranchPane({
+  node,
+  props,
+  showZoom,
+  splitDisabled,
+}: {
+  node: EditorBranch;
+  props: EditorGridProps;
+  showZoom: boolean;
+  splitDisabled: boolean;
+}): React.ReactNode {
   const tokens = props.theme ?? DARK;
   const horizontal = node.orientation === "horizontal";
+  const branchRef = useRef<BoxRenderable | null>(null);
+  const branchWidth = useFrameMeasure(
+    () => branchRef.current?.width ?? 0,
+    (left, right) => left === right,
+    0,
+  );
+  const leadingWidth = Math.floor((branchWidth - node.children.length + 1) / node.children.length);
+
   return (
     <box
+      ref={branchRef}
       style={{
         flexDirection: horizontal ? "row" : "column",
         flexGrow: 1,
@@ -388,39 +493,54 @@ function GridNode({ node, props }: { node: EditorNode; props: EditorGridProps })
         minHeight: 0,
       }}
     >
-      {node.children.map((child, index) => (
-        <React.Fragment key={child.id}>
-          {index > 0 ? (
+      {node.children.map((child, index) => {
+        const fixedWidth = horizontal && index < node.children.length - 1 && leadingWidth > 0;
+
+        return (
+          <React.Fragment key={child.id}>
+            {index > 0 ? (
+              <box
+                style={{
+                  borderStyle: "single",
+                  border: [horizontal ? "left" : "top"],
+                  borderColor: tokens.border,
+                }}
+              />
+            ) : null}
             <box
               style={{
-                borderStyle: "single",
-                border: [horizontal ? "left" : "top"],
-                borderColor: tokens.border,
+                flexDirection: "column",
+                // A fixed whole-cell share for leading horizontal groups leaves the last group
+                // the exact remainder. Equal fractional flex shares can overflow the right edge.
+                width: fixedWidth ? leadingWidth : undefined,
+                flexGrow: fixedWidth ? 0 : 1,
+                flexBasis: fixedWidth ? undefined : 0,
+                flexShrink: fixedWidth ? 0 : 1,
+                minWidth: 0,
+                minHeight: 0,
               }}
-            />
-          ) : null}
-          <box
-            style={{
-              flexDirection: "column",
-              flexGrow: 1,
-              flexBasis: 0,
-              minWidth: 0,
-              minHeight: 0,
-            }}
-          >
-            <GridNode node={child} props={props} />
-          </box>
-        </React.Fragment>
-      ))}
+            >
+              <GridNode
+                node={child}
+                props={props}
+                showZoom={showZoom && index === (horizontal ? node.children.length - 1 : 0)}
+                splitDisabled={splitDisabled}
+              />
+            </box>
+          </React.Fragment>
+        );
+      })}
     </box>
   );
 }
 
 /** The Changes pane body: the editor grid of groups and splits, each rendering its active tab. */
 export function EditorGrid(props: EditorGridProps): React.ReactNode {
+  const splitDisabled = countEditorGroups(props.tree) >= MAX_EDITOR_GROUPS;
+
   return (
     <box style={{ flexDirection: "column", flexGrow: 1, minWidth: 0, minHeight: 0 }}>
-      <GridNode node={props.tree} props={props} />
+      <GridNode node={props.tree} props={props} showZoom splitDisabled={splitDisabled} />
     </box>
   );
 }
