@@ -1,5 +1,14 @@
 # @cueloop/daemon
 
+## 0.1.0-alpha.94
+
+### Patch Changes
+
+- [#536](https://github.com/mmurakaru/cueloop/pull/536) [`8a424ff`](https://github.com/mmurakaru/cueloop/commit/8a424ff62a5ac724ab3d0cd20a7264f5cda9a5d6) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Paint the Changes file list in the first usable frame and shorten workbench setup.
+- Updated dependencies []:
+  - @cueloop/extension-api@0.1.0-alpha.94
+  - @cueloop/schema@0.1.0-alpha.94
+
 ## 0.1.0-alpha.93
 
 ### Patch Changes
