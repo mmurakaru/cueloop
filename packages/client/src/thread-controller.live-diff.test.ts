@@ -97,6 +97,36 @@ function fakeClient(session: Thread): ThreadClient {
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 describe("live working-tree diff for a non-diff thread", () => {
+  test("a preconnected workbench accepts a comment before its inbox refresh", async () => {
+    const session = planSession();
+    const sent: Annotation[] = [];
+    const client = {
+      ...fakeClient(session),
+      sessionComment: async (_id: string, annotation: Annotation) => {
+        sent.push(annotation);
+
+        return { ...session, annotations: sent };
+      },
+    } satisfies ThreadClient;
+    const controller = createReviewController({
+      sessionId: session.id,
+      initialSession: session,
+      initialDiff: { patch: PATCH, files: FILES },
+      initialClient: client,
+      shareTransport,
+    });
+
+    controller.addComment(
+      { quote: "const a = 2;", prefix: "", suffix: "" },
+      { kind: "file", path: "src/x.ts", rev: "worktree" },
+      "ready frame comment",
+    );
+
+    expect(sent).toHaveLength(1);
+    expect(sent[0]?.body).toBe("ready frame comment");
+    controller.close();
+  });
+
   test("repoChanges carries file contents and rows derive from the patch", async () => {
     const session = planSession();
     const controller = createReviewController({

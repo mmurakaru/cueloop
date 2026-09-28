@@ -22,7 +22,7 @@ import {
 } from "./open-target";
 import { sessionCommand } from "./thread-commands";
 import { CLI_VERSION } from "./version";
-import { DaemonClient } from "@cueloop/daemon/client";
+import { DaemonClient, DaemonClientError } from "@cueloop/daemon/client";
 import type { DiffFileContents, Thread, ThreadSurfaceOpenStatus } from "@cueloop/schema";
 import { openReview } from "@cueloop/daemon/thread-review";
 
@@ -272,11 +272,25 @@ async function diffCommand(argv: string[]): Promise<number> {
   if (wantsOpen) return openReviewOfKind(isDiffReview, "diff", selector, "review");
 
   const client = await DaemonClient.connect({ autostart: true });
-  const { session: workbench, diff } = await client.workbenchReview(process.cwd());
 
-  client.close();
+  try {
+    const cwd = process.cwd();
+    let initialReview: Awaited<ReturnType<DaemonClient["workbenchReview"]>>;
 
-  return runTui(workbench.id, "review", { session: workbench, diff });
+    try {
+      initialReview = await client.workbenchReview(cwd);
+    } catch (error) {
+      if (!(error instanceof DaemonClientError) || error.code !== "unknown_method") throw error;
+      const session = await client.sessionWorkbench(cwd);
+      const diff = await client.repoDiff(cwd);
+
+      initialReview = { session, diff };
+    }
+
+    return await runTui(initialReview.session.id, "review", initialReview, client);
+  } finally {
+    client.close();
+  }
 }
 
 async function pairCommand(argv: string[]): Promise<number> {
@@ -355,6 +369,7 @@ async function runTui(
     session: Thread;
     diff: { patch: string; files: DiffFileContents[] };
   },
+  initialClient?: DaemonClient,
 ): Promise<number> {
   const { runClient, pairLayout, reviewLayout, planLayout } = await import("@cueloop/client");
   const resolved =
@@ -366,7 +381,7 @@ async function runTui(
           ? pairLayout()
           : undefined;
 
-  return runClient({ sessionId, layout: resolved, initialReview });
+  return runClient({ sessionId, layout: resolved, initialReview, initialClient });
 }
 
 function printHelp(): void {

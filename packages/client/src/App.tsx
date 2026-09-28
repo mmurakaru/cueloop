@@ -114,6 +114,8 @@ export interface AppProps {
   sessionId?: string;
   /** Review data already captured by the command before the UI mounts. */
   initialReview?: { session: Thread; diff: { patch: string; files: DiffFileContents[] } };
+  /** An owner connection already opened by the launching command. */
+  initialClient?: ThreadClient;
   /** The launch directory whose git repo backs the no-session welcome tree; defaults to process.cwd(). */
   cwd?: string;
   /**
@@ -154,11 +156,15 @@ export interface AppProps {
 }
 
 function initialReviewControllerOptions(initialReview: AppProps["initialReview"]) {
-  return { initialSession: initialReview?.session, initialDiff: initialReview?.diff };
+  const options = { initialSession: initialReview?.session, initialDiff: initialReview?.diff };
+
+  return options;
 }
 
 function initialReviewFiles(initialReview: AppProps["initialReview"], sessionId: string) {
-  return initialReview?.session.id === sessionId ? initialReview.diff.files : undefined;
+  const files = initialReview?.session.id === sessionId ? initialReview.diff.files : undefined;
+
+  return files;
 }
 
 function extensionContext(cwd: string | undefined, threadId: string | null): ExtensionUIContext {
@@ -544,6 +550,7 @@ export function App({
   home,
   sessionId,
   initialReview,
+  initialClient,
   cwd,
   readOnly = false,
   onExit,
@@ -565,6 +572,7 @@ export function App({
         home,
         sessionId,
         ...initialReviewControllerOptions(initialReview),
+        initialClient,
         cwd,
         readOnly: observer,
         onExit,
@@ -595,6 +603,11 @@ export function App({
   );
   const { session, inbox, status, toast, error, completion, editOrphanCount, walk } =
     useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot);
+  const initialReviewForFirstMount = useRef(initialReview);
+
+  useEffect(() => {
+    initialReviewForFirstMount.current = undefined;
+  }, []);
 
   // A shared plan you own polls for collaborator notes while it is open; the
   // merge refreshes through the normal event path. Stops on leave.
@@ -1460,7 +1473,10 @@ export function App({
                 <ProjectPanelBody
                   mode={workbench.projectMode}
                   loadChanges={() => controller.repoChanges()}
-                  initialFiles={initialReviewFiles(initialReview, activeSession.id)}
+                  initialFiles={initialReviewFiles(
+                    initialReviewForFirstMount.current,
+                    activeSession.id,
+                  )}
                   loadProjectFiles={() => controller.repoFiles()}
                   diffSourceKey={activeSession.id}
                   {...projectDiffFiles(activeSession)}

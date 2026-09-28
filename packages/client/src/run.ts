@@ -7,6 +7,7 @@ import { App } from "./App";
 import { closePrototypeBrowser } from "./prototype-browser";
 import type { Appearance } from "./theme-presets";
 import type { DiffFileContents, Thread } from "@cueloop/schema";
+import type { ThreadClient } from "@cueloop/daemon/client";
 import { loadConfig } from "./config";
 import { perfMark } from "./perf/perf-timings";
 import { reportPerfMarks } from "./perf/perf-report";
@@ -19,6 +20,7 @@ import {
 export interface RunClientOptions {
   sessionId?: string;
   initialReview?: { session: Thread; diff: { patch: string; files: DiffFileContents[] } };
+  initialClient?: ThreadClient;
   home?: string;
   /** The layout a create-command opens in; omit to restore the remembered one, then the default. */
   layout?: LaunchLayout;
@@ -76,6 +78,7 @@ export async function runClient(options: RunClientOptions): Promise<number> {
           home: options.home,
           sessionId: options.sessionId,
           initialReview: options.initialReview,
+          initialClient: options.initialClient,
           appearance,
           layout,
           extensionRegistry,

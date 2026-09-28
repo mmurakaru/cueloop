@@ -621,7 +621,9 @@ export class DaemonCore {
    * first comment without an agent submission. Owner-only.
    */
   async workbenchSession(cwd: string): Promise<Thread> {
-    return (await this.openWorkbench(cwd)).session;
+    const opened = await this.openWorkbench(cwd);
+
+    return opened.session;
   }
 
   /** Return the workbench and its current diff from one capture. */

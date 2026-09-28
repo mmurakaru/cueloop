@@ -112,6 +112,14 @@ const rightToggleColumn = (setup: Setup): number => toggleColumn(setup, NERD.sid
 // the collapsed rail shows the outline (off) variant, mirroring the left toggle's filled/outline states
 const railToggleColumn = (setup: Setup): number => toggleColumn(setup, NERD.sidebarRightOff);
 
+function changedFileVisibleInRightTree(frame: string, file: string): boolean {
+  return frame.split("\n").some((line) => {
+    const divider = line.lastIndexOf("│");
+
+    return divider >= 0 && line.slice(divider + 1).includes(file);
+  });
+}
+
 describe("the four-pane workbench", () => {
   test("a bootstrapped workbench paints its changed-file list in the first usable frame", async () => {
     const workbench = server.core.sessionCreate({
@@ -142,16 +150,48 @@ describe("the four-pane workbench", () => {
       { width: 160, height: 20 },
     );
 
-    const treeLines = setup
-      .captureCharFrame()
-      .split("\n")
-      .flatMap((line) => {
-        const divider = line.lastIndexOf("│");
+    expect(changedFileVisibleInRightTree(setup.captureCharFrame(), "store.ts")).toBe(true);
+    setup.renderer.destroy();
+  });
 
-        return divider >= 0 ? [line.slice(divider + 1)] : [];
-      });
+  test("reopening Changes does not restore files from the launch snapshot", async () => {
+    const workbench = server.core.sessionCreate({
+      workspace: { repoRoot: repo, branch: "main" },
+      artifact: { type: "diff", content: "", meta: { title: "Workbench", workbench: true } },
+    });
+    const initialReview = {
+      session: workbench,
+      diff: {
+        patch: PATCH,
+        files: [
+          {
+            path: "src/store.ts",
+            oldContents: "before\n",
+            newContents: "after\n",
+            status: "modified" as const,
+          },
+        ],
+      },
+    };
+    const setup = await renderReadyApp(
+      <App
+        home={home}
+        sessionId={workbench.id}
+        initialReview={initialReview}
+        layout={reviewLayout()}
+      />,
+      { width: 160, height: 20 },
+    );
 
-    expect(treeLines.some((line) => line.includes("store.ts"))).toBe(true);
+    await waitForState(
+      setup,
+      () => !changedFileVisibleInRightTree(setup.captureCharFrame(), "store.ts"),
+    );
+    await setup.mockMouse.click(rightToggleColumn(setup), HEADER_ROW);
+    await waitForState(setup, () => diffToggleColumn(setup) === -1);
+    await setup.mockMouse.click(railToggleColumn(setup), HEADER_ROW);
+
+    expect(changedFileVisibleInRightTree(setup.captureCharFrame(), "store.ts")).toBe(false);
     setup.renderer.destroy();
   });
 

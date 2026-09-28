@@ -254,6 +254,8 @@ export interface ReviewControllerOptions {
   /** Captured before the UI mounts, so the first review frame has its thread and live diff. */
   initialSession?: Thread;
   initialDiff?: { patch: string; files: DiffFileContents[] };
+  /** The owner connection that supplied the first review snapshot. */
+  initialClient?: ThreadClient;
   /** The directory the client launched in; its git repo backs the no-session welcome tree. Defaults to process.cwd(). */
   cwd?: string;
   /** Observer mode: stored for the key reducer's read-only gate. */
@@ -518,6 +520,7 @@ class Controller implements ReviewController {
   }
 
   constructor(private readonly options: ReviewControllerOptions) {
+    this.client = options.initialClient ?? null;
     if (options.initialSession?.id === options.sessionId && options.initialDiff) {
       this.liveDiff = options.initialDiff;
       this.initialDiffAvailable = true;
@@ -550,7 +553,9 @@ class Controller implements ReviewController {
       try {
         const openClient =
           this.options.openClient ??
-          (() => DaemonClient.connect({ home: this.options.home, autostart: true }));
+          (() =>
+            this.options.initialClient ??
+            DaemonClient.connect({ home: this.options.home, autostart: true }));
         const client = await openClient();
 
         if (this.closed) return void client.close();
