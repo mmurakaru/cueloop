@@ -1,5 +1,15 @@
 # @cueloop/gateway
 
+## 0.1.0-alpha.94
+
+### Patch Changes
+
+- [#526](https://github.com/mmurakaru/cueloop/pull/526) [`7827978`](https://github.com/mmurakaru/cueloop/commit/78279786ecefe22148ae3f0fc0e9c07e80716ac9) Thanks [@dependabot](https://github.com/apps/dependabot)! - Update OpenTUI packages to 0.5.12.
+- Updated dependencies [[`8a424ff`](https://github.com/mmurakaru/cueloop/commit/8a424ff62a5ac724ab3d0cd20a7264f5cda9a5d6), [`7827978`](https://github.com/mmurakaru/cueloop/commit/78279786ecefe22148ae3f0fc0e9c07e80716ac9)]:
+  - @cueloop/daemon@0.1.0-alpha.94
+  - @cueloop/client@0.1.0-alpha.94
+  - @cueloop/schema@0.1.0-alpha.94
+
 ## 0.1.0-alpha.93
 
 ### Patch Changes
