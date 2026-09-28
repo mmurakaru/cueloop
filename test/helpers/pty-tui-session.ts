@@ -10,7 +10,7 @@
  */
 
 import { chmodSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import {
   loadGhosttyTerminals,
   type GhosttyCell,
@@ -177,7 +177,12 @@ export function launchTuiSession(options: LaunchTuiSessionOptions): PtyTuiSessio
     ...options.env,
   });
   const executable = process.env.CUELOOP_TEST_EXECUTABLE;
-  const command = executable ?? process.execPath;
+  // Resolve before entering a fixture repo, so a release gate's checkout-relative binary still runs.
+  const command = executable
+    ? executable.includes("/")
+      ? resolve(executable)
+      : executable
+    : process.execPath;
   const args = executable ? options.args : ["run", CLI_ENTRY, ...options.args];
   const pty = spawn(command, args, {
     name: environment.TERM,
