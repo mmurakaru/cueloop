@@ -47,6 +47,7 @@ const PRIMITIVE_ROLES = {
   "repo.changes": "owner",
   "repo.diff": "owner",
   "session.workbench": "owner",
+  "session.workbenchReview": "owner",
   // the tree is the owner's: collaborators comment on the branch a share follows
   "session.navigate": "owner",
   "session.branch": "owner",

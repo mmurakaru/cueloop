@@ -595,6 +595,24 @@ export class DaemonClient implements ThreadClient {
   sessionWorkbench(cwd: string): Promise<Thread> {
     return this.request("session.workbench", { cwd }, ThreadRecordSchema);
   }
+  /** Open a workbench with the diff snapshot used for its first frame. */
+  workbenchReview(cwd: string): Promise<{ session: Thread; diff: WorkingTreeDiff }> {
+    return this.request(
+      "session.workbenchReview",
+      { cwd },
+      v.object({
+        session: ThreadRecordSchema,
+        diff: v.object({
+          patch: v.string(),
+          files: v.array(DiffFileContentsSchema),
+          vcs: v.string(),
+          source: v.optional(
+            v.object({ changeId: v.optional(v.string()), revisionId: v.string() }),
+          ),
+        }),
+      }),
+    );
+  }
   /** Re-capture a diff session's working tree; changed=true when the patch moved and an event fired. */
   sessionRefreshDiff(id: string): Promise<{ changed: boolean }> {
     return this.request("session.refreshDiff", { id }, RefreshDiffResultSchema);

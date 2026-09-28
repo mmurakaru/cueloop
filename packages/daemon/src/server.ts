@@ -457,6 +457,8 @@ export class DaemonServer {
     },
     "session.workbench": (_connection, request) =>
       this.core.workbenchSession(parseParams("session.workbench", request.params).cwd),
+    "session.workbenchReview": (_connection, request) =>
+      this.core.workbenchReview(parseParams("session.workbenchReview", request.params).cwd),
     "session.refreshDiff": (_connection, request) => {
       const params = parseParams("session.refreshDiff", request.params);
 
