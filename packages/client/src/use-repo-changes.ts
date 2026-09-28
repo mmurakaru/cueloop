@@ -8,6 +8,7 @@ interface RepoChangesOptions {
   loadChanges: () => Promise<readonly DiffFileContents[]>;
   visible: boolean;
   diffSourceKey: string;
+  initialFiles?: readonly DiffFileContents[];
   refreshAutomatically?: boolean;
 }
 
@@ -34,9 +35,12 @@ export function useRepoChanges({
   loadChanges,
   visible,
   diffSourceKey,
+  initialFiles,
   refreshAutomatically = true,
 }: RepoChangesOptions): readonly DiffFileContents[] {
-  const [snapshot, setSnapshot] = useState<RepoChangesSnapshot | null>(null);
+  const [snapshot, setSnapshot] = useState<RepoChangesSnapshot | null>(() =>
+    initialFiles ? { diffSourceKey, files: initialFiles } : null,
+  );
   const loadLatestChanges = useEffectEvent(loadChanges);
 
   useEffect(() => {

@@ -251,6 +251,9 @@ export interface NewShareLink {
 export interface ReviewControllerOptions {
   home?: string;
   sessionId?: string;
+  /** Captured before the UI mounts, so the first review frame has its thread and live diff. */
+  initialSession?: Thread;
+  initialDiff?: { patch: string; files: DiffFileContents[] };
   /** The directory the client launched in; its git repo backs the no-session welcome tree. Defaults to process.cwd(). */
   cwd?: string;
   /** Observer mode: stored for the key reducer's read-only gate. */
@@ -491,6 +494,7 @@ class Controller implements ReviewController {
   private derivedFor: Thread | null = null;
   /** The launch/workspace repo's live working-tree diff, feeding the Changes view for non-diff threads. */
   private liveDiff: LiveWorkingDiff | null = null;
+  private initialDiffAvailable = false;
   private derivedForLiveDiff: LiveWorkingDiff | null = null;
   private derived: DerivedSessionProjection = {
     display: [],
@@ -514,6 +518,11 @@ class Controller implements ReviewController {
   }
 
   constructor(private readonly options: ReviewControllerOptions) {
+    if (options.initialSession?.id === options.sessionId && options.initialDiff) {
+      this.liveDiff = options.initialDiff;
+      this.initialDiffAvailable = true;
+      this.store.setState({ session: options.initialSession });
+    }
     this.readOnly = options.readOnly ?? false;
     this.clock = options.clock ?? new SystemClock();
     this.shareTransport = options.shareTransport ?? DEFAULT_SHARE_TRANSPORT;
@@ -839,6 +848,9 @@ class Controller implements ReviewController {
     // a plain diff review pins its captured snapshot; a workbench thread and every other thread reflect the live working tree
     const session = this.snapshot.session;
     if (readsFrozenDiff(session)) return session!.artifact.files ?? [];
+    const initialFiles = this.consumeInitialDiffFiles(session);
+
+    if (initialFiles !== null) return initialFiles;
     // eager: capture the live working-tree diff so the Changes navigator and its file tabs render a real diff
     if (this.client?.repoDiff !== undefined) {
       const diff = await this.client.repoDiff(
@@ -877,6 +889,13 @@ class Controller implements ReviewController {
       oldContents: "",
       newContents: "",
     }));
+  }
+
+  private consumeInitialDiffFiles(session: Thread | null): readonly DiffFileContents[] | null {
+    if (!this.initialDiffAvailable) return null;
+    this.initialDiffAvailable = false;
+
+    return session?.id === this.options.sessionId ? (this.liveDiff?.files ?? []) : null;
   }
 
   async refreshDiff(): Promise<void> {

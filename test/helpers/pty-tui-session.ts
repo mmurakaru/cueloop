@@ -137,6 +137,8 @@ export interface LaunchTuiSessionOptions {
   home: string;
   /** CLI arguments, typically the session id to open. */
   args: string[];
+  /** Working directory for commands that inspect the current checkout. */
+  cwd?: string;
   cols?: number;
   rows?: number;
   /** Per-test overrides applied last; set TERM=dumb or NO_COLOR here. */
@@ -181,7 +183,7 @@ export function launchTuiSession(options: LaunchTuiSessionOptions): PtyTuiSessio
     name: environment.TERM,
     cols,
     rows,
-    cwd: REPO_ROOT,
+    cwd: options.cwd ?? REPO_ROOT,
     env: environment,
   });
 

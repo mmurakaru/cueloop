@@ -275,6 +275,7 @@ export const Params = {
   "repo.changes": v.object({ cwd: NonEmpty }),
   "repo.diff": v.object({ cwd: NonEmpty, vcs: v.optional(NonEmpty) }),
   "session.workbench": v.object({ cwd: NonEmpty }),
+  "session.workbenchReview": v.object({ cwd: NonEmpty }),
   "session.navigate": v.object({
     id: SessionId,
     entryId: NonEmpty,

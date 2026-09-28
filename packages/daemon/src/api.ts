@@ -142,7 +142,10 @@ export class DaemonCore {
    */
   private readonly diffRefreshGenerations = new Map<string, number>();
   /** In-flight workbench creations keyed by project, so concurrent bare launches share one thread. */
-  private readonly workbenchCreation = new Map<string, Promise<Thread>>();
+  private readonly workbenchCreation = new Map<
+    string,
+    Promise<{ session: Thread; diff: VcsDiffSnapshot & { vcs: string } }>
+  >();
 
   constructor(home: string) {
     this.store = new ThreadStore(home);
@@ -618,8 +621,33 @@ export class DaemonCore {
    * first comment without an agent submission. Owner-only.
    */
   async workbenchSession(cwd: string): Promise<Thread> {
-    const selected = await this.vcsSources.select(cwd);
-    const workspace = await resolveWorkspace(cwd);
+    return (await this.openWorkbench(cwd)).session;
+  }
+
+  /** Return the workbench and its current diff from one capture. */
+  async workbenchReview(
+    cwd: string,
+  ): Promise<{ session: Thread; diff: VcsDiffSnapshot & { vcs: string } }> {
+    const opened = await this.openWorkbench(cwd);
+
+    if (opened.diff) return { session: opened.session, diff: opened.diff };
+
+    return {
+      session: opened.session,
+      diff: await this.vcsSources.capture(
+        opened.session.workspace.repoRoot,
+        opened.session.artifact.meta.vcs,
+      ),
+    };
+  }
+
+  private async openWorkbench(
+    cwd: string,
+  ): Promise<{ session: Thread; diff?: VcsDiffSnapshot & { vcs: string } }> {
+    const [selected, workspace] = await Promise.all([
+      this.vcsSources.select(cwd),
+      resolveWorkspace(cwd),
+    ]);
     workspace.repoRoot = selected.repoRoot;
     const key = `${workspace.rootCommit ?? selected.repoRoot}:${selected.adapter.id}`;
     // an open workbench is reused; a resolved one is immutable and would reject the note, so a fresh
@@ -635,13 +663,13 @@ export class DaemonCore {
           (session.artifact.meta.vcs ?? "git") === selected.adapter.id,
       );
 
-    if (open) return open;
+    if (open) return { session: open };
     // serialize concurrent bare launches for the same repo onto one creation, so they share a thread
     const inFlight = this.workbenchCreation.get(key);
 
     if (inFlight) return inFlight;
-    const creation = this.vcsSources.capture(cwd, selected.adapter.id).then((diff) =>
-      this.sessionCreate({
+    const creation = this.vcsSources.capture(cwd, selected.adapter.id).then((diff) => ({
+      session: this.sessionCreate({
         workspace,
         artifact: {
           type: "diff",
@@ -657,7 +685,8 @@ export class DaemonCore {
           },
         },
       }),
-    );
+      diff,
+    }));
 
     this.workbenchCreation.set(key, creation);
     try {

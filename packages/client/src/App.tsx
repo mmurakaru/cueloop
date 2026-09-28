@@ -112,6 +112,8 @@ const TOAST_DISMISS_MS = 2000;
 export interface AppProps {
   home?: string;
   sessionId?: string;
+  /** Review data already captured by the command before the UI mounts. */
+  initialReview?: { session: Thread; diff: { patch: string; files: DiffFileContents[] } };
   /** The launch directory whose git repo backs the no-session welcome tree; defaults to process.cwd(). */
   cwd?: string;
   /**
@@ -149,6 +151,14 @@ export interface AppProps {
   /** Serve mode: the frozen working-tree diff an observer reads for the served workbench thread. */
   servedArtifact?: Artifact;
   extensionRegistry?: ClientExtensionRegistry;
+}
+
+function initialReviewControllerOptions(initialReview: AppProps["initialReview"]) {
+  return { initialSession: initialReview?.session, initialDiff: initialReview?.diff };
+}
+
+function initialReviewFiles(initialReview: AppProps["initialReview"], sessionId: string) {
+  return initialReview?.session.id === sessionId ? initialReview.diff.files : undefined;
 }
 
 function extensionContext(cwd: string | undefined, threadId: string | null): ExtensionUIContext {
@@ -326,6 +336,7 @@ function authorLabelResolver(
 function ProjectPanelBody(props: {
   mode: ProjectPanelMode;
   loadChanges: () => Promise<readonly DiffFileContents[]>;
+  initialFiles?: readonly DiffFileContents[];
   loadProjectFiles: () => Promise<string[]>;
   diffSourceKey: string;
   liveWorkingTree: boolean;
@@ -340,6 +351,7 @@ function ProjectPanelBody(props: {
     loadChanges: props.loadChanges,
     visible: props.mode === "changes" && props.liveWorkingTree,
     diffSourceKey: props.diffSourceKey,
+    initialFiles: props.initialFiles,
   });
 
   if (props.mode === "changes") {
@@ -531,6 +543,7 @@ export function reconciledFocus(navigable: FocusPane[], focusedPane: FocusPane):
 export function App({
   home,
   sessionId,
+  initialReview,
   cwd,
   readOnly = false,
   onExit,
@@ -551,6 +564,7 @@ export function App({
       createReviewController({
         home,
         sessionId,
+        ...initialReviewControllerOptions(initialReview),
         cwd,
         readOnly: observer,
         onExit,
@@ -1446,6 +1460,7 @@ export function App({
                 <ProjectPanelBody
                   mode={workbench.projectMode}
                   loadChanges={() => controller.repoChanges()}
+                  initialFiles={initialReviewFiles(initialReview, activeSession.id)}
                   loadProjectFiles={() => controller.repoFiles()}
                   diffSourceKey={activeSession.id}
                   {...projectDiffFiles(activeSession)}

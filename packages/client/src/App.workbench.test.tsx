@@ -113,6 +113,48 @@ const rightToggleColumn = (setup: Setup): number => toggleColumn(setup, NERD.sid
 const railToggleColumn = (setup: Setup): number => toggleColumn(setup, NERD.sidebarRightOff);
 
 describe("the four-pane workbench", () => {
+  test("a bootstrapped workbench paints its changed-file list in the first usable frame", async () => {
+    const workbench = server.core.sessionCreate({
+      workspace: { repoRoot: repo, branch: "main" },
+      artifact: { type: "diff", content: "", meta: { title: "Workbench", workbench: true } },
+    });
+    const initialReview = {
+      session: workbench,
+      diff: {
+        patch: PATCH,
+        files: [
+          {
+            path: "src/store.ts",
+            oldContents: "export class Store { private items = []; }\n",
+            newContents: "export class Store { private items = new Map(); }\n",
+            status: "modified" as const,
+          },
+        ],
+      },
+    };
+    const setup = await renderReadyApp(
+      <App
+        home={home}
+        sessionId={workbench.id}
+        initialReview={initialReview}
+        layout={reviewLayout()}
+      />,
+      { width: 160, height: 20 },
+    );
+
+    const treeLines = setup
+      .captureCharFrame()
+      .split("\n")
+      .flatMap((line) => {
+        const divider = line.lastIndexOf("│");
+
+        return divider >= 0 ? [line.slice(divider + 1)] : [];
+      });
+
+    expect(treeLines.some((line) => line.includes("store.ts"))).toBe(true);
+    setup.renderer.destroy();
+  });
+
   test("rapid wheel scrolling a large Changes diff keeps the app responsive", async () => {
     const filePatches = Array.from({ length: 40 }, (_, fileIndex) => [
       `diff --git a/file-${fileIndex}.ts b/file-${fileIndex}.ts`,

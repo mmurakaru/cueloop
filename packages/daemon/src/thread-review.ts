@@ -51,22 +51,27 @@ function earliestRootCommit(revList: string | null): string | undefined {
 
 /** Workspace key resolution: repo root, branch, and the project identity (root commit + remote) from the cwd. */
 export async function resolveWorkspace(cwd = process.cwd()): Promise<WorkspaceKey> {
-  const gitRepoRoot = await git(["rev-parse", "--show-toplevel"], cwd);
-  const jjRepoRoot = await jjRoot(cwd);
+  const [gitRepoRoot, jjRepoRoot] = await Promise.all([
+    git(["rev-parse", "--show-toplevel"], cwd),
+    jjRoot(cwd),
+  ]);
   const nativeJjRoot =
     jjRepoRoot && (!gitRepoRoot || jjRepoRoot.length > gitRepoRoot.length) ? jjRepoRoot : null;
   const repoRoot = nativeJjRoot ?? gitRepoRoot ?? cwd;
-  const branch = nativeJjRoot
-    ? "jj"
-    : ((await git(["rev-parse", "--abbrev-ref", "HEAD"], cwd)) ?? "detached");
+  const [gitBranch, isShallow, rootList, gitRemote] = nativeJjRoot
+    ? [null, null, null, null]
+    : await Promise.all([
+        git(["rev-parse", "--abbrev-ref", "HEAD"], cwd),
+        git(["rev-parse", "--is-shallow-repository"], cwd),
+        git(["rev-list", "--max-parents=0", "--date-order", "HEAD"], cwd),
+        git(["remote", "get-url", "origin"], cwd),
+      ]);
+  const branch = nativeJjRoot ? "jj" : (gitBranch ?? "detached");
   // a shallow clone's oldest commit is the graft boundary, not the true root, so
   // it would key a different project than a full clone - leave it unset instead
-  const shallow =
-    nativeJjRoot !== null || (await git(["rev-parse", "--is-shallow-repository"], cwd)) === "true";
-  const rootCommit = shallow
-    ? undefined
-    : earliestRootCommit(await git(["rev-list", "--max-parents=0", "--date-order", "HEAD"], cwd));
-  const remote = nativeJjRoot ? null : await git(["remote", "get-url", "origin"], cwd);
+  const shallow = nativeJjRoot !== null || isShallow === "true";
+  const rootCommit = shallow ? undefined : earliestRootCommit(rootList);
+  const remote = nativeJjRoot ? null : gitRemote;
 
   const workspace: WorkspaceKey = { repoRoot, branch };
   // a repo with no commits (or a shallow clone) has no reliable root, so the thread stays standalone

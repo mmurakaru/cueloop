@@ -64,17 +64,18 @@ start, module load, daemon connect, and paint, in a real pseudo terminal.
 
 ## Scripts
 
-| script                 | measures                                                                                                         |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `binary-startup`       | `--version` cold and warm, `--help`; needs the executable env, else none                                         |
-| `artifact-parse`       | plan parse, anchor resolution on the exact and fuzzy tier, diff rows                                             |
-| `daemon-roundtrip`     | daemon start to listen, client connect, session create and get p95                                               |
-| `tui-first-frame`      | spawn to ready signal in a real pseudo terminal, cold and warm                                                   |
-| `interaction-latency`  | render to ready, then eight caret moves down a large plan, median and p95                                        |
-| `diff-scroll-paint`    | real-terminal boundary arrows: completed frames, caret and row completeness, paint latency, and a fast key burst |
-| `sidebar-scroll-paint` | real-terminal boundary arrows in Changes and Project: completed frames, selected row visibility, paint latency   |
-| `large-stream`         | render to ready of a 180-file diff and caret steps through it, plus memory                                       |
-| `non-ascii-stream`     | the same on wide characters and emoji                                                                            |
+| script                 | measures                                                                                                                |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `binary-startup`       | `--version` cold and warm, `--help`; needs the executable env, else none                                                |
+| `artifact-parse`       | plan parse, anchor resolution on the exact and fuzzy tier, diff rows                                                    |
+| `daemon-roundtrip`     | daemon start to listen, client connect, session create and get p95                                                      |
+| `tui-first-frame`      | spawn to ready signal in a real pseudo terminal, cold and warm                                                          |
+| `diff-first-visible`   | spawn `cueloop diff` in a real pseudo terminal; check the Changes tree at ready and time one-file and 40-file checkouts |
+| `interaction-latency`  | render to ready, then eight caret moves down a large plan, median and p95                                               |
+| `diff-scroll-paint`    | real-terminal boundary arrows: completed frames, caret and row completeness, paint latency, and a fast key burst        |
+| `sidebar-scroll-paint` | real-terminal boundary arrows in Changes and Project: completed frames, selected row visibility, paint latency          |
+| `large-stream`         | render to ready of a 180-file diff and caret steps through it, plus memory                                              |
+| `non-ascii-stream`     | the same on wide characters and emoji                                                                                   |
 
 ## Add a metric
 
@@ -129,10 +130,12 @@ Pushes to main cannot bypass the gate.
 
 The native shims ship for darwin-arm64 only, so the pseudo-terminal first
 frame is measured on that target and the other three compare binary startup.
-The diff-scroll paint script also runs in the release gate against the previous
-binary. Its frame and completeness counts are informational; row-paint latency
-uses the gate's normal timing threshold. The PTY test asserts one complete
-caret frame at a known scroll boundary.
+The diff-first-visible and diff-scroll paint scripts also run in the release
+gate against the previous binary. The first-visible metric captures the whole
+path from process launch to a useful changed-file screen. Scroll frame and
+completeness counts are informational; row-paint latency uses the gate's normal
+timing threshold. The PTY test asserts one complete caret frame at a known
+scroll boundary.
 
 ## Pull requests and history
 

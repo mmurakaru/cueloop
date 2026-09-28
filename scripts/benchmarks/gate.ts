@@ -47,6 +47,7 @@ const READY_SIGNAL_SINCE = "0.1.0-alpha.69";
 const BINARY_SCRIPTS: { script: string; samples: number }[] = [
   { script: "binary-startup", samples: 15 },
   { script: "tui-first-frame", samples: 5 },
+  { script: "diff-first-visible", samples: 5 },
   { script: "diff-scroll-paint", samples: 3 },
 ];
 
