@@ -178,7 +178,11 @@ export function launchTuiSession(options: LaunchTuiSessionOptions): PtyTuiSessio
   });
   const executable = process.env.CUELOOP_TEST_EXECUTABLE;
   // Resolve before entering a fixture repo, so a release gate's checkout-relative binary still runs.
-  const command = executable ? resolve(executable) : process.execPath;
+  const command = executable
+    ? executable.includes("/")
+      ? resolve(executable)
+      : executable
+    : process.execPath;
   const args = executable ? options.args : ["run", CLI_ENTRY, ...options.args];
   const pty = spawn(command, args, {
     name: environment.TERM,
