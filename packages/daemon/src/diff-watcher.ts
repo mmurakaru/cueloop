@@ -10,6 +10,7 @@
  */
 
 import { watch, readdirSync, statSync, type Dirent, type FSWatcher } from "node:fs";
+import { readdir } from "node:fs/promises";
 import { basename, isAbsolute, join } from "node:path";
 
 /** Debounce window: a save or a checkout writes many files in a burst; collapse them into one re-capture. */
@@ -232,7 +233,7 @@ export class DiffWatcher {
   }
 
   /** Directory creation events can be lost while the platform activates a watch. */
-  private reconcileWatchTree(repoRoot: string, dir: string): void {
+  private async reconcileWatchTree(repoRoot: string, dir: string): Promise<void> {
     const repoWatch = this.repoWatches.get(repoRoot);
 
     if (!repoWatch) return;
@@ -244,13 +245,15 @@ export class DiffWatcher {
     let entries: Dirent[];
 
     try {
-      entries = readdirSync(dir, { withFileTypes: true });
+      entries = await readdir(dir, { withFileTypes: true });
     } catch {
       return;
     }
+    if (this.repoWatches.get(repoRoot) !== repoWatch) return;
     for (const entry of entries) {
       if (entry.isDirectory() && !entry.isSymbolicLink())
-        this.reconcileWatchTree(repoRoot, join(dir, entry.name));
+        // eslint-disable-next-line no-await-in-loop
+        await this.reconcileWatchTree(repoRoot, join(dir, entry.name));
     }
   }
 
@@ -303,12 +306,13 @@ export class DiffWatcher {
 
     if (!repoWatch) return;
     if (repoWatch.debounce !== null) clearTimeout(repoWatch.debounce);
-    repoWatch.debounce = setTimeout(() => {
+    repoWatch.debounce = setTimeout(async () => {
       repoWatch.debounce = null;
       if (repoWatch.reconcilePending) {
         repoWatch.reconcilePending = false;
-        this.reconcileWatchTree(repoRoot, repoRoot);
+        await this.reconcileWatchTree(repoRoot, repoRoot);
       }
+      if (this.repoWatches.get(repoRoot) !== repoWatch) return;
       this.onRepoChange(repoRoot);
     }, DIFF_REFRESH_DEBOUNCE_MS);
   }

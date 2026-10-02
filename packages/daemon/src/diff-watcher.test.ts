@@ -1,5 +1,6 @@
-import { expect, spyOn, test } from "bun:test";
+import { expect, mock, spyOn, test } from "bun:test";
 import * as fs from "node:fs";
+import * as promises from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DiffWatcher } from "./diff-watcher";
@@ -40,6 +41,34 @@ test("startup reconciliation watches a directory whose creation event was missed
     await change.promise;
     expect(refreshes).toBe(2);
   } finally {
+    watcher.close();
+    spy.mockRestore();
+    fs.rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+test("closing during startup reconciliation cancels the pending refresh", async () => {
+  const repo = fs.mkdtempSync(join(tmpdir(), "cueloop-watch-close-"));
+  const scanStarted = Promise.withResolvers<void>();
+  const scanFinished = Promise.withResolvers<fs.Dirent[]>();
+  const refresh = mock(() => {});
+  const watcher = new DiffWatcher(refresh);
+  // SAFETY: Startup reconciliation requests directory entries with withFileTypes enabled.
+  const spy = spyOn(promises, "readdir").mockImplementation((() => {
+    scanStarted.resolve();
+
+    return scanFinished.promise;
+  }) as unknown as typeof promises.readdir);
+
+  try {
+    watcher.trackDiffRepo(repo, "session");
+    await scanStarted.promise;
+    watcher.close();
+    scanFinished.resolve([]);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(refresh).not.toHaveBeenCalled();
+  } finally {
+    scanFinished.resolve([]);
     watcher.close();
     spy.mockRestore();
     fs.rmSync(repo, { recursive: true, force: true });
