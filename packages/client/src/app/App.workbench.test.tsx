@@ -11,7 +11,7 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import React from "react";
-import { testRender } from "@opentui/react/test-utils";
+import { testRender as renderTestComponent } from "@opentui/react/test-utils";
 import { DaemonServer } from "@cueloop/daemon";
 import type { Thread } from "@cueloop/schema";
 import { App } from "./App";
@@ -27,7 +27,7 @@ import {
   waitForState,
   waitForText,
   waitForTextGone,
-  renderReadyApp,
+  renderReadyApp as renderReadyTestApp,
 } from "../testing/test-support";
 import { NERD } from "../ui/components/primitives/icons";
 
@@ -47,6 +47,23 @@ let repo: string;
 let restoreUserConfig: () => void;
 let server: DaemonServer;
 let session: Thread;
+const renderers = new Set<Awaited<ReturnType<typeof renderTestComponent>>["renderer"]>();
+
+async function testRender(...args: Parameters<typeof renderTestComponent>) {
+  const setup = await renderTestComponent(...args);
+
+  renderers.add(setup.renderer);
+
+  return setup;
+}
+
+async function renderReadyApp(...args: Parameters<typeof renderReadyTestApp>) {
+  const setup = await renderReadyTestApp(...args);
+
+  renderers.add(setup.renderer);
+
+  return setup;
+}
 
 /** A throwaway git repo so the Project tree (git ls-files) and file contents resolve without a real checkout. */
 function makeRepo(): string {
@@ -79,6 +96,10 @@ beforeEach(() => {
   });
 });
 afterEach(() => {
+  for (const renderer of renderers) {
+    if (!renderer.isDestroyed) renderer.destroy();
+  }
+  renderers.clear();
   restoreUserConfig();
   server.stop();
   rmSync(home, { recursive: true, force: true });
