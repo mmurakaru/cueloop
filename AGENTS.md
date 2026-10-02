@@ -73,7 +73,7 @@ Four tiers, cheapest loop first (use the cheapest tier that can prove the change
 
 Readiness contract: the App fires one ready signal after the first frame that
 paints a usable screen, by which point that screen's keyboard handlers are
-subscribed (`packages/client/src/ready-signal.ts`). Surfaces that mount later
+subscribed (`packages/client/src/app/ready-signal.ts`). Surfaces that mount later
 still need a screen predicate. In-process suites boot with `renderReadyApp`
 from `test-support.ts`; subprocess and PTY suites set `CUELOOP_READY_FILE`
 and wait for that file (`waitForReady`). Wait for readiness on the signal,

@@ -13,13 +13,13 @@
 
 import { afterAll, beforeAll, describe, expect } from "bun:test";
 import type { Thread } from "@cueloop/schema";
-import { loadConfig } from "../../packages/client/src/config";
+import { loadConfig } from "../../packages/client/src/settings/config";
 import {
   curationCommandEntries,
   diffCommandEntries,
   sessionCommandEntries,
   treeCommandEntries,
-} from "../../packages/client/src/thread-chords";
+} from "../../packages/client/src/keyboard/thread-chords";
 import type { TestGitRepo } from "../helpers/git-repo";
 import {
   cheatsheetChordKeyPress,

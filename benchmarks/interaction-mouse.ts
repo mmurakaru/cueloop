@@ -5,7 +5,7 @@
  */
 
 import { createTestGitRepo } from "../test/helpers/git-repo";
-import { waitForText } from "../packages/client/src/test-support";
+import { waitForText } from "../packages/client/src/testing/test-support";
 import { manyFilesChange } from "./lib/fixtures";
 import { renderDiffReview, runReviewBenchmark, timeFileOpens } from "./lib/in-process-review";
 import { emitLatencyMetrics, emitMemoryMetrics, emitMetric } from "./lib/metric";

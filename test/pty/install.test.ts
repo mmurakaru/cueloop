@@ -9,7 +9,7 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { spawn } from "../../packages/client/src/pty";
+import { spawn } from "../../packages/client/src/terminal/pty";
 import {
   GOOD_VERSION,
   startTestReleaseServer,

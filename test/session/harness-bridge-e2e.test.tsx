@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import React from "react";
 import { DaemonClient } from "@cueloop/daemon/client";
-import { App } from "../../packages/client/src/App";
+import { App } from "../../packages/client/src/app/App";
 import { runHarnessBridge } from "../../packages/adapters/harness-bridge";
 import {
   dragText,
@@ -13,7 +13,7 @@ import {
   renderReadyApp,
   typeText,
   waitForText,
-} from "../../packages/client/src/test-support";
+} from "../../packages/client/src/testing/test-support";
 
 const PLAN = `# Rollout Plan
 

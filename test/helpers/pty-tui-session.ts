@@ -15,10 +15,18 @@ import {
   loadGhosttyTerminals,
   type GhosttyCell,
   type GhosttyTerminal,
-} from "../../packages/client/src/ghostty-terminal";
-import { ptyAvailable, spawn, type ExitEvent, type IPty } from "../../packages/client/src/pty";
-import { READY_FILE_ENV } from "../../packages/client/src/ready-signal";
-import { locateTextInFrame, type FrameLocation } from "../../packages/client/src/test-support";
+} from "../../packages/client/src/terminal/ghostty-terminal";
+import {
+  ptyAvailable,
+  spawn,
+  type ExitEvent,
+  type IPty,
+} from "../../packages/client/src/terminal/pty";
+import { READY_FILE_ENV } from "../../packages/client/src/app/ready-signal";
+import {
+  locateTextInFrame,
+  type FrameLocation,
+} from "../../packages/client/src/testing/test-support";
 import { hermeticCueloopEnvironment } from "./env";
 import { encodePtyKeyPress, type PtyKeyPress } from "./pty-key-codes";
 

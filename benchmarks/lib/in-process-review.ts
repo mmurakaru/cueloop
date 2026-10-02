@@ -8,14 +8,14 @@
 
 import { createElement } from "react";
 import type { DiffFileContents } from "@cueloop/schema";
-import { App } from "../../packages/client/src/App";
+import { App } from "../../packages/client/src/app/App";
 import {
   allowEventLoopUpdates,
   clickText,
   isolateUserConfig,
   press,
   renderReadyApp,
-} from "../../packages/client/src/test-support";
+} from "../../packages/client/src/testing/test-support";
 import { HERMETIC_TERMINAL_ENV } from "../../test/helpers/env";
 import { createTestReviewHome, type TestReviewHome } from "../../test/helpers/review-home";
 import { timeMsAsync, timeRepeatedAsync } from "./metric";

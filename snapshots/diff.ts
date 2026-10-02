@@ -10,7 +10,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DaemonServer } from "@cueloop/daemon";
 import { runClient } from "@cueloop/client";
-import { diffRows, diffRowAnchor } from "../packages/client/src/view-diff";
+import { diffRows, diffRowAnchor } from "../packages/client/src/diff/view-diff";
 
 const home = mkdtempSync(join(tmpdir(), "cueloop-snapshot-diff-"));
 // An isolated working tree named "cueloop" so the footer reads "cueloop / …" and

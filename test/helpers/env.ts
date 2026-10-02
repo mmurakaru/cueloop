@@ -1,4 +1,4 @@
-import { isolatedUserConfigPath } from "../../packages/client/src/test-support";
+import { isolatedUserConfigPath } from "../../packages/client/src/testing/test-support";
 
 /**
  * Environment overrides that make a spawned test subprocess hermetic against the

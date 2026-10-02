@@ -1,7 +1,7 @@
 /** A real terminal must paint each keyboard scroll step across an inline discussion. */
 
 import { expect } from "bun:test";
-import { diffRows } from "../../packages/client/src/view-diff";
+import { diffRows } from "../../packages/client/src/diff/view-diff";
 import { createTestReviewHome } from "../helpers/review-home";
 import { launchTuiSession } from "../helpers/pty-tui-session";
 import { ptyTest } from "../helpers/pty-reviews";

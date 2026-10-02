@@ -1,0 +1,98 @@
+// A Changes/Project file tab in contents mode: a workspace file rendered read-only with line
+// numbers, for surfaces with no thread to anchor notes to (the bare-launch welcome shell).
+// Loads on mount and whenever the path changes; a null read renders a centered "File deleted".
+// Syntax highlighting comes from the native code renderable (tree-sitter), the language
+// auto-detected from the path; unknown languages simply render unstyled.
+
+import { ScrollArea } from "../../ui/components/ScrollArea";
+import React, { useEffect, useRef, useState } from "react";
+import type { CodeRenderable } from "@opentui/core";
+import type { Theme } from "../../appearance/theme";
+import { useComponentTheme } from "../../appearance/components/theme-context";
+import { filetypeForPath, syntaxStyleFor } from "../../ui/components/syntax-highlight";
+
+export interface FileContentsViewProps {
+  path: string;
+  loadContents: (path: string) => Promise<string | null>;
+  theme?: Theme;
+}
+
+/** A finished read for a specific path; `lines` is null when the file could not be read. */
+interface FileLoad {
+  path: string;
+  lines: string[] | null;
+}
+
+export function FileContentsView({
+  path,
+  loadContents,
+  theme,
+}: FileContentsViewProps): React.ReactNode {
+  const tokens = useComponentTheme(theme);
+  const [loaded, setLoaded] = useState<FileLoad | null>(null);
+  // The gutter mirrors the code renderable's line info, so it needs the mounted
+  // instance; a state-backed ref rebinds the target once the code renderable exists.
+  const [codeTarget, setCodeTarget] = useState<CodeRenderable | null>(null);
+  const loadRef = useRef(loadContents);
+  useEffect(() => {
+    loadRef.current = loadContents;
+  });
+
+  useEffect(() => {
+    let alive = true;
+    void loadRef.current(path).then(
+      (contents) => {
+        if (alive) setLoaded({ path, lines: contents === null ? null : contents.split("\n") });
+      },
+      () => {
+        if (alive) setLoaded({ path, lines: null });
+      },
+    );
+
+    return () => {
+      alive = false;
+    };
+  }, [path]);
+
+  if (loaded === null || loaded.path !== path) {
+    return (
+      <box style={{ flexGrow: 1, paddingLeft: 1, paddingTop: 1 }}>
+        <text fg={tokens.textDim}>loading...</text>
+      </box>
+    );
+  }
+  if (loaded.lines === null) {
+    // a file that no longer reads in the Changes/Project view is one the working tree deleted;
+    // the bottom pad lifts the text one row so it lines up with the footer-shortened thread empty state
+    return (
+      <box
+        style={{ flexGrow: 1, alignItems: "center", justifyContent: "center", paddingBottom: 2 }}
+      >
+        <text fg={tokens.textDim}>File deleted</text>
+      </box>
+    );
+  }
+  const content = loaded.lines.join("\n");
+
+  return (
+    <ScrollArea>
+      <line-number
+        target={codeTarget ?? undefined}
+        showLineNumbers
+        fg={tokens.textDim}
+        minWidth={5}
+        paddingRight={1}
+        style={{ paddingTop: 1, paddingLeft: 1 }}
+      >
+        <code
+          ref={setCodeTarget}
+          content={content}
+          filetype={filetypeForPath(path)}
+          syntaxStyle={syntaxStyleFor(tokens)}
+          selectable={false}
+          style={{ wrapMode: "none", fg: tokens.text }}
+        />
+      </line-number>
+    </ScrollArea>
+  );
+}

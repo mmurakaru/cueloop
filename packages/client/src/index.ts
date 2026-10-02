@@ -1,5 +1,5 @@
-export { runClient, type RunClientOptions } from "./run";
-export { snapshotWorkbench, type RepoDiff } from "./workbench-snapshot";
+export { runClient, type RunClientOptions } from "./app/run";
+export { snapshotWorkbench, type RepoDiff } from "./workbench/workbench-snapshot";
 export {
   defaultLayout,
   pairLayout,
@@ -7,7 +7,7 @@ export {
   pullRequestReviewLayout,
   reviewLayout,
   type LaunchLayout,
-} from "./launch-layout";
+} from "./app/launch-layout";
 export {
   diffRowAnchor,
   diffRows,
@@ -15,10 +15,10 @@ export {
   fileRowRange,
   resolveReviewAnchorRow,
   type DiffRow,
-} from "./view-diff";
-export { loadConfig, type ReviewWorkspaceMode } from "./config";
-export { serveClient, type ServeHandle, type ServeOptions } from "./serve";
-export { App, type AppProps } from "./App";
+} from "./diff/view-diff";
+export { loadConfig, type ReviewWorkspaceMode } from "./settings/config";
+export { serveClient, type ServeHandle, type ServeOptions } from "./app/serve";
+export { App, type AppProps } from "./app/App";
 export {
   collaboratorAnnotations,
   mergeFromShare,
@@ -28,4 +28,4 @@ export {
   shareIdFromLine,
   type ShareResult,
   type ShareTarget,
-} from "./share";
+} from "./integrations/share";

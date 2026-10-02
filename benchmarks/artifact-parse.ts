@@ -14,8 +14,8 @@ import {
   resolveAnchor,
   type TextCut,
 } from "@cueloop/schema";
-import { diffRows } from "../packages/client/src/view-diff";
-import { buildDisplay } from "../packages/client/src/view-plan";
+import { diffRows } from "../packages/client/src/diff/view-diff";
+import { buildDisplay } from "../packages/client/src/markdown/view-plan";
 import { createTestGitRepo } from "../test/helpers/git-repo";
 import {
   largePlanMarkdown,
