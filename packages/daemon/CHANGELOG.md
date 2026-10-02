@@ -1,5 +1,14 @@
 # @cueloop/daemon
 
+## 0.1.0-alpha.96
+
+### Patch Changes
+
+- [#540](https://github.com/mmurakaru/cueloop/pull/540) [`812fd43`](https://github.com/mmurakaru/cueloop/commit/812fd4369f51a6e5f2312241de7389538fed93f0) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Update Effect to 4.0.0-rc.117 and refresh development lint and formatting tools.
+- Updated dependencies []:
+  - @cueloop/extension-api@0.1.0-alpha.96
+  - @cueloop/schema@0.1.0-alpha.96
+
 ## 0.1.0-alpha.95
 
 ### Patch Changes
