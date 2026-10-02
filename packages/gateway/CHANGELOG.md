@@ -1,5 +1,14 @@
 # @cueloop/gateway
 
+## 0.1.0-alpha.95
+
+### Patch Changes
+
+- Updated dependencies [[`daad0ad`](https://github.com/mmurakaru/cueloop/commit/daad0adf13a4dde2a3a5fd1b7556b1a7e3b62d98)]:
+  - @cueloop/client@0.1.0-alpha.95
+  - @cueloop/daemon@0.1.0-alpha.95
+  - @cueloop/schema@0.1.0-alpha.95
+
 ## 0.1.0-alpha.94
 
 ### Patch Changes
