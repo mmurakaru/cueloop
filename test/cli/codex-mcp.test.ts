@@ -45,6 +45,7 @@ test("Codex MCP lists the shared workflow tool in a real stdio exchange", async 
   async function receive(id: number): Promise<{
     isError?: boolean;
     result?: {
+      isError?: boolean;
       tools?: { name: string; inputSchema?: { properties?: { workflow?: { enum?: string[] } } } }[];
       content?: { type: string; text: string }[];
     };
@@ -145,6 +146,29 @@ test("Codex MCP lists the shared workflow tool in a real stdio exchange", async 
   );
   await input.flush();
   expect((await receive(4)).result?.content?.[0]?.text).toContain("not authorized");
+
+  const malformedInputs = [
+    { content: "# Missing workflow", harnessSessionId: "codex-mcp-session", cwd: home, hookToken },
+    { workflow: "plan", harnessSessionId: "codex-mcp-session", cwd: home, hookToken: "" },
+  ];
+
+  for (const [index, argumentsValue] of malformedInputs.entries()) {
+    const id = 5 + index;
+
+    input.write(
+      `${JSON.stringify({
+        jsonrpc: "2.0",
+        id,
+        method: "tools/call",
+        params: { name: "open_thread", arguments: argumentsValue },
+      })}\n`,
+    );
+    await input.flush();
+    const result = (await receive(id)).result;
+
+    expect(result?.isError).toBe(true);
+    expect(result?.content?.[0]?.text).toContain("Input validation error");
+  }
 
   input.end();
   expect(await Promise.race([processHandle.exited, Bun.sleep(2000).then(() => -1)])).toBe(0);
