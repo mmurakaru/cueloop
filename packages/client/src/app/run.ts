@@ -9,8 +9,8 @@ import type { Appearance } from "../appearance/theme-presets";
 import type { DiffFileContents, Thread } from "@cueloop/schema";
 import type { ThreadClient } from "@cueloop/daemon/client";
 import { loadConfig } from "../settings/config";
-import { perfMark } from "../perf/perf-timings";
-import { reportPerfMarks } from "../perf/perf-report";
+import { perfMark } from "../performance/perf-timings";
+import { reportPerfMarks } from "../performance/perf-report";
 import { defaultLayout, type LaunchLayout } from "./launch-layout";
 import {
   ClientExtensionRegistry,
