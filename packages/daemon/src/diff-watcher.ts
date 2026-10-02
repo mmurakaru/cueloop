@@ -251,6 +251,7 @@ export class DiffWatcher {
     }
     if (this.repoWatches.get(repoRoot) !== repoWatch) return;
     for (const entry of entries) {
+      if (this.repoWatches.get(repoRoot) !== repoWatch) return;
       if (entry.isDirectory() && !entry.isSymbolicLink())
         // eslint-disable-next-line no-await-in-loop
         await this.reconcileWatchTree(repoRoot, join(dir, entry.name));

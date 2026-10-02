@@ -5,6 +5,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DiffWatcher } from "./diff-watcher";
 
+const directoryReads: {
+  readdir: (path: fs.PathLike, options: { withFileTypes: true }) => Promise<fs.Dirent[]>;
+} = promises;
+
 test("startup reconciliation watches a directory whose creation event was missed", async () => {
   const repo = fs.mkdtempSync(join(tmpdir(), "cueloop-watch-startup-"));
   const watch = fs.watch;
@@ -53,12 +57,11 @@ test("closing during startup reconciliation cancels the pending refresh", async 
   const scanFinished = Promise.withResolvers<fs.Dirent[]>();
   const refresh = mock(() => {});
   const watcher = new DiffWatcher(refresh);
-  // SAFETY: Startup reconciliation requests directory entries with withFileTypes enabled.
-  const spy = spyOn(promises, "readdir").mockImplementation((() => {
+  const spy = spyOn(directoryReads, "readdir").mockImplementation(() => {
     scanStarted.resolve();
 
     return scanFinished.promise;
-  }) as unknown as typeof promises.readdir);
+  });
 
   try {
     watcher.trackDiffRepo(repo, "session");
@@ -67,6 +70,44 @@ test("closing during startup reconciliation cancels the pending refresh", async 
     scanFinished.resolve([]);
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(refresh).not.toHaveBeenCalled();
+  } finally {
+    scanFinished.resolve([]);
+    watcher.close();
+    spy.mockRestore();
+    fs.rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+test("replacing a watch during reconciliation stops the old directory traversal", async () => {
+  const repo = fs.mkdtempSync(join(tmpdir(), "cueloop-watch-replace-"));
+  const first = join(repo, "a");
+  const next = join(repo, "b");
+
+  fs.mkdirSync(first);
+  fs.mkdirSync(next);
+  const scanStarted = Promise.withResolvers<void>();
+  const scanFinished = Promise.withResolvers<fs.Dirent[]>();
+  const scanned: string[] = [];
+  const watcher = new DiffWatcher(() => {});
+  const spy = spyOn(directoryReads, "readdir").mockImplementation((path) => {
+    scanned.push(String(path));
+    if (path === first) {
+      scanStarted.resolve();
+
+      return scanFinished.promise;
+    }
+
+    return Promise.resolve(fs.readdirSync(path, { withFileTypes: true }));
+  });
+
+  try {
+    watcher.trackDiffRepo(repo, "old");
+    await scanStarted.promise;
+    watcher.untrackDiffRepo(repo, "old");
+    watcher.trackDiffRepo(repo, "replacement");
+    scanFinished.resolve([]);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(scanned).not.toContain(next);
   } finally {
     scanFinished.resolve([]);
     watcher.close();
