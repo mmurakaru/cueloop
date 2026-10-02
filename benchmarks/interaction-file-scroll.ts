@@ -4,11 +4,11 @@ import { createElement, useState } from "react";
 import { testRender } from "@opentui/react/test-utils";
 import { ScrollBoxRenderable, type Renderable } from "@opentui/core";
 import type { Annotation } from "@cueloop/schema";
-import { GridTabContent } from "../packages/client/src/components/GridTabContent";
-import { fixtureDiffSession } from "../packages/client/src/components/story-fixtures";
-import { diffRows } from "../packages/client/src/view-diff";
-import { DARK } from "../packages/client/src/theme";
-import { press, waitForText } from "../packages/client/src/test-support";
+import { GridTabContent } from "../packages/client/src/workbench/components/GridTabContent";
+import { fixtureDiffSession } from "../packages/client/src/stories/story-fixtures";
+import { diffRows } from "../packages/client/src/diff/view-diff";
+import { DARK } from "../packages/client/src/appearance/theme";
+import { press, waitForText } from "../packages/client/src/testing/test-support";
 import { emitLatencyMetrics, emitMetric } from "./lib/metric";
 
 const LINES = 1500;

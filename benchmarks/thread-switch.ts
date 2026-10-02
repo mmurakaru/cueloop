@@ -8,14 +8,14 @@
  */
 
 import { createElement } from "react";
-import { App } from "../packages/client/src/App";
+import { App } from "../packages/client/src/app/App";
 import {
   allowEventLoopUpdates,
   clickText,
   isolateUserConfig,
   renderReadyApp,
   waitForText,
-} from "../packages/client/src/test-support";
+} from "../packages/client/src/testing/test-support";
 import { HERMETIC_TERMINAL_ENV } from "../test/helpers/env";
 import { createTestReviewHome } from "../test/helpers/review-home";
 import { createTestGitRepo } from "../test/helpers/git-repo";

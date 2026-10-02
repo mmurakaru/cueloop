@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import type { ExitEvent } from "../../packages/client/src/pty";
+import type { ExitEvent } from "../../packages/client/src/terminal/pty";
 import { waitForPtyScreen, waitForPtyText, type PtyScreenReader } from "./pty-tui-session";
 
 /** A scripted screen: each `text()` call advances through `frames`, then repeats the last. */

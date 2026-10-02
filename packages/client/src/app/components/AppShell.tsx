@@ -1,0 +1,365 @@
+// The one app shell: a single header row over four full-height panes - Threads, Thread, Changes,
+// Project - divided by straight rules; each header cell's thin bottom rule shares the divider gray so
+// the whole header underline reads as one line joining the side rules.
+// The right region (Changes + Project) toggles as a unit: the Project pane is the right sidebar and is
+// always present when the region is on, Changes rides on top of it, and a thin rail holds the sidebar
+// toggle when the region is closed. Each pane owns its own header controls; the thread header never does.
+
+import React, { useEffect, useRef } from "react";
+import { useTerminalDimensions } from "@opentui/react";
+import type { BoxRenderable } from "@opentui/core";
+import { DARK, type Theme } from "../../appearance/theme";
+import { useFrameMeasure } from "../../ui/use-frame-measure";
+import { truncateTitle } from "../../ui/components/truncate-title";
+import { PanelColumn } from "./PanelColumn";
+import { IconButton } from "../../ui/components/primitives/IconButton";
+import { NERD, HEADER_UNDERLINE_CHARS } from "../../ui/components/primitives/icons";
+import { TooltipProvider } from "../../ui/components/Tooltip";
+import { RootOverlayProvider } from "../../ui/components/RootOverlay";
+import type { ExtensionUIContext } from "@cueloop/extension-api/client";
+import { ClientExtensionRegistry } from "../../integrations/client-extension-registry";
+import {
+  ExtensionZone,
+  useClientExtensionSnapshot,
+} from "../../integrations/components/ExtensionZone";
+import { WorkspacePanels } from "./WorkspacePanels";
+
+const EMPTY_EXTENSION_REGISTRY = new ClientExtensionRegistry();
+const EMPTY_EXTENSION_CONTEXT: ExtensionUIContext = { workspace: null, threadId: null };
+
+interface ExtensionInputs {
+  registry: ClientExtensionRegistry;
+  context: ExtensionUIContext;
+}
+
+function extensionInputs(
+  registry?: ClientExtensionRegistry,
+  context?: ExtensionUIContext,
+): ExtensionInputs {
+  return {
+    registry: registry ?? EMPTY_EXTENSION_REGISTRY,
+    context: context ?? EMPTY_EXTENSION_CONTEXT,
+  };
+}
+
+export type ProjectPanelMode = "changes" | "tree";
+
+/** The thread title on one line: it shrinks with the header and tails off in an ellipsis rather than wrapping. */
+function HeaderTitle({ title, color }: { title: string; color: string }): React.ReactNode {
+  const boxRef = useRef<BoxRenderable | null>(null);
+  const width = useFrameMeasure(
+    () => boxRef.current?.width ?? 0,
+    (left, right) => left === right,
+    0,
+  );
+  const clipped = width > 0 ? truncateTitle(title, width) : title;
+
+  return (
+    <box ref={boxRef} style={{ flexShrink: 1, minWidth: 0 }}>
+      <text fg={color} wrapMode="none">
+        {clipped}
+      </text>
+    </box>
+  );
+}
+
+export interface AppShellProps {
+  sidebarOpen: boolean;
+  onToggleSidebar: () => void;
+  onOpenMenu: () => void;
+  threadsPanel: React.ReactNode;
+  /** The Thread header title; mirrors the selected sidebar thread, blank on a bare launch. */
+  threadTitle: string;
+  /** Owner actions at the right edge of the Thread header (Edit/Share) - the only thread-header controls. */
+  threadActions?: React.ReactNode;
+  threadPanel: React.ReactNode;
+  changesOpen: boolean;
+  projectOpen: boolean;
+  /** Toggle the Changes editor (also switches the Project tree to changed-files mode). */
+  onToggleChanges: () => void;
+  /** Toggle the Project tree to the full project view. */
+  onToggleProject: () => void;
+  /** Open or close the whole right region (the right sidebar). */
+  onToggleRight: () => void;
+  projectMode: ProjectPanelMode;
+  /** The Changes editor grid; rendered only when changesOpen. */
+  changesPanel?: React.ReactNode;
+  /** The thread footer, shown beneath the Changes grid while the Thread pane is zoomed away. */
+  changesFooter?: React.ReactNode;
+  projectPanel: React.ReactNode;
+  /** Hide the Thread pane so Changes fills the middle (zoom); the sidebars stay. */
+  zoomHideThread?: boolean;
+  footer?: React.ReactNode;
+  children?: React.ReactNode;
+  theme?: Theme;
+  threadsWidth?: number;
+  projectWidth?: number;
+  onFocusPane?: (pane: FocusPane) => void;
+  focusedPane?: FocusPane;
+  extensionRegistry?: ClientExtensionRegistry;
+  extensionContext?: ExtensionUIContext;
+  onExtensionError?: (message: string) => void;
+}
+
+export type FocusPane = "threads" | "thread" | "changes" | "project";
+
+/** The right region's reserved width: the open project pane, nothing when the region is closed, else the collapsed rail. */
+function rightRegionColumns(
+  projectOpen: boolean,
+  projectWidth: number,
+  rightRegionClosed: boolean,
+  collapsedRailWidth: number,
+): number {
+  if (projectOpen) return projectWidth;
+
+  return rightRegionClosed ? 0 : collapsedRailWidth;
+}
+
+/** The Thread header's right cluster: the owner actions, plus the reopen control when the region is closed. */
+function threadHeaderRight(
+  threadActions: React.ReactNode,
+  reopenControl: React.ReactNode,
+  showReopen: boolean,
+): React.ReactNode {
+  if (!showReopen) return threadActions;
+
+  return (
+    <box style={{ flexDirection: "row", alignItems: "center" }}>
+      {threadActions ? <box style={{ paddingRight: 2 }}>{threadActions}</box> : null}
+      {reopenControl}
+    </box>
+  );
+}
+
+export function AppShell({
+  sidebarOpen,
+  onToggleSidebar,
+  onOpenMenu,
+  threadsPanel,
+  threadTitle,
+  threadActions,
+  threadPanel,
+  changesOpen,
+  projectOpen,
+  onToggleChanges,
+  onToggleProject,
+  onToggleRight,
+  projectMode,
+  changesPanel,
+  changesFooter,
+  projectPanel,
+  zoomHideThread,
+  footer,
+  children,
+  theme,
+  threadsWidth = 30,
+  projectWidth = 32,
+  onFocusPane,
+  focusedPane,
+  extensionRegistry,
+  extensionContext,
+  onExtensionError,
+}: AppShellProps): React.ReactNode {
+  const { registry, context } = extensionInputs(extensionRegistry, extensionContext);
+  const extensionSnapshot = useClientExtensionSnapshot(registry);
+  useEffect(() => {
+    if (extensionSnapshot.lastError) onExtensionError?.(extensionSnapshot.lastError);
+  }, [extensionSnapshot.lastError, onExtensionError]);
+
+  const tokens = theme ?? DARK;
+  const { width: terminalWidth } = useTerminalDimensions();
+  // with both panels closed the right region collapses to nothing: the reopen toggle
+  // rides the thread header, and the middle reclaims the width the rail would have taken
+  const rightRegionClosed = !projectOpen && !changesOpen;
+  // Thread and Changes would otherwise split the middle as two flexBasis-0 items, and Yoga adds the
+  // Changes left border on top of its share: at even widths the halves come out fractional, the
+  // Changes side rounds up, and the row overflows a cell under the Project border. Sizing the Thread
+  // pane to a whole number leaves Changes the lone flex item, which lays out exactly.
+  const collapsedRailWidth = 4;
+  const rightRegionWidth = rightRegionColumns(
+    projectOpen,
+    projectWidth,
+    rightRegionClosed,
+    collapsedRailWidth,
+  );
+  const middleWidth = terminalWidth - (sidebarOpen ? threadsWidth : 0) - rightRegionWidth;
+  const threadPaneWidth =
+    changesOpen && !zoomHideThread ? Math.max(20, Math.floor(middleWidth / 2)) : undefined;
+
+  // gear + sidebar toggle + product mark: global chrome, in the Threads header when open, else at the
+  // left of the Thread header when the Threads pane is collapsed
+  const brandChrome = (
+    <box style={{ flexDirection: "row", flexShrink: 0 }}>
+      <box onMouseUp={onOpenMenu} style={{ paddingRight: 2 }}>
+        <text fg={tokens.textMuted}>{NERD.settings}</text>
+      </box>
+      <IconButton
+        glyph={sidebarOpen ? NERD.sidebarLeft : NERD.sidebarLeftOff}
+        onPress={onToggleSidebar}
+        tip="Toggle Threads"
+        marginRight={2}
+        theme={tokens}
+      />
+      <text fg={tokens.accent}>cueloop</text>
+    </box>
+  );
+
+  // the reopen control - a divider tick then the toggle - shared by the collapsed
+  // rail and, when the rail is suppressed, the thread header
+  const reopenRightControl = (
+    <>
+      <text fg={tokens.border}>{"│"}</text>
+      <IconButton
+        glyph={NERD.sidebarRightOff}
+        onPress={onToggleRight}
+        tip="Toggle Sidebar"
+        marginLeft={1}
+        theme={tokens}
+      />
+    </>
+  );
+
+  return (
+    <box
+      style={{
+        flexDirection: "column",
+        width: "100%",
+        height: "100%",
+        backgroundColor: tokens.background,
+      }}
+    >
+      <RootOverlayProvider>
+        <TooltipProvider theme={tokens}>
+          <box style={{ flexGrow: 1, flexDirection: "row" }}>
+            {sidebarOpen ? (
+              <PanelColumn
+                width={threadsWidth}
+                border="right"
+                header={brandChrome}
+                onFocus={() => onFocusPane?.("threads")}
+                theme={tokens}
+              >
+                {threadsPanel}
+                <ExtensionZone
+                  zone="threads.sidebar"
+                  registry={registry}
+                  context={context}
+                  onError={onExtensionError}
+                />
+              </PanelColumn>
+            ) : null}
+            {!zoomHideThread ? (
+              <PanelColumn
+                width={threadPaneWidth}
+                header={
+                  <box style={{ flexDirection: "row", minWidth: 0 }}>
+                    {!sidebarOpen ? (
+                      <box style={{ paddingRight: 2, flexShrink: 0 }}>{brandChrome}</box>
+                    ) : null}
+                    {threadTitle ? (
+                      <HeaderTitle title={threadTitle} color={tokens.textDim} />
+                    ) : null}
+                  </box>
+                }
+                // with the region closed, the reopen toggle rides the thread header instead of an empty column
+                headerRight={threadHeaderRight(
+                  extensionSnapshot.actions.length > 0 ? (
+                    <box style={{ flexDirection: "row", alignItems: "center" }}>
+                      {threadActions}
+                      <ExtensionZone
+                        zone="thread.header"
+                        registry={registry}
+                        context={context}
+                        onError={onExtensionError}
+                      />
+                    </box>
+                  ) : (
+                    threadActions
+                  ),
+                  reopenRightControl,
+                  rightRegionClosed,
+                )}
+                onFocus={() => onFocusPane?.("thread")}
+                theme={tokens}
+              >
+                {threadPanel}
+              </PanelColumn>
+            ) : null}
+            {changesOpen ? (
+              <box
+                onMouseDown={() => onFocusPane?.("changes")}
+                style={{
+                  flexDirection: "column",
+                  flexGrow: 1,
+                  flexBasis: 0,
+                  minWidth: 0,
+                  borderStyle: "single",
+                  // zoom drops the Thread pane, whose sidebar rule already divides here, so drop this
+                  // one then to avoid a double border
+                  border: zoomHideThread ? [] : ["left"],
+                  borderColor: tokens.border,
+                }}
+              >
+                <box style={{ flexGrow: 1, minHeight: 0 }}>{changesPanel}</box>
+                {zoomHideThread ? changesFooter : null}
+              </box>
+            ) : null}
+            {projectOpen ? (
+              <WorkspacePanels
+                width={projectWidth}
+                projectMode={projectMode}
+                projectPanel={projectPanel}
+                onToggleChanges={onToggleChanges}
+                onToggleProject={onToggleProject}
+                onToggleRight={onToggleRight}
+                onFocus={() => onFocusPane?.("project")}
+                focused={focusedPane === "project"}
+                registry={registry}
+                context={context}
+                theme={tokens}
+                onExtensionError={onExtensionError}
+              />
+            ) : rightRegionClosed ? null : (
+              // Changes open but Project closed: a divider tick above the continuous header underline holds the reopen toggle;
+              // the rule lives in the header only, never running the pane's full height. The extra column
+              // of right padding keeps the reopen icon off the terminal's last column, which squeezes it
+              <box style={{ flexDirection: "column", width: 4 }}>
+                <box
+                  customBorderChars={HEADER_UNDERLINE_CHARS}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    height: 2,
+                    paddingRight: 1,
+                    backgroundColor: tokens.panel,
+                    borderStyle: "single",
+                    border: ["bottom"],
+                    borderColor: tokens.border,
+                  }}
+                >
+                  {reopenRightControl}
+                </box>
+              </box>
+            )}
+          </box>
+          {footer !== undefined ? (
+            <box
+              style={{
+                flexDirection: "row",
+                height: 1,
+                paddingLeft: 1,
+                paddingRight: 1,
+                borderStyle: "single",
+                border: ["top"],
+                borderColor: tokens.border,
+              }}
+            >
+              {footer}
+            </box>
+          ) : null}
+          {children}
+        </TooltipProvider>
+      </RootOverlayProvider>
+    </box>
+  );
+}

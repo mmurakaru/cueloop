@@ -1,0 +1,428 @@
+/** The plan review surface v2: native selection feeds the annotation quote, the inline compose box keeps its anchor painted, the rail edits what the document selects, and edit-exit reconciliation orphans annotations whose passage was removed. Char-frame + styled-span assertions over the real App and a real in-process daemon. */
+
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import React from "react";
+import { DaemonServer } from "@cueloop/daemon";
+import type { Thread } from "@cueloop/schema";
+import { App } from "./App";
+import { DEFAULT_QUICK_ACTIONS } from "../settings/config";
+import { slashItemsFrom } from "../keyboard/slash-palette";
+import {
+  clickText,
+  dragText,
+  isolateUserConfig,
+  navCommand,
+  press,
+  pressKey,
+  renderReadyApp,
+  typeText as type,
+  waitForState,
+  waitForText,
+  waitForTextGone,
+} from "../testing/test-support";
+
+const PLAN = `# Migration Plan
+
+## Context
+
+The daemon persists sessions to disk atomically.
+
+## Steps
+
+- move the store
+- add recovery
+`;
+
+let home: string;
+let server: DaemonServer;
+let session: Thread;
+let restoreUserConfig: () => void;
+
+beforeEach(() => {
+  home = mkdtempSync(join(tmpdir(), "cueloop-plan-review-"));
+  restoreUserConfig = isolateUserConfig(home);
+  server = new DaemonServer({ home, idleExitMs: 0 });
+  server.start();
+  session = server.core.sessionCreate({
+    workspace: { repoRoot: "/repo", branch: "main" },
+    artifact: {
+      type: "plan",
+      content: PLAN,
+      meta: { title: "Migration Plan", planPath: "plan.md", agent: "agent/worker-3" },
+    },
+  });
+});
+afterEach(() => {
+  restoreUserConfig();
+  server.stop();
+  rmSync(home, { recursive: true, force: true });
+});
+
+async function renderApp() {
+  const setup = await renderReadyApp(<App home={home} sessionId={session.id} />, {
+    width: 120,
+    height: 32,
+  });
+
+  await waitForText(setup, "cueloop");
+
+  return setup;
+}
+
+type Setup = Awaited<ReturnType<typeof renderApp>>;
+
+/**
+ * Background colors (hex) of every styled span containing the needle - the
+ * document highlight and the rail's quote excerpt can both match.
+ */
+function backgroundsOf(setup: Setup, needle: string): string[] {
+  const backgrounds: string[] = [];
+
+  for (const line of setup.captureSpans().lines) {
+    for (const span of line.spans) {
+      if (!span.text.includes(needle)) continue;
+      const [red, green, blue] = span.bg.toInts();
+
+      backgrounds.push(
+        "#" + [red, green, blue].map((part) => part.toString(16).padStart(2, "0")).join(""),
+      );
+    }
+  }
+
+  return backgrounds;
+}
+
+describe("share button", () => {
+  test("the owner's plan header shows the Share button next to Edit", async () => {
+    // Arrange / Act
+    const setup = await renderApp();
+
+    // Assert
+    // both word-buttons ride the header's thread segment, so share sits next to edit
+    const headerLine = setup
+      .captureCharFrame()
+      .split("\n")
+      .find((line) => line.includes("edit"));
+
+    expect(headerLine).toContain("share");
+  });
+
+  test("a read-only viewer (a plan shared over ssh) never sees the Share button", async () => {
+    // Arrange / Act
+    const viewer = await renderReadyApp(<App home={home} sessionId={session.id} readOnly />, {
+      width: 120,
+      height: 32,
+    });
+
+    await waitForText(viewer, "cueloop");
+
+    // Assert
+    expect(viewer.captureCharFrame()).not.toContain(" share ");
+  });
+
+  test("a resolved plan hides Edit and Share (no re-sharing a finished review)", async () => {
+    // Arrange - resolve the session before opening it
+    server.core.sessionSendMessage(session.id, "approved", "");
+
+    // Act
+    const setup = await renderApp();
+
+    await waitForText(setup, "Migration Plan");
+
+    // Assert - the owner toolbar is gone once the review is resolved
+    const frame = setup.captureCharFrame();
+
+    expect(frame).not.toContain(" edit ");
+    expect(frame).not.toContain(" share ");
+  });
+});
+
+describe("edit affordance", () => {
+  test("the owner sees the Edit button", async () => {
+    // Arrange / Act
+    const owner = await renderApp();
+
+    // Assert
+    expect(owner.captureCharFrame()).toContain(" edit ");
+  });
+
+  test("a read-only viewer (a plan shared over ssh) never sees the Edit button", async () => {
+    // Arrange / Act
+    const viewer = await renderReadyApp(<App home={home} sessionId={session.id} readOnly />, {
+      width: 120,
+      height: 32,
+    });
+
+    await waitForText(viewer, "cueloop");
+
+    // Assert
+    expect(viewer.captureCharFrame()).not.toContain(" edit ");
+  });
+});
+
+describe("marks feed the comment anchor", () => {
+  test("a drag marks a character-precise span and typing anchors the comment to it", async () => {
+    // Arrange
+    const setup = await renderApp();
+
+    // Act
+    await dragText(setup, "The daemon", "daemon persists", "daemon".length);
+    await type(setup, "Which daemon?");
+    await pressKey(setup, "RETURN", { meta: true });
+
+    // Assert
+    await waitForState(setup, () => server.core.sessionGet(session.id).annotations.length === 1);
+    expect(server.core.sessionGet(session.id).annotations[0]!.anchor.quote).toBe("The daemon");
+  });
+
+  test("a drag that ends mid-sentence keeps exactly the dragged words", async () => {
+    // Arrange
+    const setup = await renderApp();
+
+    // Act: release one past the last character of "sessions"
+    await dragText(setup, "persists", "sessions", "sessions".length);
+    await type(setup, "sessions plural?");
+    await pressKey(setup, "RETURN", { meta: true });
+
+    // Assert
+    await waitForState(setup, () => server.core.sessionGet(session.id).annotations.length === 1);
+    expect(server.core.sessionGet(session.id).annotations[0]!.anchor.quote).toBe(
+      "persists sessions",
+    );
+  });
+});
+
+/** The thread view's mark backdrop in the dark palette. */
+const THREAD_MARK = "#463852";
+
+describe("the mark stays painted while composing", () => {
+  test("the mark paints while composing, escape un-paints, save keeps it as the comment's mark", async () => {
+    // Arrange
+    const setup = await renderApp();
+
+    // Act
+    await dragText(setup, "The daemon", "daemon persists", "daemon".length);
+    await type(setup, "x");
+
+    // Assert: composing, the marked words carry the mark backdrop
+    await waitForText(setup, "● x");
+    expect(backgroundsOf(setup, "The daemon")).toContain(THREAD_MARK);
+
+    // Act: escape discards the draft and the mark stays for re-typing; the next escape
+    // enters nav mode with the mark still held; only an escape in nav drops it
+    await press(setup, "escape");
+    await waitForTextGone(setup, "● x");
+    expect(backgroundsOf(setup, "The daemon")).toContain(THREAD_MARK);
+    await press(setup, "escape");
+    await waitForText(setup, "type to leave");
+    expect(backgroundsOf(setup, "The daemon")).toContain(THREAD_MARK);
+    await press(setup, "escape");
+
+    // Assert
+    await waitForState(setup, () => !backgroundsOf(setup, "The daemon").includes(THREAD_MARK));
+
+    // Act: mark again, save
+    await dragText(setup, "The daemon", "daemon persists", "daemon".length);
+    await type(setup, "Which daemon?");
+    await pressKey(setup, "RETURN", { meta: true });
+
+    // Assert: the saved comment keeps the passage marked
+    await waitForState(setup, () => server.core.sessionGet(session.id).annotations.length === 1);
+    await waitForState(setup, () => backgroundsOf(setup, "The daemon").includes(THREAD_MARK));
+  }, 60_000);
+
+  test("backspace on an empty draft dismisses the composer back to the mark", async () => {
+    // Arrange
+    const setup = await renderApp();
+
+    // Act: mark, type one character, then delete it and backspace again on the now-empty draft
+    await dragText(setup, "The daemon", "daemon persists", "daemon".length);
+    await type(setup, "x");
+    await waitForText(setup, "● x");
+    await press(setup, "backspace");
+    await press(setup, "backspace");
+
+    // Assert: the composer is gone and the mark stays, ready to re-type
+    await waitForTextGone(setup, "● x");
+    expect(backgroundsOf(setup, "The daemon")).toContain(THREAD_MARK);
+  }, 60_000);
+
+  test("esc from type mode keeps the mark, so c in nav comments on the marked text", async () => {
+    // Arrange
+    const setup = await renderApp();
+
+    // Act: mark, enter nav with esc, open the composer with c, save
+    await dragText(setup, "The daemon", "daemon persists", "daemon".length);
+    await navCommand(setup, "c");
+    await type(setup, "Which daemon?");
+    await waitForText(setup, "● Which daemon?");
+    await pressKey(setup, "RETURN", { meta: true });
+
+    // Assert: the comment anchors to the mark, not to the word under the caret
+    await waitForState(setup, () => server.core.sessionGet(session.id).annotations.length === 1);
+    expect(server.core.sessionGet(session.id).annotations[0]!.anchor.quote).toBe("The daemon");
+  }, 60_000);
+});
+
+describe("compose newline convention", () => {
+  test("enter breaks the line; cmd+enter saves the multiline body verbatim", async () => {
+    // Arrange
+    const setup = await renderApp();
+
+    await clickText(setup, "daemon");
+
+    // Act
+    await type(setup, "first line");
+    await press(setup, "enter");
+    await type(setup, "second line");
+
+    // Assert: still composing, the newline did not save
+    expect(server.core.sessionGet(session.id).annotations.length).toBe(0);
+
+    // Act
+    await pressKey(setup, "RETURN", { meta: true });
+
+    // Assert
+    await waitForState(setup, () => server.core.sessionGet(session.id).annotations.length === 1);
+    expect(server.core.sessionGet(session.id).annotations[0]!.body).toBe("first line\nsecond line");
+  });
+
+  test("escape cancels the composer without saving", async () => {
+    // Arrange
+    const setup = await renderApp();
+
+    await clickText(setup, "daemon");
+    await type(setup, "never saved");
+    await waitForText(setup, "● never saved");
+
+    // Act
+    await press(setup, "escape");
+
+    // Assert
+    await waitForTextGone(setup, "● never saved");
+    expect(server.core.sessionGet(session.id).annotations.length).toBe(0);
+  });
+});
+
+describe("sheet header", () => {
+  test("mirrors the thread name and carries the Edit and Share word-buttons", async () => {
+    // Arrange
+    const setup = await renderApp();
+
+    // Assert - the minimal header shows the thread title (mirror) plus the owner
+    // actions; the revision and submitter metadata are no longer in the header
+    const frame = setup.captureCharFrame();
+
+    expect(frame).toContain("Migration Plan");
+    expect(frame).not.toContain("submitted by");
+    expect(frame).not.toContain("rev 1");
+    expect(frame).toContain(" edit ");
+    expect(frame).toContain(" share ");
+  });
+});
+
+describe("quick-actions settings editor", () => {
+  test("expanding an action edits its system prompt inline and persists it", async () => {
+    // Arrange
+    const setup = await renderApp();
+
+    // Act - open Settings from the top-left gear, enter Actions, expand the first action, type
+    await setup.mockMouse.click(1, 0);
+    await waitForText(setup, "Keybinds");
+    await clickText(setup, "settings");
+    await clickText(setup, "Actions");
+    await clickText(setup, "Zoom out, research in depth");
+    await type(setup, "CUSTOM");
+    await setup.renderOnce();
+
+    // Assert - the keystrokes reached the focused input (not swallowed by nav) and persisted
+    expect(setup.captureCharFrame()).toContain("CUSTOM");
+    await waitForState(setup, () =>
+      readFileSync(join(home, "no-config.toml"), "utf8").includes("CUSTOM"),
+    );
+  });
+});
+
+describe("edit-exit reconciliation", () => {
+  test("an edit that removes an anchored passage orphans the annotation and shows the banner", async () => {
+    // Arrange - anchor a comment to a passage
+    const setup = await renderApp();
+
+    await clickText(setup, "daemon");
+    await type(setup, "Anchor me to the doomed passage.");
+    await pressKey(setup, "RETURN", { meta: true });
+    await waitForState(setup, () => server.core.sessionGet(session.id).annotations.length === 1);
+
+    // Act - open the inline editor, replace the whole body (dropping the passage), and leave
+    await pressKey(setup, "e", { ctrl: true });
+    await waitForText(setup, "save & close");
+    await pressKey(setup, "a", { meta: true });
+    await type(setup, "A fresh body with no anchored passage.");
+    await clickText(setup, "normal");
+
+    // Assert - the thread view banner reports the orphaned annotation
+    await waitForText(setup, "1 annotation no longer match - the passage was removed.");
+    // the annotation is NOT deleted: the feedback serializer handles orphans
+    expect(server.core.sessionGet(session.id).annotations.length).toBe(1);
+  });
+});
+
+describe("thread switch preserves an open edit", () => {
+  test("clicking another thread while editing saves the body into the leaving thread", async () => {
+    // Arrange - a second thread sits in the sidebar to switch to
+    server.core.sessionCreate({
+      workspace: { repoRoot: "/repo", branch: "main" },
+      artifact: {
+        type: "plan",
+        content: "# Second Thread\n\nAnother body.\n",
+        meta: { title: "Second Thread", planPath: "plan.md", agent: "agent/worker-3" },
+      },
+    });
+    const setup = await renderApp();
+
+    // open the Threads sidebar so the other thread is on screen to click
+    await setup.mockMouse.click(4, 0);
+    await waitForText(setup, "Second Thread");
+
+    // Act - open the inline editor, rewrite the body, then click away before an explicit save
+    await pressKey(setup, "e", { ctrl: true });
+    await waitForText(setup, "save & close");
+    await pressKey(setup, "a", { meta: true });
+    await type(setup, "Body kept across a thread switch.");
+    await clickText(setup, "Second Thread");
+
+    // Assert - the leaving thread's working copy holds the edit rather than dropping it
+    await waitForState(setup, () =>
+      (server.core.sessionGet(session.id).workingCopy ?? "").includes(
+        "kept across a thread switch",
+      ),
+    );
+  });
+});
+
+describe("the quick-action palette", () => {
+  test("/ lists the quick actions and a pick inserts the reference, not the body", async () => {
+    // Arrange
+    const setup = await renderApp();
+
+    await dragText(setup, "The daemon", "daemon persists", "daemon".length);
+
+    // Act - a leading slash opens the palette; step to the second default and pick it
+    await type(setup, "/");
+    await waitForText(setup, "zoom-out-research-in-depth");
+    await pressKey(setup, "ARROW_DOWN");
+    await press(setup, "enter");
+    await pressKey(setup, "RETURN", { meta: true });
+
+    // Assert - the comment holds the /name reference, not the expanded body
+    await waitForState(setup, () => server.core.sessionGet(session.id).annotations.length === 1);
+    const stored = server.core.sessionGet(session.id);
+    const secondName = slashItemsFrom(DEFAULT_QUICK_ACTIONS)[1]!.name;
+
+    expect(stored.annotations[0]!.kind).toBe("comment");
+    expect(stored.annotations[0]!.body.trim()).toBe(`/${secondName}`);
+  });
+});

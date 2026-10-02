@@ -1,0 +1,124 @@
+/** The share toast is non-modal: while it is up, escape still cancels an open overlay. */
+
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import React from "react";
+import { testRender } from "@opentui/react/test-utils";
+import { DaemonServer } from "@cueloop/daemon";
+import type { Thread } from "@cueloop/schema";
+import { App } from "./App";
+import type { ShareTransport } from "../thread/thread-controller";
+import {
+  clickText,
+  isolateUserConfig,
+  locateText,
+  press,
+  pressKey,
+  typeText,
+  waitForText,
+  waitForTextGone,
+} from "../testing/test-support";
+
+const publishShare = mock(async () => ({ line: "ssh p_share01@cueloop.dev", copied: true }));
+const shareTransport: ShareTransport = {
+  publish: publishShare,
+  pull: mock(async () => {
+    throw new Error("Unexpected share pull");
+  }),
+  push: mock(async () => {}),
+  watch: () => () => {},
+  revoke: async () => {},
+  parseShareId: (line) => line.match(/^ssh (\S+)@/)?.[1],
+  formatShareLine: (id: string) => "ssh " + id + "@cueloop.dev",
+  collaboratorAnnotations: () => [],
+  mergeFromShare: () => ({ annotations: [] }),
+};
+
+const PLAN = `# Migration Plan\n\n## Context\n\nThe daemon persists sessions to disk atomically.\n`;
+
+let home: string;
+let restoreUserConfig: () => void;
+let server: DaemonServer;
+let session: Thread;
+
+beforeEach(() => {
+  home = mkdtempSync(join(tmpdir(), "cueloop-toast-"));
+  restoreUserConfig = isolateUserConfig(home);
+  server = new DaemonServer({ home, idleExitMs: 0 });
+  server.start();
+  session = server.core.sessionCreate({
+    workspace: { repoRoot: "/repo", branch: "main" },
+    artifact: {
+      type: "plan",
+      content: PLAN,
+      meta: { title: "Migration Plan", planPath: "plan.md" },
+    },
+  });
+});
+afterEach(() => {
+  restoreUserConfig();
+  server.stop();
+  rmSync(home, { recursive: true, force: true });
+});
+
+describe("share toast", () => {
+  test("clicking outside dismisses the toast while clicking inside keeps it open", async () => {
+    const setup = await testRender(
+      <App home={home} sessionId={session.id} shareTransport={shareTransport} />,
+      { width: 120, height: 32 },
+    );
+
+    await waitForText(setup, "cueloop");
+    await pressKey(setup, "s", { ctrl: true });
+    await waitForText(setup, "+ new link");
+    await press(setup, "enter");
+    await press(setup, "enter");
+    await waitForText(setup, "link name");
+    await press(setup, "enter");
+    await waitForText(setup, "link copied");
+    await press(setup, "escape");
+    await waitForTextGone(setup, "share externally");
+    const body = locateText(setup, "ssh p_share01@cueloop.dev");
+
+    await setup.mockMouse.click(body.column, body.row);
+    expect(setup.captureCharFrame()).toContain("link copied");
+    await setup.mockMouse.click(1, 1);
+    await waitForTextGone(setup, "link copied");
+    setup.renderer.destroy();
+  });
+
+  test("escape cancels an open composer even while the toast is up", async () => {
+    // Arrange
+    const setup = await testRender(
+      <App home={home} sessionId={session.id} shareTransport={shareTransport} />,
+      {
+        width: 120,
+        height: 32,
+      },
+    );
+
+    await waitForText(setup, "cueloop");
+
+    // Act: share opens the dialog, the new-link wizard publishes and raises the toast, then a composer under it
+    await pressKey(setup, "s", { ctrl: true });
+    await waitForText(setup, "+ new link");
+    await press(setup, "enter"); // step into the links body
+    await press(setup, "enter"); // activate "+ new link" - the wizard opens
+    await waitForText(setup, "link name");
+    await press(setup, "enter"); // the name field submits and creates the link
+    await waitForText(setup, "link copied");
+    await press(setup, "escape"); // close the dialog; the non-modal toast stays up
+    await waitForTextGone(setup, "share externally");
+    await clickText(setup, "daemon");
+    await typeText(setup, "x");
+    await waitForText(setup, "● x");
+
+    // Act: escape must reach the composer, not get eaten by the toast
+    await press(setup, "escape");
+
+    // Assert: the composer closed on the first escape
+    await waitForTextGone(setup, "● x");
+  });
+});

@@ -176,7 +176,7 @@ jobs:
         run: |
           if git diff --quiet "$BASE_SHA" "$GITHUB_SHA" -- \
             packages/client/native \
-            packages/client/src/ghostty-terminal.test.ts; then
+            packages/client/src/terminal/ghostty-terminal.test.ts; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
@@ -204,7 +204,7 @@ jobs:
         run: sh packages/client/native/build.sh
       - name: Test native terminal ABI
         if: steps.native-changes.outputs.changed == 'true'
-        run: bun test packages/client/src/ghostty-terminal.test.ts
+        run: bun test packages/client/src/terminal/ghostty-terminal.test.ts
 
   changeset:
     # Every PR ships a changeset (empty is fine for docs/CI-only changes:

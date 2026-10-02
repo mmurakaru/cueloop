@@ -1,0 +1,407 @@
+/**
+ * The keyboard grammar as a pure reducer: view state in, intents out.
+ * App builds a KeyState per key event, calls reduceKey, and dispatches the
+ * intents to controller primitives and view-state setters - no branch bodies live
+ * in the key handler. Diff and plan reviews share one path for annotation
+ * navigation, deletion, and submit; the read-only rule is one gate here.
+ */
+
+import { actionFor } from "../settings/config";
+
+export type Intent =
+  | { type: "exit" }
+  | { type: "status"; message: string }
+  | { type: "move"; to: "down" | "up" | "top" | "bottom" }
+  | { type: "inboxMove"; to: "down" | "up" }
+  | { type: "openSession" }
+  | { type: "requestDeleteSession" }
+  | { type: "openRename" }
+  | { type: "confirmDialog" }
+  | { type: "startSpan" }
+  | { type: "spanKey"; name: string }
+  | { type: "spanCut" }
+  | { type: "openSpanActions" }
+  | { type: "moveSpanAction"; direction: -1 | 1 }
+  | { type: "pickSpanAction"; index?: number }
+  | { type: "closeSpanActions" }
+  | { type: "openCompose"; kind: "comment"; from: "cursor" | "span" }
+  | { type: "openSubmit" }
+  | { type: "share" }
+  | { type: "cut" }
+  | { type: "edit" }
+  | { type: "editCard" }
+  | { type: "rejectHunk" }
+  | { type: "rejectChange" }
+  | { type: "restoreCuration" }
+  | { type: "foldFile" }
+  | { type: "unfoldFile" }
+  | { type: "toggleDiffView" }
+  | { type: "nextAnnotation" }
+  | { type: "prevAnnotation" }
+  | { type: "walkStart" }
+  | { type: "walkForward" }
+  | { type: "walkBack" }
+  | { type: "walkLeave" }
+  | { type: "removeAnnotation" }
+  | { type: "deselect" }
+  | { type: "closeOverlay" }
+  | { type: "saveCompose" }
+  | { type: "submitMessage" }
+  | { type: "cycleMessage"; direction: -1 | 1 }
+  | { type: "finishReview" }
+  | { type: "optInAutoClose" }
+  | { type: "dismissCompletion" }
+  | { type: "toggleTree" }
+  | { type: "treeMove"; direction: -1 | 1 }
+  | { type: "treeGo" }
+  | { type: "treeBranch" }
+  | { type: "treeLabel" }
+  | { type: "treeFork" }
+  | { type: "treeForkShare" };
+
+export interface KeyInput {
+  name: string;
+  shift: boolean;
+  /** Option/Alt arrives as `meta` in this terminal stack (never as a raw alt). */
+  meta?: boolean;
+}
+
+export interface KeyState {
+  /** Loaded keymap (config.ts): action -> key combos. */
+  keys: Record<string, string[]>;
+  readOnly: boolean;
+  /**
+   * Owner-only primitives a share collaborator lacks (undefined = owner, allowed).
+   * A collaborator annotates but cannot edit the plan (cut / $EDITOR runs on
+   * the gateway) or submit an agent message (there is no agent on a share).
+   */
+  canEditPlan?: boolean;
+  canSubmitMessage?: boolean;
+  /** Owner-only: publish the plan as a share. A collaborator never re-shares. */
+  canShare?: boolean;
+  /** Layer that owns keys before the grammar runs. */
+  overlay:
+    | "none"
+    | "walk"
+    | "compose"
+    | "submit"
+    | "confirm"
+    | "prompt"
+    | "spanActions"
+    | "completion-prompt"
+    | "completion-counting";
+  view: "inbox" | "plan" | "diff";
+  /** Plan-only span selection sub-mode. */
+  spanMode: boolean;
+  /** The walk cursor sits on the end card - return offers the submit action. */
+  walkAtEnd: boolean;
+  resolved: boolean;
+  hasInboxItems: boolean;
+  annotationCount: number;
+  hasFocusedAnnotation: boolean;
+  /** Cursor sits on annotatable text: a work block (plan) or a code row (diff). */
+  cursorAnnotatable: boolean;
+}
+
+/** Primitives that write session state; an observer never reaches their handlers. */
+const MUTATING_ACTIONS = new Set([
+  "comment",
+  "cut",
+  "edit",
+  "delete_annotation",
+  "submit",
+  "walk",
+  "share",
+  "reject_hunk",
+  "restore_curation",
+]);
+
+const SPAN_KEYS = new Set(["l", "h", "w", "b", "$", "0"]);
+
+function status(message: string): Intent[] {
+  return [{ type: "status", message }];
+}
+
+/**
+ * Reduce one key event to intents. `resolvedAction` is the binding-layer
+ * resolution (key-bindings.ts over @opentui/keymap) when the caller has one;
+ * without it the reducer falls back to the plain reverse lookup, so the
+ * grammar stays testable as a pure function.
+ */
+export function reduceKey(state: KeyState, key: KeyInput, resolvedAction?: string): Intent[] {
+  const name = key.name;
+  const overlayGrammar = overlayGrammars[state.overlay];
+
+  if (overlayGrammar) return overlayGrammar(state, key);
+  const action = resolvedAction ?? actionFor(state.keys, name, key.shift);
+
+  if (action === "quit") return [{ type: "exit" }];
+  // the ONE read-only rule: any mutating attempt answers instead of acting
+  // (span-mode c, x, and a are hardwired keys, so they gate by name as well)
+  const mutating =
+    MUTATING_ACTIONS.has(action ?? "") ||
+    (state.spanMode && (name === "c" || name === "x" || name === "a"));
+
+  if (state.readOnly && mutating) return status("observer - read-only");
+
+  // share is a session-level primitive: it works from any view, owner only
+  if (action === "share") {
+    if (state.canShare === false) return status("only the plan owner can share");
+
+    return [{ type: "share" }];
+  }
+
+  if (state.view === "inbox") return inboxGrammar(state, name);
+  // span mode owns its single-letter keys (b slides the span back)
+  if (state.spanMode) return spanGrammar(state, name);
+  if (state.view === "diff") return diffGrammar(state, action);
+
+  return planGrammar(state, action, name);
+}
+
+type OverlayGrammar = (state: KeyState, key: KeyInput) => Intent[];
+
+const overlayGrammars: Partial<Record<KeyState["overlay"], OverlayGrammar>> = {
+  compose: composeOverlayGrammar,
+  submit: submitOverlayGrammar,
+  confirm: confirmOverlayGrammar,
+  prompt: promptOverlayGrammar,
+  spanActions: spanActionsOverlayGrammar,
+  "completion-prompt": completionOverlayGrammar,
+  "completion-counting": completionOverlayGrammar,
+  walk: walkOverlayGrammar,
+};
+
+function composeOverlayGrammar(state: KeyState, key: KeyInput): Intent[] {
+  const name = key.name;
+
+  if (name === "escape") return [{ type: "closeOverlay" }];
+  if (name === "return" || name === "enter") {
+    // In the composer, ⌥/Alt+⏎ (meta) and shift+⏎ insert a newline - the
+    // focused textarea owns that; only a bare ⏎ saves. The submit overlay
+    // keeps its plain ⏎ submit.
+    if (key.shift || key.meta) return [];
+
+    return [{ type: "saveCompose" }];
+  }
+
+  return [];
+}
+
+function submitOverlayGrammar(state: KeyState, key: KeyInput): Intent[] {
+  const name = key.name;
+
+  if (name === "escape") return [{ type: "closeOverlay" }];
+  if (name === "left" || name === "right") {
+    return [{ type: "cycleMessage", direction: name === "left" ? -1 : 1 }];
+  }
+
+  return [];
+}
+
+function confirmOverlayGrammar(state: KeyState, key: KeyInput): Intent[] {
+  const name = key.name;
+
+  if (name === "return" || name === "enter") return [{ type: "confirmDialog" }];
+  if (name === "escape") return [{ type: "closeOverlay" }];
+
+  return [];
+}
+
+function promptOverlayGrammar(state: KeyState, key: KeyInput): Intent[] {
+  const name = key.name;
+
+  if (name === "return" || name === "enter") return [{ type: "confirmDialog" }];
+  if (name === "escape") return [{ type: "closeOverlay" }];
+
+  return [];
+}
+
+function spanActionsOverlayGrammar(state: KeyState, key: KeyInput): Intent[] {
+  const name = key.name;
+
+  if (name === "j" || name === "down") return [{ type: "moveSpanAction", direction: 1 }];
+  if (name === "k" || name === "up") return [{ type: "moveSpanAction", direction: -1 }];
+  if (name === "return" || name === "enter") return [{ type: "pickSpanAction" }];
+  if (name === "escape") return [{ type: "closeSpanActions" }];
+
+  return [];
+}
+
+function completionOverlayGrammar(state: KeyState, key: KeyInput): Intent[] {
+  const name = key.name;
+
+  if (name === "return" || name === "enter" || name === "q") return [{ type: "finishReview" }];
+  if (name === "a") return [{ type: "optInAutoClose" }];
+  if (name === "escape") return [{ type: "dismissCompletion" }];
+
+  return [];
+}
+
+function walkOverlayGrammar(state: KeyState, key: KeyInput): Intent[] {
+  const name = key.name;
+
+  if (name === "]") return [{ type: "walkForward" }];
+  if (name === "[") return [{ type: "walkBack" }];
+  if (name === "escape") return [{ type: "walkLeave" }];
+  if ((name === "return" || name === "enter") && state.walkAtEnd) {
+    return [{ type: "walkLeave" }, { type: "openSubmit" }];
+  }
+  if (name === "q") return [{ type: "exit" }];
+
+  return [];
+}
+
+function inboxGrammar(state: KeyState, name: string): Intent[] {
+  if (!state.hasInboxItems) return [];
+  if (name === "j" || name === "down") return [{ type: "inboxMove", to: "down" }];
+  if (name === "k" || name === "up") return [{ type: "inboxMove", to: "up" }];
+  if (name === "return" || name === "enter") return [{ type: "openSession" }];
+  if (name === "d") return [{ type: "requestDeleteSession" }];
+
+  return [];
+}
+
+function diffGrammar(state: KeyState, action: string | undefined): Intent[] {
+  const navigation = navigationIntent(action);
+
+  if (navigation) return navigation;
+  if (action === "walk") {
+    // marking viewed writes the session record, so a resolved review answers
+    if (state.resolved) return status("review submitted - read-only");
+
+    return [{ type: "walkStart" }];
+  }
+  if (action === "comment") {
+    if (state.resolved) return status("review submitted - read-only");
+    if (!state.cursorAnnotatable) return status("move to a code line to comment");
+
+    return [{ type: "openCompose", kind: "comment", from: "cursor" }];
+  }
+  // cut rejects the change under the cursor, reject_hunk the whole hunk; both
+  // write the working copy, so they gate on owner like a plan edit.
+  if (action === "cut" || action === "reject_hunk") {
+    if (state.resolved) return status("review submitted - read-only");
+    if (state.canEditPlan === false) return status("only the diff owner can curate hunks");
+
+    return [{ type: action === "reject_hunk" ? "rejectHunk" : "rejectChange" }];
+  }
+  const viewToggle = viewToggleIntent(action);
+
+  if (viewToggle) return viewToggle;
+  // restore un-does a curated-out rejection from the rail; same owner gate as reject
+  if (action === "restore_curation") {
+    if (state.resolved) return status("review submitted - read-only");
+    if (state.canEditPlan === false) return status("only the diff owner can curate hunks");
+
+    return [{ type: "restoreCuration" }];
+  }
+  const shared = annotationCluster(state, action);
+
+  if (shared) return shared;
+  if (action === "span" || action === "edit") {
+    return status("plan-only primitive - diff review uses c on a line");
+  }
+
+  return [];
+}
+
+function spanGrammar(state: KeyState, name: string): Intent[] {
+  if (name === "escape") return [{ type: "closeOverlay" }];
+  if (SPAN_KEYS.has(name)) return [{ type: "spanKey", name }];
+  // c comments, x cuts, a opens quick-actions - all mutate, so a resolved
+  // review is read-only, like the plan grammar
+  if (name === "c" || name === "x" || name === "a") {
+    if (state.resolved) return status("review submitted - read-only");
+    if (name === "c") return [{ type: "openCompose", kind: "comment", from: "span" }];
+    if (name === "a") return [{ type: "openSpanActions" }];
+    if (state.canEditPlan === false) return [];
+
+    return [{ type: "spanCut" }];
+  }
+
+  return [];
+}
+
+function planGrammar(state: KeyState, action: string | undefined, name: string): Intent[] {
+  const navigation = navigationIntent(action);
+
+  if (navigation) return navigation;
+  if (action === "walk") return status("the guided walk is a diff-review mode");
+  if (name === "escape") return [{ type: "deselect" }];
+  if (action === "span") return state.cursorAnnotatable ? [{ type: "startSpan" }] : [];
+  if (action === "comment") {
+    if (state.resolved) return status("review submitted - read-only");
+    if (!state.cursorAnnotatable) return status("text is cut - restore it first");
+
+    return [{ type: "openCompose", kind: "comment", from: "cursor" }];
+  }
+  // restore un-does a rail removal (a cut block); a plan edit, so owner-only
+  if (action === "restore_curation") {
+    if (state.resolved) return status("review submitted - read-only");
+    if (state.canEditPlan === false) return [];
+
+    return [{ type: "restoreCuration" }];
+  }
+  if (action === "cut" || action === "edit") {
+    if (state.resolved) return status("review submitted - read-only");
+    // the document selects, the rail edits: with a card selected, Cut deletes
+    // the annotation and edit rewrites the card body in place
+    if (state.hasFocusedAnnotation)
+      return [action === "cut" ? { type: "removeAnnotation" } : { type: "editCard" }];
+    // editing the plan itself is the owner's primitive; a share viewer only annotates,
+    // and has no edit affordance, so the key is silent rather than a nag
+    if (state.canEditPlan === false) return [];
+
+    return [{ type: action }];
+  }
+
+  return annotationCluster(state, action) ?? [];
+}
+
+/** Cursor movement is the same intent everywhere; views clamp their own bounds. */
+function navigationIntent(action: string | undefined): Intent[] | null {
+  if (action === "down" || action === "up" || action === "top" || action === "bottom") {
+    return [{ type: "move", to: action }];
+  }
+
+  return null;
+}
+
+/** Ungated view toggles in the diff: right folds a file to its band, left unfolds it, s flips
+ *  split/stacked (split lays out only when the Changes pane is wide/zoomed). */
+function viewToggleIntent(action: string | undefined): Intent[] | null {
+  if (action === "collapse_file") return [{ type: "foldFile" }];
+  if (action === "expand_file") return [{ type: "unfoldFile" }];
+  if (action === "split_diff") return [{ type: "toggleDiffView" }];
+
+  return null;
+}
+
+/** Annotation navigation, deletion, and submit: one path for plan and diff. */
+function annotationCluster(state: KeyState, action: string | undefined): Intent[] | null {
+  if (action === "next_annotation" || action === "prev_annotation") {
+    if (!state.annotationCount) return status("no annotations");
+
+    return [{ type: action === "next_annotation" ? "nextAnnotation" : "prevAnnotation" }];
+  }
+  if (action === "delete_annotation") {
+    if (state.resolved || !state.hasFocusedAnnotation) return [];
+
+    return [{ type: "removeAnnotation" }];
+  }
+  if (action === "rename") {
+    if (!state.hasFocusedAnnotation) return status("select a collaborator's note to rename them");
+
+    return [{ type: "openRename" }];
+  }
+  if (action === "submit") {
+    // a collaborator's notes union back as they go; there is no message to submit
+    if (state.canSubmitMessage === false)
+      return status("shared view - your notes save as you go; q to leave");
+
+    return state.resolved ? [] : [{ type: "openSubmit" }];
+  }
+
+  return null;
+}
