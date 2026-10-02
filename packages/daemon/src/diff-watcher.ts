@@ -10,6 +10,7 @@
  */
 
 import { watch, readdirSync, statSync, type Dirent, type FSWatcher } from "node:fs";
+import { readdir } from "node:fs/promises";
 import { basename, isAbsolute, join } from "node:path";
 
 /** Debounce window: a save or a checkout writes many files in a burst; collapse them into one re-capture. */
@@ -99,6 +100,7 @@ interface RepoWatch {
   ignored: Set<string>;
   /** Directories already watched, so a runtime-created dir is not watched twice. */
   watchedDirs: Set<string>;
+  reconcilePending: boolean;
   debounce: ReturnType<typeof setTimeout> | null;
 }
 
@@ -130,6 +132,7 @@ export class DiffWatcher {
       jjPoll: null,
       ignored: ignoredDirectories(repoRoot),
       watchedDirs: new Set(),
+      reconcilePending: true,
       debounce: null,
     };
 
@@ -229,6 +232,32 @@ export class DiffWatcher {
     this.watchTree(repoRoot, path);
   }
 
+  /** Directory creation events can be lost while the platform activates a watch. */
+  private async reconcileWatchTree(repoRoot: string, dir: string): Promise<void> {
+    const repoWatch = this.repoWatches.get(repoRoot);
+
+    if (!repoWatch) return;
+    if (!repoWatch.watchedDirs.has(dir)) {
+      this.extendWatch(repoRoot, dir);
+
+      return;
+    }
+    let entries: Dirent[];
+
+    try {
+      entries = await readdir(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    if (this.repoWatches.get(repoRoot) !== repoWatch) return;
+    for (const entry of entries) {
+      if (this.repoWatches.get(repoRoot) !== repoWatch) return;
+      if (entry.isDirectory() && !entry.isSymbolicLink())
+        // eslint-disable-next-line no-await-in-loop
+        await this.reconcileWatchTree(repoRoot, join(dir, entry.name));
+    }
+  }
+
   /**
    * Open one watcher and add it to `handles`; returns whether it opened. A
    * watcher error (the path is deleted mid-review) is swallowed - hot-reload is
@@ -278,8 +307,13 @@ export class DiffWatcher {
 
     if (!repoWatch) return;
     if (repoWatch.debounce !== null) clearTimeout(repoWatch.debounce);
-    repoWatch.debounce = setTimeout(() => {
+    repoWatch.debounce = setTimeout(async () => {
       repoWatch.debounce = null;
+      if (repoWatch.reconcilePending) {
+        repoWatch.reconcilePending = false;
+        await this.reconcileWatchTree(repoRoot, repoRoot);
+      }
+      if (this.repoWatches.get(repoRoot) !== repoWatch) return;
       this.onRepoChange(repoRoot);
     }, DIFF_REFRESH_DEBOUNCE_MS);
   }

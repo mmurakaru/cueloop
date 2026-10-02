@@ -36,9 +36,11 @@ ptyTest("right sidebar changes and project trees reveal keyboard selection", asy
 
   try {
     await session.waitForReady();
-    await session.waitForText("file-00.ts");
+    await session.waitForScreen((screen) => screen.split("\n")[2]?.includes("file-00.ts") ?? false);
     expect(session.text()).not.toContain("aaa-project-only.ts");
-    await session.clickAt(82, 0);
+    const changesHeader = session.locate("changes");
+
+    await session.clickAt(changesHeader.column - 2, changesHeader.row);
     for (const key of Array.from({ length: 16 }, () => "j" as const)) {
       // eslint-disable-next-line no-await-in-loop
       await session.press(key);
