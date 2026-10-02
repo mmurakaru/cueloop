@@ -1,5 +1,16 @@
 # @cueloop/client
 
+## 0.1.0-alpha.95
+
+### Patch Changes
+
+- [#538](https://github.com/mmurakaru/cueloop/pull/538) [`daad0ad`](https://github.com/mmurakaru/cueloop/commit/daad0adf13a4dde2a3a5fd1b7556b1a7e3b62d98) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Organize client source by domain with colocated rendering, tests, and stories.
+- Updated dependencies []:
+  - @cueloop/daemon@0.1.0-alpha.95
+  - @cueloop/extension-api@0.1.0-alpha.95
+  - @cueloop/integration-obsidian@0.1.0-alpha.95
+  - @cueloop/schema@0.1.0-alpha.95
+
 ## 0.1.0-alpha.94
 
 ### Patch Changes
