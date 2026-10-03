@@ -1,0 +1,42 @@
+{
+  "format_on_save": "on",
+  "prettier": { "allowed": false },
+  "formatter": {
+    "external": {
+      "command": "bun",
+      "arguments": ["run", "oxfmt", "--stdin-filepath", "{buffer_path}"]
+    }
+  },
+  "languages": {
+    "JavaScript": {
+      "language_servers": ["oxlint", "..."],
+      "code_actions_on_format": { "source.fixAll.oxc": true }
+    },
+    "JSX": {
+      "language_servers": ["oxlint", "..."],
+      "code_actions_on_format": { "source.fixAll.oxc": true }
+    },
+    "TypeScript": {
+      "language_servers": ["oxlint", "..."],
+      "code_actions_on_format": { "source.fixAll.oxc": true }
+    },
+    "TSX": {
+      "language_servers": ["oxlint", "..."],
+      "code_actions_on_format": { "source.fixAll.oxc": true }
+    }
+  },
+  "lsp": {
+    "oxlint": {
+      "binary": {
+        "path": "bun",
+        "arguments": ["run", "oxlint", "--lsp"]
+      },
+      "initialization_options": {
+        "settings": {
+          "run": "onType",
+          "fixKind": "safe_fix"
+        }
+      }
+    }
+  }
+}
