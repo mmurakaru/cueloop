@@ -5,7 +5,7 @@
  * This simulates a harness submitting a Thread and waiting for its Message.
  */
 
-import { runHarnessBridge } from "../../packages/adapters/harness-bridge";
+import { runHarnessBridge } from "../../packages/adapters/src/harness-bridge";
 
 const harnessSessionId =
   process.env.CUELOOP_EXAMPLE_SESSION_ID ?? `example-${Date.now().toString(36)}`;
