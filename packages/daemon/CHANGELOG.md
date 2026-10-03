@@ -1,5 +1,14 @@
 # @cueloop/daemon
 
+## 0.1.0-alpha.97
+
+### Patch Changes
+
+- [#542](https://github.com/mmurakaru/cueloop/pull/542) [`d376748`](https://github.com/mmurakaru/cueloop/commit/d376748d91c7b1434be1faaafaf8d5b9fd684fa3) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Watch directories created while repository hot reload starts, even when the platform misses their creation event.
+- Updated dependencies []:
+  - @cueloop/extension-api@0.1.0-alpha.97
+  - @cueloop/schema@0.1.0-alpha.97
+
 ## 0.1.0-alpha.96
 
 ### Patch Changes

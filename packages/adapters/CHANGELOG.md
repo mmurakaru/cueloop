@@ -1,5 +1,14 @@
 # @cueloop/adapters
 
+## 0.1.0-alpha.97
+
+### Patch Changes
+
+- [#543](https://github.com/mmurakaru/cueloop/pull/543) [`18aeecf`](https://github.com/mmurakaru/cueloop/commit/18aeecf6af2448438a9cf16c495f004774f6bfd5) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Move adapter implementation and colocated tests under src while preserving package exports and runtime behavior.
+- Updated dependencies [[`d376748`](https://github.com/mmurakaru/cueloop/commit/d376748d91c7b1434be1faaafaf8d5b9fd684fa3)]:
+  - @cueloop/daemon@0.1.0-alpha.97
+  - @cueloop/schema@0.1.0-alpha.97
+
 ## 0.1.0-alpha.96
 
 ### Patch Changes
