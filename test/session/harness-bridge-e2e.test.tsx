@@ -5,7 +5,7 @@ import { join } from "node:path";
 import React from "react";
 import { DaemonClient } from "@cueloop/daemon/client";
 import { App } from "../../packages/client/src/app/App";
-import { runHarnessBridge } from "../../packages/adapters/harness-bridge";
+import { runHarnessBridge } from "../../packages/adapters/src/harness-bridge";
 import {
   dragText,
   press,

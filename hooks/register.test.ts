@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DaemonServer } from "@cueloop/daemon";
 import { DaemonClient } from "@cueloop/daemon/client";
-import { runHarnessBridge } from "../packages/adapters/harness-bridge";
+import { runHarnessBridge } from "../packages/adapters/src/harness-bridge";
 import { register, type ClaudeModEngine, type ClaudeModOn } from "./register";
 import { WORKFLOW_KINDS } from "@cueloop/schema";
 
