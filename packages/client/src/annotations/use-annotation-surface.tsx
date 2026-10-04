@@ -16,7 +16,7 @@ import React, { useContext, useEffect, useEffectEvent, useRef, useState } from "
 import type { KeyEvent, MouseEvent as TerminalMouseEvent, TextRenderable } from "@opentui/core";
 import { flushSync } from "@opentui/react";
 import { useSharedKeyboard } from "../keyboard/use-shared-keyboard";
-import type { Annotation, Thread } from "@cueloop/schema";
+import { agentInputTarget, type Annotation, type Thread } from "@cueloop/schema";
 import type { Mark } from "../markdown/view-plan";
 import type { QuickAction } from "../settings/config";
 import type { Theme } from "../appearance/theme";
@@ -116,6 +116,8 @@ export interface AnnotationSurfaceOptions {
   annotationAction?: (id: string) => { label: string; run: () => void } | undefined;
   requestedBlock?: { blockIndex: number };
   onInvoke?: () => void;
+  /** The final prompt block accepts unmarked typing without creating a discussion. */
+  isPromptBlock?: (blockIndex: number) => boolean;
   /** The visible scroll viewport used to keep a held mouse mark moving at its edges. */
   dragViewport?: () => {
     top: number;
@@ -218,6 +220,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     annotationAction,
     requestedBlock,
     onInvoke,
+    isPromptBlock,
     dragViewport,
     resolveAuthorLabel,
     onNavCommand,
@@ -308,6 +311,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
   const [slashIndex, setSlashIndex] = useState(0);
   const composerReady = useRef(false);
   const composeRef = useRef<ComposeState | null>(null);
+  const promptDraft = useRef("");
   // every visual line registers its renderable so a drag can hit-test any
   // row on screen, across blocks (rows without text resolve to the block above)
   const lineRenderables = useRef(
@@ -334,9 +338,10 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     return span ? tightenSpan(span, textLengthOf) : null;
   })();
   const caretIsSelection = heldSpan !== null;
-  /** The typing anchor: the held selection (char-precise), else the marked word. */
+  /** Agent comments require a held selection; legacy surfaces may use the caret word. */
   const caretSpan = (): TextSpan | null => {
     if (heldSpan) return heldSpan;
+    if (onInvoke) return isPromptBlock?.(head.blockIndex) ? { start: head, end: head } : null;
     const word = wordRangeAt(blockText(head.blockIndex), head.char);
 
     return word
@@ -467,7 +472,9 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     // the body saves verbatim - typed newlines are the author's choice;
     // trimming only decides whether the draft is empty enough to discard
     const target = composeRef.current;
+    const prompt = target?.discussionKey === null && isPromptBlock?.(target.blockIndex);
 
+    if (prompt && !invoke) return;
     closeCompose();
     collapseCaret();
     if (!target || body.trim().length === 0) return;
@@ -498,19 +505,32 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
   const openNewCompose = (seed: string): void => {
     const span = caretSpan();
 
+    if (
+      onInvoke &&
+      agentInputTarget(Boolean(isPromptBlock?.(head.blockIndex)), Boolean(heldSpan)) === "none"
+    )
+      return;
     openCompose({
       blockIndex: span?.end.blockIndex ?? head.blockIndex,
       discussionKey: null,
       span,
-      seed,
+      seed: isPromptBlock?.(head.blockIndex) ? promptDraft.current + seed : seed,
       editAnnotationId: null,
     });
+    if (isPromptBlock?.(head.blockIndex)) promptDraft.current = "";
   };
 
   // clicking away commits the draft (blur-save); only a standalone "/query" is a palette
   // artifact, so prose that merely ends in a "/name" still saves
   const blurSaveCompose = (): void => {
-    if (!composeRef.current) return;
+    const target = composeRef.current;
+
+    if (!target) return;
+    if (target.discussionKey === null && isPromptBlock?.(target.blockIndex)) {
+      promptDraft.current = composeTextRef.current;
+
+      return closeCompose();
+    }
     if (isStandaloneSlashQuery(composeText) || composeText.trim().length === 0) {
       return closeCompose();
     }
@@ -873,7 +893,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     <Composer
       key={compose.seed}
       seed={compose.seed}
-      glyph="●"
+      glyph={isPromptBlock?.(compose.blockIndex) && compose.discussionKey === null ? null : "●"}
       tokens={tokens}
       onSave={saveComment}
       agentEnabled={Boolean(onInvoke)}
@@ -982,6 +1002,12 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     const composeStart = compose?.span?.start;
 
     const pushComposeCard = (): void => {
+      if (isPromptBlock?.(blockIndex)) {
+        nodes.push(<box key="compose-prompt">{composerNode}</box>);
+        nodes.push(paletteNode);
+
+        return;
+      }
       nodes.push(
         <DiscussionCard
           key="compose-new"

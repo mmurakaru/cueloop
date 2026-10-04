@@ -61,7 +61,9 @@ ptyTest(
       await session.type("Cursor check");
       expect(session.cursor().visible).toBe(true);
       await session.press("escape");
-      await session.click("Keep the retry bounded.");
+      const selection = session.locate("Keep the retry bounded.");
+
+      await session.dragAt(selection.column, selection.row, selection.column + 9, selection.row);
       await session.type("Explain retries");
       await session.press(["alt", "enter"]);
       await session.waitForText("Send message (1)");
@@ -168,7 +170,9 @@ ptyTest(
     try {
       await session.waitForReady();
       await session.waitForText("const count = 2;");
-      await session.click("const count = 2;");
+      const selection = session.locate("const count = 2;");
+
+      await session.dragAt(selection.column, selection.row, selection.column + 9, selection.row);
       await session.type("Explain this change");
       await session.press(["alt", "enter"]);
       await session.waitForText("Send message (1)");
@@ -210,6 +214,9 @@ ptyTest(
       await session.press("down");
       await session.type("Hello from an empty Thread");
       expect(session.cursor().visible).toBe(true);
+      expect(session.text()).not.toContain("● Hello from an empty Thread");
+      await session.press(["alt", "enter"]);
+      await session.type(" again");
       await session.press(["ctrl", "enter"]);
       await session.waitForText("The timer survives cancellation.");
       const created = (await client.sessionList()).find(
@@ -218,7 +225,7 @@ ptyTest(
 
       expect(created?.artifact.content).toBe("");
       expect((await client.agentGet(created!.id)).submissions?.[0]?.prompt).toBe(
-        "Hello from an empty Thread",
+        "Hello from an empty Thread again",
       );
     } finally {
       await session.close();

@@ -51,3 +51,13 @@ def Laws.failed_input_stays_locked(event, input):
     case S.FailTurn{}: {==}
     case S.Retry{}: {==}
     case S.Edit{}: {==}
+
+
+def Laws.prompt_input_is_plain(selected):
+  {==}
+
+def Laws.unmarked_text_is_no_input():
+  {==}
+
+def Laws.marked_text_is_comment():
+  {==}

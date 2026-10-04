@@ -156,6 +156,8 @@ export interface ThreadViewProps {
   annotationAction?: (id: string) => { label: string; run: () => void } | undefined;
   requestedBlock?: { blockIndex: number };
   onInvoke?: () => void;
+  /** The final prompt line uses a plain composer instead of a comment card. */
+  isPromptBlock?: (blockIndex: number) => boolean;
   renderBlock?: (index: number) => React.ReactNode | undefined;
   session: Thread;
   display: DisplayBlock[];
@@ -214,6 +216,7 @@ export function ThreadView({
   annotationAction,
   requestedBlock,
   onInvoke,
+  isPromptBlock,
   renderBlock,
 }: ThreadViewProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
@@ -245,6 +248,7 @@ export function ThreadView({
     annotationAction,
     requestedBlock,
     onInvoke,
+    isPromptBlock,
     dragViewport: () => scrollBoxDragViewport(scrollRef.current),
     resolveAuthorLabel,
     onNavCommand,

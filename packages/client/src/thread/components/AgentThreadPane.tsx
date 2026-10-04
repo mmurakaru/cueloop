@@ -214,6 +214,7 @@ export function AgentThreadPane(props: AgentThreadPaneProps): React.ReactNode {
       }
       annotationAction={actionFor}
       onInvoke={() => void invoke()}
+      isPromptBlock={(index) => index === projection.tailIndex}
       canAnnotateBlock={(index) => {
         const source = projection.sources[index];
 

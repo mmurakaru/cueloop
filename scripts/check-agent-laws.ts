@@ -11,6 +11,7 @@ import {
   type AgentTurnEvent,
 } from "../packages/daemon/src/agent-turn";
 
+import { agentInputTarget } from "../packages/schema/src/agent-input";
 import {
   stepAgentSubmission,
   type AgentSubmissionStatus,
@@ -107,8 +108,19 @@ try {
     throw new Error(`Submission laws were not verified: ${submissionProof}`);
 
   const submissionModule = v.parse(
-    v.object({ default: v.object({ step: v.function() }) }),
+    v.object({ default: v.object({ step: v.function(), input_target: v.function() }) }),
     await import(pathToFileURL(submissionPath).href),
+  );
+  const inputNames = { prompt: "PromptInput", comment: "CommentInput", none: "NoInput" };
+
+  for (const atPrompt of [false, true])
+    for (const selected of [false, true]) {
+      const actual: unknown = submissionModule.default.input_target(atPrompt, selected);
+
+      deepStrictEqual(actual, { $: inputNames[agentInputTarget(atPrompt, selected)] });
+    }
+  console.log(
+    "Input routing proof: 3 laws checked; all 4 TypeScript input cases match generated Bend JS",
   );
   const submissionStates: AgentSubmissionStatus[] = [
     "draft",
@@ -160,7 +172,7 @@ try {
 
   for (const status of submissionStates) compareSubmissions(status, 4);
   console.log(
-    `Submission proof: 7 laws checked; generated JS matches ${submissionTransitions} TypeScript transitions`,
+    `Submission proof: 10 laws checked; generated JS matches ${submissionTransitions} TypeScript transitions`,
   );
   const submissionScratch = join(scratch, "submission-proof");
   const { mkdirSync } = await import("node:fs");
@@ -184,6 +196,22 @@ try {
   if (!emptyVerdict.includes("SOME PROOFS FAIL"))
     throw new Error("Submission law failed to reject an empty-input invocation");
   console.log("Mutation rejected: empty input cannot enqueue an invocation");
+  const inputMutation = readFileSync(join(submissionSource, "submission.bend"), "utf8").replace(
+    "case True{}: PromptInput{}",
+    "case True{}: CommentInput{}",
+  );
+
+  writeFileSync(join(submissionScratch, "submission.bend"), inputMutation);
+  const inputRejected = Bun.spawnSync([bend, join(submissionScratch, "PROOF.bend"), ...proofArgs], {
+    env: { ...process.env, BEND_NO_TELEMETRY: "1" },
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  const inputVerdict = inputRejected.stdout.toString() + inputRejected.stderr.toString();
+
+  if (!inputVerdict.includes("SOME PROOFS FAIL"))
+    throw new Error("Input law failed to reject treating a bottom prompt as a comment");
+  console.log("Mutation rejected: bottom prompts cannot become comments");
   for (const file of ["LAWS.bend", "PROOF.bend"])
     copyFileSync(join(source, file), join(scratch, file));
   const original = readFileSync(join(source, "turn.bend"), "utf8");

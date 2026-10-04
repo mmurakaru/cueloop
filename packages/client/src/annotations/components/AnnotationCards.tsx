@@ -59,7 +59,7 @@ export function Composer({
   agentEnabled = false,
 }: {
   seed: string;
-  glyph: string;
+  glyph: string | null;
   tokens: Theme;
   onSave: (body: string) => void;
   onReady: () => void;
@@ -108,7 +108,9 @@ export function Composer({
 
   return (
     <box style={{ flexDirection: "row" }}>
-      <text selectable={false} fg={tokens.text} style={{ flexShrink: 0 }}>{`${glyph} `}</text>
+      {glyph !== null ? (
+        <text selectable={false} fg={tokens.text} style={{ flexShrink: 0 }}>{`${glyph} `}</text>
+      ) : null}
       <textarea
         ref={editorRef}
         focused

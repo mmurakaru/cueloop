@@ -19,3 +19,5 @@ export * from "./agent-harness";
 export * from "./agent-submission";
 
 export { agentCommentRoot } from "./agent-comment";
+
+export * from "./agent-input";

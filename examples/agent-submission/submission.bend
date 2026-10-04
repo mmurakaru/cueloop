@@ -46,3 +46,17 @@ def locked(state: Status) -> Bool:
   match state:
     case Draft{}: False{}
     case other: True{}
+
+
+type InputTarget is Data:
+  PromptInput{}
+  CommentInput{}
+  NoInput{}
+
+def input_target(at_prompt: Bool, has_selection: Bool) -> InputTarget:
+  match at_prompt:
+    case True{}: PromptInput{}
+    case False{}:
+      match has_selection:
+        case True{}: CommentInput{}
+        case False{}: NoInput{}

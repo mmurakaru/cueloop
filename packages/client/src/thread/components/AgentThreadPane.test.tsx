@@ -108,9 +108,19 @@ test("typing on the final blank line invokes the agent while the existing footer
     await waitForText(setup, "Original artifact");
     expect(setup.captureCharFrame()).not.toContain("Workspace:");
     expect(setup.captureCharFrame()).not.toContain("Ask Agent");
-    await pressKey(setup, "ARROW_DOWN");
-    await pressKey(setup, "ARROW_DOWN");
-    await typeText(setup, "Explain retries");
+    const artifact = locateText(setup, "Original artifact");
+
+    await setup.mockMouse.click(artifact.column, artifact.row);
+    await typeText(setup, "Ignored unmarked input");
+    expect(setup.captureCharFrame()).not.toContain("Ignored unmarked input");
+    await setup.mockMouse.click(artifact.column, artifact.row + 2);
+    await typeText(setup, "Explain");
+    expect(setup.captureCharFrame()).not.toContain("● Explain");
+    await pressKey(setup, "RETURN", { meta: true });
+    expect(prompts).toHaveLength(0);
+    await setup.mockMouse.click(artifact.column, artifact.row);
+    await setup.mockMouse.click(artifact.column, artifact.row + 2);
+    await typeText(setup, " retries");
     await pressKey(setup, "RETURN", { ctrl: true });
     await waitForText(setup, "The timer survives cancellation.");
     expect(prompts[0]?.text).toBe("Explain retries");
@@ -349,7 +359,7 @@ test("Option+Enter saves a comment, Command+Enter leaves its draft, and Ctrl+Ent
     await waitForText(setup, "Original artifact");
     const artifact = locateText(setup, "Original artifact");
 
-    await setup.mockMouse.click(artifact.column, artifact.row);
+    await setup.mockMouse.drag(artifact.column, artifact.row, artifact.column + 8, artifact.row);
     await typeText(setup, "Editable comment");
     setup.mockInput.pressKey("RETURN", { super: true });
     await settle(setup);
@@ -359,6 +369,7 @@ test("Option+Enter saves a comment, Command+Enter leaves its draft, and Ctrl+Ent
     await pressKey(setup, "RETURN", { meta: true });
     expect(saved).toEqual(["Editable comment"]);
     expect(invocations).toBe(0);
+    await setup.mockMouse.drag(artifact.column, artifact.row, artifact.column + 8, artifact.row);
     await typeText(setup, "Ask the agent");
     await pressKey(setup, "RETURN", { ctrl: true });
     expect(saved).toEqual(["Editable comment", "Ask the agent"]);
