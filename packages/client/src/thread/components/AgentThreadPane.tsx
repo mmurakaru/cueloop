@@ -36,6 +36,7 @@ export function AgentThreadPane(props: AgentThreadPaneProps): React.ReactNode {
   const [details, setDetails] = useState(false);
   const input = useRef<TextareaRenderable | null>(null);
   const state = agent.state;
+  const label = state.harness?.label ?? "Agent";
   const projection = useMemo(() => projectAgentTranscript(thread, state), [thread, state]);
   const busy = state.phase.kind === "running" || state.phase.kind === "permission";
   const permission = state.phase.kind === "permission" ? state.phase.permission : undefined;
@@ -92,7 +93,7 @@ export function AgentThreadPane(props: AgentThreadPaneProps): React.ReactNode {
         >
           Agent
         </text>
-        <text fg={theme.textDim}>{busy ? "fx working" : "fx ready"}</text>
+        <text fg={theme.textDim}>{`${label} ${busy ? "working" : "ready"}`}</text>
         <text
           fg={theme.blue}
           onMouseUp={() => setDetails((value) => !value)}
@@ -236,6 +237,7 @@ export function AgentThreadPane(props: AgentThreadPaneProps): React.ReactNode {
             setTyping={setTyping}
             send={send}
             theme={theme}
+            label={label}
           />
         </>
       ) : (
@@ -253,7 +255,7 @@ export function AgentThreadPrototype(
     !props.enabled ||
     props.observer ||
     props.pixelPrototype ||
-    process.env.CUELOOP_FX_THREAD !== "1"
+    (process.env.CUELOOP_AGENT_THREADS !== "1" && process.env.CUELOOP_FX_THREAD !== "1")
   )
     return props.children;
 
@@ -313,6 +315,7 @@ function AgentToolDetails({
 }
 
 interface AgentComposerProps {
+  label: string;
   error: string;
   context?: string;
   busy: boolean;
@@ -340,6 +343,7 @@ function AgentComposer({
   setTyping,
   send,
   theme,
+  label,
 }: AgentComposerProps): React.ReactNode {
   return (
     <>
@@ -360,8 +364,8 @@ function AgentComposer({
           focused={typing && focused && !suspended}
           placeholder={
             busy
-              ? "Wait for fx, or stop the turn"
-              : "Ask fx…  Ctrl+Enter sends · Esc reads · i composes"
+              ? `Wait for ${label}, or stop the turn`
+              : `Ask ${label}…  Ctrl+Enter sends · Esc reads · i composes`
           }
           keyBindings={[
             { name: "return", ctrl: true, action: "submit" },

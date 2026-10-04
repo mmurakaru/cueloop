@@ -29,28 +29,6 @@ import { openReview } from "@cueloop/daemon/thread-review";
 const argv = process.argv.slice(2);
 const cmd = argv[0];
 
-async function daemonCommand(argv: string[]): Promise<number> {
-  const { DaemonServer } = await import("@cueloop/daemon");
-  // Explicit foreground never idle-exits; --autostart (a re-exec from the client)
-  // takes the normal idle-exit, matching the source main.ts entry.
-  const envIdle = process.env.CUELOOP_IDLE_EXIT_MS;
-  let idleExitMs: number | undefined = 0;
-
-  if (argv.includes("--autostart")) idleExitMs = envIdle ? Number(envIdle) : undefined;
-  const server = new DaemonServer({ idleExitMs });
-  const path = server.start();
-
-  if (path === null) {
-    console.error("a cueloop daemon already owns this home - nothing to do");
-
-    return 1;
-  }
-  console.log(`cueloop daemon (foreground) on ${path}`);
-  await new Promise(() => {}); // run until signalled
-
-  return 0;
-}
-
 async function serveEntry(rest: string[]): Promise<number> {
   const { positional, flags } = parseArgs(rest);
   const port = stringFlag(flags, "port");
@@ -103,7 +81,7 @@ interface CommandHandlers {
 
 const commandHandlers: CommandHandlers = {
   session: (rest) => sessionCommand(rest),
-  daemon: (rest) => daemonCommand(rest),
+  daemon: async (rest) => (await import("./daemon-command")).daemonCommand(rest),
   stop: async () => (await import("./daemon-control")).stopCommand(),
   restart: async () => (await import("./daemon-control")).restartCommand(),
   plan: (rest) => planCommand(rest),

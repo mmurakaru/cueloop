@@ -21,6 +21,7 @@ const thread: Thread = {
 };
 const state: ThreadAgentState = {
   threadId: thread.id,
+  harness: { id: "fx", label: "fx" },
   phase: { kind: "idle" },
   comments: [],
   messages: [

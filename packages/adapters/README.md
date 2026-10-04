@@ -72,3 +72,7 @@ post-back also needs a Message ID journal. A crash between an external side
 effect and recording the ID can repeat it; delivery itself is at least once.
 The same Thread can later route Messages to another bound harness without
 changing the TUI.
+
+## Thread agent harness prototype
+
+The fx harness adapter (`src/fx/harness.ts`) translates ACP into the schema's `AgentHarnessAdapter` contract. The CLI supplies it to the daemon; the daemon never imports this package. Provider session IDs stay paired with their adapter ID. See [the prototype instructions](../../examples/fx-thread) for opt-in development and [the lifecycle experiment](../../examples/agent-lifecycle) for checked recovery laws.

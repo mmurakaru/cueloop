@@ -1,3 +1,4 @@
+import { createFxHarness } from "@cueloop/adapters/fx/harness";
 import { expect } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -20,13 +21,15 @@ ptyTest(
       idleExitMs: 0,
       threadAgent: {
         enabled: true,
-        command: provider
-          ? [process.env.CUELOOP_TEST_FX!, "acp"]
-          : [
-              process.execPath,
-              join(import.meta.dirname, "../../packages/daemon/src/testing/fake-fx-acp.ts"),
-            ],
-        env: provider?.env,
+        adapter: createFxHarness({
+          command: provider
+            ? [process.env.CUELOOP_TEST_FX!, "acp"]
+            : [
+                process.execPath,
+                join(import.meta.dirname, "../../packages/adapters/src/fx/testing/fake-acp.ts"),
+              ],
+          env: provider?.env,
+        }),
       },
     });
     server.start();
@@ -86,7 +89,7 @@ ptyTest(
       await session.waitForText("Send message (0)");
       const restored = await client.agentGet(thread.id);
 
-      expect(restored.fxSessionId).toBe(state.fxSessionId);
+      expect(restored.harness?.sessionId).toBe(state.harness?.sessionId);
       expect(
         restored.messages.filter((message) => message.id === state.messages[1]?.id),
       ).toHaveLength(1);

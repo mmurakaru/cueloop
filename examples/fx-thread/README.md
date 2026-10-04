@@ -2,6 +2,14 @@
 
 This throwaway prototype gives a Thread an agent conversation beside its reviewed artifact. It requires Bun and fx 0.0.12 on PATH. It is disabled in normal launches and unavailable in shared or observer views.
 
+In this prototype checkout, run the watched application directly:
+
+```sh
+bun run dev:watch
+```
+
+It enables Agent Threads, seeds and opens a review, and keeps its daemon state under the checkout's ignored `.cueloop-dev` directory. The default fx adapter uses your configured account when you send a question. Both client and daemon reload on source edits; interrupted turns remain visible and the next question restores the saved session. Normal launches remain opt-in.
+
 Run the deterministic demo:
 
 ```sh
@@ -29,19 +37,29 @@ That mode uses normal fx authentication and model settings. The agent runs in as
 
 Escape leaves the question composer. `i` returns to it while reading the transcript. Existing Thread selection and annotation controls apply to completed answers. Comments on delivered answers remain attached to their message IDs, including when another answer repeats the same text.
 
-For ordinary source launches, explicitly set `CUELOOP_FX_THREAD=1` on both the daemon and client and use a separate `CUELOOP_HOME`. Existing daemons do not inherit changed environment variables. A daemon restart terminates its agent process; the next question loads the saved fx session ID and resumes the conversation. Interrupted turns are shown as interrupted, not completed.
+For ordinary source launches, explicitly set `CUELOOP_AGENT_THREADS=1` on both the daemon and client and use a separate `CUELOOP_HOME`. Existing daemons do not inherit changed environment variables. A daemon restart terminates its agent process; the next question loads the saved harness session ID and resumes the conversation. Interrupted turns are shown as interrupted, not completed.
 
 ## Verification
 
 ```sh
 bun run typecheck
-bun test packages/daemon/src/thread-agent.test.ts
+bun test packages/daemon/src/thread-agent.test.ts packages/daemon/src/agent-turn.test.ts packages/adapters/src/fx/harness.test.ts
 bun test packages/client/src/thread/agent-transcript.test.ts packages/client/src/thread/components/AgentThreadPane.test.tsx
 CUELOOP_TEST_FX="$(command -v fx)" bun test test/session/fx-thread.test.ts
 CUELOOP_RUN_PTY=1 CUELOOP_TEST_FX="$(command -v fx)" bun test --timeout 60000 test/pty/fx-thread.test.ts
 ```
 
 The socket test runs permissions and ownership against a reproducible ACP process. The opt-in real-binary tests use the localhost provider setup exercised by [fx's official configured-provider tests](https://github.com/vercel-labs/fx/blob/v0.0.12/tests/e2e/fixtures/chat-completions.ts). The PTY test drives the actual application, selects answer text, sends an anchored comment, resizes, reopens, and checks that feedback reaches the same session without duplicated history. Without the real-binary option, it uses the reproducible ACP fixture for CI.
+
+## Harness adapters
+
+The schema declares the provider-neutral connection contract. The daemon owns transcripts, feedback, lifecycle, and persistence. The fx adapter owns ACP initialization, replay suppression, ask mode, wire validation, permissions, and process cleanup. The CLI chooses the adapter at startup, keeping the daemon independent of adapter packages.
+
+Persisted identity includes the adapter ID and its session ID. Switching adapters requires a new Thread; an fx session is never passed to another provider. Earlier prototype records migrate without losing their fx identity. Labels follow the selected adapter.
+
+Fx is the installed adapter today. A future pi adapter implements the same start, prompt, cancel, permission, and close contract and emits normalized message/tool/permission events; it does not need changes to the Thread renderer. An in-memory non-ACP adapter test demonstrates this seam, but is not a pi integration.
+
+The optional [Bend lifecycle proof experiment](../agent-lifecycle) checks the shared recovery rules and rejects the initialization cancellation bug. It does not add a Bend dependency to development or the application runtime.
 
 ## Deliberate limits
 

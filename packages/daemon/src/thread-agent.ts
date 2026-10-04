@@ -8,60 +8,31 @@ import {
   type AgentComment,
   type Thread,
   type ThreadAgentState,
+  type AgentHarnessAdapter,
+  type AgentHarnessConnection,
+  type AgentHarnessEvent,
+  type AgentHarnessResult,
 } from "@cueloop/schema";
-import { FxAcpConnection, type FxAcpFrame } from "./fx-acp";
+import { stepAgentTurn, agentTurnCancelled, type AgentTurn } from "./agent-turn";
 import { ThreadAgentSchema } from "./thread-agent-validation";
-
-const SessionResultSchema = v.object({ sessionId: v.string() });
-const EmptyResponseSchema = v.nullable(v.object({}));
-const InitializeSchema = v.object({
-  protocolVersion: v.literal(1),
-  agentCapabilities: v.object({ loadSession: v.optional(v.boolean()) }),
-});
-const UpdateSchema = v.object({
-  sessionId: v.string(),
-  update: v.object({
-    sessionUpdate: v.string(),
-    messageId: v.optional(v.string()),
-    content: v.optional(v.unknown()),
-    toolCallId: v.optional(v.string()),
-    title: v.optional(v.string()),
-    kind: v.optional(v.string()),
-    status: v.optional(v.picklist(["pending", "in_progress", "completed", "failed", "cancelled"])),
-    locations: v.optional(v.array(v.object({ path: v.string(), line: v.optional(v.number()) }))),
-  }),
-});
-const TextContentSchema = v.object({ type: v.literal("text"), text: v.string() });
-const ToolContentSchema = v.array(v.object({ type: v.string(), content: v.optional(v.unknown()) }));
-const PermissionSchema = v.object({
-  sessionId: v.string(),
-  toolCall: v.object({ title: v.optional(v.string()) }),
-  options: v.pipe(
-    v.array(v.object({ optionId: v.string(), name: v.string(), kind: v.string() })),
-    v.maxLength(20),
-  ),
-});
 
 /** Prototype configuration is chosen by the daemon, never an incoming socket caller. */
 export interface ThreadAgentOptions {
   home: string;
   enabled: boolean;
-  command?: string[];
-  env?: NodeJS.ProcessEnv;
+  adapter?: AgentHarnessAdapter;
   getThread: (id: string) => Thread;
   onChange: (id: string) => void;
 }
 
 interface ActiveAgent {
-  connection: FxAcpConnection;
-  loading: boolean;
+  connection: AgentHarnessConnection;
+  turn: AgentTurn;
   turnId: string;
   revision: number;
-  permissionId?: number | string;
-  cancelling: boolean;
 }
 
-/** Own fx processes and durable agent transcripts without mutating reviewed artifacts. */
+/** Own harness processes and durable agent transcripts without mutating reviewed artifacts. */
 export class ThreadAgentManager {
   private states = new Map<string, ThreadAgentState>();
   private active = new Map<string, ActiveAgent>();
@@ -81,7 +52,16 @@ export class ThreadAgentManager {
     const path = this.path(id);
     const state = existsSync(path)
       ? v.parse(ThreadAgentSchema, JSON.parse(readFileSync(path, "utf8")))
-      : { threadId: id, phase: { kind: "idle" as const }, messages: [], tools: [], comments: [] };
+      : {
+          threadId: id,
+          harness: this.options.adapter
+            ? { id: this.options.adapter.id, label: this.options.adapter.label }
+            : undefined,
+          phase: { kind: "idle" as const },
+          messages: [],
+          tools: [],
+          comments: [],
+        };
 
     if (state.threadId !== id) throw new Error("Thread agent record has the wrong thread identity");
     if (state.phase.kind === "running" || state.phase.kind === "permission") {
@@ -101,9 +81,15 @@ export class ThreadAgentManager {
   /** Start one turn and return immediately so the client can render streamed events. */
   prompt(params: { id: string; text: string; context?: string }): ThreadAgentState {
     if (!this.options.enabled)
-      throw new Error("Thread agent prototype is disabled; set CUELOOP_FX_THREAD=1 on the daemon");
+      throw new Error(
+        "Thread agent prototype is disabled; set CUELOOP_AGENT_THREADS=1 on the daemon",
+      );
     const state = this.mutable(params.id);
 
+    if (!this.options.adapter) throw new Error("Thread agent harness is not configured");
+    if (state.harness && state.harness.id !== this.options.adapter.id)
+      throw new Error("Thread agent belongs to a different harness; create a new Thread");
+    state.harness ??= { id: this.options.adapter.id, label: this.options.adapter.label };
     if (state.phase.kind === "running" || state.phase.kind === "permission")
       throw new Error("Thread agent is already running");
     const comments = state.comments.filter((comment) => !comment.sent);
@@ -189,25 +175,12 @@ export class ThreadAgentManager {
     const active = this.active.get(id);
 
     if (active && (state.phase.kind === "running" || state.phase.kind === "permission")) {
-      active.cancelling = true;
-      if (active.permissionId !== undefined) {
-        active.connection.write({
-          jsonrpc: "2.0",
-          id: active.permissionId,
-          result: { outcome: { outcome: "cancelled" } },
-        });
-        active.permissionId = undefined;
-      }
+      active.turn = stepAgentTurn(active.turn, "stop");
       for (const tool of state.tools) {
         if (tool.status === "pending" || tool.status === "in_progress") tool.status = "cancelled";
       }
       state.phase = { kind: "running" };
-      if (!active.loading && state.fxSessionId)
-        active.connection.write({
-          jsonrpc: "2.0",
-          method: "session/cancel",
-          params: { sessionId: state.fxSessionId },
-        });
+      active.connection.cancel();
       this.save(state);
     }
 
@@ -222,19 +195,13 @@ export class ThreadAgentManager {
     if (
       !active ||
       state.phase.kind !== "permission" ||
-      state.phase.permission.id !== params.requestId ||
-      active.permissionId === undefined
+      state.phase.permission.id !== params.requestId
     ) {
       throw new Error("Thread agent permission request is no longer pending");
     }
     if (!state.phase.permission.options.some((option) => option.optionId === params.optionId))
       throw new Error("Thread agent permission option was not advertised");
-    active.connection.write({
-      jsonrpc: "2.0",
-      id: active.permissionId,
-      result: { outcome: { outcome: "selected", optionId: params.optionId } },
-    });
-    active.permissionId = undefined;
+    active.connection.permission(params.requestId, params.optionId);
     state.phase = { kind: "running" };
     this.save(state);
 
@@ -294,11 +261,10 @@ export class ThreadAgentManager {
 
     try {
       if (!active) {
-        const connection = new FxAcpConnection({
-          command: this.options.command,
-          env: this.options.env,
+        const connection = this.options.adapter!.connect({
           cwd: thread.artifact.meta.cwd ?? thread.workspace.repoRoot,
-          onFrame: (frame) => this.receive(state, frame),
+          sessionId: state.harness?.sessionId,
+          onEvent: (event) => this.receive(state, event),
           onExit: (error) => {
             if (this.active.get(state.threadId)?.connection !== connection) return;
             this.active.delete(state.threadId);
@@ -309,75 +275,38 @@ export class ThreadAgentManager {
           },
         });
 
-        active = { connection, loading: true, turnId, revision, cancelling: false };
+        active = { connection, turn: stepAgentTurn({ kind: "idle" }, "start"), turnId, revision };
         this.active.set(state.threadId, active);
-        const initialized = await connection.request(
-          "initialize",
-          {
-            protocolVersion: 1,
-            clientCapabilities: {},
-            clientInfo: { name: "cueloop", version: "prototype" },
-          },
-          InitializeSchema,
-        );
-        if (state.fxSessionId) {
-          if (!initialized.agentCapabilities.loadSession)
-            throw new Error("Fx ACP cannot restore the recorded session");
-          await connection.request(
-            "session/load",
-            {
-              sessionId: state.fxSessionId,
-              cwd: thread.artifact.meta.cwd ?? thread.workspace.repoRoot,
-              mcpServers: [],
-            },
-            EmptyResponseSchema,
-          );
-        } else {
-          const result = await connection.request(
-            "session/new",
-            { cwd: thread.artifact.meta.cwd ?? thread.workspace.repoRoot, mcpServers: [] },
-            SessionResultSchema,
-          );
+        const sessionId = await connection.start();
 
-          state.fxSessionId = result.sessionId;
-          this.save(state);
-        }
-        if (!state.fxSessionId) throw new Error("Fx ACP session identity is missing");
-        await connection.request(
-          "session/set_mode",
-          { sessionId: state.fxSessionId, modeId: "ask" },
-          EmptyResponseSchema,
-        );
-        active.loading = false;
+        state.harness = {
+          id: this.options.adapter!.id,
+          label: this.options.adapter!.label,
+          sessionId,
+        };
+        active.turn = stepAgentTurn(active.turn, "ready");
+        this.save(state);
+      } else {
+        active.turn = stepAgentTurn(stepAgentTurn(active.turn, "start"), "ready");
       }
       active.turnId = turnId;
       active.revision = revision;
       // Cancellation during initialization must not submit a new model request.
-      if (active.cancelling) {
-        active.cancelling = false;
+      if (active.turn.kind === "idle") {
         state.phase = { kind: "idle" };
         this.save(state);
 
         return;
       }
-      if (!state.fxSessionId) throw new Error("Fx ACP session identity is missing");
-      const result = await active.connection.request(
-        "session/prompt",
-        {
-          sessionId: state.fxSessionId,
-          prompt: [{ type: "text", text: prompt }],
-        },
-        v.object({ stopReason: v.string() }),
-        10 * 60_000,
-      );
+      const result = await active.connection.prompt(prompt);
 
-      finalizeAgentMessages(state, messageStart, result.stopReason);
-      if (result.stopReason === "end_turn") for (const comment of comments) comment.sent = true;
+      finalizeAgentMessages(state, messageStart, result.outcome);
+      if (result.outcome === "completed") for (const comment of comments) comment.sent = true;
       for (const tool of state.tools) {
         if (tool.status === "pending" || tool.status === "in_progress") tool.status = "cancelled";
       }
       state.phase = { kind: "idle" };
-      active.cancelling = false;
+      active.turn = stepAgentTurn(active.turn, "finished");
       this.save(state);
     } catch (error) {
       state.phase = {
@@ -390,66 +319,31 @@ export class ThreadAgentManager {
     }
   }
 
-  private receive(state: ThreadAgentState, frame: FxAcpFrame): void {
+  private receive(state: ThreadAgentState, event: AgentHarnessEvent): void {
     const active = this.active.get(state.threadId);
 
-    if (!active) return;
-    if (frame.method === "session/request_permission") {
-      const params = v.parse(PermissionSchema, frame.params);
-
-      if (params.sessionId !== state.fxSessionId || frame.id === undefined)
-        throw new Error("Thread agent permission has the wrong session");
-      if (active.cancelling) {
-        active.connection.write({
-          jsonrpc: "2.0",
-          id: frame.id,
-          result: { outcome: { outcome: "cancelled" } },
-        });
+    if (!active || active.turn.kind === "starting") return;
+    if (event.kind === "permission") {
+      if (agentTurnCancelled(active.turn)) {
+        active.connection.permission(event.permission.id);
 
         return;
       }
-      active.permissionId = frame.id;
-      state.phase = {
-        kind: "permission",
-        permission: {
-          id: String(frame.id),
-          title: params.toolCall.title ?? "Agent action",
-          options: params.options,
-        },
-      };
+      state.phase = { kind: "permission", permission: event.permission };
       this.save(state);
 
       return;
     }
-    if (frame.method !== "session/update" || active.loading) {
-      if (frame.method && frame.id !== undefined)
-        active.connection.write({
-          jsonrpc: "2.0",
-          id: frame.id,
-          error: { code: -32601, message: "Cueloop prototype does not support this client method" },
-        });
-
-      return;
-    }
-    const params = v.parse(UpdateSchema, frame.params);
-
-    if (params.sessionId !== state.fxSessionId)
-      throw new Error("Thread agent update has the wrong session");
-    const update = params.update;
-
-    this.applyUpdate(state, active, update);
+    this.applyUpdate(state, active, event);
   }
 
   private applyUpdate(
     state: ThreadAgentState,
     active: ActiveAgent,
-    update: v.InferOutput<typeof UpdateSchema>["update"],
+    update: Exclude<AgentHarnessEvent, { kind: "permission" }>,
   ): void {
-    if (update.sessionUpdate === "agent_message_chunk") {
-      const content = v.safeParse(TextContentSchema, update.content);
-
-      if (!content.success) return;
-      const messageId = update.messageId ?? `answer-${active.turnId}`;
+    if (update.kind === "message") {
+      const messageId = update.id ?? `answer-${active.turnId}`;
       let message = state.messages.find((message) => message.id === messageId);
 
       if (!message) {
@@ -472,23 +366,18 @@ export class ThreadAgentManager {
         Math.min(320_000 - Buffer.byteLength(message.text), 2 * 1024 * 1024 - used),
       );
 
-      message.text += Buffer.from(content.output.text).subarray(0, budget).toString("utf8");
-    } else if (
-      (update.sessionUpdate === "tool_call" || update.sessionUpdate === "tool_call_update") &&
-      update.toolCallId
-    ) {
-      let tool = state.tools.find(
-        (tool) => tool.id === update.toolCallId && tool.turnId === active.turnId,
-      );
+      message.text += Buffer.from(update.text).subarray(0, budget).toString("utf8");
+    } else {
+      let tool = state.tools.find((tool) => tool.id === update.id && tool.turnId === active.turnId);
 
       if (!tool) {
         if (state.tools.length >= 128)
           throw new Error("Thread agent reached its tool activity limit");
         tool = {
-          id: update.toolCallId,
+          id: update.id,
           turnId: active.turnId,
           title: (update.title ?? "Agent tool").slice(0, 256),
-          kind: update.kind ?? "other",
+          kind: update.toolKind ?? "other",
           status: "pending",
           output: "",
           locations: [],
@@ -496,30 +385,25 @@ export class ThreadAgentManager {
         state.tools.push(tool);
       }
       if (update.title) tool.title = update.title.slice(0, 256);
-      if (update.kind) tool.kind = update.kind;
-      if (update.status) tool.status = active.cancelling ? "cancelled" : update.status;
+      if (update.toolKind) tool.kind = update.toolKind;
+      if (update.status)
+        tool.status = agentTurnCancelled(active.turn) ? "cancelled" : update.status;
       if (update.locations)
         tool.locations = update.locations
           .slice(0, 8)
           .map((location) => ({ ...location, path: location.path.slice(0, 512) }));
-      const content = v.safeParse(ToolContentSchema, update.content);
-
-      if (content.success)
-        tool.output = content.output
-          .map((part) => {
-            const text = v.safeParse(TextContentSchema, part.content);
-
-            return text.success ? text.output.text : "";
-          })
-          .join("\n")
-          .slice(0, 8192);
-    } else return;
+      if (update.output !== undefined) tool.output = update.output.slice(0, 8192);
+    }
     this.save(state);
   }
 }
 
 /** Only this turn can finalize its answers; stopped and historical partials stay incomplete. */
-function finalizeAgentMessages(state: ThreadAgentState, start: number, stopReason: string): void {
-  if (stopReason === "cancelled") return;
+function finalizeAgentMessages(
+  state: ThreadAgentState,
+  start: number,
+  outcome: AgentHarnessResult["outcome"],
+): void {
+  if (outcome !== "completed") return;
   for (const message of state.messages.slice(start)) message.complete = true;
 }

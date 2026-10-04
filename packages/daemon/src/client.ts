@@ -757,7 +757,7 @@ export class DaemonClientError extends Error {
 }
 
 // A compiled binary re-execs `cueloop daemon --autostart` (idle-exits like main.ts,
-// unlike the never-exiting foreground daemon); from source, bun runs main.ts. In
+// unlike the never-exiting foreground daemon); source also uses the CLI composition root. In
 // dev (CUELOOP_DEV_WATCH=1, source only) it runs under --watch so daemon-code edits
 // reload the daemon without a manual restart - the version handshake only catches
 // release upgrades, not same-version source changes.
@@ -770,9 +770,11 @@ export function daemonSpawnCommand(
     moduleUrl.includes("$bunfs") || moduleUrl.includes("~BUN") || moduleUrl.includes("%7EBUN");
 
   if (compiled) return [execPath, "daemon", "--autostart"];
-  const mainPath = new URL("./main.ts", moduleUrl).pathname;
+  const mainPath = new URL("../../cli/src/main.ts", moduleUrl).pathname;
 
-  return devWatch ? [execPath, "--watch", "run", mainPath] : [execPath, "run", mainPath];
+  return devWatch
+    ? [execPath, "--watch", "run", mainPath, "daemon", "--autostart"]
+    : [execPath, "run", mainPath, "daemon", "--autostart"];
 }
 
 function spawnDaemon(home: string): string {

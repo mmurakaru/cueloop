@@ -22,9 +22,12 @@ export const AgentCommentSchema = v.object({
 });
 
 /** Validate persisted agent transcripts independently of submitted artifacts. */
-export const ThreadAgentSchema: v.GenericSchema<ThreadAgentState> = v.object({
+const StoredAgentSchema = v.object({
   threadId: v.string(),
   fxSessionId: v.optional(v.string()),
+  harness: v.optional(
+    v.object({ id: v.string(), label: v.string(), sessionId: v.optional(v.string()) }),
+  ),
   phase: v.variant("kind", [
     v.object({ kind: v.literal("idle") }),
     v.object({ kind: v.literal("running") }),
@@ -66,3 +69,14 @@ export const ThreadAgentSchema: v.GenericSchema<ThreadAgentState> = v.object({
   ),
   comments: v.array(AgentCommentSchema),
 });
+
+/** Read the first fx prototype's records without discarding their session identity. */
+export const ThreadAgentSchema: v.GenericSchema<ThreadAgentState> = v.pipe(
+  StoredAgentSchema,
+  v.transform(({ fxSessionId, ...state }) => ({
+    ...state,
+    harness:
+      state.harness ??
+      (fxSessionId ? { id: "fx", label: "fx", sessionId: fxSessionId } : undefined),
+  })),
+);

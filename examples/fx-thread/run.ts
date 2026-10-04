@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { createFxHarness } from "@cueloop/adapters/fx/harness";
 /** Run an isolated agent Thread with real fx and a localhost model, or opt into a live provider. */
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -21,8 +22,10 @@ const server = new DaemonServer({
   idleExitMs: 0,
   threadAgent: {
     enabled: true,
-    command: [process.env.CUELOOP_TEST_FX ?? "fx", "acp"],
-    env: provider?.env,
+    adapter: createFxHarness({
+      command: [process.env.CUELOOP_TEST_FX ?? "fx", "acp"],
+      env: provider?.env,
+    }),
   },
 });
 server.start();

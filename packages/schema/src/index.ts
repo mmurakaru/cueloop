@@ -14,3 +14,4 @@ export * from "./thread-surface";
 export * from "./history";
 export * from "./path-view";
 export * from "./thread-agent";
+export * from "./agent-harness";

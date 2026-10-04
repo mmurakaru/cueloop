@@ -1,3 +1,4 @@
+import { createFxHarness } from "@cueloop/adapters/fx/harness";
 import { expect, test } from "bun:test";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -14,10 +15,12 @@ test("agent socket methods enforce owner access and preserve the original review
     idleExitMs: 0,
     threadAgent: {
       enabled: true,
-      command: [
-        process.execPath,
-        join(import.meta.dirname, "../../packages/daemon/src/testing/fake-fx-acp.ts"),
-      ],
+      adapter: createFxHarness({
+        command: [
+          process.execPath,
+          join(import.meta.dirname, "../../packages/adapters/src/fx/testing/fake-acp.ts"),
+        ],
+      }),
     },
   });
   server.start();
@@ -85,8 +88,10 @@ test.skipIf(!process.env.CUELOOP_TEST_FX)(
       idleExitMs: 0,
       threadAgent: {
         enabled: true,
-        command: [process.env.CUELOOP_TEST_FX!, "acp"],
-        env: provider.env,
+        adapter: createFxHarness({
+          command: [process.env.CUELOOP_TEST_FX!, "acp"],
+          env: provider.env,
+        }),
       },
     });
     server.start();
@@ -140,7 +145,7 @@ test.skipIf(!process.env.CUELOOP_TEST_FX)(
           sent: false,
         },
       });
-      const sessionId = state.fxSessionId;
+      const sessionId = state.harness?.sessionId;
       client.close();
       server.stop();
       server = new DaemonServer({
@@ -148,8 +153,10 @@ test.skipIf(!process.env.CUELOOP_TEST_FX)(
         idleExitMs: 0,
         threadAgent: {
           enabled: true,
-          command: [process.env.CUELOOP_TEST_FX!, "acp"],
-          env: provider.env,
+          adapter: createFxHarness({
+            command: [process.env.CUELOOP_TEST_FX!, "acp"],
+            env: provider.env,
+          }),
         },
       });
       server.start();
@@ -157,7 +164,7 @@ test.skipIf(!process.env.CUELOOP_TEST_FX)(
       await client.agentPrompt({ id: thread.id, text: "" });
       const restored = await wait(thread.id);
 
-      expect(restored.fxSessionId).toBe(sessionId);
+      expect(restored.harness?.sessionId).toBe(sessionId);
       expect(restored.messages.filter((message) => message.id === answer.id)).toHaveLength(1);
       expect(restored.comments[0]?.sent).toBe(true);
       expect(JSON.stringify(provider.requests)).toContain("Explain the cleanup");
@@ -181,8 +188,10 @@ test.skipIf(!process.env.CUELOOP_TEST_FX)(
       idleExitMs: 0,
       threadAgent: {
         enabled: true,
-        command: [process.env.CUELOOP_TEST_FX!, "acp"],
-        env: provider.env,
+        adapter: createFxHarness({
+          command: [process.env.CUELOOP_TEST_FX!, "acp"],
+          env: provider.env,
+        }),
       },
     });
     server.start();
@@ -240,8 +249,10 @@ test.skipIf(!process.env.CUELOOP_TEST_FX)(
       idleExitMs: 0,
       threadAgent: {
         enabled: true,
-        command: [process.env.CUELOOP_TEST_FX!, "acp"],
-        env: provider.env,
+        adapter: createFxHarness({
+          command: [process.env.CUELOOP_TEST_FX!, "acp"],
+          env: provider.env,
+        }),
       },
     });
     server.start();

@@ -46,7 +46,7 @@ type MethodHandler = (connection: Connection, request: Request) => Response["res
 
 export interface DaemonOptions {
   /** Explicit prototype configuration; commands cannot arrive from socket callers. */
-  threadAgent?: Pick<ThreadAgentOptions, "enabled" | "command" | "env">;
+  threadAgent?: Pick<ThreadAgentOptions, "enabled" | "adapter">;
   home?: string;
   /** Idle-exit delay; 0 disables (tests, foreground runs). */
   idleExitMs?: number;
@@ -86,9 +86,10 @@ export class DaemonServer {
     this.core = new DaemonCore(this.home);
     this.threadAgent = new ThreadAgentManager({
       home: this.home,
-      enabled: options.threadAgent?.enabled ?? process.env.CUELOOP_FX_THREAD === "1",
-      command: options.threadAgent?.command,
-      env: options.threadAgent?.env,
+      enabled:
+        options.threadAgent?.enabled ??
+        (process.env.CUELOOP_AGENT_THREADS === "1" || process.env.CUELOOP_FX_THREAD === "1"),
+      adapter: options.threadAgent?.adapter,
       getThread: (id) => this.core.sessionGet(id),
       onChange: (id) => {
         for (const connection of this.connections) {

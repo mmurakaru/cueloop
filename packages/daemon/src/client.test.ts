@@ -19,6 +19,6 @@ describe("daemonSpawnCommand", () => {
   test("runs main.ts with bun from source", () => {
     expect(
       daemonSpawnCommand("/path/to/bun", "file:///repo/packages/daemon/src/client.ts"),
-    ).toEqual(["/path/to/bun", "run", "/repo/packages/daemon/src/main.ts"]);
+    ).toEqual(["/path/to/bun", "run", "/repo/packages/cli/src/main.ts", "daemon", "--autostart"]);
   });
 });

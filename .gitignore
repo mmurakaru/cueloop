@@ -22,3 +22,7 @@ tmp/
 
 # Generated from the shared skill source before packing @cueloop/pi.
 packages/pi/skills/
+
+# Isolated development sessions and local worktrees.
+.cueloop-dev/
+.worktrees/

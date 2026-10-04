@@ -145,6 +145,8 @@ export interface LaunchTuiSessionOptions {
   home: string;
   /** CLI arguments, typically the session id to open. */
   args: string[];
+  /** Override Bun arguments to exercise source-only development scripts. */
+  sourceArgs?: string[];
   /** Working directory for commands that inspect the current checkout. */
   cwd?: string;
   cols?: number;
@@ -191,7 +193,9 @@ export function launchTuiSession(options: LaunchTuiSessionOptions): PtyTuiSessio
       ? resolve(executable)
       : executable
     : process.execPath;
-  const args = executable ? options.args : ["run", CLI_ENTRY, ...options.args];
+  const args = executable
+    ? options.args
+    : (options.sourceArgs ?? ["run", CLI_ENTRY, ...options.args]);
   const pty = spawn(command, args, {
     name: environment.TERM,
     cols,

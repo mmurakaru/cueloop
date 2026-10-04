@@ -47,7 +47,8 @@ export type AgentPhase =
 /** A thread agent transcript is separate from the artifact and its revision history. */
 export interface ThreadAgentState {
   threadId: string;
-  fxSessionId?: string;
+  /** Session identity is bound to its adapter; another harness cannot resume it. */
+  harness?: { id: string; label: string; sessionId?: string };
   phase: AgentPhase;
   messages: AgentMessage[];
   tools: AgentTool[];

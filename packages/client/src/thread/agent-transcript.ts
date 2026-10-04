@@ -27,7 +27,9 @@ export function projectAgentTranscript(thread: Thread, state: ThreadAgentState) 
   }));
 
   for (const message of state.messages) {
-    display.push(...buildDisplay(`## ${message.role === "user" ? "You" : "fx"}`));
+    display.push(
+      ...buildDisplay(`## ${message.role === "user" ? "You" : (state.harness?.label ?? "Agent")}`),
+    );
     sources.push({ messageId: "", blockIndex: -1 });
     offsets.set(message.id, display.length);
     const blocks = buildDisplay(message.text);
