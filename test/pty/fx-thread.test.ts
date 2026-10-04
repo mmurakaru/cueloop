@@ -211,7 +211,8 @@ ptyTest(
       await session.waitForText("New Thread");
       await session.clickAt(column, row);
       await session.waitForText("Send message (0)");
-      await session.press("down");
+      await session.clickAt(60, 8);
+      expect(session.cursor().visible).toBe(true);
       await session.type("Hello from an empty Thread");
       expect(session.cursor().visible).toBe(true);
       expect(session.text()).not.toContain("● Hello from an empty Thread");
@@ -228,6 +229,25 @@ ptyTest(
       expect(created?.artifact.content).toBe("");
       expect((await client.agentGet(created!.id)).submissions?.[0]?.prompt).toBe(
         "Hello from an empty Thread again",
+      );
+      await session.waitForScreen(
+        (screen) => {
+          const replyRow = screen
+            .split("\n")
+            .findIndex((line) => line.includes("The timer survives cancellation."));
+
+          return session.cursor().visible && session.cursor().y > replyRow;
+        },
+        { what: "continuation cursor below the completed reply" },
+      );
+      await session.type("Continue without another click");
+      await session.press(["ctrl", "enter"]);
+      await session.waitForScreen(
+        (screen) => (screen.match(/The timer survives cancellation\./g) ?? []).length === 2,
+        { what: "second reply after typing directly into the continuation prompt" },
+      );
+      expect((await client.agentGet(created!.id)).submissions?.[1]?.prompt).toBe(
+        "Continue without another click",
       );
     } finally {
       await session.close();

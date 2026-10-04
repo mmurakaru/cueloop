@@ -64,15 +64,21 @@ export interface LineSource {
   annotatable(blockIndex: number): boolean;
 }
 
-export interface ComposeState {
-  /** The block the card renders under: where the span ends. */
+/** Prompt drafts cannot carry a discussion or edit target; comment drafts retain those targets. */
+export type ComposeState = { blockIndex: number; seed: string } & (
+  | { kind: "prompt"; discussionKey: null; editAnnotationId: null; span: TextSpan }
+  | {
+      kind: "comment";
+      discussionKey: string | null;
+      editAnnotationId: string | null;
+      span: TextSpan | null;
+    }
+);
+
+/** A completed reply requests an empty continuation prompt once per reply ID. */
+export interface PromptFocusRequest {
+  replyId: string;
   blockIndex: number;
-  /** Reply target; null composes a new discussion. */
-  discussionKey: string | null;
-  span: TextSpan | null;
-  seed: string;
-  /** When set, the composer rewrites this annotation instead of appending. */
-  editAnnotationId: string | null;
 }
 
 export interface AnnotationSurfaceOptions {
@@ -118,6 +124,7 @@ export interface AnnotationSurfaceOptions {
   onInvoke?: () => void;
   /** The final prompt block accepts unmarked typing without creating a discussion. */
   isPromptBlock?: (blockIndex: number) => boolean;
+  promptFocusRequest?: PromptFocusRequest;
   /** The visible scroll viewport used to keep a held mouse mark moving at its edges. */
   dragViewport?: () => {
     top: number;
@@ -159,6 +166,7 @@ export interface AnnotationSurface {
   onLineMouseDown: (event: TerminalMouseEvent) => void;
   /** Drag routing for the view root, so a fast flick off a row never strands the gesture. */
   rootMouseProps: {
+    onMouseDown: (event: TerminalMouseEvent) => void;
     onMouseDrag: (event: TerminalMouseEvent) => void;
     onMouseDragEnd: () => void;
     onMouseUp: () => void;
@@ -221,6 +229,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     requestedBlock,
     onInvoke,
     isPromptBlock,
+    promptFocusRequest,
     dragViewport,
     resolveAuthorLabel,
     onNavCommand,
@@ -472,7 +481,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     // the body saves verbatim - typed newlines are the author's choice;
     // trimming only decides whether the draft is empty enough to discard
     const target = composeRef.current;
-    const prompt = target?.discussionKey === null && isPromptBlock?.(target.blockIndex);
+    const prompt = target?.kind === "prompt";
 
     if (prompt && !invoke) return;
     closeCompose();
@@ -510,13 +519,25 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
       agentInputTarget(Boolean(isPromptBlock?.(head.blockIndex)), Boolean(heldSpan)) === "none"
     )
       return;
-    openCompose({
-      blockIndex: span?.end.blockIndex ?? head.blockIndex,
-      discussionKey: null,
-      span,
-      seed: isPromptBlock?.(head.blockIndex) ? promptDraft.current + seed : seed,
-      editAnnotationId: null,
-    });
+    if (isPromptBlock?.(head.blockIndex) && span) {
+      openCompose({
+        kind: "prompt",
+        blockIndex: head.blockIndex,
+        discussionKey: null,
+        span,
+        seed: promptDraft.current + seed,
+        editAnnotationId: null,
+      });
+    } else {
+      openCompose({
+        kind: "comment",
+        blockIndex: span?.end.blockIndex ?? head.blockIndex,
+        discussionKey: null,
+        span,
+        seed,
+        editAnnotationId: null,
+      });
+    }
     if (isPromptBlock?.(head.blockIndex)) promptDraft.current = "";
   };
 
@@ -526,7 +547,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     const target = composeRef.current;
 
     if (!target) return;
-    if (target.discussionKey === null && isPromptBlock?.(target.blockIndex)) {
+    if (target.kind === "prompt") {
       promptDraft.current = composeTextRef.current;
 
       return closeCompose();
@@ -739,6 +760,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
 
       if (replyTarget) {
         openCompose({
+          kind: "comment",
           blockIndex: replyTarget.blockIndex,
           discussionKey: replyTarget.key,
           span: null,
@@ -837,6 +859,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
       const editingOwn = last.author === undefined && !isAnnotationReadOnly?.(last.id);
 
       return openCompose({
+        kind: "comment",
         blockIndex: discussion.blockIndex,
         discussionKey: discussion.key,
         span: null,
@@ -893,7 +916,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     <Composer
       key={compose.seed}
       seed={compose.seed}
-      glyph={isPromptBlock?.(compose.blockIndex) && compose.discussionKey === null ? null : "●"}
+      glyph={compose.kind === "prompt" ? null : "●"}
       tokens={tokens}
       onSave={saveComment}
       agentEnabled={Boolean(onInvoke)}
@@ -1002,7 +1025,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     const composeStart = compose?.span?.start;
 
     const pushComposeCard = (): void => {
-      if (isPromptBlock?.(blockIndex)) {
+      if (compose?.kind === "prompt") {
         nodes.push(
           <box key="compose-prompt" style={{ paddingLeft: 2 }}>
             {composerNode}
@@ -1065,6 +1088,71 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
       } else lineRenderables.current.delete(key);
     };
 
+  const focusPrompt = (blockIndex: number): void => {
+    const position = { blockIndex, char: 0 };
+
+    setNavMode(false);
+    setFocusedDiscussion(null);
+    setCursor(blockIndex);
+    setCaret({ head: position, anchor: position });
+    openCompose({
+      kind: "prompt",
+      blockIndex,
+      discussionKey: null,
+      span: { start: position, end: position },
+      seed: promptDraft.current,
+      editAnnotationId: null,
+    });
+    promptDraft.current = "";
+  };
+  const movePromptDraft = useEffectEvent(() => {
+    const active = composeRef.current;
+    const blockIndex = source.count - 1;
+
+    if (
+      active?.kind !== "prompt" ||
+      !isPromptBlock?.(blockIndex) ||
+      active.blockIndex === blockIndex
+    )
+      return;
+    const position = { blockIndex, char: 0 };
+
+    openCompose({
+      ...active,
+      blockIndex,
+      span: { start: position, end: position },
+      seed: composeTextRef.current,
+    });
+    setCursor(blockIndex);
+    setCaret({ head: position, anchor: position });
+  });
+  useEffect(() => {
+    movePromptDraft();
+  }, [source.count]);
+  const focusedReply = useRef<string | null>(null);
+  const continueConversation = useEffectEvent(() => {
+    if (!promptFocusRequest || suspended || !onInvoke) return;
+    if (focusedReply.current === promptFocusRequest.replyId) return;
+    focusedReply.current = promptFocusRequest.replyId;
+    // An arriving answer cannot replace a draft or a marked passage under review.
+    if (composeRef.current || heldSpan || promptDraft.current) return;
+    focusPrompt(promptFocusRequest.blockIndex);
+  });
+  useEffect(() => {
+    continueConversation();
+  }, [promptFocusRequest?.replyId, promptFocusRequest?.blockIndex, suspended]);
+  const onPromptMouseDown = (event: TerminalMouseEvent): void => {
+    if (!onInvoke || suspended) return;
+    const line = allGeometry().find((entry) => isPromptBlock?.(entry.blockIndex));
+    const viewport = dragViewport?.();
+
+    if (!line || event.y < line.y || (viewport && event.y >= viewport.bottom)) return;
+    if (composeRef.current?.blockIndex === line.blockIndex) return;
+    blurSaveCompose();
+    endDrag();
+    focusPrompt(line.blockIndex);
+  };
+
   const onLineMouseDown = (event: TerminalMouseEvent): void => {
     blurSaveCompose();
     const pressed = positionAt(allGeometry(), event.x, event.y);
@@ -1106,7 +1194,12 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     spanQuote,
     registerLine,
     onLineMouseDown,
-    rootMouseProps: { onMouseDrag: handleRootDrag, onMouseDragEnd: endDrag, onMouseUp: endDrag },
+    rootMouseProps: {
+      onMouseDown: onPromptMouseDown,
+      onMouseDrag: handleRootDrag,
+      onMouseDragEnd: endDrag,
+      onMouseUp: endDrag,
+    },
     rangesFor,
     cardsAfterLine,
     jumpToDiscussion,

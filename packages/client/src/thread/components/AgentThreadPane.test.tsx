@@ -43,7 +43,7 @@ function createTestAgentClient(initial: ThreadAgentState) {
           messages: [
             ...state.messages,
             {
-              id: "answer",
+              id: `answer-${prompts.length}`,
               role: "agent",
               text: "The timer survives cancellation.",
               complete: true,
@@ -528,6 +528,106 @@ test("empty Thread typing and accepted prompts use normal paragraph padding with
     expect(locateText(setup, "Hello from the prompt")).toMatchObject({ row: 1, column: 2 });
     expect(setup.captureCharFrame()).not.toContain("●");
     expect(setup.captureCharFrame()).not.toContain("✓");
+  } finally {
+    setup.renderer.destroy();
+  }
+});
+
+test("clicking whitespace below the conversation focuses a blinking prompt before typing", async () => {
+  const { client, prompts } = createTestAgentClient(empty);
+  const setup = await testRender(
+    <AgentThreadPane
+      thread={thread}
+      client={client}
+      focused
+      theme={DARK}
+      onActiveChange={noop}
+      onOpenFile={noop}
+    >
+      {artifactView(thread)}
+    </AgentThreadPane>,
+    { width: 100, height: 24, kittyKeyboard: true },
+  );
+
+  try {
+    await waitForText(setup, "Original artifact");
+    const text = locateText(setup, "Original artifact");
+
+    await setup.mockMouse.click(text.column + 20, text.row + 5);
+    await settle(setup);
+    expect(setup.renderer.getCursorState()).toMatchObject({ visible: true, blinking: true });
+    expect(prompts).toHaveLength(0);
+    await typeText(setup, "A prompt from whitespace");
+    await pressKey(setup, "RETURN", { ctrl: true });
+    expect(prompts[0]?.text).toBe("A prompt from whitespace");
+    await waitForText(setup, "The timer survives cancellation.");
+    await settle(setup);
+    const answer = locateText(setup, "The timer survives cancellation.");
+    const cursor = setup.renderer.getCursorState();
+
+    expect(cursor).toMatchObject({ visible: true, blinking: true, x: 3 });
+    expect(cursor.y).toBeGreaterThan(answer.row + 1);
+    await typeText(setup, "Continue after the reply");
+    await pressKey(setup, "RETURN", { ctrl: true });
+    expect(prompts[1]?.text).toBe("Continue after the reply");
+  } finally {
+    setup.renderer.destroy();
+  }
+});
+
+test("an arriving reply preserves a bottom draft and submits it as the next prompt", async () => {
+  const { client, prompts } = createTestAgentClient(empty);
+  let finish: ((state: ThreadAgentState) => void) | undefined;
+  const answer: ThreadAgentState = {
+    ...empty,
+    messages: [
+      {
+        id: "arriving-answer",
+        role: "agent",
+        text: "An answer has arrived.",
+        complete: true,
+        revision: 1,
+      },
+    ],
+  };
+  client.agentPrompt = async (params) => {
+    prompts.push(params);
+    if (prompts.length === 1)
+      return new Promise<ThreadAgentState>((resolve) => {
+        finish = resolve;
+      });
+
+    return answer;
+  };
+  const setup = await testRender(
+    <AgentThreadPane
+      thread={thread}
+      client={client}
+      focused
+      theme={DARK}
+      onActiveChange={noop}
+      onOpenFile={noop}
+    >
+      {artifactView(thread)}
+    </AgentThreadPane>,
+    { width: 100, height: 24, kittyKeyboard: true },
+  );
+
+  try {
+    await waitForText(setup, "Original artifact");
+    const artifact = locateText(setup, "Original artifact");
+
+    await setup.mockMouse.click(artifact.column + 20, artifact.row + 5);
+    await typeText(setup, "First prompt");
+    await pressKey(setup, "RETURN", { ctrl: true });
+    await setup.mockMouse.click(artifact.column + 20, artifact.row + 5);
+    await typeText(setup, "Preserved second prompt");
+    finish!(answer);
+    await waitForText(setup, "An answer has arrived.");
+    expect(setup.captureCharFrame()).toContain("Preserved second prompt");
+    await typeText(setup, " after completion");
+    await pressKey(setup, "RETURN", { ctrl: true });
+    expect(prompts[1]?.text).toBe("Preserved second prompt after completion");
   } finally {
     setup.renderer.destroy();
   }

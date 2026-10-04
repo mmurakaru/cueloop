@@ -10,6 +10,7 @@ import { ThreadView, type ThreadViewProps } from "../../markdown/components/Thre
 import { buildDisplay, marksByDisplay } from "../../markdown/view-plan";
 import { projectThreadConversation, commentOnAgentSpan } from "../agent-transcript";
 import { useThreadAgent, type ThreadAgentClient } from "../use-thread-agent";
+import { agentContinuation } from "../agent-continuation";
 import { AgentConfigControls } from "./AgentConfigControls";
 
 /** The opt-in prototype extends the existing Thread body and retains its surrounding chrome. */
@@ -67,6 +68,7 @@ export function AgentThreadPane(props: AgentThreadPaneProps): React.ReactNode {
   const invocations = useRef<{ text: string; writes: Promise<boolean>[] }[]>([]);
   const pendingWrites = useRef<Promise<boolean>[]>([]);
   const state = agent.state;
+  const continuation = agentContinuation(state);
   const busy = state.phase.kind === "running" || state.phase.kind === "permission";
 
   const [pulse, setPulse] = useState(false);
@@ -222,6 +224,11 @@ export function AgentThreadPane(props: AgentThreadPaneProps): React.ReactNode {
       annotationAction={actionFor}
       onInvoke={() => void invoke()}
       isPromptBlock={(index) => index === projection.tailIndex}
+      promptFocusRequest={
+        continuation.kind === "ready"
+          ? { replyId: continuation.replyId, blockIndex: projection.tailIndex }
+          : undefined
+      }
       canAnnotateBlock={(index) => {
         const source = projection.sources[index];
 

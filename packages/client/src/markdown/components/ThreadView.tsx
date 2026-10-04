@@ -36,7 +36,11 @@ import { wrapLines, type MarkRange, type VisualLine } from "../mark-runs";
 import { MarkdownGridBlock } from "./MarkdownGridBlock";
 import { useFrameMeasure } from "../../ui/use-frame-measure";
 import { scrollBoxDragViewport, useTerminalVirtualizer } from "../../ui/use-terminal-virtualizer";
-import { useAnnotationSurface, type LineSource } from "../../annotations/use-annotation-surface";
+import {
+  useAnnotationSurface,
+  type LineSource,
+  type PromptFocusRequest,
+} from "../../annotations/use-annotation-surface";
 import { NavModeHint } from "../../keyboard/components/NavModeHint";
 import { DiscussionMarkerRail } from "../../annotations/components/DiscussionMarkerRail";
 import { useComponentTheme } from "../../appearance/components/theme-context";
@@ -158,6 +162,7 @@ export interface ThreadViewProps {
   onInvoke?: () => void;
   /** The final prompt line uses a plain composer instead of a comment card. */
   isPromptBlock?: (blockIndex: number) => boolean;
+  promptFocusRequest?: PromptFocusRequest;
   renderBlock?: (index: number) => React.ReactNode | undefined;
   session: Thread;
   display: DisplayBlock[];
@@ -217,6 +222,7 @@ export function ThreadView({
   requestedBlock,
   onInvoke,
   isPromptBlock,
+  promptFocusRequest,
   renderBlock,
 }: ThreadViewProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
@@ -249,6 +255,7 @@ export function ThreadView({
     requestedBlock,
     onInvoke,
     isPromptBlock,
+    promptFocusRequest,
     dragViewport: () => scrollBoxDragViewport(scrollRef.current),
     resolveAuthorLabel,
     onNavCommand,
