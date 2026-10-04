@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { SCHEMA_VERSION, type Thread, type ThreadAgentState } from "@cueloop/schema";
-import { projectAgentTranscript, commentOnAgentSpan } from "./agent-transcript";
+import { projectAgentTranscript, commentOnAgentSpan, agentToolFilePath } from "./agent-transcript";
 
 const thread: Thread = {
   schemaVersion: SCHEMA_VERSION,
@@ -64,4 +64,20 @@ test("a question, a cross-message selection, or a changing answer cannot accept 
       "id",
     ),
   ).toThrow();
+});
+
+test("tool locations open the correct repository file from a subdirectory cwd", () => {
+  const nested: Thread = {
+    ...thread,
+    workspace: { repoRoot: "/repo", branch: "main" },
+    artifact: { ...thread.artifact, meta: { cwd: "/repo/packages/client" } },
+  };
+
+  expect(agentToolFilePath(nested, "/repo/packages/client/src/App.tsx")).toBe(
+    "packages/client/src/App.tsx",
+  );
+  expect(agentToolFilePath(nested, "src/App.tsx")).toBe("packages/client/src/App.tsx");
+  expect(agentToolFilePath(nested, "../../README.md")).toBe("README.md");
+  expect(agentToolFilePath(nested, "/outside/README.md")).toBeUndefined();
+  expect(agentToolFilePath(nested, "../../../outside.ts")).toBeUndefined();
 });

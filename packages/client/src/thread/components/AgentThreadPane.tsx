@@ -4,7 +4,7 @@ import type { TextareaRenderable } from "@opentui/core";
 import { newAnnotationId, type Thread, type AgentTool } from "@cueloop/schema";
 import type { Theme } from "../../appearance/theme";
 import { ThreadView } from "../../markdown/components/ThreadView";
-import { projectAgentTranscript, commentOnAgentSpan } from "../agent-transcript";
+import { projectAgentTranscript, commentOnAgentSpan, agentToolFilePath } from "../agent-transcript";
 import { useThreadAgent, type ThreadAgentClient } from "../use-thread-agent";
 import type { DisplayBlock } from "../../markdown/view-plan";
 
@@ -300,12 +300,9 @@ function AgentToolDetails({
               key={location.path}
               fg={theme.blue}
               onMouseUp={() => {
-                const root = thread.artifact.meta.cwd ?? thread.workspace.repoRoot;
-                const path = location.path.startsWith(root + "/")
-                  ? location.path.slice(root.length + 1)
-                  : location.path;
+                const path = agentToolFilePath(thread, location.path);
 
-                if (!path.startsWith("/")) onOpenFile(path);
+                if (path) onOpenFile(path);
               }}
             >{`Open ${location.path}${location.line === undefined ? "" : `:${location.line}`}`}</text>
           ))}

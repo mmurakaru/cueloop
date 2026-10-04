@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import { mkdtempSync, rmSync, existsSync } from "node:fs";
+import { mkdtempSync, rmSync, existsSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -161,4 +161,38 @@ test("deleting a Thread stops a pending permission and removes its transcript", 
   await new Promise<void>((resolve) => setImmediate(resolve));
   expect(existsSync(path)).toBe(false);
   expect(manager.get(thread.id).messages).toEqual([]);
+});
+
+test("cancelling during initialization allows a later prompt on the same connection", async () => {
+  const { manager, thread } = createTestAgent();
+
+  manager.prompt({ id: thread.id, text: "Cancelled question" });
+  manager.cancel(thread.id);
+  await waitForAgent(manager, "idle");
+  expect(manager.get(thread.id).messages).toHaveLength(1);
+  manager.prompt({ id: thread.id, text: "Try again" });
+  await waitForAgent(manager, "idle");
+  expect(manager.get(thread.id).messages.at(-1)?.text).toBe("The timer survives cancellation.");
+});
+
+test("a resumed successful turn never finalizes a previously interrupted answer", async () => {
+  const { manager, options, thread } = createTestAgent();
+
+  manager.prompt({ id: thread.id, text: "First turn" });
+  await waitForAgent(manager, "idle");
+  const state = manager.get(thread.id);
+
+  manager.dispose();
+  state.messages[1]!.complete = false;
+  state.phase = { kind: "running" };
+  writeFileSync(join(options.home, "thread-agents", `${thread.id}.json`), JSON.stringify(state));
+  const restored = new ThreadAgentManager(options);
+
+  managers.push(restored);
+  restored.prompt({ id: thread.id, text: "Resume" });
+  await waitForAgent(restored, "idle");
+  const messages = restored.get(thread.id).messages;
+
+  expect(messages[1]!.complete).toBe(false);
+  expect(messages.at(-1)?.complete).toBe(true);
 });

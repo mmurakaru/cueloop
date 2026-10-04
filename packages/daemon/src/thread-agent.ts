@@ -290,6 +290,7 @@ export class ThreadAgentManager {
     comments: AgentComment[],
   ): Promise<void> {
     let active = this.active.get(state.threadId);
+    const messageStart = state.messages.length;
 
     try {
       if (!active) {
@@ -353,6 +354,7 @@ export class ThreadAgentManager {
       active.revision = revision;
       // Cancellation during initialization must not submit a new model request.
       if (active.cancelling) {
+        active.cancelling = false;
         state.phase = { kind: "idle" };
         this.save(state);
 
@@ -369,7 +371,7 @@ export class ThreadAgentManager {
         10 * 60_000,
       );
 
-      for (const message of state.messages) message.complete = true;
+      finalizeAgentMessages(state, messageStart, result.stopReason);
       if (result.stopReason === "end_turn") for (const comment of comments) comment.sent = true;
       for (const tool of state.tools) {
         if (tool.status === "pending" || tool.status === "in_progress") tool.status = "cancelled";
@@ -514,4 +516,10 @@ export class ThreadAgentManager {
     } else return;
     this.save(state);
   }
+}
+
+/** Only this turn can finalize its answers; stopped and historical partials stay incomplete. */
+function finalizeAgentMessages(state: ThreadAgentState, start: number, stopReason: string): void {
+  if (stopReason === "cancelled") return;
+  for (const message of state.messages.slice(start)) message.complete = true;
 }

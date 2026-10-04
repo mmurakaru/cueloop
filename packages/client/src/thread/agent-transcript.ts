@@ -1,3 +1,4 @@
+import { resolve, relative, isAbsolute } from "node:path";
 import {
   makeAnchor,
   parseBlocks,
@@ -125,4 +126,15 @@ export function commentOnAgentSpan(
     body,
     sent: false,
   };
+}
+
+/** Tool locations use the agent cwd; the file reader uses the repository root. */
+export function agentToolFilePath(thread: Thread, path: string): string | undefined {
+  const root = thread.workspace.repoRoot;
+  const absolute = resolve(thread.artifact.meta.cwd ?? root, path);
+  const local = relative(root, absolute);
+
+  if (!local || local === ".." || local.startsWith("../") || isAbsolute(local)) return undefined;
+
+  return local;
 }
