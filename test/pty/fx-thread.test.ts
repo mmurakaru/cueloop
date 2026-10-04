@@ -55,6 +55,17 @@ ptyTest(
       await session.waitForText("Keep the retry bounded.");
       await session.click("Keep the retry bounded.");
       await session.type("Explain retries");
+      await session.press(["alt", "enter"]);
+      await session.waitForText("Send message (1)");
+      expect((await client.agentGet(thread.id)).messages).toHaveLength(0);
+      expect((await client.sessionGet(thread.id)).annotations[0]?.body).toBe("Explain retries");
+      await session.click("Explain retries");
+      await session.type(" please");
+      await session.press(["alt", "enter"]);
+      expect((await client.sessionGet(thread.id)).annotations[0]?.body).toBe(
+        "Explain retries please",
+      );
+      expect((await client.agentGet(thread.id)).messages).toHaveLength(0);
       await session.press(["ctrl", "enter"]);
       await session.waitForText("The timer survives cancellation.");
       const timer = session.locate("The timer survives cancellation.");

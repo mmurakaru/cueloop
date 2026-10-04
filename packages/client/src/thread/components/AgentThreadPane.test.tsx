@@ -101,7 +101,7 @@ test("typing on the final blank line invokes the agent while the existing footer
       </AgentThreadPane>
       <ThreadFooter repo="project" branch="main" onSubmit={() => reviewSubmissions++} />
     </box>,
-    { width: 100, height: 24 },
+    { width: 100, height: 24, kittyKeyboard: true },
   );
 
   try {
@@ -111,7 +111,7 @@ test("typing on the final blank line invokes the agent while the existing footer
     await pressKey(setup, "ARROW_DOWN");
     await pressKey(setup, "ARROW_DOWN");
     await typeText(setup, "Explain retries");
-    await pressKey(setup, "RETURN", { meta: true });
+    await pressKey(setup, "RETURN", { ctrl: true });
     await waitForText(setup, "The timer survives cancellation.");
     expect(prompts[0]?.text).toBe("Explain retries");
     const send = locateText(setup, "Send message (0)");
@@ -174,7 +174,7 @@ test("typing after a submitted original creates a reply instead of editing the f
         (_id, body) => updates.push(body),
       )}
     </AgentThreadPane>,
-    { width: 100, height: 24 },
+    { width: 100, height: 24, kittyKeyboard: true },
   );
 
   try {
@@ -183,7 +183,7 @@ test("typing after a submitted original creates a reply instead of editing the f
 
     await setup.mockMouse.click(original.column, original.row);
     await typeText(setup, "What about cleanup?");
-    await pressKey(setup, "RETURN", { meta: true });
+    await pressKey(setup, "RETURN", { ctrl: true });
     expect(replies).toEqual(["What about cleanup?"]);
     expect(updates).toEqual([]);
     expect(annotated.annotations[0]?.body).toBe("Explain the timer");
@@ -217,7 +217,7 @@ test("failed mirrors expose Retry and permissions keep activity at the bottom", 
     >
       {artifactView(thread)}
     </AgentThreadPane>,
-    { width: 100, height: 24 },
+    { width: 100, height: 24, kittyKeyboard: true },
   );
 
   try {
@@ -260,7 +260,7 @@ test("three bottom prompts survive delayed acceptance and remain separate submis
     >
       {artifactView(thread)}
     </AgentThreadPane>,
-    { width: 100, height: 24 },
+    { width: 100, height: 24, kittyKeyboard: true },
   );
 
   try {
@@ -268,11 +268,11 @@ test("three bottom prompts survive delayed acceptance and remain separate submis
     await pressKey(setup, "ARROW_DOWN");
     await pressKey(setup, "ARROW_DOWN");
     await typeText(setup, "First prompt");
-    await pressKey(setup, "RETURN", { meta: true });
+    await pressKey(setup, "RETURN", { ctrl: true });
     await typeText(setup, "Second prompt");
-    await pressKey(setup, "RETURN", { meta: true });
+    await pressKey(setup, "RETURN", { ctrl: true });
     await typeText(setup, "Third prompt");
-    await pressKey(setup, "RETURN", { meta: true });
+    await pressKey(setup, "RETURN", { ctrl: true });
     expect(prompts).toEqual(["First prompt"]);
     release!(empty);
     await settle(setup);
@@ -309,7 +309,7 @@ test("typing after a read-only bottom prompt creates a reply to that prompt", as
     >
       {artifactView(thread)}
     </AgentThreadPane>,
-    { width: 100, height: 24 },
+    { width: 100, height: 24, kittyKeyboard: true },
   );
 
   try {
@@ -318,8 +318,51 @@ test("typing after a read-only bottom prompt creates a reply to that prompt", as
 
     await setup.mockMouse.click(prompt.column, prompt.row);
     await typeText(setup, "What about cancellation?");
-    await pressKey(setup, "RETURN", { meta: true });
+    await pressKey(setup, "RETURN", { ctrl: true });
     expect(replies).toEqual(["prompt"]);
+  } finally {
+    setup.renderer.destroy();
+  }
+});
+
+test("Option+Enter saves a comment, Command+Enter leaves its draft, and Ctrl+Enter invokes", async () => {
+  const saved: string[] = [];
+  let invocations = 0;
+  const display = buildDisplay(thread.artifact.content);
+  const setup = await testRender(
+    <ThreadView
+      session={thread}
+      display={display}
+      marks={marksByDisplay([], display)}
+      quickActions={[]}
+      observer={false}
+      onAnnotate={(_span, body) => saved.push(body)}
+      onReply={noop}
+      onUpdateAnnotation={noop}
+      onExit={noop}
+      onInvoke={() => invocations++}
+    />,
+    { width: 100, height: 24, kittyKeyboard: true },
+  );
+
+  try {
+    await waitForText(setup, "Original artifact");
+    const artifact = locateText(setup, "Original artifact");
+
+    await setup.mockMouse.click(artifact.column, artifact.row);
+    await typeText(setup, "Editable comment");
+    setup.mockInput.pressKey("RETURN", { super: true });
+    await settle(setup);
+    expect(saved).toEqual([]);
+    expect(invocations).toBe(0);
+    expect(setup.captureCharFrame()).toContain("Editable comment");
+    await pressKey(setup, "RETURN", { meta: true });
+    expect(saved).toEqual(["Editable comment"]);
+    expect(invocations).toBe(0);
+    await typeText(setup, "Ask the agent");
+    await pressKey(setup, "RETURN", { ctrl: true });
+    expect(saved).toEqual(["Editable comment", "Ask the agent"]);
+    expect(invocations).toBe(1);
   } finally {
     setup.renderer.destroy();
   }

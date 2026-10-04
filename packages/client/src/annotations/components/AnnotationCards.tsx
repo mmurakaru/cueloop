@@ -26,11 +26,9 @@ import { referenceStyleFor } from "../../ui/components/syntax-highlight";
 
 /* -------------------------------------------------------------- composer */
 
-// cmd+enter sends (super under the kitty protocol, meta where cmd arrives
-// ESC-prefixed, ctrl as the fallback where the terminal itself consumes
-// cmd+enter); plain enter breaks the line
+// Option+Enter saves a comment; Ctrl+Enter may additionally invoke the agent.
+// Plain Enter breaks the line. Command+Enter belongs to the terminal.
 const COMPOSE_KEY_BINDINGS: KeyBinding[] = [
-  { name: "return", super: true, action: "submit" },
   { name: "return", meta: true, action: "submit" },
   { name: "return", ctrl: true, action: "submit" },
   { name: "return", action: "newline" },
@@ -313,7 +311,6 @@ export function CommentRow({
   action?: { label: string; run: () => void };
 }): React.ReactNode {
   // own comments (no author) wear the filled dot, collaborators the outline
-  const [actionHovered, setActionHovered] = useState(false);
   const own = annotation.author === undefined;
   const glyph = own ? "●" : "○";
   const glyphColor = annotation.orphan ? tokens.warning : own ? tokens.text : tokens.textMuted;
@@ -342,15 +339,13 @@ export function CommentRow({
               fg={tokens.blue}
               onMouseUp={action.run}
               onMouseOver={(event: TerminalMouseEvent) => {
-                setActionHovered(true);
                 showTooltip(action.label, event.x, event.y);
               }}
               onMouseOut={() => {
-                setActionHovered(false);
                 hideTooltip();
               }}
             >
-              {action.label === "Retry" ? "Retry" : actionHovered ? "↓" : "✓✓"}
+              {action.label === "Retry" ? "Retry" : "✓✓"}
             </text>
           ) : null}
         </box>

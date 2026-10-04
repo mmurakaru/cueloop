@@ -19,8 +19,9 @@ Add `--live` to use your configured provider in the temporary workspace.
 ## Interaction
 
 - Type a comment on artifact text, an answer, or a Changes selection. Its read-only mirror appears at the Thread end.
-- Press Cmd+Enter or Ctrl+Enter to invoke the harness with all pending comments and the final blank-line prompt. Empty input does nothing. Comments queued during a turn receive individual answers after their mirrors.
-- Accepted originals become read-only. Typing after one creates a discussion reply. Two checks reveal View reply on hover and navigate to the mirror; failed submissions expose Retry and reuse the mirror.
+- Press Ctrl+Enter to invoke the harness with all pending comments and the final blank-line prompt. Empty input does nothing. Comments queued during a turn receive individual answers after their mirrors.
+- Option+Enter saves an editable comment without invoking the agent.
+- Accepted originals become read-only. Typing after one creates a discussion reply. Two clickable checks show View reply on hover and navigate to the mirror; failed submissions expose Retry and reuse the mirror.
 - Type at the final blank line to extend the document. Activity and permission choices appear at the bottom.
 - Select model and reasoning choices through the existing footer overlay menus.
 - Send message (n) still returns the artifact review to its waiting main session. The embedded harness can also call `send_message`, `reply_to_comment`, and `cueloop_api`, including replying to the original Changes discussion.

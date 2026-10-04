@@ -3,7 +3,7 @@
  * list of text lines it does not know how to paint. A character-precise caret
  * sits in the text; click/drag marks (word mode on double-click); typing opens a
  * composer anchored at the caret word or held selection; "/" opens the quick-action
- * palette; enter replies, tab folds, esc dismisses; cmd+enter sends. The plan
+ * palette; enter replies, tab folds, esc dismisses; Option+Enter saves, Ctrl+Enter invokes. The plan
  * thread view and the diff sheet both drive this hook and only paint their own
  * rows, so marking and commenting behave identically on prose and on code.
  *
@@ -463,7 +463,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     if (slashActive) setSlashIndex(0);
   }, [slashActive]);
 
-  const saveComment = (body: string, invoke = true): void => {
+  const saveComment = (body: string, invoke = false): void => {
     // the body saves verbatim - typed newlines are the author's choice;
     // trimming only decides whether the draft is empty enough to discard
     const target = composeRef.current;
@@ -614,10 +614,12 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     return false;
   };
 
-  /** Pre-mount window: buffer printables, honor a fast cmd+enter or newline. */
+  /** Pre-mount window: buffer printables, honor a fast comment save, agent invocation, or newline. */
   const handlePremountKey = (key: KeyEvent, activeCompose: ComposeState): void => {
     if (key.name === "return") {
-      if (key.super || key.meta || key.ctrl) return saveComment(activeCompose.seed);
+      if (key.super) return;
+      if (key.meta || key.ctrl)
+        return saveComment(activeCompose.seed, isAgentInvokeKey(key, onInvoke));
       const grown = { ...activeCompose, seed: `${activeCompose.seed}\n` };
 
       composeRef.current = grown;
@@ -639,6 +641,16 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
   };
 
   const handleComposeKey = (key: KeyEvent, activeCompose: ComposeState): void => {
+    if ((key.name === "return" || key.name === "enter") && key.super) {
+      key.preventDefault();
+
+      return;
+    }
+    if (isAgentInvokeKey(key, onInvoke)) {
+      key.preventDefault();
+
+      return saveComment(composerReady.current ? composeTextRef.current : activeCompose.seed, true);
+    }
     // the textarea owns every key while open; the view takes dismiss (which
     // also releases the discussion focus), the slash palette, and pre-mount input
     if (key.name === "escape") {
@@ -1078,6 +1090,8 @@ function isAgentInvokeKey(
   return Boolean(
     onInvoke &&
     (key.name === "return" || key.name === "enter") &&
-    (key.ctrl || key.meta || key.super),
+    key.ctrl &&
+    !key.meta &&
+    !key.super,
   );
 }

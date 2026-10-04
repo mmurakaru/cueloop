@@ -1035,7 +1035,9 @@ export function App({
     if (
       agentOwnsKeyboard(agentActive, focusedPane) &&
       (key.name === "return" || key.name === "enter") &&
-      (key.ctrl || key.meta || key.super)
+      key.ctrl &&
+      !key.meta &&
+      !key.super
     )
       return true;
     if (!threadViewActive || threadViewSuspended) return false;
