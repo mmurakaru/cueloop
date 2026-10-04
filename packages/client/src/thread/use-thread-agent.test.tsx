@@ -63,3 +63,70 @@ test("late configuration and action responses cannot replace a newer accepted st
     setup.renderer.destroy();
   }
 });
+
+test("production subscription shows daemon updates and reconnects without an injected client", async () => {
+  const { mkdtempSync, rmSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const { DaemonServer } = await import("@cueloop/daemon");
+  const { DaemonClient } = await import("@cueloop/daemon/client");
+  const home = mkdtempSync(join(tmpdir(), "cueloop-agent-ui-subscription-"));
+  const adapter = {
+    id: "ui-subscription",
+    label: "UI subscription",
+    connect({ onEvent }: Parameters<import("@cueloop/schema").AgentHarnessAdapter["connect"]>[0]) {
+      return {
+        start: async () => "ui-session",
+        prompt: async () => {
+          onEvent({ kind: "message" as const, id: "answer", text: "Updated answer" });
+          return { outcome: "completed" as const };
+        },
+        cancel() {},
+        permission() {},
+        close() {},
+      };
+    },
+  };
+  const options = { home, idleExitMs: 0, threadAgent: { enabled: true, adapter } };
+  let server = new DaemonServer(options);
+  server.start();
+  const client = await DaemonClient.connect({ home });
+  const thread = await client.sessionCreate(
+    { repoRoot: home, branch: "main" },
+    { type: "plan", content: "Watch this", meta: {} },
+  );
+  function TestAgentSubscription(): React.ReactNode {
+    const agent = useThreadAgent(thread.id, home);
+
+    return (
+      <text>
+        {agent.client ? "Connected " : "Connecting "}
+        {agent.state.messages.map((message) => message.text).join(" ")}
+        {agent.error}
+      </text>
+    );
+  }
+  const setup = await testRender(<TestAgentSubscription />, { width: 80, height: 4 });
+
+  try {
+    await waitForText(setup, "Connected");
+    await client.agentPrompt({ id: thread.id, text: "Question" });
+    await waitForText(setup, "Updated answer");
+    server.stop();
+    server = new DaemonServer(options);
+    server.start();
+    const resumed = await DaemonClient.connect({ home });
+    try {
+      await resumed.agentPrompt({ id: thread.id, text: "Continuation" });
+    } finally {
+      resumed.close();
+    }
+    await waitForText(setup, "Continuation");
+    expect(setup.captureCharFrame()).toContain("Updated answer");
+  } finally {
+    setup.renderer.destroy();
+    client.close();
+    server.stop();
+    rmSync(home, { recursive: true, force: true });
+  }
+});

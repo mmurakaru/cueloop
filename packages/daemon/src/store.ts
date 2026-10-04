@@ -181,19 +181,25 @@ export class ThreadStore implements ThreadRepository {
   }
 
   upsert(session: Thread): void {
-    this.sessions.set(session.id, session);
     const filePath = this.files.get(session.id);
     const lines = this.lineCounts.get(session.id) ?? 0;
 
     // the first write, an over-long log, and a resolved (now immutable) thread all compact to one
     // line; every other mutation is a cheap append that a torn tail on crash simply drops on read
-    if (filePath === undefined || lines >= COMPACT_THRESHOLD || session.status === "resolved") {
+    if (
+      filePath === undefined ||
+      lines >= COMPACT_THRESHOLD ||
+      session.status === "resolved" ||
+      session.messageOperations?.length
+    ) {
       this.writeWhole(session);
+      this.sessions.set(session.id, session);
 
       return;
     }
     appendFileSync(filePath, JSON.stringify(session) + "\n");
     this.lineCounts.set(session.id, lines + 1);
+    this.sessions.set(session.id, session);
   }
 
   delete(id: string): boolean {

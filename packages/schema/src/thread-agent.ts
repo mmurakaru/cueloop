@@ -56,6 +56,13 @@ export interface ThreadAgentState {
   tools: AgentTool[];
   comments: AgentComment[];
   submissions?: AgentSubmission[];
+  /** Original accepted submission identities survive acknowledgement loss and daemon restart. */
+  promptOperations?: {
+    operationId: string;
+    fingerprint: string;
+    result: string[];
+    outcome?: "completed" | "failed" | "cancelled";
+  }[];
   configOptions?: AgentConfigOption[];
 }
 
@@ -68,6 +75,8 @@ export interface AgentSubmission {
   quote?: string;
   context?: string;
   status: "queued" | "running" | "completed" | "failed";
+  /** Explicit cancellation is terminal without changing legacy retry status. */
+  cancelled?: boolean;
 }
 
 /** Model and reasoning choices are advertised by the harness, never invented by the UI. */

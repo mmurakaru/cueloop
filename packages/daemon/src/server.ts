@@ -362,8 +362,7 @@ export class DaemonServer {
     if (args.kind === "reply") {
       const thread = origin;
       const comment = thread.annotations.find((entry) => entry.id === args.commentId);
-      if (!comment)
-        return JSON.stringify(this.threadAgent.reply(args.id, args.commentId, args.body));
+      if (!comment) return JSON.stringify(this.replyAgentComment(args));
       const root =
         thread.annotations.find((entry) => entry.id === (comment.replyTo ?? comment.id)) ?? comment;
 
@@ -394,6 +393,16 @@ export class DaemonServer {
     );
   }
 
+  private replyAgentComment(params: {
+    id: string;
+    commentId: string;
+    body: string;
+  }): ReturnType<ThreadAgentManager["reply"]> {
+    this.threadAgent.assertEnabled(params.id);
+
+    return this.threadAgent.reply(params.id, params.commentId, params.body);
+  }
+
   private readonly handlers: Record<MethodName, MethodHandler> = {
     "agent.configure": (_connection, request) => {
       const params = parseParams("agent.configure", request.params);
@@ -414,6 +423,10 @@ export class DaemonServer {
       const { id } = parseParams("agent.cancel", request.params);
       this.threadAgent.assertEnabled(id);
       return this.threadAgent.cancel(id);
+    },
+    "agent.reply": (_connection, request) => {
+      const params = parseParams("agent.reply", request.params);
+      return this.replyAgentComment(params);
     },
     "agent.comment": (_connection, request) => {
       const params = parseParams("agent.comment", request.params);
@@ -645,6 +658,7 @@ export class DaemonServer {
         params.outcome,
         params.summary,
         params.actionBodies,
+        params.operationId,
       );
     },
     "harness.bind": (_connection, request) => {

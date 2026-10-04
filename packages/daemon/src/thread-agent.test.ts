@@ -305,3 +305,45 @@ test("rejected first batches leave originals editable and create no queued turn"
     rmSync(home, { recursive: true, force: true });
   }
 });
+
+test("prompt operation receipts survive restart without requeueing accepted inputs", () => {
+  const home = mkdtempSync(join(tmpdir(), "cueloop-agent-receipt-"));
+  const thread = createTestThread(home);
+  const adapter: AgentHarnessAdapter = {
+    id: "receipt-test",
+    label: "Receipt test",
+    connect: () => ({
+      start: async () => "session",
+      prompt: () => new Promise(() => {}),
+      cancel() {},
+      permission() {},
+      close() {},
+    }),
+  };
+  const options = { home, enabled: true, adapter, getThread: () => thread, onChange() {} };
+  let manager = new ThreadAgentManager(options);
+
+  try {
+    const input = { id: thread.id, text: "Once", operationId: "once" };
+    const accepted = manager.prompt(input);
+    manager.dispose();
+    manager = new ThreadAgentManager(options);
+    const replay = manager.prompt(input);
+    expect(replay.promptOperations?.[0]?.result).toEqual(accepted.promptOperations?.[0]?.result);
+    expect(replay.submissions).toHaveLength(1);
+    expect(replay.promptOperations?.[0]?.outcome).toBe("failed");
+    expect(() => manager.prompt({ ...input, text: "Different" })).toThrow(
+      "Operation payload conflict",
+    );
+    manager.prompt({
+      id: thread.id,
+      text: "",
+      retry: replay.submissions![0]!.id,
+      operationId: "retry",
+    });
+    expect(manager.get(thread.id).promptOperations?.[0]?.outcome).toBe("failed");
+  } finally {
+    manager.dispose();
+    rmSync(home, { recursive: true, force: true });
+  }
+});

@@ -14,7 +14,8 @@
   },
   "files": [
     "src",
-    "README.md"
+    "README.md",
+    "SDK.md"
   ],
   "type": "module",
   "exports": {
@@ -33,7 +34,10 @@
     "./thread-surface-config": "./src/thread-surface-config.ts",
     "./herdr-split": "./src/herdr-split.ts",
     "./share-blob": "./src/share-blob.ts",
-    "./curate": "./src/curate.ts"
+    "./curate": "./src/curate.ts",
+    "./sdk": "./src/daemon-sdk.ts",
+    "./sdk-effect": "./src/daemon-sdk-effect.ts",
+    "./thread-subscription": "./src/thread-subscription.ts"
   },
   "publishConfig": {
     "access": "public"

@@ -19,6 +19,11 @@ import {
   type AgentHarnessEvent,
   type AgentHarnessResult,
 } from "@cueloop/schema";
+import {
+  findPromptOperationReceipt,
+  recordPromptOperation,
+  settlePromptOperations,
+} from "./operation-receipts";
 import { writeHarnessDiagnostic } from "./harness-diagnostics";
 import { stepAgentTurn, agentTurnCancelled, type AgentTurn } from "./agent-turn";
 import { ThreadAgentSchema } from "./thread-agent-validation";
@@ -90,7 +95,11 @@ export class ThreadAgentManager {
         };
 
     if (state.threadId !== id) throw new Error("Thread agent record has the wrong thread identity");
-    if (state.phase.kind === "running" || state.phase.kind === "permission") {
+    if (
+      state.phase.kind === "running" ||
+      state.phase.kind === "permission" ||
+      state.submissions?.some((entry) => entry.status === "queued" || entry.status === "running")
+    ) {
       state.phase = {
         kind: "failed",
         error: "Agent was interrupted by a daemon restart. Send a message to resume.",
@@ -103,18 +112,27 @@ export class ThreadAgentManager {
         if (tool.status === "pending" || tool.status === "in_progress") tool.status = "cancelled";
       }
     }
+    settlePromptOperations(state);
     this.states.set(id, state);
 
     return structuredClone(state);
   }
 
   /** Freeze each pending comment once and queue an individual answer at the Thread tail. */
-  prompt(params: { id: string; text: string; context?: string; retry?: string }): ThreadAgentState {
+  prompt(params: {
+    id: string;
+    text: string;
+    context?: string;
+    retry?: string;
+    operationId?: string;
+  }): ThreadAgentState {
     this.assertEnabled(params.id);
     if (!this.options.adapter) throw new Error("Thread agent harness is not configured");
     const state = this.mutable(params.id);
     const thread = this.options.getThread(params.id);
+    const receipt = findPromptOperationReceipt(state, params);
 
+    if (receipt) return structuredClone(state);
     if (thread.status !== "pending") throw new Error("Thread agent review is already resolved");
     assertHarnessIdentity(state, this.options.adapter);
     const before = structuredClone(state);
@@ -166,6 +184,7 @@ export class ThreadAgentManager {
 
         if (!submission || submission.status !== "failed")
           throw new Error("Thread agent retry requires a failed submission");
+        delete submission.cancelled;
         submission.status = stepAgentSubmission(submission.status, "retry", true);
       } else {
         const accepted = new Set(submissions.map((entry) => entry.commentId));
@@ -204,6 +223,7 @@ export class ThreadAgentManager {
         }
         if (params.text.trim()) enqueue({ prompt: params.text.trim(), quote: params.context });
       }
+      recordPromptOperation(state, before, params);
       this.save(state);
     } catch (error) {
       restoreAgentState(state, before);
@@ -348,6 +368,9 @@ Input: ${submission.prompt}`;
 
     if (active && (state.phase.kind === "running" || state.phase.kind === "permission")) {
       active.turn = stepAgentTurn(active.turn, "stop");
+      const submission = state.submissions?.find((entry) => entry.status === "running");
+
+      if (submission) submission.cancelled = true;
       for (const tool of state.tools) {
         if (tool.status === "pending" || tool.status === "in_progress") tool.status = "cancelled";
       }
@@ -410,6 +433,7 @@ Input: ${submission.prompt}`;
   }
 
   private save(state: ThreadAgentState): void {
+    settlePromptOperations(state);
     if (this.states.get(state.threadId) !== state) return;
     const data = JSON.stringify(state);
 
@@ -449,6 +473,7 @@ Input: ${submission.prompt}`;
       const result = await active.connection.prompt(prompt);
 
       finalizeAgentMessages(state, messageStart, result.outcome);
+      if (submission && result.outcome === "cancelled") submission.cancelled = true;
       if (submission)
         submission.status = stepAgentSubmission(
           submission.status,
@@ -656,6 +681,7 @@ function isPendingAgentInput(
 
 function restoreAgentState(state: ThreadAgentState, before: ThreadAgentState): void {
   if (before.submissions === undefined) delete state.submissions;
+  if (before.promptOperations === undefined) delete state.promptOperations;
   if (before.harness === undefined) delete state.harness;
   Object.assign(state, before);
 }

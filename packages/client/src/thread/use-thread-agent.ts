@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { subscribeThreadState, connectThreadObserver } from "@cueloop/daemon/thread-subscription";
 import { DaemonClient } from "@cueloop/daemon/client";
 import type { ThreadAgentState } from "@cueloop/schema";
 
@@ -51,21 +52,29 @@ export function useThreadAgent(id: string, home?: string, injected?: ThreadAgent
 
           return;
         }
-        connection = await DaemonClient.connect({ home, autostart: true });
-        if (cancelled) {
-          connection.close();
-          return;
-        }
-        setClient(connection);
-        unsubscribe = connection.onEvent((event) => {
-          if (event.event === "agent.updated" && event.sessionId === id)
-            void refresh(connection!).catch((error) => {
+        unsubscribe = subscribeThreadState({
+          connect: connectThreadObserver({ home, autostart: true }),
+          matches: (event) => event.event === "agent.updated" && event.sessionId === id,
+          read: async (api, signal) => {
+            const requested = ++revision.current;
+            const state = await api.agentGet(id, { signal });
+
+            return { state, requested };
+          },
+          onConnect: (api) => {
+            connection = api;
+            setClient(api);
+            void configure(api).catch((error) => {
               if (!cancelled) setError(String(error));
             });
+          },
+          onValue: ({ state, requested }) => {
+            if (!cancelled && requested === revision.current) setState(state);
+          },
+          onError: (error) => {
+            if (!cancelled) setError(String(error));
+          },
         });
-        await connection.subscribe();
-        await refresh(connection);
-        await configure(connection);
       } catch (error) {
         if (!cancelled) setError(error instanceof Error ? error.message : String(error));
       }

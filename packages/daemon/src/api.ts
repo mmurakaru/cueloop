@@ -52,6 +52,7 @@ import {
   type MessageOutcome,
   type WorkspaceKey,
 } from "@cueloop/schema";
+import { findOperationReceipt, operationFingerprint } from "./operation-receipts";
 import { curateDiff } from "./curate";
 import { ThreadStore, withHistory } from "./store";
 import { pruneExpiredSessions, resolveCleanupPeriodDays } from "./retention";
@@ -892,8 +893,19 @@ export class DaemonCore {
     outcome: MessageOutcome,
     summary: string,
     actionBodies?: Record<string, string>,
+    operationId?: string,
   ): Thread {
-    const session = this.mutable(id);
+    const current = this.sessionGet(id);
+    const fingerprint = operationFingerprint([
+      outcome,
+      summary,
+      Object.entries(actionBodies ?? {}).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
+    ]);
+    const receipt = findOperationReceipt(current.messageOperations, operationId, fingerprint);
+
+    if (receipt) return { ...structuredClone(current), message: structuredClone(receipt.result) };
+    const mutable = this.mutable(id);
+    const session = operationId ? structuredClone(mutable) : mutable;
     const sentAt = new Date().toISOString();
     const sentAnnotations = new Map(
       (session.history?.entries ?? [])
@@ -916,6 +928,8 @@ export class DaemonCore {
       sentAt,
     };
 
+    if (operationId)
+      (session.messageOperations ??= []).push({ operationId, fingerprint, result: message });
     session.message = message;
     session.status = outcome === "comment" ? "pending" : "resolved";
     const entryId = this.record(session, {

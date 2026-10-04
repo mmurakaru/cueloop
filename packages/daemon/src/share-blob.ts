@@ -25,7 +25,9 @@ export const DEFAULT_SHARE_PORT = 22;
 
 /** Serialise + compress a session for upload. */
 export function packSessionBlob(session: Thread): Buffer {
-  return gzipSync(Buffer.from(JSON.stringify(session), "utf8"));
+  const { messageOperations: _privateReceipts, ...shared } = session;
+
+  return gzipSync(Buffer.from(JSON.stringify(shared), "utf8"));
 }
 
 /** Decompress + validate an uploaded blob, or throw a precise reason. */

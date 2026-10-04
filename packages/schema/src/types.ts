@@ -387,6 +387,8 @@ export interface Thread {
    * progress. Undefined = the walk never started.
    */
   viewedPaths?: string[];
+  /** Acceptance receipts persist atomically with review messages for safe explicit retries. */
+  messageOperations?: { operationId: string; fingerprint: string; result: Message }[];
   message: Message | null;
   status: SessionStatus;
   createdAt: string;
