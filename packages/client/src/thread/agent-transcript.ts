@@ -147,6 +147,7 @@ export function projectThreadConversation(
   state: ThreadAgentState,
   artifactDisplay: DisplayBlock[],
   artifactMarks: Map<number, Mark[]>,
+  showActivity = state.phase.kind !== "idle",
 ) {
   const display = [...artifactDisplay];
   const marks = new Map(artifactMarks);
@@ -274,27 +275,41 @@ export function projectThreadConversation(
   };
   if (state.submissions?.length) {
     for (const submission of state.submissions) {
-      mirror(
-        submission.id,
-        submission.prompt,
-        submission.quote ?? " ",
-        submission.commentId,
-        submission.id,
-      );
+      // A prompt may use its submission ID as a discussion root; that is not an inline comment.
+      if (submission.commentId && submission.commentId !== submission.id) {
+        mirror(
+          submission.id,
+          submission.prompt,
+          submission.quote ?? " ",
+          submission.commentId,
+          submission.id,
+        );
+      } else {
+        destinations.set(submission.id, display.length);
+        message({
+          id: submission.id,
+          role: "user",
+          text: submission.prompt,
+          complete: true,
+          revision: 1,
+        });
+      }
       for (const entry of state.messages.filter(
         (entry) => entry.role === "agent" && entry.submissionId === submission.id,
       ))
         message(entry);
     }
   } else for (const entry of state.messages) message(entry);
-  const activityIndex = display.length;
+  const activityIndex = showActivity ? display.length : -1;
 
-  display.push({
-    type: "same",
-    kind: "p",
-    work: { kind: "p", text: "", lineStart: 0, lineEnd: 0 },
-  });
-  sources.push({ kind: "activity" });
+  if (showActivity) {
+    display.push({
+      type: "same",
+      kind: "p",
+      work: { kind: "p", text: "", lineStart: 0, lineEnd: 0 },
+    });
+    sources.push({ kind: "activity" });
+  }
   const tailIndex = display.length;
 
   display.push({

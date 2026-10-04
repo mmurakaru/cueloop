@@ -337,7 +337,7 @@ export function ThreadView({
     </span>
   );
 
-  const lineRowFor = (context: LineContext): React.ReactNode => {
+  const lineRowFor = (context: LineContext, hasComposer = false): React.ReactNode => {
     const {
       blockIndex,
       roleRuns,
@@ -349,6 +349,9 @@ export function ThreadView({
       baseAttributes,
       syntaxSpans,
     } = context;
+
+    // The prompt composer occupies its blank line instead of adding a row below it.
+    if (isPromptBlock?.(blockIndex) && hasComposer) return null;
 
     return (
       <box key={`line-${lineIndex}`} style={{ flexDirection: "row" }}>
@@ -450,22 +453,24 @@ export function ThreadView({
       const line = lines[lineIndex]!;
       const isLastLine = lineIndex === lines.length - 1;
 
+      const cards = surface.cardsAfterLine(blockIndex, line, isLastLine);
       lineRows.push(
-        lineRowFor({
-          blockIndex,
-          roleRuns,
-          line,
-          lineIndex,
-          ranges,
-          marker,
-          baseFg,
-          baseAttributes,
-          syntaxSpans,
-        }),
+        lineRowFor(
+          {
+            blockIndex,
+            roleRuns,
+            line,
+            lineIndex,
+            ranges,
+            marker,
+            baseFg,
+            baseAttributes,
+            syntaxSpans,
+          },
+          cards.length > 0,
+        ),
       );
       if (isLastLine) lineRows.push(headingRule(block));
-      const cards = surface.cardsAfterLine(blockIndex, line, isLastLine);
-
       lineRows.push(...cards);
       if (cards.length > 0 && !isLastLine) {
         lineRows.push(<box key={`gap-${lineIndex}`} style={{ height: 1 }} />);

@@ -219,6 +219,8 @@ ptyTest(
       await session.type(" again");
       await session.press(["ctrl", "enter"]);
       await session.waitForText("The timer survives cancellation.");
+      expect(session.text()).not.toContain("● Hello from an empty Thread");
+      expect(session.text()).not.toContain("✓✓");
       const created = (await client.sessionList()).find(
         (entry) => entry.artifact.meta.title === "New Thread",
       );

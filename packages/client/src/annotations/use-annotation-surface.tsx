@@ -1003,7 +1003,11 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
 
     const pushComposeCard = (): void => {
       if (isPromptBlock?.(blockIndex)) {
-        nodes.push(<box key="compose-prompt">{composerNode}</box>);
+        nodes.push(
+          <box key="compose-prompt" style={{ paddingLeft: 2 }}>
+            {composerNode}
+          </box>,
+        );
         nodes.push(paletteNode);
 
         return;

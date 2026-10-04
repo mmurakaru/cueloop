@@ -51,8 +51,15 @@ export function AgentThreadPane(props: AgentThreadPaneProps): React.ReactNode {
     );
   const baseMarks = child?.marks ?? marksByDisplay(thread.annotations, baseDisplay);
   const projection = useMemo(
-    () => projectThreadConversation(thread, agent.state, baseDisplay, baseMarks),
-    [thread, agent.state, baseDisplay, baseMarks],
+    () =>
+      projectThreadConversation(
+        thread,
+        agent.state,
+        baseDisplay,
+        baseMarks,
+        agent.state.phase.kind !== "idle" || Boolean(agent.error),
+      ),
+    [thread, agent.state, agent.error, baseDisplay, baseMarks],
   );
   const [requestedBlock, setRequestedBlock] = useState<{ blockIndex: number }>();
   const draft = useRef("");

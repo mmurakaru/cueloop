@@ -134,3 +134,28 @@ test("editable artifact and agent comments stay inline until accepted for invoca
   expect(submitted.mirrors.size).toBe(1);
   expect(submitted.mirrors.get("mirror:accepted")?.commentId).toBe(artifactNote.id);
 });
+
+test.each([undefined, "plain-prompt"])(
+  "accepted bottom prompts remain user messages without synthetic comment mirrors (%s)",
+  (commentId) => {
+    const emptyThread = { ...thread, artifact: { ...thread.artifact, content: "" } };
+    const projected = projectThreadConversation(
+      emptyThread,
+      {
+        ...state,
+        messages: [],
+        submissions: [
+          { id: "plain-prompt", commentId, prompt: "Hello from the prompt", status: "completed" },
+        ],
+      },
+      [],
+      new Map(),
+    );
+
+    expect(projected.mirrors.size).toBe(0);
+    expect(projected.session.annotations).toEqual([]);
+    expect(projected.display.some((block) => block.work?.text === "Hello from the prompt")).toBe(
+      true,
+    );
+  },
+);

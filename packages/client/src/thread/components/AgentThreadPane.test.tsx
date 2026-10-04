@@ -205,7 +205,15 @@ test("typing after a submitted original creates a reply instead of editing the f
 test("failed mirrors expose Retry and permissions keep activity at the bottom", async () => {
   const state: ThreadAgentState = {
     ...empty,
-    submissions: [{ id: "failed", prompt: "Check retries", quote: "Original", status: "failed" }],
+    submissions: [
+      {
+        id: "failed",
+        commentId: "original",
+        prompt: "Check retries",
+        quote: "Original",
+        status: "failed",
+      },
+    ],
     phase: {
       kind: "permission",
       permission: {
@@ -292,7 +300,7 @@ test("three bottom prompts survive delayed acceptance and remain separate submis
   }
 });
 
-test("typing after a read-only bottom prompt creates a reply to that prompt", async () => {
+test("typing on an accepted plain prompt cannot edit it or create an unmarked comment", async () => {
   const state: ThreadAgentState = {
     ...empty,
     messages: [
@@ -329,7 +337,9 @@ test("typing after a read-only bottom prompt creates a reply to that prompt", as
     await setup.mockMouse.click(prompt.column, prompt.row);
     await typeText(setup, "What about cancellation?");
     await pressKey(setup, "RETURN", { ctrl: true });
-    expect(replies).toEqual(["prompt"]);
+    expect(replies).toEqual([]);
+    expect(state.messages[0]?.text).toBe("Explain retries");
+    expect(setup.captureCharFrame()).not.toContain("What about cancellation?");
   } finally {
     setup.renderer.destroy();
   }
@@ -477,3 +487,48 @@ for (const policy of [
     }
   });
 }
+
+test("empty Thread typing and accepted prompts use normal paragraph padding without comment cards", async () => {
+  const value = { ...thread, artifact: { ...thread.artifact, content: "" } };
+  let accepted = empty;
+  const { client, prompts } = createTestAgentClient(empty);
+  client.agentPrompt = async (params) => {
+    prompts.push(params);
+    accepted = {
+      ...empty,
+      submissions: [
+        { id: "plain-prompt", commentId: "plain-prompt", prompt: params.text, status: "completed" },
+      ],
+    };
+
+    return accepted;
+  };
+  const setup = await testRender(
+    <AgentThreadPane
+      thread={value}
+      client={client}
+      focused
+      theme={DARK}
+      onActiveChange={noop}
+      onOpenFile={noop}
+    >
+      {artifactView(value)}
+    </AgentThreadPane>,
+    { width: 100, height: 24, kittyKeyboard: true },
+  );
+
+  try {
+    await settle(setup);
+    await pressKey(setup, "ARROW_DOWN");
+    await typeText(setup, "Hello from the prompt");
+    expect(locateText(setup, "Hello from the prompt")).toMatchObject({ row: 1, column: 2 });
+    await pressKey(setup, "RETURN", { ctrl: true });
+    await waitForText(setup, "Hello from the prompt");
+    expect(prompts).toHaveLength(1);
+    expect(locateText(setup, "Hello from the prompt")).toMatchObject({ row: 1, column: 2 });
+    expect(setup.captureCharFrame()).not.toContain("●");
+    expect(setup.captureCharFrame()).not.toContain("✓");
+  } finally {
+    setup.renderer.destroy();
+  }
+});
