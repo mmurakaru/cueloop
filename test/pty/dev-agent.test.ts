@@ -36,7 +36,7 @@ ptyTest.skipIf(Boolean(process.env.CUELOOP_TEST_EXECUTABLE))(
 
     try {
       await session.waitForReady();
-      await session.waitForText("Read the repository");
+      await session.waitForText("A seeded plan");
       await session.click("A seeded plan");
       await session.type("Explain retry cancellation");
       await session.press(["ctrl", "enter"]);
