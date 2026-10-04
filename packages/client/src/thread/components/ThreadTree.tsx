@@ -37,6 +37,8 @@ export interface ThreadTreeProps {
   onPin?: (id: string) => void;
   /** Rename a thread's title (the menu's Rename). */
   onRename?: (id: string, title: string) => void;
+  /** Create an empty Thread; omitting it retains the ordinary sidebar. */
+  onCreateThread?: () => void;
   theme?: Theme;
 }
 
@@ -192,6 +194,7 @@ export function ThreadTree({
   onRequestDelete,
   onPin,
   onRename,
+  onCreateThread,
   theme,
 }: ThreadTreeProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
@@ -201,17 +204,34 @@ export function ThreadTree({
   const titleWidth = Math.max(8, width - 9);
   const closeMenu = (): void => menuControl.closeMenu();
 
+  const visibleRows =
+    onCreateThread && !rows.some((row) => row.id === "section:threads")
+      ? [...rows, { kind: "section" as const, id: "section:threads", label: "Threads" }]
+      : rows;
+
   return (
     <box style={{ flexGrow: 1, flexDirection: "column", paddingLeft: 1 }}>
-      {rows.length === 0 ? (
+      {visibleRows.length === 0 ? (
         <text fg={tokens.textDim}>no threads</text>
       ) : (
-        rows.map((row, index) => {
+        visibleRows.map((row, index) => {
           if (row.kind === "section") {
             return (
-              <text key={row.id} fg={tokens.textDim} style={{ marginTop: index > 0 ? 1 : 0 }}>
-                {row.label}
-              </text>
+              <box key={row.id} style={{ flexDirection: "row", marginTop: index > 0 ? 1 : 0 }}>
+                <text fg={tokens.textDim}>{row.label}</text>
+                {row.id === "section:threads" && onCreateThread ? (
+                  <>
+                    <box style={{ flexGrow: 1 }} />
+                    <IconButton
+                      glyph="+"
+                      tip="New Thread"
+                      onPress={onCreateThread}
+                      marginRight={1}
+                      theme={theme}
+                    />
+                  </>
+                ) : null}
+              </box>
             );
           }
 
