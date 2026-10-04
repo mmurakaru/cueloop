@@ -1,5 +1,4 @@
 #!/usr/bin/env bun
-import { createFxHarness } from "@cueloop/adapters/fx/harness";
 /** Run an isolated agent Thread with real fx and a localhost model, or opt into a live provider. */
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
