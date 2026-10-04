@@ -1143,14 +1143,27 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
   }, [promptFocusRequest?.replyId, promptFocusRequest?.blockIndex, suspended]);
   const onPromptMouseDown = (event: TerminalMouseEvent): void => {
     if (!onInvoke || suspended) return;
-    const line = allGeometry().find((entry) => isPromptBlock?.(entry.blockIndex));
+    const blockIndex = source.count - 1;
+    const geometry = allGeometry();
+    const promptLine = geometry.find((entry) => isPromptBlock?.(entry.blockIndex));
+    const lastReplyLine = geometry
+      .filter((entry) => entry.blockIndex === blockIndex - 1)
+      .sort((left, right) => right.y - left.y)[0];
+    const promptStart = promptLine ? promptLine.y - 1 : lastReplyLine && lastReplyLine.y + 1;
     const viewport = dragViewport?.();
 
-    if (!line || event.y < line.y || (viewport && event.y >= viewport.bottom)) return;
-    if (composeRef.current?.blockIndex === line.blockIndex) return;
-    blurSaveCompose();
+    if (
+      !isPromptBlock?.(blockIndex) ||
+      promptStart === undefined ||
+      event.y < promptStart ||
+      (viewport && event.y >= viewport.bottom)
+    )
+      return;
+    if (composeRef.current?.kind === "prompt") {
+      promptDraft.current = composeTextRef.current;
+    } else blurSaveCompose();
     endDrag();
-    focusPrompt(line.blockIndex);
+    focusPrompt(blockIndex);
   };
 
   const onLineMouseDown = (event: TerminalMouseEvent): void => {

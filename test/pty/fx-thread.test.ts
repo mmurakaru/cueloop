@@ -78,8 +78,13 @@ ptyTest(
       expect((await client.agentGet(thread.id)).messages).toHaveLength(0);
       await session.press(["ctrl", "enter"]);
       await session.waitForText("The timer survives cancellation.");
+      await session.press("escape");
       const timer = session.locate("The timer survives cancellation.");
 
+      await session.clickAt(timer.column + 5, timer.row + 1);
+      await session.waitForScreen(() => session.cursor().visible);
+      expect(session.cursor().visible).toBe(true);
+      await session.press("escape");
       await session.dragAt(timer.column, timer.row, timer.column + 9, timer.row);
       await session.type("Explain the cleanup");
       await session.press(["ctrl", "enter"]);

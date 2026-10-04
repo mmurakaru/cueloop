@@ -7,7 +7,14 @@ import { ThreadFooter } from "./ThreadFooter";
 import { ThreadView } from "../../markdown/components/ThreadView";
 import { buildDisplay, marksByDisplay } from "../../markdown/view-plan";
 import { DARK } from "../../appearance/theme";
-import { locateText, waitForText, pressKey, typeText, settle } from "../../testing/test-support";
+import {
+  locateText,
+  waitForText,
+  pressKey,
+  typeText,
+  settle,
+  waitForState,
+} from "../../testing/test-support";
 import type { ThreadAgentClient } from "../use-thread-agent";
 
 const thread: Thread = {
@@ -433,11 +440,17 @@ test("comments on a later paragraph of agent output save editable and submit ind
 
   try {
     await waitForText(setup, "The agent can explain");
+    await waitForState(
+      setup,
+      () => setup.renderer.getCursorState().visible,
+      "continuation composer ready",
+    );
     const output = locateText(setup, "The agent can explain");
 
     await setup.mockMouse.drag(output.column, output.row, output.column + 9, output.row);
     await typeText(setup, "Explain this to me");
     await pressKey(setup, "RETURN", { meta: true });
+    await waitForState(setup, () => state.comments.length === 1, "agent output comment saved");
     expect(state.comments).toHaveLength(1);
     expect(state.comments[0]?.messageId).toBe("output");
     expect(state.comments[0]?.anchor.quote).toBe("The agent");
@@ -628,6 +641,47 @@ test("an arriving reply preserves a bottom draft and submits it as the next prom
     await typeText(setup, " after completion");
     await pressKey(setup, "RETURN", { ctrl: true });
     expect(prompts[1]?.text).toBe("Preserved second prompt after completion");
+  } finally {
+    setup.renderer.destroy();
+  }
+});
+
+test("clicking the first blank row after a reply opens continuation without losing a draft", async () => {
+  const state: ThreadAgentState = {
+    ...empty,
+    messages: [
+      { id: "answer", role: "agent", text: "The final reply.", complete: true, revision: 1 },
+    ],
+  };
+  const { client, prompts } = createTestAgentClient(state);
+  const setup = await testRender(
+    <AgentThreadPane
+      thread={thread}
+      client={client}
+      focused
+      theme={DARK}
+      onActiveChange={noop}
+      onOpenFile={noop}
+    >
+      {artifactView(thread)}
+    </AgentThreadPane>,
+    { width: 100, height: 24, kittyKeyboard: true },
+  );
+
+  try {
+    await waitForText(setup, "The final reply.");
+    await pressKey(setup, "ESCAPE");
+    const reply = locateText(setup, "The final reply.");
+
+    await setup.mockMouse.click(reply.column + 5, reply.row + 1);
+    await settle(setup);
+    expect(setup.renderer.getCursorState()).toMatchObject({ visible: true, blinking: true });
+    await typeText(setup, "Continue here");
+    await setup.mockMouse.click(reply.column + 5, reply.row + 1);
+    await settle(setup);
+    expect(setup.renderer.getCursorState()).toMatchObject({ visible: true, blinking: true });
+    await pressKey(setup, "RETURN", { ctrl: true });
+    expect(prompts[0]?.text).toBe("Continue here");
   } finally {
     setup.renderer.destroy();
   }
