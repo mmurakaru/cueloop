@@ -14,6 +14,7 @@ import { join, resolve } from "node:path";
 import {
   loadGhosttyTerminals,
   type GhosttyCell,
+  type GhosttyCursor,
   type GhosttyTerminal,
 } from "../../packages/client/src/terminal/ghostty-terminal";
 import {
@@ -304,6 +305,11 @@ export class PtyTuiSession implements PtyScreenReader {
     for (let x = 0; x < this.pty.cols; x++) cells.push(this.terminal.readCell(x, row));
 
     return cells;
+  }
+
+  /** The terminal cursor position and visibility, for input-focus assertions. */
+  cursor(): GhosttyCursor {
+    return this.terminal.readCursor();
   }
 
   /** Write bytes straight to the child's tty; for sequences the key table cannot express. */

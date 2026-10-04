@@ -1,6 +1,13 @@
 import { expect, test } from "bun:test";
 import { SCHEMA_VERSION, type Thread, type ThreadAgentState } from "@cueloop/schema";
-import { projectAgentTranscript, commentOnAgentSpan, agentToolFilePath } from "./agent-transcript";
+import {
+  projectAgentTranscript,
+  projectThreadConversation,
+  commentOnAgentSpan,
+  agentToolFilePath,
+} from "./agent-transcript";
+
+import { buildDisplay, marksByDisplay } from "../markdown/view-plan";
 
 const thread: Thread = {
   schemaVersion: SCHEMA_VERSION,
@@ -80,4 +87,50 @@ test("tool locations open the correct repository file from a subdirectory cwd", 
   expect(agentToolFilePath(nested, "../../README.md")).toBe("README.md");
   expect(agentToolFilePath(nested, "/outside/README.md")).toBeUndefined();
   expect(agentToolFilePath(nested, "../../../outside.ts")).toBeUndefined();
+});
+
+test("editable artifact and agent comments stay inline until accepted for invocation", () => {
+  const comment = commentOnAgentSpan(
+    thread,
+    state,
+    { start: { blockIndex: 3, char: 0 }, end: { blockIndex: 3, char: 4 } },
+    "Explain the answer",
+    "agent-note",
+  );
+  const artifactNote = {
+    id: "artifact-note",
+    kind: "comment" as const,
+    body: "Explain the artifact",
+    createdAt: thread.createdAt,
+    anchor: { quote: "Original", prefix: "", suffix: " artifact", blockIndex: 0, start: 0, end: 8 },
+  };
+  const annotated = { ...thread, annotations: [artifactNote] };
+  const pending = { ...state, comments: [comment] };
+  const display = buildDisplay(thread.artifact.content);
+  const marks = marksByDisplay(annotated.annotations, display);
+  const inline = projectThreadConversation(annotated, pending, display, marks);
+
+  expect(inline.mirrors.size).toBe(0);
+  expect(inline.session.annotations.some((entry) => entry.id === artifactNote.id)).toBe(true);
+  expect(inline.session.annotations.some((entry) => entry.id === comment.id)).toBe(true);
+  const submitted = projectThreadConversation(
+    annotated,
+    {
+      ...pending,
+      submissions: [
+        {
+          id: "accepted",
+          commentId: artifactNote.id,
+          prompt: artifactNote.body,
+          quote: artifactNote.anchor.quote,
+          status: "queued",
+        },
+      ],
+    },
+    display,
+    marks,
+  );
+
+  expect(submitted.mirrors.size).toBe(1);
+  expect(submitted.mirrors.get("mirror:accepted")?.commentId).toBe(artifactNote.id);
 });

@@ -103,6 +103,8 @@ export interface ThreadClient {
   onEvent(listener: (event: EventFrame) => void): () => void;
   subscribe(): Promise<void>;
   sessionGet(id: string): Promise<Thread>;
+  /** Create a local owner Thread; shared clients omit this capability. */
+  sessionCreate?(workspace: WorkspaceKey, artifact: Artifact): Promise<Thread>;
   sessionList(filter?: { status?: "pending" | "resolved" }): Promise<Thread[]>;
   /** Add a comment; the primary annotate method. `sessionAnnotate` is the retained alias. */
   sessionComment(

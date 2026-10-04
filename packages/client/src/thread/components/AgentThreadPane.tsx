@@ -28,6 +28,7 @@ export interface AgentThreadPaneProps {
     action: (id: string) => { label: string; run: () => void } | undefined,
   ) => void;
   onRevealReply?: () => void;
+  onInvokeChange?: (invoke: (() => void) | undefined) => void;
   onStateChange?: (state: ThreadAgentState) => void;
   flushMutations?: () => Promise<void>;
   client?: ThreadAgentClient;
@@ -128,6 +129,18 @@ export function AgentThreadPane(props: AgentThreadPaneProps): React.ReactNode {
       invoking.current = false;
     }
   };
+  const invokeRef = useRef<() => Promise<void>>(async () => {});
+  useEffect(() => {
+    invokeRef.current = invoke;
+  });
+  const notifyInvoke = useEffectEvent((invoke: (() => void) | undefined) =>
+    props.onInvokeChange?.(invoke),
+  );
+  useEffect(() => {
+    notifyInvoke(() => void invokeRef.current());
+
+    return () => notifyInvoke(undefined);
+  }, []);
   const reply = (id: string, body: string): void => {
     const origin = projection.mirrors.get(id)?.commentId ?? id;
     const root = agentCommentRoot(state, origin);

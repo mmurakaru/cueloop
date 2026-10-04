@@ -324,6 +324,8 @@ export interface ReviewController {
   refreshDiff(): Promise<void>;
   /** Open a session from the inbox. */
   open(id: string): void;
+  /** Create and open an empty local Thread for a new conversation. */
+  createEmptyThread(): Promise<void>;
   /** Delete a session for good (inbox delete); the inbox refreshes on the event. */
   deleteSession(id: string): void;
   /** Rename a session's title; the inbox refreshes on the event. */
@@ -987,6 +989,29 @@ class Controller implements ReviewController {
     // thread but not the list, so a returned-to diff would otherwise show stale content
     if (cached) this.update({ session: cached });
     void this.refreshSession(id);
+  }
+
+  async createEmptyThread(): Promise<void> {
+    if (this.readOnly || !this.client?.sessionCreate) return;
+    const workspace = this.snapshot.session?.workspace ?? {
+      repoRoot: this.options.cwd ?? process.cwd(),
+      branch: "detached",
+    };
+
+    try {
+      const thread = await this.client.sessionCreate(workspace, {
+        type: "plan",
+        content: "",
+        meta: { title: "New Thread" },
+      });
+      this.locallyViewed.clear();
+      this.viewingId = thread.id;
+      this.update({ session: thread });
+    } catch (cause) {
+      this.setStatus(
+        `New Thread failed: ${cause instanceof Error ? cause.message : String(cause)}`,
+      );
+    }
   }
 
   deleteSession(id: string): void {

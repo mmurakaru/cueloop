@@ -160,7 +160,6 @@ export function projectThreadConversation(
   )[] = artifactDisplay.map(() => ({ kind: "artifact" }));
   const mirrors = new Map<string, { commentId?: string; submissionId?: string }>();
   const destinations = new Map<string, number>();
-  const accepted = new Set((state.submissions ?? []).map((entry) => entry.commentId));
   const mirror = (
     id: string,
     body: string,
@@ -288,14 +287,6 @@ export function projectThreadConversation(
         message(entry);
     }
   } else for (const entry of state.messages) message(entry);
-  for (const annotation of thread.annotations) {
-    if (annotation.kind === "comment" && !annotation.author && !accepted.has(annotation.id))
-      mirror(annotation.id, annotation.body, annotation.anchor.quote, annotation.id);
-  }
-  for (const comment of state.comments) {
-    if (!comment.sent && !accepted.has(comment.id))
-      mirror(comment.id, comment.body, comment.anchor.quote, comment.id);
-  }
   const activityIndex = display.length;
 
   display.push({

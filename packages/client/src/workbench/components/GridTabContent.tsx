@@ -36,6 +36,7 @@ export type DiffSurfaceProps = Pick<
   | "onUpdateAnnotation"
   | "isAnnotationReadOnly"
   | "annotationAction"
+  | "onInvoke"
   | "resolveAuthorLabel"
   | "onNavCommand"
   | "onExit"
@@ -132,6 +133,7 @@ export function GridTabContent(props: {
         onUpdateAnnotation={props.surface.onUpdateAnnotation}
         isAnnotationReadOnly={props.surface.isAnnotationReadOnly}
         annotationAction={props.surface.annotationAction}
+        onInvoke={props.surface.onInvoke}
         resolveAuthorLabel={props.surface.resolveAuthorLabel}
         onExit={props.surface.onExit}
         theme={props.theme}

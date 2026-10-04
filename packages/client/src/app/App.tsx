@@ -861,6 +861,7 @@ export function App({
   const agentActions = useRef<(id: string) => { label: string; run: () => void } | undefined>(
     () => undefined,
   );
+  const agentInvoke = useRef<(() => void) | undefined>(undefined);
   const [agentState, setAgentState] = useState<import("@cueloop/schema").ThreadAgentState>();
   const [prototypeComposing, setPrototypeComposing] = useState(false);
   const [welcomeComposing, setWelcomeComposing] = useState(false);
@@ -1033,6 +1034,19 @@ export function App({
     controller.open(id);
   };
 
+  const createEmptyThread = enabledThreadAction(
+    canRunThreadAgent({
+      enabled: threadAgentEnabled,
+      owner: isOwner,
+      editing: false,
+      shared: isSharedThreadConnection(openClient, shareTransport),
+    }),
+    () => {
+      void controller.createEmptyThread();
+      setFocusedPane("thread");
+    },
+  );
+
   const threadSurfaceHandledKey = (key: KeyEvent): boolean => {
     if (
       agentOwnsKeyboard(agentActive, focusedPane) &&
@@ -1151,6 +1165,7 @@ export function App({
             rows={grouped.rows}
             inboxCursor={inboxCursor}
             onOpenThread={openThread}
+            onCreateThread={createEmptyThread}
             mode={mode}
             theme={theme}
             controller={controller}
@@ -1287,6 +1302,7 @@ export function App({
                     pinnedIds={pinnedIds}
                     width={30}
                     onSelect={openThread}
+                    onCreateThread={createEmptyThread}
                     onPin={togglePin}
                     onRename={(id, title) =>
                       setMode({ type: "renameThread", sessionId: id, text: title })
@@ -1337,6 +1353,9 @@ export function App({
                       onStateChange={setAgentState}
                       onActionsChange={(actions) => {
                         agentActions.current = actions;
+                      }}
+                      onInvokeChange={(invoke) => {
+                        agentInvoke.current = invoke;
                       }}
                       onRevealReply={() => setFocusedPane("thread")}
                       flushMutations={() => flushReviewMutations(controller)}
@@ -1495,6 +1514,12 @@ export function App({
                         onReply: (rootAnnotationId, body) =>
                           void controller.reply(rootAnnotationId, body),
                         onUpdateAnnotation: (id, body) => controller.updateAnnotation(id, body),
+                        onInvoke: agentActive
+                          ? () => {
+                              agentInvoke.current?.();
+                              setFocusedPane("thread");
+                            }
+                          : undefined,
                         annotationAction: (id) => agentActions.current(id),
                         isAnnotationReadOnly: (id) =>
                           isSubmittedComment(agentState, activeSession.id, id),
@@ -1601,6 +1626,10 @@ export function App({
       </PaletteNamesContext.Provider>
     </SlashSkillsContext.Provider>
   );
+}
+
+function enabledThreadAction(enabled: boolean, action: () => void): (() => void) | undefined {
+  return enabled ? action : undefined;
 }
 
 /** Experimental agent UI is available only in a local owner's review. */

@@ -98,6 +98,7 @@ export interface DiffContentViewProps {
   onAnnotate: (span: TextSpan, body: string) => void;
   onReply: (rootAnnotationId: string, body: string) => void;
   onUpdateAnnotation: (id: string, body: string) => void;
+  onInvoke?: () => void;
   annotationAction?: (id: string) => { label: string; run: () => void } | undefined;
   isAnnotationReadOnly?: (id: string) => boolean;
   /** The author's display name for a comment's hover tooltip. */
@@ -544,6 +545,7 @@ export function DiffContentView({
   onAnnotate,
   onReply,
   onUpdateAnnotation,
+  onInvoke,
   isAnnotationReadOnly,
   annotationAction,
   resolveAuthorLabel,
@@ -614,6 +616,7 @@ export function DiffContentView({
     onAnnotate,
     onReply,
     onUpdateAnnotation,
+    onInvoke,
     isAnnotationReadOnly,
     annotationAction,
     dragViewport: () => scrollBoxDragViewport(scrollRef.current),

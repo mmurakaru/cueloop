@@ -34,6 +34,7 @@ export interface AnnotatableFileViewProps {
   onAddComment: (anchor: Anchor, body: string) => void;
   onReply: (rootAnnotationId: string, body: string) => void;
   onUpdateAnnotation: (id: string, body: string) => void;
+  onInvoke?: () => void;
   annotationAction?: (id: string) => { label: string; run: () => void } | undefined;
   isAnnotationReadOnly?: (id: string) => boolean;
   resolveAuthorLabel?: (annotation: Annotation) => string | undefined;
@@ -128,6 +129,7 @@ export function AnnotatableFileView(props: AnnotatableFileViewProps): React.Reac
       }
       onReply={props.onReply}
       onUpdateAnnotation={props.onUpdateAnnotation}
+      onInvoke={props.onInvoke}
       isAnnotationReadOnly={props.isAnnotationReadOnly}
       annotationAction={props.annotationAction}
       resolveAuthorLabel={props.resolveAuthorLabel}
