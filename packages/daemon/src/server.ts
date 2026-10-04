@@ -31,6 +31,7 @@ import {
 import { cueloopHome, lockPath, ownerTokenPath, pidPath, socketPath } from "./paths";
 import { DAEMON_VERSION } from "./version";
 import { randomBytes } from "node:crypto";
+import { ThreadAgentManager, type ThreadAgentOptions } from "./thread-agent";
 
 interface Connection {
   /** The author a non-owner connection acts as, bound in the handshake. */
@@ -44,6 +45,8 @@ interface Connection {
 type MethodHandler = (connection: Connection, request: Request) => Response["result"];
 
 export interface DaemonOptions {
+  /** Explicit prototype configuration; commands cannot arrive from socket callers. */
+  threadAgent?: Pick<ThreadAgentOptions, "enabled" | "command" | "env">;
   home?: string;
   /** Idle-exit delay; 0 disables (tests, foreground runs). */
   idleExitMs?: number;
@@ -61,6 +64,7 @@ const HELD_HOMES = new Set<string>();
 const LOCK_WAIT = new Int32Array(new SharedArrayBuffer(4));
 
 export class DaemonServer {
+  private readonly threadAgent: ThreadAgentManager;
   readonly core: DaemonCore;
   readonly home: string;
   private connections = new Set<Connection>();
@@ -80,6 +84,19 @@ export class DaemonServer {
     this.version = options.version ?? DAEMON_VERSION;
     mkdirSync(this.home, { recursive: true, mode: 0o700 });
     this.core = new DaemonCore(this.home);
+    this.threadAgent = new ThreadAgentManager({
+      home: this.home,
+      enabled: options.threadAgent?.enabled ?? process.env.CUELOOP_FX_THREAD === "1",
+      command: options.threadAgent?.command,
+      env: options.threadAgent?.env,
+      getThread: (id) => this.core.sessionGet(id),
+      onChange: (id) => {
+        for (const connection of this.connections) {
+          if (connection.subscribed && connection.role === "owner")
+            connection.write(JSON.stringify({ event: "agent.updated", sessionId: id }) + "\n");
+        }
+      },
+    });
     this.core.onEvent((event) => this.broadcast(event));
   }
 
@@ -230,6 +247,7 @@ export class DaemonServer {
   }
 
   stop(): void {
+    this.threadAgent.dispose();
     this.core.dispose();
     if (this.lockFd === null) return;
     this.server?.stop(true);
@@ -288,6 +306,16 @@ export class DaemonServer {
   }
 
   private readonly handlers: Record<MethodName, MethodHandler> = {
+    "agent.get": (_connection, request) =>
+      this.threadAgent.get(parseParams("agent.get", request.params).id),
+    "agent.prompt": (_connection, request) =>
+      this.threadAgent.prompt(parseParams("agent.prompt", request.params)),
+    "agent.cancel": (_connection, request) =>
+      this.threadAgent.cancel(parseParams("agent.cancel", request.params).id),
+    "agent.comment": (_connection, request) =>
+      this.threadAgent.comment(parseParams("agent.comment", request.params)),
+    "agent.permission": (_connection, request) =>
+      this.threadAgent.permission(parseParams("agent.permission", request.params)),
     "daemon.ping": () => ({ pid: process.pid, version: this.version }),
     "daemon.hello": (connection, request) => {
       const params = parseParams("daemon.hello", request.params);
@@ -475,7 +503,10 @@ export class DaemonServer {
       return this.core.sessionSetShares(params.id, params.shares);
     },
     "session.delete": (_connection, request) => {
-      this.core.sessionDelete(parseParams("session.delete", request.params).id);
+      const { id } = parseParams("session.delete", request.params);
+
+      this.core.sessionDelete(id);
+      this.threadAgent.remove(id);
 
       return {};
     },

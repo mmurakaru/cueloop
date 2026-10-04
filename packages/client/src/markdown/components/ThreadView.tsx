@@ -150,6 +150,8 @@ export const THREAD_VIEW_CHEATSHEET: CheatsheetSection[] = [
 ];
 
 export interface ThreadViewProps {
+  /** Agent transcripts permit feedback only on finalized answer blocks. */
+  canAnnotateBlock?: (blockIndex: number) => boolean;
   session: Thread;
   display: DisplayBlock[];
   marks: Map<number, Mark[]>;
@@ -202,13 +204,14 @@ export function ThreadView({
   onNavCommand,
   onExit,
   theme,
+  canAnnotateBlock,
 }: ThreadViewProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
   const source: LineSource = {
     count: display.length,
     // the surface hit-tests and paints in rendered text (inline markers concealed); a grid anchors on its raw source
     textAt: (blockIndex) => renderedText(display[blockIndex]!),
-    annotatable: () => true,
+    annotatable: canAnnotateBlock ?? (() => true),
   };
   const scrollRef = useRef<ScrollBoxRenderable | null>(null);
   const surface = useAnnotationSurface({

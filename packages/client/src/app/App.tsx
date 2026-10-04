@@ -62,6 +62,12 @@ import { useThreadBodyEditing } from "../markdown/use-thread-body-editing";
 import { useRememberLayout } from "../workbench/use-remember-layout";
 import type { LaunchLayout } from "./launch-layout";
 import { ThreadFooter, THREAD_FOOTER_HEIGHT } from "../thread/components/ThreadFooter";
+import {
+  AgentThreadPrototype,
+  AgentArtifactChrome,
+  agentPassageFromBlock,
+  agentOwnsKeyboard,
+} from "../thread/components/AgentThreadPane";
 import { ConfirmCard } from "../ui/components/ConfirmCard";
 import { THREAD_VIEW_CHEATSHEET, ThreadView } from "../markdown/components/ThreadView";
 import {
@@ -849,6 +855,7 @@ export function App({
   // diff sheet: both drive the shared annotation surface; only the pixel prototype keeps the keymap
   const threadViewActive = session !== null && !isPixelPrototype;
   const [threadComposing, setThreadComposing] = useState(false);
+  const [agentActive, setAgentActive] = useState(false);
   const [prototypeComposing, setPrototypeComposing] = useState(false);
   const [welcomeComposing, setWelcomeComposing] = useState(false);
   // inline body edit: the markdown editor owns the thread pane and all keys while open
@@ -1021,6 +1028,7 @@ export function App({
   };
 
   const threadSurfaceHandledKey = (key: KeyEvent): boolean => {
+    if (agentOwnsKeyboard(agentActive, focusedPane)) return true;
     if (!threadViewActive || threadViewSuspended) return false;
     if (!threadComposing) {
       const chord = resolveSessionChord(key, { isOwner, resolved });
@@ -1038,7 +1046,14 @@ export function App({
     // the share dialog owns its own keys while open; the shell grammar stands down
     if (shareDialogOpen) return;
     if (menuModalHandled(menuControl, key)) return;
-    if (paneCycleRequested(key, overlay, menuOwnsKeyboard, threadComposing)) {
+    if (
+      paneCycleRequested(
+        key,
+        overlay,
+        menuOwnsKeyboard,
+        threadComposing || agentOwnsKeyboard(agentActive, focusedPane),
+      )
+    ) {
       return cyclePanes(Boolean(key.shift));
     }
     if (
@@ -1278,108 +1293,126 @@ export function App({
               }
               threadTitle={reviewThreadTitle(activeSession)}
               threadActions={
-                showOwnerActions
-                  ? ownerThreadActions({
-                      editing: bodyEditing.editing,
-                      onEdit: onEditRequest,
-                      onExitEdit: bodyEditing.requestExit,
-                      onShare: () => dispatch({ type: "share" }),
-                      theme,
-                    })
-                  : showDiffRefresh
-                    ? refreshDiffAction(() => void controller.refreshDiff(), theme)
-                    : undefined
+                <AgentArtifactChrome active={agentActive}>
+                  {showOwnerActions
+                    ? ownerThreadActions({
+                        editing: bodyEditing.editing,
+                        onEdit: onEditRequest,
+                        onExitEdit: bodyEditing.requestExit,
+                        onShare: () => dispatch({ type: "share" }),
+                        theme,
+                      })
+                    : showDiffRefresh
+                      ? refreshDiffAction(() => void controller.refreshDiff(), theme)
+                      : undefined}
+                </AgentArtifactChrome>
               }
               threadPanel={
                 <box style={{ flexGrow: 1, flexDirection: "column" }}>
                   <box style={{ flexGrow: 1, flexDirection: "row" }}>
-                    {chooseThreadBody({
-                      isPixelPrototype,
-                      isDiff,
-                      editingBody: bodyEditing.editing,
-                      prototype: (
-                        <PrototypePixels
-                          prototypePath={prototypePath}
-                          canComment={prototypeCanComment}
-                          onCommentElement={onCommentPrototype}
-                          onComposingChange={setPrototypeComposing}
-                          hidden={chromeHidden}
-                        />
-                      ),
-                      diffPlaceholder: activeSession.artifact.meta.prBrief ? (
-                        <ThreadView
-                          session={pullRequestBriefThread(activeSession)}
-                          display={buildDisplay(activeSession.artifact.meta.prBrief)}
-                          marks={new Map()}
-                          quickActions={quickActions}
-                          suspended={threadViewSuspended}
-                          resolved
-                          observer
-                          onComposingChange={() => {}}
-                          onObserverBlocked={() => {}}
-                          onCursorChange={() => {}}
-                          onAnnotate={() => {}}
-                          onReply={() => {}}
-                          onUpdateAnnotation={() => {}}
-                          resolveAuthorLabel={() => undefined}
-                          onExit={() => onExit?.(0)}
-                        />
-                      ) : (
-                        <box
-                          style={{
-                            flexGrow: 1,
-                            flexDirection: "column",
-                            alignItems: "center",
-                            justifyContent: "center",
-                          }}
-                        >
-                          <text fg={theme.textDim}>Select a thread</text>
-                        </box>
-                      ),
-                      editor: bodyEditing.renderEditor(theme),
-                      threadView: (
-                        <ThreadView
-                          session={activeSession}
-                          suspended={surfaceSuspended(threadViewSuspended, focusedPane, "thread")}
-                          editOrphanCount={editOrphanCount}
-                          onComposingChange={setThreadComposing}
-                          onNavCommand={runNavCommand}
-                          resolved={resolved}
-                          onObserverBlocked={(reason) =>
-                            controller.setStatus(
-                              reason === "observer"
-                                ? "observer - read-only"
-                                : "review submitted - read-only",
-                            )
-                          }
-                          onCursorChange={setCursor}
-                          focusedAnnotationId={focusedAnnotationId}
-                          onFocusAnnotation={setFocusedAnnotationId}
-                          display={display}
-                          marks={marks}
-                          quickActions={quickActions}
-                          observer={observer}
-                          onAnnotate={(span, body) =>
-                            void controller.annotate(
-                              "comment",
-                              span.start.blockIndex,
-                              span.start.char,
-                              span.end.char,
-                              body,
-                              span.end.blockIndex,
-                            )
-                          }
-                          onReply={(rootAnnotationId, body) =>
-                            void controller.reply(rootAnnotationId, body)
-                          }
-                          onUpdateAnnotation={(id, body) => controller.updateAnnotation(id, body)}
-                          resolveAuthorLabel={resolveAuthorLabel}
-                          onExit={() => onExit?.(0)}
-                        />
-                      ),
-                    })}
+                    <AgentThreadPrototype
+                      key={activeSession.id}
+                      enabled={isOwner}
+                      observer={observer}
+                      pixelPrototype={isPixelPrototype}
+                      thread={activeSession}
+                      home={home}
+                      theme={theme}
+                      passage={agentPassageFromBlock(display[cursor])}
+                      focused={focusedPane === "thread"}
+                      suspended={threadViewSuspended}
+                      onActiveChange={setAgentActive}
+                      onOpenFile={(path) => workbench.openFile(path, "contents", true)}
+                      onNextPane={cyclePanes}
+                    >
+                      {chooseThreadBody({
+                        isPixelPrototype,
+                        isDiff,
+                        editingBody: bodyEditing.editing,
+                        prototype: (
+                          <PrototypePixels
+                            prototypePath={prototypePath}
+                            canComment={prototypeCanComment}
+                            onCommentElement={onCommentPrototype}
+                            onComposingChange={setPrototypeComposing}
+                            hidden={chromeHidden}
+                          />
+                        ),
+                        diffPlaceholder: activeSession.artifact.meta.prBrief ? (
+                          <ThreadView
+                            session={pullRequestBriefThread(activeSession)}
+                            display={buildDisplay(activeSession.artifact.meta.prBrief)}
+                            marks={new Map()}
+                            quickActions={quickActions}
+                            suspended={threadViewSuspended}
+                            resolved
+                            observer
+                            onComposingChange={() => {}}
+                            onObserverBlocked={() => {}}
+                            onCursorChange={() => {}}
+                            onAnnotate={() => {}}
+                            onReply={() => {}}
+                            onUpdateAnnotation={() => {}}
+                            resolveAuthorLabel={() => undefined}
+                            onExit={() => onExit?.(0)}
+                          />
+                        ) : (
+                          <box
+                            style={{
+                              flexGrow: 1,
+                              flexDirection: "column",
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                          >
+                            <text fg={theme.textDim}>Select a thread</text>
+                          </box>
+                        ),
+                        editor: bodyEditing.renderEditor(theme),
+                        threadView: (
+                          <ThreadView
+                            session={activeSession}
+                            suspended={surfaceSuspended(threadViewSuspended, focusedPane, "thread")}
+                            editOrphanCount={editOrphanCount}
+                            onComposingChange={setThreadComposing}
+                            onNavCommand={runNavCommand}
+                            resolved={resolved}
+                            onObserverBlocked={(reason) =>
+                              controller.setStatus(
+                                reason === "observer"
+                                  ? "observer - read-only"
+                                  : "review submitted - read-only",
+                              )
+                            }
+                            onCursorChange={setCursor}
+                            focusedAnnotationId={focusedAnnotationId}
+                            onFocusAnnotation={setFocusedAnnotationId}
+                            display={display}
+                            marks={marks}
+                            quickActions={quickActions}
+                            observer={observer}
+                            onAnnotate={(span, body) =>
+                              void controller.annotate(
+                                "comment",
+                                span.start.blockIndex,
+                                span.start.char,
+                                span.end.char,
+                                body,
+                                span.end.blockIndex,
+                              )
+                            }
+                            onReply={(rootAnnotationId, body) =>
+                              void controller.reply(rootAnnotationId, body)
+                            }
+                            onUpdateAnnotation={(id, body) => controller.updateAnnotation(id, body)}
+                            resolveAuthorLabel={resolveAuthorLabel}
+                            onExit={() => onExit?.(0)}
+                          />
+                        ),
+                      })}
+                    </AgentThreadPrototype>
                   </box>
-                  {threadFooter}
+                  <AgentArtifactChrome active={agentActive}>{threadFooter}</AgentArtifactChrome>
                 </box>
               }
               changesOpen={workbench.changesOpen}

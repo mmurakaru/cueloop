@@ -1,0 +1,139 @@
+import { createInterface } from "node:readline";
+import * as v from "valibot";
+
+interface FakeAcpResult {
+  protocolVersion?: number;
+  agentCapabilities?: { loadSession: boolean };
+  sessionId?: string;
+  stopReason?: string;
+}
+interface FakeAcpUpdate {
+  sessionUpdate: string;
+  messageId?: string;
+  toolCallId?: string;
+  title?: string;
+  kind?: string;
+  status?: string;
+  content?:
+    | { type: string; text: string }
+    | { type: string; content: { type: string; text: string } }[];
+}
+const InputSchema = v.object({
+  id: v.optional(v.number()),
+  method: v.optional(v.string()),
+  params: v.optional(
+    v.object({
+      sessionId: v.optional(v.string()),
+      prompt: v.optional(v.array(v.object({ text: v.string() }))),
+    }),
+  ),
+});
+
+const input = createInterface({ input: process.stdin });
+let loaded = false;
+let turn = 0;
+let pendingPrompt: number | undefined;
+const reply = (id: number, result: FakeAcpResult) =>
+  process.stdout.write(JSON.stringify({ jsonrpc: "2.0", id, result }) + "\n");
+const update = (value: FakeAcpUpdate) =>
+  process.stdout.write(
+    JSON.stringify({
+      jsonrpc: "2.0",
+      method: "session/update",
+      params: { sessionId: "fx-test-session", update: value },
+    }) + "\n",
+  );
+
+input.on("line", (line) => {
+  const frame = v.parse(InputSchema, JSON.parse(line));
+
+  if (!frame.method && frame.id === 900) {
+    update({
+      sessionUpdate: "agent_message_chunk",
+      messageId: `reply-${turn}`,
+      content: { type: "text", text: "Permission rejected." },
+    });
+    reply(pendingPrompt!, { stopReason: "end_turn" });
+
+    return;
+  }
+  switch (frame.method) {
+    case "initialize":
+      reply(frame.id!, { protocolVersion: 1, agentCapabilities: { loadSession: true } });
+      break;
+    case "session/new":
+      reply(frame.id!, { sessionId: "fx-test-session" });
+      break;
+    case "session/set_mode":
+      reply(frame.id!, {});
+      break;
+    case "session/load":
+      loaded = frame.params?.sessionId === "fx-test-session";
+      update({
+        sessionUpdate: "agent_message_chunk",
+        messageId: "reply-1",
+        content: { type: "text", text: "REPLAY SHOULD NOT DUPLICATE" },
+      });
+      reply(frame.id!, {});
+      break;
+    case "session/prompt": {
+      turn++;
+      const request = frame.params?.prompt?.[0]?.text ?? "";
+      const text = request.split("User request:\n").at(-1)!;
+
+      update({
+        sessionUpdate: "tool_call",
+        toolCallId: `tool-${turn}`,
+        title: "Read retry.ts",
+        kind: "read",
+        status: "in_progress",
+      });
+      if (text === "hold" || text === "permission") {
+        pendingPrompt = frame.id;
+        process.stdout.write(
+          JSON.stringify({
+            jsonrpc: "2.0",
+            id: 900,
+            method: "session/request_permission",
+            params: {
+              sessionId: "fx-test-session",
+              toolCall: { title: "Run command" },
+              options: [{ optionId: "reject", name: "Reject", kind: "reject_once" }],
+            },
+          }) + "\n",
+        );
+
+        break;
+      }
+      update({
+        sessionUpdate: "tool_call_update",
+        toolCallId: `tool-${turn}`,
+        status: "completed",
+        content: [{ type: "content", content: { type: "text", text: "retry source" } }],
+      });
+      update({
+        sessionUpdate: "agent_message_chunk",
+        messageId: `reply-${turn}-${loaded}`,
+        content: {
+          type: "text",
+          text: loaded
+            ? "Loaded fx-test-session."
+            : text.includes("Prove this")
+              ? text
+              : "The timer survives ",
+        },
+      });
+      if (!loaded && !text.includes("Prove this"))
+        update({
+          sessionUpdate: "agent_message_chunk",
+          messageId: `reply-${turn}-${loaded}`,
+          content: { type: "text", text: "cancellation." },
+        });
+      reply(frame.id!, { stopReason: "end_turn" });
+      break;
+    }
+    case "session/cancel":
+      reply(pendingPrompt!, { stopReason: "cancelled" });
+      break;
+  }
+});

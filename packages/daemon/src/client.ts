@@ -58,6 +58,8 @@ import {
 } from "./validate";
 import type { WorkingTreeDiff } from "./working-tree";
 import { DAEMON_VERSION } from "./version";
+import { ThreadAgentSchema } from "./thread-agent-validation";
+import type { AgentComment, ThreadAgentState } from "@cueloop/schema";
 
 export type { EventFrame } from "./protocol";
 
@@ -458,6 +460,30 @@ export class DaemonClient implements ThreadClient {
   }
 
   // ── typed primitives ─────────────────────────────
+  /** Read the agent transcript without starting a model request. */
+  agentGet(id: string): Promise<ThreadAgentState> {
+    return this.request("agent.get", { id }, ThreadAgentSchema);
+  }
+  /** Submit a question and optional selected passage to the daemon-owned agent. */
+  agentPrompt(params: { id: string; text: string; context?: string }): Promise<ThreadAgentState> {
+    return this.request("agent.prompt", params, ThreadAgentSchema);
+  }
+  /** Cancel the active turn; the daemon retains partial output. */
+  agentCancel(id: string): Promise<ThreadAgentState> {
+    return this.request("agent.cancel", { id }, ThreadAgentSchema);
+  }
+  /** Save quote-primary feedback on a finalized agent answer. */
+  agentComment(params: { id: string; comment: AgentComment }): Promise<ThreadAgentState> {
+    return this.request("agent.comment", params, ThreadAgentSchema);
+  }
+  /** Select an option from the active agent permission card. */
+  agentPermission(params: {
+    id: string;
+    requestId: string;
+    optionId: string;
+  }): Promise<ThreadAgentState> {
+    return this.request("agent.permission", params, ThreadAgentSchema);
+  }
   ping(): Promise<{ pid: number }> {
     return this.request("daemon.ping", {}, PingResultSchema);
   }
