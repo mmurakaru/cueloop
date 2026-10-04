@@ -17,6 +17,7 @@ import type {
   AgentHarnessResult,
 } from "@cueloop/schema";
 import { FxAcpConnection, type FxAcpFrame } from "./acp";
+import { FxStartupMessages } from "./startup-messages";
 
 const ConfigOptionSchema = v.object({
   id: v.string(),
@@ -77,6 +78,7 @@ export function createFxHarness(config: FxHarnessOptions = {}): AgentHarnessAdap
 
 class FxHarnessConnection implements AgentHarnessConnection {
   private readonly connection: FxAcpConnection;
+  private readonly startupMessages = new FxStartupMessages();
   private sessionId?: string;
   private loading = true;
   private permissionId?: number | string;
@@ -155,12 +157,19 @@ class FxHarnessConnection implements AgentHarnessConnection {
     if (!this.sessionId || this.loading)
       return Promise.reject(new Error("Fx ACP session is not ready"));
 
-    const result = await this.connection.request(
-      "session/prompt",
-      { sessionId: this.sessionId, prompt: [{ type: "text", text }] },
-      v.object({ stopReason: v.string() }),
-      10 * 60_000,
-    );
+    let result: { stopReason: string };
+
+    try {
+      result = await this.connection.request(
+        "session/prompt",
+        { sessionId: this.sessionId, prompt: [{ type: "text", text }] },
+        v.object({ stopReason: v.string() }),
+        10 * 60_000,
+      );
+    } finally {
+      for (const message of this.startupMessages.finish())
+        this.options.onEvent({ kind: "message", ...message });
+    }
 
     return {
       outcome:
@@ -253,6 +262,12 @@ class FxHarnessConnection implements AgentHarnessConnection {
     }
   }
 
+  private emitAnswer(id: string | undefined, chunk: string): void {
+    const text = this.startupMessages.push(id, chunk);
+
+    if (text !== undefined) this.options.onEvent({ kind: "message", id, text });
+  }
+
   private receive(frame: FxAcpFrame): void {
     if (frame.method === "mcp/message") {
       void this.serveTool(frame);
@@ -299,8 +314,7 @@ class FxHarnessConnection implements AgentHarnessConnection {
     } else if (update.sessionUpdate === "agent_message_chunk") {
       const content = v.safeParse(TextContentSchema, update.content);
 
-      if (content.success)
-        this.options.onEvent({ kind: "message", id: update.messageId, text: content.output.text });
+      if (content.success) this.emitAnswer(update.messageId, content.output.text);
     } else if (
       (update.sessionUpdate === "tool_call" || update.sessionUpdate === "tool_call_update") &&
       update.toolCallId

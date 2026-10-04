@@ -82,6 +82,23 @@ input.on("line", (line) => {
       const text = request.split("Input: ").at(-1)!;
 
       update({
+        sessionUpdate: "agent_message_chunk",
+        messageId: `startup-${turn}`,
+        content: {
+          type: "text",
+          text: "[context] skill catalog shortened 112 descriptions: effective=20480 bytes source=compiled default\n",
+        },
+      });
+      update({
+        sessionUpdate: "agent_message_chunk",
+        messageId: `startup-${turn}`,
+        content: {
+          type: "text",
+          text: 'skill discovery warning: candidate "/workspace/.claude/skills/test" was skipped because its linked skill directory could not be resolved to an authorized readable directory\n',
+        },
+      });
+
+      update({
         sessionUpdate: "tool_call",
         toolCallId: `tool-${turn}`,
         title: "Read retry.ts",

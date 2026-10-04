@@ -187,7 +187,13 @@ ptyTest(
       );
       await session.press(["ctrl", "enter"]);
       await session.waitForText("The timer survives cancellation.");
+      expect(session.text()).not.toContain("skill catalog shortened");
+      expect(session.text()).not.toContain("skill discovery warning");
       const state = await client.agentGet(thread.id);
+
+      expect(
+        state.messages.some((message) => message.text.includes("skill catalog shortened")),
+      ).toBe(false);
 
       expect(state.submissions).toHaveLength(1);
       expect(state.submissions?.[0]?.commentId).toBe(
