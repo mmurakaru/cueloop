@@ -686,3 +686,95 @@ test("clicking the first blank row after a reply opens continuation without losi
     setup.renderer.destroy();
   }
 });
+
+test("a rejected prompt returns visibly to the composer and can be edited before retry", async () => {
+  const { client, prompts } = createTestAgentClient(empty);
+  let reject = true;
+  const acceptPrompt = client.agentPrompt;
+  client.agentPrompt = async (params) => {
+    if (reject) {
+      reject = false;
+      throw new Error("Prompt rejected");
+    }
+
+    return acceptPrompt(params);
+  };
+  const setup = await testRender(
+    <AgentThreadPane
+      thread={thread}
+      client={client}
+      focused
+      theme={DARK}
+      onActiveChange={noop}
+      onOpenFile={noop}
+    >
+      {artifactView(thread)}
+    </AgentThreadPane>,
+    { width: 100, height: 24, kittyKeyboard: true },
+  );
+
+  try {
+    await waitForText(setup, "Original artifact");
+    const artifact = locateText(setup, "Original artifact");
+    await setup.mockMouse.click(artifact.column, artifact.row + 2);
+    await typeText(setup, "Explain retries");
+    await pressKey(setup, "RETURN", { ctrl: true });
+    await waitForText(setup, "Prompt rejected");
+    expect(setup.captureCharFrame()).toContain("Explain retries");
+    await typeText(setup, " please");
+    await pressKey(setup, "RETURN", { ctrl: true });
+    await waitForText(setup, "The timer survives cancellation.");
+    expect(prompts[0]?.text).toBe("Explain retries please");
+  } finally {
+    setup.renderer.destroy();
+  }
+});
+
+test("a failed mutation flush restores the prompt alongside a newer visible draft", async () => {
+  const { client, prompts } = createTestAgentClient(empty);
+  let failFlush: ((reason: Error) => void) | undefined;
+  let flushStarted = false;
+  const failedFlush = new Promise<void>((_resolve, reject) => {
+    failFlush = reject;
+  });
+  const setup = await testRender(
+    <AgentThreadPane
+      thread={thread}
+      client={client}
+      focused
+      theme={DARK}
+      onActiveChange={noop}
+      onOpenFile={noop}
+      flushMutations={() => {
+        if (flushStarted) return Promise.resolve();
+        flushStarted = true;
+
+        return failedFlush;
+      }}
+    >
+      {artifactView(thread)}
+    </AgentThreadPane>,
+    { width: 100, height: 24, kittyKeyboard: true },
+  );
+
+  try {
+    await waitForText(setup, "Original artifact");
+    const artifact = locateText(setup, "Original artifact");
+    await setup.mockMouse.click(artifact.column, artifact.row + 2);
+    await typeText(setup, "First question");
+    await pressKey(setup, "RETURN", { ctrl: true });
+    await waitForState(setup, () => flushStarted, "mutation flush started");
+    await setup.mockMouse.click(artifact.column, artifact.row + 2);
+    await typeText(setup, "Newer draft");
+    failFlush!(new Error("Mutation flush failed"));
+    await waitForText(setup, "Mutation flush failed");
+    await waitForText(setup, "First question");
+    expect(setup.captureCharFrame()).toContain("Newer draft");
+    await typeText(setup, " edited");
+    await pressKey(setup, "RETURN", { ctrl: true });
+    await waitForText(setup, "The timer survives cancellation.");
+    expect(prompts[0]?.text).toBe("First question\nNewer draft edited");
+  } finally {
+    setup.renderer.destroy();
+  }
+});

@@ -40,6 +40,7 @@ import {
   useAnnotationSurface,
   type LineSource,
   type PromptFocusRequest,
+  type PromptRestoreRequest,
 } from "../../annotations/use-annotation-surface";
 import { NavModeHint } from "../../keyboard/components/NavModeHint";
 import { DiscussionMarkerRail } from "../../annotations/components/DiscussionMarkerRail";
@@ -163,6 +164,7 @@ export interface ThreadViewProps {
   /** The final prompt line uses a plain composer instead of a comment card. */
   isPromptBlock?: (blockIndex: number) => boolean;
   promptFocusRequest?: PromptFocusRequest;
+  promptRestoreRequest?: PromptRestoreRequest;
   renderBlock?: (index: number) => React.ReactNode | undefined;
   session: Thread;
   display: DisplayBlock[];
@@ -223,6 +225,7 @@ export function ThreadView({
   onInvoke,
   isPromptBlock,
   promptFocusRequest,
+  promptRestoreRequest,
   renderBlock,
 }: ThreadViewProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
@@ -256,6 +259,7 @@ export function ThreadView({
     onInvoke,
     isPromptBlock,
     promptFocusRequest,
+    promptRestoreRequest,
     dragViewport: () => scrollBoxDragViewport(scrollRef.current),
     resolveAuthorLabel,
     onNavCommand,

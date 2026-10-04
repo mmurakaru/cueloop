@@ -31,7 +31,8 @@ export interface ThreadAgentOptions {
   adapter?: AgentHarnessAdapter;
   getThread: (id: string) => Thread;
   onChange: (id: string) => void;
-  tools?: AgentHarnessTools;
+  /** Each harness receives tools scoped to the Thread that opened its connection. */
+  tools?: (thread: Thread) => AgentHarnessTools;
 }
 
 interface ActiveAgent {
@@ -507,7 +508,7 @@ Input: ${submission.prompt}`;
       const connection = this.options.adapter!.connect({
         cwd: thread.artifact.meta.cwd ?? thread.workspace.repoRoot,
         sessionId: state.harness?.sessionId,
-        tools: this.options.tools,
+        tools: this.options.tools?.(thread),
         onEvent: (event) => this.receive(state, event),
         onExit: (error) => {
           if (this.active.get(state.threadId)?.connection !== connection) return;

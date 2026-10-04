@@ -64,6 +64,9 @@ export function AgentThreadPane(props: AgentThreadPaneProps): React.ReactNode {
   );
   const [requestedBlock, setRequestedBlock] = useState<{ blockIndex: number }>();
   const draft = useRef("");
+  const [promptRestoreRequest, setPromptRestoreRequest] =
+    useState<ThreadViewProps["promptRestoreRequest"]>();
+  const restoreSequence = useRef(0);
   const invoking = useRef(false);
   const invocations = useRef<{ text: string; writes: Promise<boolean>[] }[]>([]);
   const pendingWrites = useRef<Promise<boolean>[]>([]);
@@ -114,13 +117,15 @@ export function AgentThreadPane(props: AgentThreadPaneProps): React.ReactNode {
     if (invoking.current) return;
     invoking.current = true;
 
+    const rejected: string[] = [];
+
     try {
       while (invocations.current.length) {
         const input = invocations.current.shift()!;
         try {
           const writesSaved = (await Promise.all(input.writes)).every(Boolean);
           if (!writesSaved) {
-            draft.current = [input.text, draft.current].filter(Boolean).join("\n");
+            rejected.push(input.text);
             continue;
           }
           await props.flushMutations?.();
@@ -128,14 +133,17 @@ export function AgentThreadPane(props: AgentThreadPaneProps): React.ReactNode {
             client.agentPrompt({ id: thread.id, text: input.text }),
           );
 
-          if (!accepted) draft.current = [input.text, draft.current].filter(Boolean).join("\n");
+          if (!accepted) rejected.push(input.text);
         } catch (error) {
-          draft.current = [input.text, draft.current].filter(Boolean).join("\n");
+          rejected.push(input.text);
           agent.setError(String(error));
         }
       }
     } finally {
       invoking.current = false;
+      const text = rejected.filter(Boolean).join("\n");
+
+      if (text) setPromptRestoreRequest({ id: ++restoreSequence.current, text });
     }
   };
   const invokeRef = useRef<() => Promise<void>>(async () => {});
@@ -224,6 +232,7 @@ export function AgentThreadPane(props: AgentThreadPaneProps): React.ReactNode {
       annotationAction={actionFor}
       onInvoke={() => void invoke()}
       isPromptBlock={(index) => index === projection.tailIndex}
+      promptRestoreRequest={promptRestoreRequest}
       promptFocusRequest={
         continuation.kind === "ready"
           ? { replyId: continuation.replyId, blockIndex: projection.tailIndex }

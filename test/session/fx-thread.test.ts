@@ -506,3 +506,105 @@ test("disabled experimental agents reject all agent socket methods without start
     rmSync(home, { recursive: true, force: true });
   }
 });
+
+test("harness tools cannot inspect or mutate another Thread or repository", async () => {
+  const home = mkdtempSync(join(tmpdir(), "cueloop-agent-tool-scope-"));
+  let tools: import("@cueloop/schema").AgentHarnessTools | undefined;
+  const server = new DaemonServer({
+    home,
+    idleExitMs: 0,
+    threadAgent: {
+      enabled: true,
+      adapter: {
+        id: "test-scope",
+        label: "Test scope",
+        connect(options) {
+          tools = options.tools;
+
+          return {
+            start: async () => "scope-session",
+            prompt: async () => ({ outcome: "completed" }),
+            cancel() {},
+            permission() {},
+            close() {},
+          };
+        },
+      },
+    },
+  });
+  server.start();
+  const client = await DaemonClient.connect({ home });
+
+  try {
+    const origin = await client.sessionCreate(
+      { repoRoot: home, branch: "main" },
+      { type: "plan", content: "Origin", meta: {} },
+    );
+    const other = await client.sessionCreate(
+      { repoRoot: "/unrelated", branch: "main" },
+      { type: "plan", content: "Unrelated", meta: {} },
+    );
+    await client.agentPrompt({ id: origin.id, text: "Review" });
+    expect(tools).toBeDefined();
+    for (const method of ["session.get", "session.delete", "session.sendMessage"]) {
+      await expect(
+        tools!.call(
+          "cueloop_api",
+          JSON.stringify({
+            method,
+            params: { id: other.id, outcome: "approved", summary: "Hijack" },
+          }),
+        ),
+      ).rejects.toThrow();
+    }
+    await expect(
+      tools!.call("send_message", JSON.stringify({ id: other.id, outcome: "approved" })),
+    ).rejects.toThrow();
+    await expect(
+      tools!.call(
+        "reply_to_comment",
+        JSON.stringify({ id: other.id, commentId: "missing", body: "Hijack" }),
+      ),
+    ).rejects.toThrow();
+    await expect(
+      tools!.call(
+        "cueloop_api",
+        JSON.stringify({ method: "repo.files", params: { cwd: "/unrelated" } }),
+      ),
+    ).rejects.toThrow();
+    await expect(
+      tools!.call(
+        "cueloop_api",
+        JSON.stringify({
+          method: "harness.bindingsForSession",
+          params: { harness: "fx", harnessSessionId: "unrelated" },
+        }),
+      ),
+    ).rejects.toThrow();
+    const listed = JSON.parse(
+      await tools!.call(
+        "cueloop_api",
+        JSON.stringify({
+          method: "session.list",
+          params: {},
+        }),
+      ),
+    );
+    expect(listed.map((entry: { id: string }) => entry.id)).toEqual([origin.id]);
+    const inspected = JSON.parse(
+      await tools!.call(
+        "cueloop_api",
+        JSON.stringify({
+          method: "session.get",
+          params: { id: origin.id },
+        }),
+      ),
+    );
+    expect(inspected.id).toBe(origin.id);
+    expect((await client.sessionGet(other.id)).status).toBe("pending");
+  } finally {
+    client.close();
+    server.stop();
+    rmSync(home, { recursive: true, force: true });
+  }
+});

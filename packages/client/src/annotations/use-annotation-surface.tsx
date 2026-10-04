@@ -81,6 +81,12 @@ export interface PromptFocusRequest {
   blockIndex: number;
 }
 
+/** Rejected prompt text returns to the visible composer once per request. */
+export interface PromptRestoreRequest {
+  id: number;
+  text: string;
+}
+
 export interface AnnotationSurfaceOptions {
   source: LineSource;
   session: Thread;
@@ -125,6 +131,7 @@ export interface AnnotationSurfaceOptions {
   /** The final prompt block accepts unmarked typing without creating a discussion. */
   isPromptBlock?: (blockIndex: number) => boolean;
   promptFocusRequest?: PromptFocusRequest;
+  promptRestoreRequest?: PromptRestoreRequest;
   /** The visible scroll viewport used to keep a held mouse mark moving at its edges. */
   dragViewport?: () => {
     top: number;
@@ -230,6 +237,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     onInvoke,
     isPromptBlock,
     promptFocusRequest,
+    promptRestoreRequest,
     dragViewport,
     resolveAuthorLabel,
     onNavCommand,
@@ -1129,13 +1137,28 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
   useEffect(() => {
     movePromptDraft();
   }, [source.count]);
+  const restoredPrompt = useRef<number | null>(null);
+  const restorePrompt = useEffectEvent(() => {
+    if (!promptRestoreRequest || suspended || !onInvoke) return;
+    if (restoredPrompt.current === promptRestoreRequest.id) return;
+    restoredPrompt.current = promptRestoreRequest.id;
+    const active = composeRef.current;
+    const newerDraft = active?.kind === "prompt" ? composeTextRef.current : promptDraft.current;
+
+    if (active?.kind !== "prompt") blurSaveCompose();
+    promptDraft.current = [promptRestoreRequest.text, newerDraft].filter(Boolean).join("\n");
+    focusPrompt(source.count - 1);
+  });
+  useEffect(() => {
+    restorePrompt();
+  }, [promptRestoreRequest?.id, suspended]);
   const focusedReply = useRef<string | null>(null);
   const continueConversation = useEffectEvent(() => {
     if (!promptFocusRequest || suspended || !onInvoke) return;
     if (focusedReply.current === promptFocusRequest.replyId) return;
     focusedReply.current = promptFocusRequest.replyId;
     // An arriving answer cannot replace a draft or a marked passage under review.
-    if (composeRef.current || heldSpan || promptDraft.current) return;
+    if (composeRef.current || heldSpan || dragging.current || promptDraft.current) return;
     focusPrompt(promptFocusRequest.blockIndex);
   });
   useEffect(() => {

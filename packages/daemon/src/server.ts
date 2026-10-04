@@ -17,6 +17,7 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs";
+import type { AgentHarnessTools } from "@cueloop/schema";
 import { DaemonCore, type DaemonEvent } from "./api";
 import { DaemonError } from "./errors";
 import { DEFAULT_ROLE, roleAllowsMethod, type DaemonRole } from "./capabilities";
@@ -31,7 +32,7 @@ import {
 import { cueloopHome, lockPath, ownerTokenPath, pidPath, socketPath } from "./paths";
 import { DAEMON_VERSION } from "./version";
 import { randomUUID, randomBytes } from "node:crypto";
-import { parseAgentToolInput } from "./agent-tools";
+import { parseAgentToolInput, assertAgentToolScope } from "./agent-tools";
 import { ThreadAgentManager, type ThreadAgentOptions } from "./thread-agent";
 
 interface Connection {
@@ -91,7 +92,7 @@ export class DaemonServer {
       enabledForThread: options.threadAgent?.enabledForThread,
       adapter: options.threadAgent?.adapter,
       getThread: (id) => this.core.sessionGet(id),
-      tools: {
+      tools: (thread): AgentHarnessTools => ({
         definitions: [
           {
             name: "send_message",
@@ -124,7 +125,7 @@ export class DaemonServer {
           {
             name: "cueloop_api",
             description:
-              "Call a cueloop session, repository, or harness API operation. Use session.get to inspect the Thread. Parameters follow the cueloop socket API.",
+              "Call a cueloop API operation on this Thread or its repository. Use session.get to inspect this Thread. Global harness, sharing, deletion and Thread creation operations are unavailable. Parameters follow the cueloop socket API.",
             inputSchema: {
               type: "object",
               properties: { method: { type: "string" }, params: { type: "object" } },
@@ -132,8 +133,8 @@ export class DaemonServer {
             },
           },
         ],
-        call: async (name, input) => this.callAgentTool(name, input),
-      },
+        call: async (name, input) => this.callAgentTool(thread.id, name, input),
+      }),
       onChange: (id) => {
         for (const connection of this.connections) {
           if (connection.subscribed && connection.role === "owner")
@@ -349,10 +350,17 @@ export class DaemonServer {
     }
   }
 
-  private async callAgentTool(name: string, input: string): Promise<string> {
+  private async callAgentTool(threadId: string, name: string, input: string): Promise<string> {
     const args = parseAgentToolInput(name, input);
+    const origin = this.core.sessionGet(threadId);
+    assertAgentToolScope(origin, args);
+    if (args.kind === "api" && args.method === "session.list") {
+      const { filter } = parseParams("session.list", args.params);
+
+      return JSON.stringify(!filter?.status || origin.status === filter.status ? [origin] : []);
+    }
     if (args.kind === "reply") {
-      const thread = this.core.sessionGet(args.id);
+      const thread = origin;
       const comment = thread.annotations.find((entry) => entry.id === args.commentId);
       if (!comment)
         return JSON.stringify(this.threadAgent.reply(args.id, args.commentId, args.body));
@@ -376,16 +384,7 @@ export class DaemonServer {
       );
     }
     const method = args.method;
-    if (
-      !isKnownMethod(method) ||
-      !(
-        method.startsWith("session.") ||
-        method.startsWith("repo.") ||
-        method.startsWith("harness.") ||
-        method.startsWith("delivery.")
-      )
-    )
-      throw new Error("Thread agent tool API method is unavailable");
+    if (!isKnownMethod(method)) throw new Error("Thread agent tool API method is unavailable");
 
     return JSON.stringify(
       await this.handlers[method](
