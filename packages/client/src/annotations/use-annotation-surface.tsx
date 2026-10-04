@@ -12,7 +12,7 @@
  * cards this hook builds under the visual line a span ends on.
  */
 
-import React, { useContext, useEffect, useRef, useState } from "react";
+import React, { useContext, useEffect, useEffectEvent, useRef, useState } from "react";
 import type { KeyEvent, MouseEvent as TerminalMouseEvent, TextRenderable } from "@opentui/core";
 import { flushSync } from "@opentui/react";
 import { useSharedKeyboard } from "../keyboard/use-shared-keyboard";
@@ -112,6 +112,10 @@ export interface AnnotationSurfaceOptions {
   onAnnotate: (span: TextSpan, body: string) => void;
   onReply: (rootAnnotationId: string, body: string) => void;
   onUpdateAnnotation: (id: string, body: string) => void;
+  isAnnotationReadOnly?: (id: string) => boolean;
+  annotationAction?: (id: string) => { label: string; run: () => void } | undefined;
+  requestedBlock?: { blockIndex: number };
+  onInvoke?: () => void;
   /** The visible scroll viewport used to keep a held mouse mark moving at its edges. */
   dragViewport?: () => {
     top: number;
@@ -210,6 +214,10 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     onAnnotate,
     onReply,
     onUpdateAnnotation,
+    isAnnotationReadOnly,
+    annotationAction,
+    requestedBlock,
+    onInvoke,
     dragViewport,
     resolveAuthorLabel,
     onNavCommand,
@@ -226,6 +234,15 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
 
     return { head: start, anchor: start };
   });
+  const focusRequested = useEffectEvent(() => onFocusAnnotation?.(undefined));
+  useEffect(() => {
+    if (requestedBlock === undefined) return;
+    const next = { blockIndex: requestedBlock.blockIndex, char: 0 };
+
+    setCursor(requestedBlock.blockIndex);
+    setCaret({ head: next, anchor: next });
+    focusRequested();
+  }, [requestedBlock]);
   const [compose, setCompose] = useState<ComposeState | null>(null);
   const dragPointer = useRef<{ x: number; y: number } | null>(null);
   const edgeScrollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -327,7 +344,9 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
           start: { blockIndex: cursor, char: word.start },
           end: { blockIndex: cursor, char: word.end },
         }
-      : null;
+      : blockText(head.blockIndex).length === 0
+        ? { start: head, end: head }
+        : null;
   };
   const collapseCaret = (): void => setCaret({ head, anchor: head });
   const spanQuote = (span: TextSpan): string => {
@@ -444,7 +463,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     if (slashActive) setSlashIndex(0);
   }, [slashActive]);
 
-  const saveComment = (body: string): void => {
+  const saveComment = (body: string, invoke = true): void => {
     // the body saves verbatim - typed newlines are the author's choice;
     // trimming only decides whether the draft is empty enough to discard
     const target = composeRef.current;
@@ -454,6 +473,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     if (!target || body.trim().length === 0) return;
     if (target.editAnnotationId !== null) {
       onUpdateAnnotation(target.editAnnotationId, body);
+      if (invoke) onInvoke?.();
 
       return;
     }
@@ -462,13 +482,17 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
 
       if (discussion) {
         onReply(discussion.rootId, body);
+        if (invoke) onInvoke?.();
 
         return;
       }
     }
     const span = target.span ?? caretSpan();
 
-    if (span) onAnnotate(span, body);
+    if (span) {
+      onAnnotate(span, body);
+      if (invoke) onInvoke?.();
+    }
   };
   /** A new discussion on the typing anchor; the card renders under the span's last block. */
   const openNewCompose = (seed: string): void => {
@@ -490,7 +514,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     if (isStandaloneSlashQuery(composeText) || composeText.trim().length === 0) {
       return closeCompose();
     }
-    saveComment(composeText);
+    saveComment(composeText, false);
   };
 
   /** Extend the held selection to the pointer's position (word mode snaps both ends). */
@@ -778,7 +802,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
 
     if (discussion) {
       const last = discussion.annotations.at(-1)!;
-      const editingOwn = last.author === undefined;
+      const editingOwn = last.author === undefined && !isAnnotationReadOnly?.(last.id);
 
       return openCompose({
         blockIndex: discussion.blockIndex,
@@ -797,6 +821,10 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     const activeCompose = composeRef.current;
 
     if (activeCompose) return handleComposeKey(key, activeCompose);
+    if (isAgentInvokeKey(key, onInvoke)) {
+      key.preventDefault();
+      return onInvoke?.();
+    }
     if (key.name === "escape") {
       // from type mode esc only enters nav, so a held mark survives for `c`
       if (!navModeRef.current) return setNavMode(true);
@@ -877,6 +905,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
             annotation={annotation}
             tokens={tokens}
             authorLabel={resolveAuthorLabel?.(annotation)}
+            action={annotationAction?.(annotation.id)}
           />
         ),
       };
@@ -930,7 +959,8 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     line: VisualLine,
     isLastLine: boolean,
   ): React.ReactNode[] => {
-    const endsInLine = (end: number): boolean => end - 1 >= line.start && end - 1 < line.end;
+    const endsInLine = (end: number): boolean =>
+      (end === 0 && line.start === 0) || (end - 1 >= line.start && end - 1 < line.end);
     const nodes: React.ReactNode[] = [];
     const composeHere = compose && compose.blockIndex === blockIndex;
     const newComposeHere = Boolean(composeHere && compose.discussionKey === null && composerNode);
@@ -1039,4 +1069,15 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     jumpToDiscussion,
     blurSaveCompose,
   };
+}
+
+function isAgentInvokeKey(
+  key: { name: string; ctrl?: boolean; meta?: boolean; super?: boolean },
+  onInvoke?: () => void,
+): boolean {
+  return Boolean(
+    onInvoke &&
+    (key.name === "return" || key.name === "enter") &&
+    (key.ctrl || key.meta || key.super),
+  );
 }

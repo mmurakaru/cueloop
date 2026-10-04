@@ -1,13 +1,35 @@
+type FxToolResult = {
+  resultType: "complete";
+  supportedVersions?: string[];
+  capabilities?: { tools: object };
+  _meta?: { "io.modelcontextprotocol/serverInfo": { name: string; version: string } };
+  tools?: AgentHarnessTools["definitions"];
+  ttlMs?: number;
+  content?: { type: string; text: string }[];
+  isError?: boolean;
+};
 import * as v from "valibot";
 import type {
   AgentHarnessAdapter,
   AgentHarnessConnection,
   AgentHarnessOptions,
+  AgentHarnessTools,
   AgentHarnessResult,
 } from "@cueloop/schema";
 import { FxAcpConnection, type FxAcpFrame } from "./acp";
 
-const SessionResultSchema = v.object({ sessionId: v.string() });
+const ConfigOptionSchema = v.object({
+  id: v.string(),
+  name: v.string(),
+  category: v.optional(v.string()),
+  currentValue: v.string(),
+  options: v.array(v.object({ value: v.string(), name: v.string() })),
+});
+const ConfigResultSchema = v.object({ configOptions: v.optional(v.array(ConfigOptionSchema), []) });
+const SessionResultSchema = v.object({
+  sessionId: v.string(),
+  configOptions: v.optional(v.array(ConfigOptionSchema), []),
+});
 const EmptyResponseSchema = v.nullable(v.object({}));
 const InitializeSchema = v.object({
   protocolVersion: v.literal(1),
@@ -18,6 +40,7 @@ const UpdateSchema = v.object({
   update: v.object({
     sessionUpdate: v.string(),
     messageId: v.optional(v.string()),
+    configOptions: v.optional(v.array(ConfigOptionSchema)),
     content: v.optional(v.unknown()),
     toolCallId: v.optional(v.string()),
     title: v.optional(v.string()),
@@ -71,6 +94,23 @@ class FxHarnessConnection implements AgentHarnessConnection {
     });
   }
 
+  private get mcpServers() {
+    return this.options.tools
+      ? [{ type: "acp" as const, name: "cueloop", serverId: "cueloop" }]
+      : [];
+  }
+
+  async configure(id: string, value: string): Promise<void> {
+    if (!this.sessionId) throw new Error("Fx ACP session is not ready");
+    const result = await this.connection.request(
+      "session/set_config_option",
+      { sessionId: this.sessionId, configId: id, value },
+      ConfigResultSchema,
+    );
+
+    this.options.onEvent({ kind: "config", options: result.configOptions ?? [] });
+  }
+
   async start(): Promise<string> {
     const initialized = await this.connection.request(
       "initialize",
@@ -85,19 +125,21 @@ class FxHarnessConnection implements AgentHarnessConnection {
     if (this.sessionId) {
       if (!initialized.agentCapabilities.loadSession)
         throw new Error("Fx ACP cannot restore the recorded session");
-      await this.connection.request(
+      const result = await this.connection.request(
         "session/load",
-        { sessionId: this.sessionId, cwd: this.options.cwd, mcpServers: [] },
-        EmptyResponseSchema,
+        { sessionId: this.sessionId, cwd: this.options.cwd, mcpServers: this.mcpServers },
+        ConfigResultSchema,
       );
+      this.options.onEvent({ kind: "config", options: result.configOptions ?? [] });
     } else {
       const result = await this.connection.request(
         "session/new",
-        { cwd: this.options.cwd, mcpServers: [] },
+        { cwd: this.options.cwd, mcpServers: this.mcpServers },
         SessionResultSchema,
       );
 
       this.sessionId = result.sessionId;
+      this.options.onEvent({ kind: "config", options: result.configOptions ?? [] });
     }
     await this.connection.request(
       "session/set_mode",
@@ -158,7 +200,64 @@ class FxHarnessConnection implements AgentHarnessConnection {
     this.connection.close();
   }
 
+  private async serveTool(frame: FxAcpFrame): Promise<void> {
+    if (frame.id === undefined) return;
+    try {
+      const params = v.parse(
+        v.object({
+          serverId: v.literal("cueloop"),
+          method: v.string(),
+          params: v.optional(v.unknown()),
+        }),
+        frame.params,
+      );
+      const tools = this.options.tools;
+      if (!tools) throw new Error("Fx ACP cueloop tools are unavailable");
+      let result: FxToolResult;
+      if (params.method === "server/discover")
+        result = {
+          resultType: "complete",
+          supportedVersions: ["2026-07-28"],
+          capabilities: { tools: {} },
+          _meta: {
+            "io.modelcontextprotocol/serverInfo": { name: "cueloop", version: "prototype" },
+          },
+        };
+      else if (params.method === "tools/list")
+        result = { resultType: "complete", tools: tools.definitions, ttlMs: 60000 };
+      else if (params.method === "tools/call") {
+        const call = v.parse(
+          v.object({ name: v.string(), arguments: v.optional(v.unknown(), {}) }),
+          params.params,
+        );
+        const output = await tools.call(call.name, JSON.stringify(call.arguments));
+
+        result = {
+          resultType: "complete",
+          content: [{ type: "text", text: output }],
+          isError: false,
+        };
+      } else throw new Error("Fx ACP MCP method is unavailable");
+      this.connection.write({ jsonrpc: "2.0", id: frame.id, result: { result } });
+    } catch (error) {
+      this.connection.write({
+        jsonrpc: "2.0",
+        id: frame.id,
+        result: {
+          error: {
+            code: -32602,
+            message: error instanceof Error ? error.message : "Cueloop tool failed",
+          },
+        },
+      });
+    }
+  }
+
   private receive(frame: FxAcpFrame): void {
+    if (frame.method === "mcp/message") {
+      void this.serveTool(frame);
+      return;
+    }
     if (frame.method === "session/request_permission") {
       const params = v.parse(PermissionSchema, frame.params);
 
@@ -191,7 +290,13 @@ class FxHarnessConnection implements AgentHarnessConnection {
     if (params.sessionId !== this.sessionId) throw new Error("Fx ACP update has the wrong session");
     const update = params.update;
 
-    if (update.sessionUpdate === "agent_message_chunk") {
+    if (
+      update.sessionUpdate === "config_option_update" ||
+      update.sessionUpdate === "config_options_update"
+    ) {
+      if (update.configOptions)
+        this.options.onEvent({ kind: "config", options: update.configOptions });
+    } else if (update.sessionUpdate === "agent_message_chunk") {
       const content = v.safeParse(TextContentSchema, update.content);
 
       if (content.success)

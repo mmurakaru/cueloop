@@ -1,72 +1,45 @@
 # Agent Thread prototype
 
-This throwaway prototype gives a Thread an agent conversation beside its reviewed artifact. It requires Bun and fx 0.0.12 on PATH. It is disabled in normal launches and unavailable in shared or observer views.
-
-In this prototype checkout, run the watched application directly:
+This draft extends the existing Thread document with a local agent conversation. Its header, panels, annotation controls, and Send message footer keep their existing behavior. It requires Bun and fx 0.0.12 on PATH and is disabled in normal launches and shared views.
 
 ```sh
 bun run dev:watch
 ```
 
-It enables Agent Threads, seeds and opens a review, and keeps its daemon state under the checkout's ignored `.cueloop-dev` directory. The default fx adapter uses your configured account when you send a question. Both client and daemon reload on source edits; interrupted turns remain visible and the next question restores the saved session. Normal launches remain opt-in.
+This enables the prototype, opens a seeded review, and stores daemon state in the checkout's ignored `.cueloop-dev` directory. Model requests use your configured fx account. Client and daemon reload on source edits; interrupted submissions expose Retry.
 
-Run the deterministic demo:
+For a credential-free demonstration using real fx against an isolated localhost provider:
 
 ```sh
 bun run examples/fx-thread/run.ts
 ```
 
-The demo uses the real fx process with a localhost model provider, an isolated fx profile, and temporary workspace. It makes no paid requests and reads no saved account credentials. Replies are scripted to explain retry cancellation; this mode exercises the integration rather than model quality. Exit removes its temporary state.
+Add `--live` to use your configured provider in the temporary workspace.
 
-Use your configured provider in the temporary workspace:
+## Interaction
 
-```sh
-bun run examples/fx-thread/run.ts --live
-```
+- Type a comment on artifact text, an answer, or a Changes selection. Its read-only mirror appears at the Thread end.
+- Press Cmd+Enter or Ctrl+Enter to invoke the harness with all pending comments and the final blank-line prompt. Empty input does nothing. Comments queued during a turn receive individual answers after their mirrors.
+- Accepted originals become read-only. Typing after one creates a discussion reply. Two checks reveal View reply on hover and navigate to the mirror; failed submissions expose Retry and reuse the mirror.
+- Type at the final blank line to extend the document. Activity and permission choices appear at the bottom.
+- Select model and reasoning choices through the existing footer overlay menus.
+- Send message (n) still returns the artifact review to its waiting main session. The embedded harness can also call `send_message`, `reply_to_comment`, and `cueloop_api`, including replying to the original Changes discussion.
 
-That mode uses normal fx authentication and model settings. The agent runs in ask mode and presents permission choices in the Thread.
+Close and reopen without losing local history. Cancellation is available through `agent.cancel`; closing the client does not cancel the turn. Source launches outside `dev:watch` require `CUELOOP_AGENT_THREADS=1` on both daemon and client and a separate `CUELOOP_HOME`.
 
-## Try the interaction
+## Harness boundary
 
-1. Ask a question and press Ctrl+Enter or Cmd+Enter.
-2. Expand Tools to inspect activity and open a referenced file.
-3. Select a passage in a completed answer and type a comment. Send it with Ctrl+Enter or Cmd+Enter.
-4. Use Send message (n) to deliver pending comments together, with or without another question.
-5. Select Artifact to read the original review. Place its caret on a passage and choose Ask about passage to include that block in a question.
-6. Stop a turn, resize the terminal, or close and reopen a Thread. Transcript state belongs to the daemon; closing the client does not stop the agent.
+The schema owns the provider-neutral contract. The daemon owns submissions, persistence, queueing, and cueloop tools. The CLI selects an adapter; fx owns ACP, permissions, and configuration. Saved identity includes adapter and session IDs. Switching adapters requires a new Thread. A pi adapter can implement this contract; none is included here.
 
-Escape leaves the question composer. `i` returns to it while reading the transcript. Existing Thread selection and annotation controls apply to completed answers. Comments on delivered answers remain attached to their message IDs, including when another answer repeats the same text.
-
-For ordinary source launches, explicitly set `CUELOOP_AGENT_THREADS=1` on both the daemon and client and use a separate `CUELOOP_HOME`. Existing daemons do not inherit changed environment variables. A daemon restart terminates its agent process; the next question loads the saved harness session ID and resumes the conversation. Interrupted turns are shown as interrupted, not completed.
-
-## Verification
+[Bend behavior laws](../agent-submission) cover the submission and cancellation models, with generated JavaScript compared against our TypeScript reducers. Component, socket, and PTY tests verify the surrounding integration. The real-binary tests use an isolated localhost provider without saved credentials or paid model requests.
 
 ```sh
 bun run typecheck
-bun test packages/daemon/src/thread-agent.test.ts packages/daemon/src/agent-turn.test.ts packages/adapters/src/fx/harness.test.ts
-bun test packages/client/src/thread/agent-transcript.test.ts packages/client/src/thread/components/AgentThreadPane.test.tsx
+bun run test
+bun run test:pty
 CUELOOP_TEST_FX="$(command -v fx)" bun test test/session/fx-thread.test.ts
-CUELOOP_RUN_PTY=1 CUELOOP_TEST_FX="$(command -v fx)" bun test --timeout 60000 test/pty/fx-thread.test.ts
 ```
 
-The socket test runs permissions and ownership against a reproducible ACP process. The opt-in real-binary tests use the localhost provider setup exercised by [fx's official configured-provider tests](https://github.com/vercel-labs/fx/blob/v0.0.12/tests/e2e/fixtures/chat-completions.ts). The PTY test drives the actual application, selects answer text, sends an anchored comment, resizes, reopens, and checks that feedback reaches the same session without duplicated history. Without the real-binary option, it uses the reproducible ACP fixture for CI.
+## Prototype limits
 
-## Harness adapters
-
-The schema declares the provider-neutral connection contract. The daemon owns transcripts, feedback, lifecycle, and persistence. The fx adapter owns ACP initialization, replay suppression, ask mode, wire validation, permissions, and process cleanup. The CLI chooses the adapter at startup, keeping the daemon independent of adapter packages.
-
-Persisted identity includes the adapter ID and its session ID. Switching adapters requires a new Thread; an fx session is never passed to another provider. Earlier prototype records migrate without losing their fx identity. Labels follow the selected adapter.
-
-Fx is the installed adapter today. A future pi adapter implements the same start, prompt, cancel, permission, and close contract and emits normalized message/tool/permission events; it does not need changes to the Thread renderer. An in-memory non-ACP adapter test demonstrates this seam, but is not a pi integration.
-
-The optional [Bend lifecycle proof experiment](../agent-lifecycle) checks the shared recovery rules and rejects the initialization cancellation bug. It does not add a Bend dependency to development or the application runtime.
-
-## Deliberate limits
-
-- Transcript state is stored separately from artifact revisions and is local to the owner. Shared Thread exports do not include it.
-- Asking fx does not submit the existing artifact review or wake its waiting harness. Agent feedback and artifact feedback remain separate.
-- The current workspace is shown explicitly. History forks do not create isolated agent workspaces.
-- The transcript can be selected and annotated through the existing Thread surface. Tool locations open files; transcript search, automatic tracking of changed diffs, and explanation-to-hunk links remain future work.
-- One prompt runs per Thread. Stop and the next turn are supported; mid-turn steering is not implemented.
-- Messages and tool previews are bounded. At the prototype's history limit, start a new Thread. Completed file or command effects are not undone by Stop.
-- This is a draft prototype, with no automatic landing or release changes.
+Conversation history is local to the owner and stored separately from artifact revisions. Shared exports and returned review feedback do not include the embedded transcript. Workspace forks are not isolated workspaces. Transcript search and automatic tracking of changed diffs remain future work. This branch stays a draft prototype.

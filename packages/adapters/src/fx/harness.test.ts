@@ -126,7 +126,9 @@ test("serializes turns and cancellation settles before allowing the next prompt"
   const { manager, thread } = createTestAgent();
 
   manager.prompt({ id: thread.id, text: "hold" });
-  expect(() => manager.prompt({ id: thread.id, text: "overlap" })).toThrow("already running");
+  expect(manager.prompt({ id: thread.id, text: "overlap" }).submissions?.at(-1)?.status).toBe(
+    "queued",
+  );
   await waitForAgent(manager, "permission");
   manager.cancel(thread.id);
   await waitForAgent(manager, "idle");

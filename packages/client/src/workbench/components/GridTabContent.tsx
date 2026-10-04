@@ -34,6 +34,8 @@ export type DiffSurfaceProps = Pick<
   | "onAnnotate"
   | "onReply"
   | "onUpdateAnnotation"
+  | "isAnnotationReadOnly"
+  | "annotationAction"
   | "resolveAuthorLabel"
   | "onNavCommand"
   | "onExit"
@@ -128,6 +130,8 @@ export function GridTabContent(props: {
         onAddComment={(anchor, body) => props.onAddFileComment(filePath, anchor, body)}
         onReply={props.surface.onReply}
         onUpdateAnnotation={props.surface.onUpdateAnnotation}
+        isAnnotationReadOnly={props.surface.isAnnotationReadOnly}
+        annotationAction={props.surface.annotationAction}
         resolveAuthorLabel={props.surface.resolveAuthorLabel}
         onExit={props.surface.onExit}
         theme={props.theme}

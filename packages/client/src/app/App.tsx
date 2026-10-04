@@ -35,7 +35,11 @@ import {
   type ThemeName,
 } from "../appearance/theme-presets";
 import type { Theme } from "../appearance/theme";
-import { createReviewController, type ShareTransport } from "../thread/thread-controller";
+import {
+  createReviewController,
+  type ShareTransport,
+  type ReviewController,
+} from "../thread/thread-controller";
 import type { ThreadClient } from "@cueloop/daemon/client";
 import { createIntentDispatch, type Mode, type RailTab } from "./intent-dispatch";
 import { reduceKey, type KeyState } from "../keyboard/keymap";
@@ -62,12 +66,7 @@ import { useThreadBodyEditing } from "../markdown/use-thread-body-editing";
 import { useRememberLayout } from "../workbench/use-remember-layout";
 import type { LaunchLayout } from "./launch-layout";
 import { ThreadFooter, THREAD_FOOTER_HEIGHT } from "../thread/components/ThreadFooter";
-import {
-  AgentThreadPrototype,
-  AgentArtifactChrome,
-  agentPassageFromBlock,
-  agentOwnsKeyboard,
-} from "../thread/components/AgentThreadPane";
+import { AgentThreadPrototype, agentOwnsKeyboard } from "../thread/components/AgentThreadPane";
 import { ConfirmCard } from "../ui/components/ConfirmCard";
 import { THREAD_VIEW_CHEATSHEET, ThreadView } from "../markdown/components/ThreadView";
 import {
@@ -856,6 +855,11 @@ export function App({
   const threadViewActive = session !== null && !isPixelPrototype;
   const [threadComposing, setThreadComposing] = useState(false);
   const [agentActive, setAgentActive] = useState(false);
+  const [agentControls, setAgentControls] = useState<React.ReactNode>(null);
+  const agentActions = useRef<(id: string) => { label: string; run: () => void } | undefined>(
+    () => undefined,
+  );
+  const [agentState, setAgentState] = useState<import("@cueloop/schema").ThreadAgentState>();
   const [prototypeComposing, setPrototypeComposing] = useState(false);
   const [welcomeComposing, setWelcomeComposing] = useState(false);
   // inline body edit: the markdown editor owns the thread pane and all keys while open
@@ -1028,7 +1032,12 @@ export function App({
   };
 
   const threadSurfaceHandledKey = (key: KeyEvent): boolean => {
-    if (agentOwnsKeyboard(agentActive, focusedPane)) return true;
+    if (
+      agentOwnsKeyboard(agentActive, focusedPane) &&
+      (key.name === "return" || key.name === "enter") &&
+      (key.ctrl || key.meta || key.super)
+    )
+      return true;
     if (!threadViewActive || threadViewSuspended) return false;
     if (!threadComposing) {
       const chord = resolveSessionChord(key, { isOwner, resolved });
@@ -1046,14 +1055,7 @@ export function App({
     // the share dialog owns its own keys while open; the shell grammar stands down
     if (shareDialogOpen) return;
     if (menuModalHandled(menuControl, key)) return;
-    if (
-      paneCycleRequested(
-        key,
-        overlay,
-        menuOwnsKeyboard,
-        threadComposing || agentOwnsKeyboard(agentActive, focusedPane),
-      )
-    ) {
+    if (paneCycleRequested(key, overlay, menuOwnsKeyboard, threadComposing)) {
       return cyclePanes(Boolean(key.shift));
     }
     if (
@@ -1240,6 +1242,7 @@ export function App({
 
   const threadFooter = (
     <ThreadFooter
+      controls={threadAgentControls(agentActive, agentControls)}
       repo={projectName(activeSession.workspace)}
       branch={activeSession.workspace.branch}
       onSubmit={onSubmitRequest}
@@ -1293,7 +1296,7 @@ export function App({
               }
               threadTitle={reviewThreadTitle(activeSession)}
               threadActions={
-                <AgentArtifactChrome active={agentActive}>
+                <>
                   {showOwnerActions
                     ? ownerThreadActions({
                         editing: bodyEditing.editing,
@@ -1305,23 +1308,29 @@ export function App({
                     : showDiffRefresh
                       ? refreshDiffAction(() => void controller.refreshDiff(), theme)
                       : undefined}
-                </AgentArtifactChrome>
+                </>
               }
               threadPanel={
                 <box style={{ flexGrow: 1, flexDirection: "column" }}>
                   <box style={{ flexGrow: 1, flexDirection: "row" }}>
                     <AgentThreadPrototype
                       key={activeSession.id}
-                      enabled={isOwner}
+                      enabled={canRunThreadAgent(isOwner, bodyEditing.editing)}
                       observer={observer}
                       pixelPrototype={isPixelPrototype}
                       thread={activeSession}
                       home={home}
                       theme={theme}
-                      passage={agentPassageFromBlock(display[cursor])}
                       focused={focusedPane === "thread"}
                       suspended={threadViewSuspended}
                       onActiveChange={setAgentActive}
+                      onControlsChange={setAgentControls}
+                      onStateChange={setAgentState}
+                      onActionsChange={(actions) => {
+                        agentActions.current = actions;
+                      }}
+                      onRevealReply={() => setFocusedPane("thread")}
+                      flushMutations={() => flushReviewMutations(controller)}
                       onOpenFile={(path) => workbench.openFile(path, "contents", true)}
                       onNextPane={cyclePanes}
                     >
@@ -1392,7 +1401,7 @@ export function App({
                             quickActions={quickActions}
                             observer={observer}
                             onAnnotate={(span, body) =>
-                              void controller.annotate(
+                              controller.annotate(
                                 "comment",
                                 span.start.blockIndex,
                                 span.start.char,
@@ -1402,7 +1411,7 @@ export function App({
                               )
                             }
                             onReply={(rootAnnotationId, body) =>
-                              void controller.reply(rootAnnotationId, body)
+                              controller.reply(rootAnnotationId, body)
                             }
                             onUpdateAnnotation={(id, body) => controller.updateAnnotation(id, body)}
                             resolveAuthorLabel={resolveAuthorLabel}
@@ -1412,7 +1421,7 @@ export function App({
                       })}
                     </AgentThreadPrototype>
                   </box>
-                  <AgentArtifactChrome active={agentActive}>{threadFooter}</AgentArtifactChrome>
+                  {threadFooter}
                 </box>
               }
               changesOpen={workbench.changesOpen}
@@ -1477,6 +1486,9 @@ export function App({
                         onReply: (rootAnnotationId, body) =>
                           void controller.reply(rootAnnotationId, body),
                         onUpdateAnnotation: (id, body) => controller.updateAnnotation(id, body),
+                        annotationAction: (id) => agentActions.current(id),
+                        isAnnotationReadOnly: (id) =>
+                          isSubmittedComment(agentState, activeSession.id, id),
                         resolveAuthorLabel,
                         onNavCommand: runNavCommand,
                         onExit: () => onExit?.(0),
@@ -1580,4 +1592,27 @@ export function App({
       </PaletteNamesContext.Provider>
     </SlashSkillsContext.Provider>
   );
+}
+
+function canRunThreadAgent(owner: boolean, editing: boolean): boolean {
+  return owner && !editing;
+}
+
+function isSubmittedComment(
+  state: import("@cueloop/schema").ThreadAgentState | undefined,
+  threadId: string,
+  commentId: string,
+): boolean {
+  return (
+    state?.threadId === threadId &&
+    Boolean(state.submissions?.some((entry) => entry.commentId === commentId))
+  );
+}
+
+function flushReviewMutations(controller: ReviewController): Promise<void> {
+  return controller.flushMutations?.() ?? Promise.resolve();
+}
+
+function threadAgentControls(active: boolean, controls: React.ReactNode): React.ReactNode {
+  return active ? controls : undefined;
 }

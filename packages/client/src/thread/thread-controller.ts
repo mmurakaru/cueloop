@@ -386,6 +386,7 @@ export interface ReviewController {
   annotatePrototype(selector: string, quote: string, body: string): string | undefined;
   /** Rewrite a stored annotation's body in place (the rail-card edit). */
   updateAnnotation(id: string, body: string): void;
+  flushMutations?(): Promise<void>;
   removeAnnotation(id: string): void;
   setWorkingCopy(content: string | undefined): void;
   /** Enter the guided walk at the first unviewed file (diff sessions). */
@@ -472,6 +473,7 @@ const DERIVED_CACHE_LIMIT = 8;
 class Controller implements ReviewController {
   readonly readOnly: boolean;
   private client: ThreadClient | null = null;
+  private pendingMutations = new Set<Promise<Thread>>();
   private closed = false;
   /** The controller's state lives in a zustand store; internal reads go through the snapshot getter. */
   private readonly store: StoreApi<ControllerSnapshot> = createStore<ControllerSnapshot>(() => ({
@@ -956,7 +958,14 @@ class Controller implements ReviewController {
    * builds on the first instead of on the stale snapshot. Answers arrive in
    * request order over the socket and replace the guess with the daemon's copy.
    */
+  /** Agent invocation waits until the preceding comments reach the daemon. */
+  async flushMutations(): Promise<void> {
+    await Promise.all(this.pendingMutations);
+  }
+
   private applyOptimistic(expected: Thread, mutation: Promise<Thread>): void {
+    this.pendingMutations.add(mutation);
+    void mutation.finally(() => this.pendingMutations.delete(mutation)).catch(() => {});
     this.update({ session: expected });
     mutation
       .then((session) => this.update({ session }))

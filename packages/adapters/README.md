@@ -75,4 +75,4 @@ changing the TUI.
 
 ## Thread agent harness prototype
 
-The fx harness adapter (`src/fx/harness.ts`) translates ACP into the schema's `AgentHarnessAdapter` contract. The CLI supplies it to the daemon; the daemon never imports this package. Provider session IDs stay paired with their adapter ID. See [the prototype instructions](../../examples/fx-thread) for opt-in development and [the lifecycle experiment](../../examples/agent-lifecycle) for checked recovery laws.
+The fx harness adapter (`src/fx/harness.ts`) translates ACP into the schema's `AgentHarnessAdapter` contract. The CLI supplies it to the daemon; the daemon never imports this package. Provider session IDs stay paired with their adapter ID. See [the prototype instructions](../../examples/fx-thread) for opt-in development and [the lifecycle experiment](../../examples/agent-lifecycle) for checked recovery laws. Harness-advertised model/reasoning choices and cueloop tool calls pass through the same contract; JSON tool arguments are parsed at the daemon boundary. [Submission laws](../../examples/agent-submission) check queueing, immutable accepted input, and retry behavior.

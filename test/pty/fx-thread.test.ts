@@ -52,7 +52,8 @@ ptyTest(
 
     try {
       await session.waitForReady();
-      await session.waitForText("Ask about this Thread");
+      await session.waitForText("Keep the retry bounded.");
+      await session.click("Keep the retry bounded.");
       await session.type("Explain retries");
       await session.press(["ctrl", "enter"]);
       await session.waitForText("The timer survives cancellation.");
@@ -61,7 +62,7 @@ ptyTest(
       await session.dragAt(timer.column, timer.row, timer.column + 9, timer.row);
       await session.type("Explain the cleanup");
       await session.press(["ctrl", "enter"]);
-      await session.waitForText("Send message (1)");
+      await session.waitForText("Explain the cleanup");
       const state = await client.agentGet(thread.id);
 
       expect(state.comments[0]?.anchor.quote).toBe("The timer");
@@ -86,7 +87,8 @@ ptyTest(
       await session.waitForReady();
       await session.waitForText("Send message (1)");
       await session.click("Send message (1)");
-      await session.waitForText("Send message (0)");
+      await session.waitForText("[approve]");
+      await session.press("escape");
       const restored = await client.agentGet(thread.id);
 
       expect(restored.harness?.sessionId).toBe(state.harness?.sessionId);
@@ -94,7 +96,6 @@ ptyTest(
         restored.messages.filter((message) => message.id === state.messages[1]?.id),
       ).toHaveLength(1);
       expect(restored.comments[0]?.sent).toBe(true);
-      await session.click("Artifact");
       await session.waitForText("Keep the retry bounded.");
       expect((await client.sessionGet(thread.id)).artifact.content).toBe(thread.artifact.content);
     } finally {

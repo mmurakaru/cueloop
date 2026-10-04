@@ -15,11 +15,17 @@ interface TestFileArguments {
 
 /** Run the real fx binary against a localhost model with an isolated credential-free profile. */
 export function createTestFxProvider(
-  options: { readFile?: boolean; writeFile?: boolean; hold?: boolean } = {},
+  options: {
+    readFile?: boolean;
+    writeFile?: boolean;
+    hold?: boolean;
+    toolCalls?: { name: string; args: Record<string, string> }[];
+  } = {},
 ) {
   const home = mkdtempSync(join(tmpdir(), "fx-provider-"));
   const workspace = join(home, "workspace");
   const requests: unknown[] = [];
+  let toolIndex = 0;
   mkdirSync(workspace);
   writeFileSync(join(workspace, "retry.ts"), "export const retryDelay = 1000;\n");
   mkdirSync(join(home, ".fx"), { mode: 0o700 });
@@ -32,16 +38,25 @@ export function createTestFxProvider(
       const body: unknown = await request.json();
       const modelRequest = v.parse(ModelRequestSchema, body);
       requests.push(body);
-      const fileTool = modelRequest.tools.find(
-        (tool) => tool.function.name === (options.writeFile ? "write_file" : "read_file"),
-      );
+      const requestedTool = options.toolCalls?.[toolIndex];
+      const harnessTool = requestedTool
+        ? modelRequest.tools.find((tool) => tool.function.name.endsWith(requestedTool.name))
+        : undefined;
+      const fileTool =
+        harnessTool ??
+        modelRequest.tools.find(
+          (tool) => tool.function.name === (options.writeFile ? "write_file" : "read_file"),
+        );
 
       if (
-        (options.readFile || options.writeFile) &&
+        (options.readFile || options.writeFile || requestedTool) &&
         fileTool &&
-        !modelRequest.messages.some((message) => message.role === "tool")
+        (Boolean(harnessTool) || !modelRequest.messages.some((message) => message.role === "tool"))
       ) {
-        const toolArguments: TestFileArguments = { path: join(workspace, "retry.ts") };
+        const toolArguments: TestFileArguments | Record<string, string> =
+          harnessTool && requestedTool ? requestedTool.args : { path: join(workspace, "retry.ts") };
+
+        if (harnessTool) toolIndex++;
 
         if (options.writeFile) toolArguments.content = "export const retryDelay = 2000;\n";
         const chunks = [

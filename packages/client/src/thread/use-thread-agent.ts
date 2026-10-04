@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { DaemonClient } from "@cueloop/daemon/client";
 import type { ThreadAgentState } from "@cueloop/schema";
 
@@ -6,7 +6,8 @@ import type { ThreadAgentState } from "@cueloop/schema";
 export type ThreadAgentClient = Pick<
   DaemonClient,
   "agentGet" | "agentPrompt" | "agentCancel" | "agentComment" | "agentPermission"
->;
+> &
+  Partial<Pick<DaemonClient, "agentConfigure">>;
 
 /** Subscribe to durable agent state; unmount closes only this client connection. */
 export function useThreadAgent(id: string, home?: string, injected?: ThreadAgentClient) {
@@ -18,24 +19,35 @@ export function useThreadAgent(id: string, home?: string, injected?: ThreadAgent
     tools: [],
     comments: [],
   });
+  const revision = useRef(0);
   const [error, setError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
     let connection: DaemonClient | undefined;
     let unsubscribe: (() => void) | undefined;
-    let revision = 0;
+    revision.current++;
     const refresh = async (api: ThreadAgentClient) => {
-      const requested = ++revision;
+      const requested = ++revision.current;
       const result = await api.agentGet(id);
 
-      if (!cancelled && requested === revision) setState(result);
+      if (!cancelled && requested === revision.current) setState(result);
+    };
+
+    const configure = async (api: ThreadAgentClient): Promise<void> => {
+      if (!api.agentConfigure) return;
+      const requested = ++revision.current;
+      const configured = await api.agentConfigure({ id });
+
+      if (!cancelled && requested === revision.current) setState(configured);
+      await refresh(api);
     };
 
     void (async () => {
       try {
         if (injected) {
           await refresh(injected);
+          await configure(injected);
 
           return;
         }
@@ -53,6 +65,7 @@ export function useThreadAgent(id: string, home?: string, injected?: ThreadAgent
         });
         await connection.subscribe();
         await refresh(connection);
+        await configure(connection);
       } catch (error) {
         if (!cancelled) setError(error instanceof Error ? error.message : String(error));
       }
@@ -70,9 +83,10 @@ export function useThreadAgent(id: string, home?: string, injected?: ThreadAgent
   ): Promise<boolean> => {
     if (!client) return false;
     try {
+      const requested = ++revision.current;
       const result = await request(client);
 
-      setState(result);
+      if (requested === revision.current) setState(result);
       setError("");
 
       return true;

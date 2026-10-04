@@ -152,6 +152,11 @@ export const THREAD_VIEW_CHEATSHEET: CheatsheetSection[] = [
 export interface ThreadViewProps {
   /** Agent transcripts permit feedback only on finalized answer blocks. */
   canAnnotateBlock?: (blockIndex: number) => boolean;
+  isAnnotationReadOnly?: (id: string) => boolean;
+  annotationAction?: (id: string) => { label: string; run: () => void } | undefined;
+  requestedBlock?: { blockIndex: number };
+  onInvoke?: () => void;
+  renderBlock?: (index: number) => React.ReactNode | undefined;
   session: Thread;
   display: DisplayBlock[];
   marks: Map<number, Mark[]>;
@@ -205,6 +210,11 @@ export function ThreadView({
   onExit,
   theme,
   canAnnotateBlock,
+  isAnnotationReadOnly,
+  annotationAction,
+  requestedBlock,
+  onInvoke,
+  renderBlock,
 }: ThreadViewProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
   const source: LineSource = {
@@ -231,6 +241,10 @@ export function ThreadView({
     onAnnotate,
     onReply,
     onUpdateAnnotation,
+    isAnnotationReadOnly,
+    annotationAction,
+    requestedBlock,
+    onInvoke,
     dragViewport: () => scrollBoxDragViewport(scrollRef.current),
     resolveAuthorLabel,
     onNavCommand,
@@ -369,6 +383,13 @@ export function ThreadView({
   };
 
   const blockNodeFor = (blockIndex: number): React.ReactNode => {
+    const custom = renderBlock?.(blockIndex);
+    if (custom !== undefined)
+      return (
+        <box key={`custom-${blockIndex}`} ref={virtual.measureRef(blockIndex)}>
+          {custom}
+        </box>
+      );
     const block = display[blockIndex]!;
     const { baseFg, baseAttributes, marker } = blockStyle(block, tokens);
     // list items of one list stay tight; every other block sits a blank row below its neighbour

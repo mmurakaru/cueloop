@@ -1,4 +1,4 @@
-import type { AgentPermission, AgentTool } from "./thread-agent";
+import type { AgentPermission, AgentTool, AgentConfigOption } from "./thread-agent";
 
 /** Harness events carry transcript data without exposing a provider's wire protocol. */
 export type AgentHarnessEvent =
@@ -12,7 +12,8 @@ export type AgentHarnessEvent =
       output?: string;
       locations?: AgentTool["locations"];
     }
-  | { kind: "permission"; permission: AgentPermission };
+  | { kind: "permission"; permission: AgentPermission }
+  | { kind: "config"; options: AgentConfigOption[] };
 
 /** A completed turn delivers feedback; stopped or incomplete turns preserve it for retry. */
 export interface AgentHarnessResult {
@@ -26,12 +27,14 @@ export interface AgentHarnessConnection {
   cancel(): void;
   permission(requestId: string, optionId?: string): void;
   close(): void;
+  configure?(id: string, value: string): Promise<void>;
 }
 
 /** The daemon supplies callbacks and a workspace; executable configuration stays in its adapter. */
 export interface AgentHarnessOptions {
   cwd: string;
   sessionId?: string;
+  tools?: AgentHarnessTools;
   onEvent: (event: AgentHarnessEvent) => void;
   onExit: (error: Error) => void;
 }
@@ -41,4 +44,18 @@ export interface AgentHarnessAdapter {
   id: string;
   label: string;
   connect(options: AgentHarnessOptions): AgentHarnessConnection;
+}
+
+/** Tools use the daemon API; call arguments and results are serialized JSON validated at the boundary. */
+export interface AgentHarnessTools {
+  definitions: {
+    name: string;
+    description: string;
+    inputSchema: {
+      type: "object";
+      properties: Record<string, { type: string; enum?: string[] }>;
+      required: string[];
+    };
+  }[];
+  call(name: string, args: string): Promise<string>;
 }

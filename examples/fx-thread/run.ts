@@ -4,6 +4,7 @@ import { createFxHarness } from "@cueloop/adapters/fx/harness";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createFxHarness } from "@cueloop/adapters/fx/harness";
 import { DaemonServer } from "../../packages/daemon/src/server";
 import { runClient } from "../../packages/client/src/app/run";
 import { createTestFxProvider } from "../../test/helpers/fx-provider";

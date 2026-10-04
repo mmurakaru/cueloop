@@ -121,9 +121,7 @@ describe("daemon spawn command", () => {
     expect(daemonSpawnCommand("/bin/bun", SOURCE_URL, false)).toEqual([
       "/bin/bun",
       "run",
-      "/repo/packages/cli/src/main.ts",
-      "daemon",
-      "--autostart",
+      "/repo/packages/daemon/src/main.ts",
     ]);
   });
 
@@ -132,9 +130,7 @@ describe("daemon spawn command", () => {
       "/bin/bun",
       "--watch",
       "run",
-      "/repo/packages/cli/src/main.ts",
-      "daemon",
-      "--autostart",
+      "/repo/packages/daemon/src/main.ts",
     ]);
   });
 

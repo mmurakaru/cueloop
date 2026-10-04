@@ -465,7 +465,12 @@ export class DaemonClient implements ThreadClient {
     return this.request("agent.get", { id }, ThreadAgentSchema);
   }
   /** Submit a question and optional selected passage to the daemon-owned agent. */
-  agentPrompt(params: { id: string; text: string; context?: string }): Promise<ThreadAgentState> {
+  agentPrompt(params: {
+    id: string;
+    text: string;
+    context?: string;
+    retry?: string;
+  }): Promise<ThreadAgentState> {
     return this.request("agent.prompt", params, ThreadAgentSchema);
   }
   /** Cancel the active turn; the daemon retains partial output. */
@@ -476,6 +481,15 @@ export class DaemonClient implements ThreadClient {
   agentComment(params: { id: string; comment: AgentComment }): Promise<ThreadAgentState> {
     return this.request("agent.comment", params, ThreadAgentSchema);
   }
+  /** Configure only an option advertised by the current harness. */
+  agentConfigure(params: {
+    id: string;
+    configId?: string;
+    value?: string;
+  }): Promise<ThreadAgentState> {
+    return this.request("agent.configure", params, ThreadAgentSchema);
+  }
+
   /** Select an option from the active agent permission card. */
   agentPermission(params: {
     id: string;
@@ -765,16 +779,19 @@ export function daemonSpawnCommand(
   execPath: string,
   moduleUrl: string,
   devWatch = process.env.CUELOOP_DEV_WATCH === "1",
+  entry = process.env.CUELOOP_DAEMON_ENTRY,
 ): string[] {
   const compiled =
     moduleUrl.includes("$bunfs") || moduleUrl.includes("~BUN") || moduleUrl.includes("%7EBUN");
 
   if (compiled) return [execPath, "daemon", "--autostart"];
-  const mainPath = new URL("../../cli/src/main.ts", moduleUrl).pathname;
+  const mainPath = entry ?? new URL("./main.ts", moduleUrl).pathname;
+
+  const args = entry ? ["daemon", "--autostart"] : [];
 
   return devWatch
-    ? [execPath, "--watch", "run", mainPath, "daemon", "--autostart"]
-    : [execPath, "run", mainPath, "daemon", "--autostart"];
+    ? [execPath, "--watch", "run", mainPath, ...args]
+    : [execPath, "run", mainPath, ...args];
 }
 
 function spawnDaemon(home: string): string {

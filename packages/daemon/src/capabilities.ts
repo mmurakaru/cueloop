@@ -18,6 +18,7 @@ export type DaemonRole = "owner" | "collaborator" | "agent";
 type Audience = "any" | "owner";
 
 const PRIMITIVE_ROLES = {
+  "agent.configure": "owner",
   "agent.get": "owner",
   "agent.prompt": "owner",
   "agent.cancel": "owner",

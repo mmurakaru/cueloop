@@ -26,6 +26,9 @@ import { DaemonClient, DaemonClientError } from "@cueloop/daemon/client";
 import type { DiffFileContents, Thread, ThreadSurfaceOpenStatus } from "@cueloop/schema";
 import { openReview } from "@cueloop/daemon/thread-review";
 
+// The CLI owns adapter composition; the daemon package still starts independently.
+process.env.CUELOOP_DAEMON_ENTRY = import.meta.path;
+
 const argv = process.argv.slice(2);
 const cmd = argv[0];
 

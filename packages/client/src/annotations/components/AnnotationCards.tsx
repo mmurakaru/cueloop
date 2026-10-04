@@ -304,13 +304,16 @@ export function CommentRow({
   annotation,
   tokens,
   authorLabel,
+  action,
 }: {
   annotation: Annotation;
   tokens: Theme;
   /** The author's resolved display name, shown as a tooltip when the dot is hovered. */
   authorLabel?: string;
+  action?: { label: string; run: () => void };
 }): React.ReactNode {
   // own comments (no author) wear the filled dot, collaborators the outline
+  const [actionHovered, setActionHovered] = useState(false);
   const own = annotation.author === undefined;
   const glyph = own ? "●" : "○";
   const glyphColor = annotation.orphan ? tokens.warning : own ? tokens.text : tokens.textMuted;
@@ -334,6 +337,22 @@ export function CommentRow({
           <text fg={tokens.text} style={{ wrapMode: "word", flexGrow: 1, flexShrink: 1 }}>
             {line}
           </text>
+          {lineIndex === 0 && action ? (
+            <text
+              fg={tokens.blue}
+              onMouseUp={action.run}
+              onMouseOver={(event: TerminalMouseEvent) => {
+                setActionHovered(true);
+                showTooltip(action.label, event.x, event.y);
+              }}
+              onMouseOut={() => {
+                setActionHovered(false);
+                hideTooltip();
+              }}
+            >
+              {action.label === "Retry" ? "Retry" : actionHovered ? "↓" : "✓✓"}
+            </text>
+          ) : null}
         </box>
       ))}
     </box>

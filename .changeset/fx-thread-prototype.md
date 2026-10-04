@@ -6,4 +6,4 @@
 "cueloop": minor
 ---
 
-Add an opt-in agent conversation inside the Thread view with streamed replies, tool activity, anchored feedback, permission controls, and resumable local sessions.
+Add opt-in harness replies inside the existing Thread document, with queued comment mirrors, model and reasoning controls, cueloop tools, and resumable local sessions.

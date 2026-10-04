@@ -17,7 +17,7 @@ Run:
 bun run check:agent-laws
 ```
 
-This optional command requires [Bend 2.0.35](https://bend-lang.com/) and, for its first independent verdict, Lean 4.34.0 on PATH or a prebuilt checker supplied through `BENDTT`. `BEND_BIN` can point to an isolated Bend executable. It is not required for `dev:watch`, normal tests, or CI.
+This optional command requires [Bend 2.0.35](https://bend-lang.com/) and, for its first independent verdict, Lean 4.34.0 on PATH or a prebuilt checker supplied through `BENDTT`. `BEND_BIN` can point to an isolated Bend executable. It is not required for `dev:watch` or normal tests. CI uses Bend's proof checker with `CUELOOP_BEND_VERDICT=0`; local runs default to the independent Lean verdict. The same command also checks the [submission model](../agent-submission).
 
 The check does three things:
 

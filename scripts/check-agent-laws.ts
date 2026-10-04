@@ -1,4 +1,4 @@
-/** Check the lifecycle proof, its generated JS, and a mutation that restores the stale cancellation bug. */
+/** Check agent behavior proofs, generated JS agreement, and rejected mutations. */
 import { mkdtempSync, rmSync, copyFileSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -11,6 +11,13 @@ import {
   type AgentTurnEvent,
 } from "../packages/daemon/src/agent-turn";
 
+import {
+  stepAgentSubmission,
+  type AgentSubmissionStatus,
+  type AgentSubmissionEvent,
+} from "../packages/schema/src/agent-submission";
+
+const proofArgs = process.env.CUELOOP_BEND_VERDICT === "0" ? [] : ["--verdict"];
 const bend = process.env.BEND_BIN ?? "bend";
 const source = join(import.meta.dirname, "../examples/agent-lifecycle");
 const scratch = mkdtempSync(join(tmpdir(), "cueloop-agent-laws-"));
@@ -58,11 +65,15 @@ function toBendTurn(state: AgentTurn): BendTurn {
 }
 
 try {
-  const proof = runBend(join(source, "PROOF.bend"), ["--verdict"]);
+  const proof = runBend(join(source, "PROOF.bend"), proofArgs);
 
   if (!proof.includes("ALL PROOFS CHECK") || proof.includes("SOME PROOFS FAIL"))
     throw new Error(`Agent laws were not verified: ${proof}`);
-  console.log("Independent Bend verdict: ALL PROOFS CHECK (2 recovery laws)");
+  console.log("Bend proof check: ALL PROOFS CHECK (2 recovery laws)");
+  const submissionSource = join(import.meta.dirname, "../examples/agent-submission");
+  const submissionPath = join(scratch, "submission.mjs");
+
+  runBend(join(submissionSource, "submission.bend"), ["-o", submissionPath]);
   const modulePath = join(scratch, "turn.mjs");
 
   runBend(join(source, "turn.bend"), ["-o", modulePath]);
@@ -90,6 +101,89 @@ try {
   console.log(
     `Generated Bend JS matches the daemon reducer on ${compared} transitions across all traces up to 6 events from all 5 states`,
   );
+  const submissionProof = runBend(join(submissionSource, "PROOF.bend"), proofArgs);
+
+  if (!submissionProof.includes("ALL PROOFS CHECK") || submissionProof.includes("SOME PROOFS FAIL"))
+    throw new Error(`Submission laws were not verified: ${submissionProof}`);
+
+  const submissionModule = v.parse(
+    v.object({ default: v.object({ step: v.function() }) }),
+    await import(pathToFileURL(submissionPath).href),
+  );
+  const submissionStates: AgentSubmissionStatus[] = [
+    "draft",
+    "queued",
+    "running",
+    "completed",
+    "failed",
+  ];
+  const submissionEvents: AgentSubmissionEvent[] = [
+    "submit",
+    "start",
+    "complete",
+    "fail",
+    "retry",
+    "edit",
+  ];
+  const statusNames = {
+    draft: "Draft",
+    queued: "Queued",
+    running: "Running",
+    completed: "Completed",
+    failed: "Failed",
+  };
+  const submissionEventNames = {
+    submit: "Submit",
+    start: "Start",
+    complete: "Complete",
+    fail: "FailTurn",
+    retry: "Retry",
+    edit: "Edit",
+  };
+  let submissionTransitions = 0;
+  const compareSubmissions = (status: AgentSubmissionStatus, depth: number): void => {
+    if (!depth) return;
+    for (const event of submissionEvents)
+      for (const hasInput of [false, true]) {
+        const expected = stepAgentSubmission(status, event, hasInput);
+        const actual: unknown = submissionModule.default.step(
+          { $: submissionEventNames[event] },
+          { $: statusNames[status] },
+          hasInput,
+        );
+
+        deepStrictEqual(actual, { $: statusNames[expected] });
+        submissionTransitions++;
+        compareSubmissions(expected, depth - 1);
+      }
+  };
+
+  for (const status of submissionStates) compareSubmissions(status, 4);
+  console.log(
+    `Submission proof: 7 laws checked; generated JS matches ${submissionTransitions} TypeScript transitions`,
+  );
+  const submissionScratch = join(scratch, "submission-proof");
+  const { mkdirSync } = await import("node:fs");
+
+  mkdirSync(submissionScratch);
+  for (const file of ["LAWS.bend", "PROOF.bend"])
+    copyFileSync(join(submissionSource, file), join(submissionScratch, file));
+  const emptyMutation = readFileSync(join(submissionSource, "submission.bend"), "utf8").replace(
+    "case False{}: Draft{}",
+    "case False{}: Queued{}",
+  );
+
+  writeFileSync(join(submissionScratch, "submission.bend"), emptyMutation);
+  const rejected = Bun.spawnSync([bend, join(submissionScratch, "PROOF.bend"), ...proofArgs], {
+    env: { ...process.env, BEND_NO_TELEMETRY: "1" },
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  const emptyVerdict = rejected.stdout.toString() + rejected.stderr.toString();
+
+  if (!emptyVerdict.includes("SOME PROOFS FAIL"))
+    throw new Error("Submission law failed to reject an empty-input invocation");
+  console.log("Mutation rejected: empty input cannot enqueue an invocation");
   for (const file of ["LAWS.bend", "PROOF.bend"])
     copyFileSync(join(source, file), join(scratch, file));
   const original = readFileSync(join(source, "turn.bend"), "utf8");
@@ -98,7 +192,7 @@ try {
   if (broken === original)
     throw new Error("Agent law mutation did not change the cancellation transition");
   writeFileSync(join(scratch, "turn.bend"), broken);
-  const mutation = Bun.spawnSync([bend, join(scratch, "PROOF.bend"), "--verdict"], {
+  const mutation = Bun.spawnSync([bend, join(scratch, "PROOF.bend"), ...proofArgs], {
     env: { ...process.env, BEND_NO_TELEMETRY: "1" },
     stdout: "pipe",
     stderr: "pipe",

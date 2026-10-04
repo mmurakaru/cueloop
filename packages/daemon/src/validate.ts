@@ -212,11 +212,17 @@ export const DeliverySchema = v.object({
 } satisfies EntriesOf<Delivery>);
 
 export const Params = {
+  "agent.configure": v.object({
+    id: SessionId,
+    configId: v.optional(NonEmpty),
+    value: v.optional(NonEmpty),
+  }),
   "agent.get": v.object({ id: SessionId }),
   "agent.prompt": v.object({
     id: SessionId,
     text: v.pipe(v.string(), v.maxLength(65_536)),
     context: v.optional(v.pipe(v.string(), v.maxLength(32_768))),
+    retry: v.optional(NonEmpty),
   }),
   "agent.cancel": v.object({ id: SessionId }),
   "agent.comment": v.object({ id: SessionId, comment: AgentCommentSchema }),

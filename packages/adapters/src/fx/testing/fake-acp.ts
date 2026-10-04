@@ -79,7 +79,7 @@ input.on("line", (line) => {
     case "session/prompt": {
       turn++;
       const request = frame.params?.prompt?.[0]?.text ?? "";
-      const text = request.split("User request:\n").at(-1)!;
+      const text = request.split("Input: ").at(-1)!;
 
       update({
         sessionUpdate: "tool_call",

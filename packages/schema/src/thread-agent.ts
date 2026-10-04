@@ -7,6 +7,7 @@ export interface AgentMessage {
   text: string;
   complete: boolean;
   revision: number;
+  submissionId?: string;
 }
 
 /** Tool activity belongs to a turn; its output is bounded by the daemon. */
@@ -28,6 +29,7 @@ export interface AgentComment {
   body: string;
   sent: boolean;
   replyTo?: string;
+  author?: string;
 }
 
 /** Permission options come from the active agent request, not client defaults. */
@@ -53,4 +55,26 @@ export interface ThreadAgentState {
   messages: AgentMessage[];
   tools: AgentTool[];
   comments: AgentComment[];
+  submissions?: AgentSubmission[];
+  configOptions?: AgentConfigOption[];
+}
+
+/** A submission freezes its input; retry keeps the same mirror and discussion origin. */
+export interface AgentSubmission {
+  id: string;
+  commentId?: string;
+  messageId?: string;
+  prompt: string;
+  quote?: string;
+  context?: string;
+  status: "queued" | "running" | "completed" | "failed";
+}
+
+/** Model and reasoning choices are advertised by the harness, never invented by the UI. */
+export interface AgentConfigOption {
+  id: string;
+  name: string;
+  category?: string;
+  currentValue: string;
+  options: { value: string; name: string }[];
 }

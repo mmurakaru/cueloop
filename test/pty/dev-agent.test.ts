@@ -36,7 +36,8 @@ ptyTest.skipIf(Boolean(process.env.CUELOOP_TEST_EXECUTABLE))(
 
     try {
       await session.waitForReady();
-      await session.waitForText("fx ready");
+      await session.waitForText("Read the repository");
+      await session.click("A seeded plan");
       await session.type("Explain retry cancellation");
       await session.press(["ctrl", "enter"]);
       await session.waitForText("The timer survives cancellation.");

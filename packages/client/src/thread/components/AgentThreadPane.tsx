@@ -1,253 +1,310 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useKeyboard } from "@opentui/react";
-import type { TextareaRenderable } from "@opentui/core";
-import { newAnnotationId, type Thread, type AgentTool } from "@cueloop/schema";
+import React, { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
+import {
+  newAnnotationId,
+  agentCommentRoot,
+  type Thread,
+  type ThreadAgentState,
+} from "@cueloop/schema";
 import type { Theme } from "../../appearance/theme";
-import { ThreadView } from "../../markdown/components/ThreadView";
-import { projectAgentTranscript, commentOnAgentSpan, agentToolFilePath } from "../agent-transcript";
+import { ThreadView, type ThreadViewProps } from "../../markdown/components/ThreadView";
+import { buildDisplay, marksByDisplay } from "../../markdown/view-plan";
+import { projectThreadConversation, commentOnAgentSpan } from "../agent-transcript";
 import { useThreadAgent, type ThreadAgentClient } from "../use-thread-agent";
-import type { DisplayBlock } from "../../markdown/view-plan";
+import { AgentConfigControls } from "./AgentConfigControls";
 
-/** The opt-in agent surface keeps the artifact accessible while its transcript streams. */
+/** The opt-in prototype extends the existing Thread body and retains its surrounding chrome. */
 export interface AgentThreadPaneProps {
   thread: Thread;
   home?: string;
   theme: Theme;
   children: React.ReactNode;
-  passage?: string;
   focused: boolean;
   suspended?: boolean;
   onActiveChange: (active: boolean) => void;
   onOpenFile: (path: string) => void;
   onNextPane?: (backward: boolean) => void;
+  onControlsChange?: (controls: React.ReactNode) => void;
+  onActionsChange?: (
+    action: (id: string) => { label: string; run: () => void } | undefined,
+  ) => void;
+  onRevealReply?: () => void;
+  onStateChange?: (state: ThreadAgentState) => void;
+  flushMutations?: () => Promise<void>;
   client?: ThreadAgentClient;
 }
 
-/** Render agent messages through the existing selection and inline annotation surface. */
+/** Inline input and the final blank line invoke the harness without replacing Send message. */
 export function AgentThreadPane(props: AgentThreadPaneProps): React.ReactNode {
   const { thread, theme } = props;
-  const { focused, onActiveChange } = props;
   const agent = useThreadAgent(thread.id, props.home, props.client);
-  const [conversation, setConversation] = useState(true);
-  const [typing, setTyping] = useState(true);
-  const [annotating, setAnnotating] = useState(false);
-  const [text, setText] = useState("");
-  const [context, setContext] = useState<string | undefined>();
-  const [details, setDetails] = useState(false);
-  const input = useRef<TextareaRenderable | null>(null);
+  const child =
+    React.isValidElement<ThreadViewProps>(props.children) && props.children.type === ThreadView
+      ? props.children.props
+      : undefined;
+  const baseDisplay =
+    child?.display ??
+    buildDisplay(
+      thread.artifact.type === "diff"
+        ? (thread.artifact.meta.prBrief ?? "")
+        : (thread.workingCopy ?? thread.artifact.content),
+    );
+  const baseMarks = child?.marks ?? marksByDisplay(thread.annotations, baseDisplay);
+  const projection = useMemo(
+    () => projectThreadConversation(thread, agent.state, baseDisplay, baseMarks),
+    [thread, agent.state, baseDisplay, baseMarks],
+  );
+  const [requestedBlock, setRequestedBlock] = useState<{ blockIndex: number }>();
+  const draft = useRef("");
+  const invoking = useRef(false);
+  const invocations = useRef<{ text: string; writes: Promise<boolean>[] }[]>([]);
+  const pendingWrites = useRef<Promise<boolean>[]>([]);
   const state = agent.state;
-  const label = state.harness?.label ?? "Agent";
-  const projection = useMemo(() => projectAgentTranscript(thread, state), [thread, state]);
   const busy = state.phase.kind === "running" || state.phase.kind === "permission";
-  const permission = state.phase.kind === "permission" ? state.phase.permission : undefined;
-  const pending = state.comments.filter((comment) => !comment.sent).length;
 
+  const [pulse, setPulse] = useState(false);
   useEffect(() => {
-    onActiveChange(conversation);
+    if (!busy) return;
+    const timer = setInterval(() => setPulse((value) => !value), 600);
 
-    return () => onActiveChange(false);
-  }, [conversation, onActiveChange]);
+    return () => clearInterval(timer);
+  }, [busy]);
+  const notifyActive = useEffectEvent((active: boolean) => props.onActiveChange(active));
+  const notifyState = useEffectEvent(() => props.onStateChange?.(state));
+  const notifyControls = useEffectEvent(() =>
+    props.onControlsChange?.(
+      <AgentConfigControls
+        state={state}
+        theme={theme}
+        onConfigure={(configId, value) =>
+          void agent.act((client) => {
+            if (!client.agentConfigure)
+              return Promise.reject(new Error("Agent configuration is unavailable"));
+
+            return client.agentConfigure({ id: thread.id, configId, value });
+          })
+        }
+      />,
+    ),
+  );
   useEffect(() => {
-    if (typing && conversation && props.focused && !props.suspended) input.current?.focus();
-  }, [typing, conversation, props.focused, props.suspended]);
-  useKeyboard((key) => {
-    if (!conversation || !props.focused || props.suspended || annotating) return;
-    if (key.name === "escape" && typing) {
-      key.preventDefault();
-      setTyping(false);
-      input.current?.blur();
-    } else if (!typing && key.name === "i" && !key.ctrl && !key.meta) {
-      key.preventDefault();
-      setTyping(true);
-    } else if (!typing && key.name === "tab") {
-      key.preventDefault();
-      props.onNextPane?.(Boolean(key.shift));
-    }
-  });
+    notifyActive(true);
+    return () => notifyActive(false);
+  }, []);
+  useEffect(() => {
+    notifyState();
+  }, [state]);
+  useEffect(() => {
+    notifyControls();
+  }, [state, theme]);
 
-  const send = async () => {
-    if (busy || (!text.trim() && !pending)) return;
-    const sent = await agent.act((client) => client.agentPrompt({ id: thread.id, text, context }));
+  const invoke = async (): Promise<void> => {
+    if (thread.status !== "pending") return;
+    invocations.current.push({ text: draft.current, writes: pendingWrites.current.splice(0) });
+    draft.current = "";
+    if (invoking.current) return;
+    invoking.current = true;
 
-    if (sent) {
-      setText("");
-      input.current?.setText("");
-      setContext(undefined);
-      setTyping(false);
-      input.current?.blur();
+    try {
+      while (invocations.current.length) {
+        const input = invocations.current.shift()!;
+        try {
+          const writesSaved = (await Promise.all(input.writes)).every(Boolean);
+          if (!writesSaved) {
+            draft.current = [input.text, draft.current].filter(Boolean).join("\n");
+            continue;
+          }
+          await props.flushMutations?.();
+          const accepted = await agent.act((client) =>
+            client.agentPrompt({ id: thread.id, text: input.text }),
+          );
+
+          if (!accepted) draft.current = [input.text, draft.current].filter(Boolean).join("\n");
+        } catch (error) {
+          draft.current = [input.text, draft.current].filter(Boolean).join("\n");
+          agent.setError(String(error));
+        }
+      }
+    } finally {
+      invoking.current = false;
     }
   };
+  const reply = (id: string, body: string): void => {
+    const origin = projection.mirrors.get(id)?.commentId ?? id;
+    const root = agentCommentRoot(state, origin);
+
+    if (root)
+      pendingWrites.current.push(
+        agent.act((client) =>
+          client.agentComment({
+            id: thread.id,
+            comment: {
+              ...root,
+              id: newAnnotationId(),
+              body,
+              sent: false,
+              author: undefined,
+              replyTo: root.replyTo ?? root.id,
+            },
+          }),
+        ),
+      );
+    else child?.onReply(origin, body);
+  };
+  const actionFor = (id: string) => {
+    const mirror = projection.mirrors.get(id);
+    const submission = state.submissions?.find(
+      (entry) => entry.id === mirror?.submissionId || entry.commentId === id,
+    );
+
+    if (!submission) return undefined;
+    if (submission.status === "failed")
+      return {
+        label: "Retry",
+        run: () =>
+          void agent.act((client) =>
+            client.agentPrompt({ id: thread.id, text: "", retry: submission.id }),
+          ),
+      };
+
+    return {
+      label: "View reply",
+      run: () => {
+        props.onRevealReply?.();
+        setRequestedBlock({
+          blockIndex: projection.destinations.get(submission.id) ?? projection.tailIndex,
+        });
+      },
+    };
+  };
+
+  const notifyActions = useEffectEvent(() => props.onActionsChange?.(actionFor));
+  useEffect(() => {
+    notifyActions();
+  }, [state, projection]);
 
   return (
-    <box style={{ flexGrow: 1, flexDirection: "column" }}>
-      <box style={{ height: 1, flexDirection: "row", gap: 2, paddingLeft: 1 }}>
-        <text
-          fg={!conversation ? theme.accent : theme.textDim}
-          onMouseUp={() => setConversation(false)}
-        >
-          Artifact
-        </text>
-        <text
-          fg={conversation ? theme.accent : theme.textDim}
-          onMouseUp={() => setConversation(true)}
-        >
-          Agent
-        </text>
-        <text fg={theme.textDim}>{`${label} ${busy ? "working" : "ready"}`}</text>
-        <text
-          fg={theme.blue}
-          onMouseUp={() => setDetails((value) => !value)}
-        >{`Tools (${state.tools.length})`}</text>
-        {busy ? (
-          <text
-            fg={theme.red}
-            onMouseUp={() => void agent.act((client) => client.agentCancel(thread.id))}
-          >
-            Stop
-          </text>
-        ) : null}
-        {!conversation && props.passage ? (
-          <text
-            fg={theme.blue}
-            onMouseUp={() => {
-              setContext(props.passage);
-              setConversation(true);
-              setTyping(true);
-            }}
-          >
-            Ask about passage
-          </text>
-        ) : null}
-      </box>
-      {conversation ? (
-        <>
-          <text
-            fg={theme.textDim}
-            style={{ paddingLeft: 1 }}
-          >{`Workspace: ${thread.artifact.meta.cwd ?? thread.workspace.repoRoot}`}</text>
-          {details ? (
-            <AgentToolDetails
-              tools={state.tools}
-              thread={thread}
-              theme={theme}
-              onOpenFile={props.onOpenFile}
-            />
-          ) : null}
-          {projection.display.length ? (
-            <ThreadView
-              session={projection.session}
-              display={projection.display}
-              marks={projection.marks}
-              quickActions={[]}
-              observer={false}
-              suspended={typing || !props.focused || props.suspended}
-              onComposingChange={setAnnotating}
-              canAnnotateBlock={(index) => {
-                const source = projection.sources[index];
-                const message = state.messages.find((message) => message.id === source?.messageId);
+    <ThreadView
+      {...child}
+      session={projection.session}
+      display={projection.display}
+      marks={projection.marks}
+      quickActions={child?.quickActions ?? []}
+      observer={false}
+      resolved={child?.resolved ?? thread.status !== "pending"}
+      suspended={!props.focused || props.suspended}
+      theme={theme}
+      requestedBlock={requestedBlock}
+      isAnnotationReadOnly={(id) =>
+        projection.mirrors.has(id) ||
+        Boolean(state.submissions?.some((entry) => entry.commentId === id)) ||
+        Boolean(state.comments.find((entry) => entry.id === id)?.sent)
+      }
+      annotationAction={actionFor}
+      onInvoke={() => void invoke()}
+      canAnnotateBlock={(index) => {
+        const source = projection.sources[index];
 
-                return message?.role === "agent" && message.complete;
-              }}
-              onAnnotate={(span, body) => {
-                try {
-                  const comment = commentOnAgentSpan(thread, state, span, body, newAnnotationId());
+        return (
+          source?.kind !== "activity" &&
+          (source?.kind !== "message" ||
+            Boolean(
+              state.messages.find(
+                (entry) => entry.id === source.messageId && entry.role === "agent",
+              )?.complete,
+            ))
+        );
+      }}
+      onAnnotate={(span, body) => {
+        const source = projection.sources[span.start.blockIndex];
+        const end = projection.sources[span.end.blockIndex];
 
-                  void agent.act((client) => client.agentComment({ id: thread.id, comment }));
-                } catch (error) {
-                  agent.setError(String(error));
-                }
-              }}
-              onReply={(commentId, body) => {
-                const root = state.comments.find((comment) => comment.id === commentId);
+        if (source?.kind === "tail") {
+          draft.current = body;
+          return;
+        }
+        if (source?.kind === "mirror") {
+          if (source.commentId) reply(source.commentId, body);
+          return;
+        }
+        if (source?.kind === "artifact" && end?.kind === "artifact") {
+          child?.onAnnotate(span, body);
+          return;
+        }
+        if (
+          source?.kind !== "message" ||
+          end?.kind !== "message" ||
+          source.messageId !== end.messageId
+        )
+          return;
+        const message = state.messages.find((entry) => entry.id === source.messageId)!;
+        const localState = { ...state, messages: [message] };
+        const comment = commentOnAgentSpan(
+          thread,
+          localState,
+          {
+            start: { ...span.start, blockIndex: source.blockIndex + 1 },
+            end: { ...span.end, blockIndex: end.blockIndex + 1 },
+          },
+          body,
+          newAnnotationId(),
+        );
 
-                if (root)
-                  void agent.act((client) =>
-                    client.agentComment({
-                      id: thread.id,
-                      comment: {
-                        ...root,
-                        id: newAnnotationId(),
-                        replyTo: root.replyTo ?? root.id,
-                        body,
-                        sent: false,
-                      },
-                    }),
-                  );
-              }}
-              onUpdateAnnotation={(id, body) => {
-                const comment = state.comments.find((comment) => comment.id === id);
+        pendingWrites.current.push(
+          agent.act((client) => client.agentComment({ id: thread.id, comment })),
+        );
+      }}
+      onReply={reply}
+      onUpdateAnnotation={(id, body) => {
+        const comment = state.comments.find((entry) => entry.id === id);
 
-                if (comment)
-                  void agent.act((client) =>
-                    client.agentComment({ id: thread.id, comment: { ...comment, body } }),
-                  );
-              }}
-              onExit={() => setTyping(true)}
-            />
-          ) : (
-            <box style={{ flexGrow: 1, padding: 2 }}>
-              <text fg={theme.textMuted}>
-                Ask about this Thread. Completed answers accept comments.
-              </text>
-            </box>
-          )}
-          {permission ? (
-            <box
-              style={{
-                height: 4,
-                flexShrink: 0,
-                flexDirection: "column",
-                paddingLeft: 1,
-                border: true,
-                borderColor: theme.accent,
-              }}
-            >
-              <text fg={theme.text}>{permission.title}</text>
-              <box style={{ flexDirection: "row", gap: 2 }}>
-                {permission.options.map((option) => (
-                  <text
-                    key={option.optionId}
-                    fg={theme.blue}
-                    onMouseUp={() => {
-                      void agent.act((client) =>
-                        client.agentPermission({
-                          id: thread.id,
-                          requestId: permission.id,
-                          optionId: option.optionId,
-                        }),
-                      );
-                    }}
-                  >
-                    {option.name}
-                  </text>
-                ))}
-              </box>
-            </box>
-          ) : null}
-          <AgentComposer
-            error={agent.error || (state.phase.kind === "failed" ? state.phase.error : "")}
-            context={context}
-            busy={busy}
-            pending={pending}
-            typing={typing}
-            focused={focused}
-            suspended={props.suspended}
-            input={input}
-            setText={setText}
-            setTyping={setTyping}
-            send={send}
-            theme={theme}
-            label={label}
-          />
-        </>
-      ) : (
-        props.children
-      )}
-    </box>
+        if (comment)
+          pendingWrites.current.push(
+            agent.act((client) =>
+              client.agentComment({ id: thread.id, comment: { ...comment, body } }),
+            ),
+          );
+        else child?.onUpdateAnnotation(id, body);
+      }}
+      onExit={child?.onExit ?? (() => {})}
+      renderBlock={(index) =>
+        index === projection.activityIndex ? (
+          <box style={{ flexDirection: "column", paddingLeft: 2 }}>
+            {busy ? <text fg={pulse ? theme.textDim : theme.textMuted}>Thinking…</text> : null}
+            {state.phase.kind === "permission" ? (
+              <>
+                <text fg={theme.text}>{state.phase.permission.title}</text>
+                <box style={{ flexDirection: "row", gap: 2 }}>
+                  {state.phase.permission.options.map((option) => (
+                    <text
+                      key={option.optionId}
+                      fg={theme.blue}
+                      onMouseUp={() => {
+                        if (state.phase.kind === "permission")
+                          void agent.act((client) =>
+                            client.agentPermission({
+                              id: thread.id,
+                              requestId:
+                                state.phase.kind === "permission" ? state.phase.permission.id : "",
+                              optionId: option.optionId,
+                            }),
+                          );
+                      }}
+                    >
+                      {option.name}
+                    </text>
+                  ))}
+                </box>
+              </>
+            ) : null}
+            {agent.error ? <text fg={theme.red}>{agent.error}</text> : null}
+          </box>
+        ) : undefined
+      }
+    />
   );
 }
 
-/** Keep the prototype opt-in and unavailable in shared or observer views. */
+/** The prototype is local and opt-in; shared views keep their existing renderer. */
 export function AgentThreadPrototype(
   props: AgentThreadPaneProps & { enabled: boolean; observer: boolean; pixelPrototype: boolean },
 ): React.ReactNode {
@@ -262,134 +319,7 @@ export function AgentThreadPrototype(
   return <AgentThreadPane {...props} />;
 }
 
-/** Include the caret's artifact block as explicit context for an agent question. */
-export function agentPassageFromBlock(block?: DisplayBlock): string | undefined {
-  return (block?.work ?? block?.base)?.text;
-}
-
-/** Artifact review controls remain available only when its surface is visible. */
-export function AgentArtifactChrome({
-  active,
-  children,
-}: {
-  active: boolean;
-  children: React.ReactNode;
-}): React.ReactNode {
-  return active ? null : children;
-}
-
-function AgentToolDetails({
-  tools,
-  thread,
-  theme,
-  onOpenFile,
-}: {
-  tools: AgentTool[];
-  thread: Thread;
-  theme: Theme;
-  onOpenFile: (path: string) => void;
-}): React.ReactNode {
-  return (
-    <scrollbox style={{ height: 8 }}>
-      {tools.map((tool) => (
-        <box key={`${tool.turnId}-${tool.id}`} style={{ flexDirection: "column", paddingLeft: 1 }}>
-          <text
-            fg={tool.status === "failed" ? theme.red : theme.textMuted}
-          >{`${tool.status} · ${tool.title}`}</text>
-          {tool.output ? <text fg={theme.textDim}>{tool.output}</text> : null}
-          {tool.locations.map((location) => (
-            <text
-              key={location.path}
-              fg={theme.blue}
-              onMouseUp={() => {
-                const path = agentToolFilePath(thread, location.path);
-
-                if (path) onOpenFile(path);
-              }}
-            >{`Open ${location.path}${location.line === undefined ? "" : `:${location.line}`}`}</text>
-          ))}
-        </box>
-      ))}
-    </scrollbox>
-  );
-}
-
-interface AgentComposerProps {
-  label: string;
-  error: string;
-  context?: string;
-  busy: boolean;
-  pending: number;
-  typing: boolean;
-  focused: boolean;
-  suspended?: boolean;
-  input: React.RefObject<TextareaRenderable | null>;
-  setText: (text: string) => void;
-  setTyping: (typing: boolean) => void;
-  send: () => Promise<void>;
-  theme: Theme;
-}
-
-function AgentComposer({
-  error,
-  context,
-  busy,
-  pending,
-  typing,
-  focused,
-  suspended,
-  input,
-  setText,
-  setTyping,
-  send,
-  theme,
-  label,
-}: AgentComposerProps): React.ReactNode {
-  return (
-    <>
-      {error ? <text fg={theme.red}>{error}</text> : null}
-      {context ? <text fg={theme.textMuted}>{`Passage: ${context.slice(0, 120)}`}</text> : null}
-      <box
-        style={{
-          height: 4,
-          flexDirection: "column",
-          border: ["top"],
-          borderColor: theme.border,
-          paddingLeft: 1,
-        }}
-        onMouseUp={() => setTyping(true)}
-      >
-        <textarea
-          ref={input}
-          focused={typing && focused && !suspended}
-          placeholder={
-            busy
-              ? `Wait for ${label}, or stop the turn`
-              : `Ask ${label}…  Ctrl+Enter sends · Esc reads · i composes`
-          }
-          keyBindings={[
-            { name: "return", ctrl: true, action: "submit" },
-            { name: "return", super: true, action: "submit" },
-          ]}
-          onSubmit={() => void send()}
-          onContentChange={() => setText(input.current?.plainText ?? "")}
-          style={{
-            height: 2,
-            backgroundColor: theme.panel,
-            textColor: theme.text,
-            focusedTextColor: theme.text,
-          }}
-        />
-        <text
-          fg={busy ? theme.textDim : theme.accent}
-          onMouseUp={() => void send()}
-        >{`Send message (${pending})`}</text>
-      </box>
-    </>
-  );
-}
-
-/** Route pane navigation only while the agent conversation owns Thread focus. */
+/** Embedded-agent chords apply only while the Thread owns focus. */
 export function agentOwnsKeyboard(active: boolean, focusedPane: string): boolean {
   return active && focusedPane === "thread";
 }

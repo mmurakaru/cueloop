@@ -16,11 +16,19 @@ export type FxAcpFrame = v.InferOutput<typeof RpcFrameSchema>;
 interface FxRequestMap {
   initialize: {
     protocolVersion: number;
-    clientCapabilities: Record<string, never>;
+    clientCapabilities: {
+      fs?: { readTextFile?: boolean; writeTextFile?: boolean };
+      terminal?: boolean;
+    };
     clientInfo: { name: string; version: string };
   };
-  "session/new": { cwd: string; mcpServers: never[] };
-  "session/load": { sessionId: string; cwd: string; mcpServers: never[] };
+  "session/new": { cwd: string; mcpServers: { type: "acp"; name: string; serverId: string }[] };
+  "session/load": {
+    sessionId: string;
+    cwd: string;
+    mcpServers: { type: "acp"; name: string; serverId: string }[];
+  };
+  "session/set_config_option": { sessionId: string; configId: string; value: string };
   "session/set_mode": { sessionId: string; modeId: string };
   "session/prompt": { sessionId: string; prompt: { type: "text"; text: string }[] };
 }
@@ -30,7 +38,7 @@ interface FxAcpOutbound {
   id?: number | string;
   method?: string;
   params?: FxRequestMap[keyof FxRequestMap] | { sessionId: string };
-  result?: { outcome: { outcome: "selected" | "cancelled"; optionId?: string } };
+  result?: unknown;
   error?: { code: number; message: string };
 }
 

@@ -3,8 +3,11 @@ import React from "react";
 import { testRender } from "@opentui/react/test-utils";
 import { SCHEMA_VERSION, type Thread, type ThreadAgentState } from "@cueloop/schema";
 import { AgentThreadPane } from "./AgentThreadPane";
+import { ThreadFooter } from "./ThreadFooter";
+import { ThreadView } from "../../markdown/components/ThreadView";
+import { buildDisplay, marksByDisplay } from "../../markdown/view-plan";
 import { DARK } from "../../appearance/theme";
-import { locateText, waitForText } from "../../testing/test-support";
+import { locateText, waitForText, pressKey, typeText, settle } from "../../testing/test-support";
 import type { ThreadAgentClient } from "../use-thread-agent";
 
 const thread: Thread = {
@@ -19,113 +22,190 @@ const thread: Thread = {
   createdAt: "2026-10-04",
 };
 const noop = () => {};
+const empty: ThreadAgentState = {
+  threadId: thread.id,
+  phase: { kind: "idle" },
+  messages: [],
+  tools: [],
+  comments: [],
+};
 
 function createTestAgentClient(initial: ThreadAgentState) {
   let state = initial;
-  const prompts: { id: string; text: string; context?: string }[] = [];
+  const prompts: { id: string; text: string; retry?: string }[] = [];
   const client: ThreadAgentClient = {
     agentGet: async () => state,
     agentPrompt: async (params) => {
       prompts.push(params);
-      state = {
-        ...state,
-        messages: [
-          ...state.messages,
-          {
-            id: "reply",
-            role: "agent",
-            text: "The timer survives cancellation.",
-            complete: true,
-            revision: 1,
-          },
-        ],
-      };
+      if (params.text)
+        state = {
+          ...state,
+          messages: [
+            ...state.messages,
+            {
+              id: "answer",
+              role: "agent",
+              text: "The timer survives cancellation.",
+              complete: true,
+              revision: 1,
+            },
+          ],
+        };
 
       return state;
     },
-    agentCancel: async () => ({ ...state, phase: { kind: "idle" } }),
-    agentComment: async (params) => {
-      state = { ...state, comments: [...state.comments, params.comment] };
-      return state;
-    },
+    agentCancel: async () => state,
+    agentComment: async () => state,
     agentPermission: async () => ({ ...state, phase: { kind: "idle" } }),
   };
 
   return { client, prompts };
 }
 
-test("the agent pane submits a question and renders a native answer while preserving access to the artifact", async () => {
-  const { client, prompts } = createTestAgentClient({
-    threadId: thread.id,
-    phase: { kind: "idle" },
-    messages: [],
-    tools: [],
-    comments: [],
-  });
+function artifactView(
+  value: Thread,
+  onReply: (id: string, body: string) => void = noop,
+  onUpdateAnnotation: (id: string, body: string) => void = noop,
+) {
+  const display = buildDisplay(value.artifact.content);
+
+  return (
+    <ThreadView
+      session={value}
+      display={display}
+      marks={marksByDisplay(value.annotations, display)}
+      quickActions={[]}
+      observer={false}
+      onAnnotate={noop}
+      onReply={onReply}
+      onUpdateAnnotation={onUpdateAnnotation}
+      onExit={noop}
+    />
+  );
+}
+
+test("typing on the final blank line invokes the agent while the existing footer keeps its action", async () => {
+  const { client, prompts } = createTestAgentClient(empty);
+  let reviewSubmissions = 0;
   const setup = await testRender(
-    <AgentThreadPane
-      thread={thread}
-      client={client}
-      focused
-      theme={DARK}
-      passage="Keep the retry bounded"
-      onActiveChange={noop}
-      onOpenFile={noop}
-    >
-      <text>Original artifact</text>
-    </AgentThreadPane>,
+    <box style={{ flexGrow: 1, flexDirection: "column" }}>
+      <AgentThreadPane
+        thread={thread}
+        client={client}
+        focused
+        theme={DARK}
+        onActiveChange={noop}
+        onOpenFile={noop}
+      >
+        {artifactView(thread)}
+      </AgentThreadPane>
+      <ThreadFooter repo="project" branch="main" onSubmit={() => reviewSubmissions++} />
+    </box>,
     { width: 100, height: 24 },
   );
 
   try {
-    await waitForText(setup, "Ask about this Thread");
-    await setup.mockInput.typeText("Explain retries");
+    await waitForText(setup, "Original artifact");
+    expect(setup.captureCharFrame()).not.toContain("Workspace:");
+    expect(setup.captureCharFrame()).not.toContain("Ask Agent");
+    await pressKey(setup, "ARROW_DOWN");
+    await pressKey(setup, "ARROW_DOWN");
+    await typeText(setup, "Explain retries");
+    await pressKey(setup, "RETURN", { meta: true });
+    await waitForText(setup, "The timer survives cancellation.");
+    expect(prompts[0]?.text).toBe("Explain retries");
     const send = locateText(setup, "Send message (0)");
 
     await setup.mockMouse.click(send.column, send.row);
-    await waitForText(setup, "The timer survives cancellation.");
-    expect(prompts[0]?.text).toBe("Explain retries");
-    expect(setup.captureCharFrame()).toContain("Workspace: /tmp/project");
-    const artifact = locateText(setup, "Artifact");
-
-    await setup.mockMouse.click(artifact.column, artifact.row);
-    await waitForText(setup, "Original artifact");
-    const ask = locateText(setup, "Ask about passage");
-
-    await setup.mockMouse.click(ask.column, ask.row);
-    await waitForText(setup, "Passage: Keep the retry bounded");
+    expect(reviewSubmissions).toBe(1);
+    expect(prompts).toHaveLength(1);
   } finally {
     setup.renderer.destroy();
   }
 });
 
-test("permission choices and collapsed tool activity remain visible in the Thread", async () => {
-  const { client } = createTestAgentClient({
-    threadId: thread.id,
+test("typing after a submitted original creates a reply instead of editing the frozen comment", async () => {
+  const annotated: Thread = {
+    ...thread,
+    annotations: [
+      {
+        id: "original",
+        kind: "comment",
+        body: "Explain the timer",
+        anchor: {
+          quote: "Original",
+          prefix: "",
+          suffix: " artifact",
+          blockIndex: 0,
+          start: 0,
+          end: 8,
+        },
+        createdAt: thread.createdAt,
+      },
+    ],
+  };
+  const state: ThreadAgentState = {
+    ...empty,
+    submissions: [
+      {
+        id: "turn",
+        commentId: "original",
+        prompt: "Explain the timer",
+        quote: "Original",
+        status: "completed",
+      },
+    ],
+  };
+  const { client } = createTestAgentClient(state);
+  const replies: string[] = [];
+  const updates: string[] = [];
+  const setup = await testRender(
+    <AgentThreadPane
+      thread={annotated}
+      client={client}
+      focused
+      theme={DARK}
+      onActiveChange={noop}
+      onOpenFile={noop}
+    >
+      {artifactView(
+        annotated,
+        (_id, body) => replies.push(body),
+        (_id, body) => updates.push(body),
+      )}
+    </AgentThreadPane>,
+    { width: 100, height: 24 },
+  );
+
+  try {
+    await waitForText(setup, "✓✓");
+    const original = locateText(setup, "Explain the timer");
+
+    await setup.mockMouse.click(original.column, original.row);
+    await typeText(setup, "What about cleanup?");
+    await pressKey(setup, "RETURN", { meta: true });
+    expect(replies).toEqual(["What about cleanup?"]);
+    expect(updates).toEqual([]);
+    expect(annotated.annotations[0]?.body).toBe("Explain the timer");
+  } finally {
+    setup.renderer.destroy();
+  }
+});
+
+test("failed mirrors expose Retry and permissions keep activity at the bottom", async () => {
+  const state: ThreadAgentState = {
+    ...empty,
+    submissions: [{ id: "failed", prompt: "Check retries", quote: "Original", status: "failed" }],
     phase: {
       kind: "permission",
       permission: {
-        id: "permission-1",
+        id: "permission",
         title: "Run retry tests",
         options: [{ optionId: "deny", name: "Reject once", kind: "reject_once" }],
       },
     },
-    messages: [
-      { id: "question", role: "user", text: "Check retries", complete: true, revision: 1 },
-    ],
-    comments: [],
-    tools: [
-      {
-        id: "tool",
-        turnId: "question",
-        title: "Read retry.ts",
-        kind: "read",
-        status: "completed",
-        output: "Retry source",
-        locations: [{ path: "retry.ts" }],
-      },
-    ],
-  });
+  };
+  const { client, prompts } = createTestAgentClient(state);
   const setup = await testRender(
     <AgentThreadPane
       thread={thread}
@@ -135,21 +215,111 @@ test("permission choices and collapsed tool activity remain visible in the Threa
       onActiveChange={noop}
       onOpenFile={noop}
     >
-      <text>Original artifact</text>
+      {artifactView(thread)}
     </AgentThreadPane>,
     { width: 100, height: 24 },
   );
 
   try {
     await waitForText(setup, "Run retry tests");
-    expect(setup.captureCharFrame()).toContain("Reject once");
-    expect(setup.captureCharFrame()).toContain("1 tool call");
-    expect(setup.captureCharFrame()).not.toContain("Retry source");
-    const tools = locateText(setup, "Tools (1)");
+    const frame = setup.captureCharFrame();
 
-    await setup.mockMouse.click(tools.column, tools.row);
-    await waitForText(setup, "Retry source");
-    expect(setup.captureCharFrame()).toContain("Open retry.ts");
+    expect(frame.match(/Thinking/g)).toHaveLength(1);
+    expect(frame.indexOf("Thinking")).toBeGreaterThan(frame.indexOf("Check retries"));
+    const retry = locateText(setup, "Retry");
+
+    await setup.mockMouse.click(retry.column, retry.row);
+    expect(prompts[0]?.retry).toBe("failed");
+    expect(prompts[0]?.text).toBe("");
+  } finally {
+    setup.renderer.destroy();
+  }
+});
+
+test("three bottom prompts survive delayed acceptance and remain separate submissions", async () => {
+  const { client } = createTestAgentClient(empty);
+  let release: ((state: ThreadAgentState) => void) | undefined;
+  const prompts: string[] = [];
+  client.agentPrompt = async (params) => {
+    prompts.push(params.text);
+    if (prompts.length === 1)
+      return new Promise((resolve) => {
+        release = resolve;
+      });
+
+    return empty;
+  };
+  const setup = await testRender(
+    <AgentThreadPane
+      thread={thread}
+      client={client}
+      focused
+      theme={DARK}
+      onActiveChange={noop}
+      onOpenFile={noop}
+    >
+      {artifactView(thread)}
+    </AgentThreadPane>,
+    { width: 100, height: 24 },
+  );
+
+  try {
+    await waitForText(setup, "Original artifact");
+    await pressKey(setup, "ARROW_DOWN");
+    await pressKey(setup, "ARROW_DOWN");
+    await typeText(setup, "First prompt");
+    await pressKey(setup, "RETURN", { meta: true });
+    await typeText(setup, "Second prompt");
+    await pressKey(setup, "RETURN", { meta: true });
+    await typeText(setup, "Third prompt");
+    await pressKey(setup, "RETURN", { meta: true });
+    expect(prompts).toEqual(["First prompt"]);
+    release!(empty);
+    await settle(setup);
+    expect(prompts).toEqual(["First prompt", "Second prompt", "Third prompt"]);
+  } finally {
+    setup.renderer.destroy();
+  }
+});
+
+test("typing after a read-only bottom prompt creates a reply to that prompt", async () => {
+  const state: ThreadAgentState = {
+    ...empty,
+    messages: [
+      { id: "prompt", role: "user", text: "Explain retries", complete: true, revision: 1 },
+    ],
+    submissions: [
+      { id: "prompt", commentId: "prompt", prompt: "Explain retries", status: "completed" },
+    ],
+  };
+  const { client } = createTestAgentClient(state);
+  const replies: string[] = [];
+  client.agentComment = async (params) => {
+    replies.push(params.comment.replyTo ?? "");
+    return state;
+  };
+  const setup = await testRender(
+    <AgentThreadPane
+      thread={thread}
+      client={client}
+      focused
+      theme={DARK}
+      onActiveChange={noop}
+      onOpenFile={noop}
+    >
+      {artifactView(thread)}
+    </AgentThreadPane>,
+    { width: 100, height: 24 },
+  );
+
+  try {
+    await waitForText(setup, "Explain retries");
+    const prompt = locateText(setup, "Explain retries");
+
+    await setup.mockMouse.click(prompt.column, prompt.row);
+    await typeText(setup, "What about cancellation?");
+    await pressKey(setup, "RETURN", { meta: true });
+    expect(replies).toEqual(["prompt"]);
   } finally {
     setup.renderer.destroy();
   }

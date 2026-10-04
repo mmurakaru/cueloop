@@ -4,6 +4,11 @@ import { randomUUID } from "node:crypto";
 import * as v from "valibot";
 import {
   parseBlocks,
+  agentCommentRoot,
+  stepAgentSubmission,
+  isAgentNote,
+  type AgentSubmission,
+  type AgentHarnessTools,
   resolveAnchor,
   type AgentComment,
   type Thread,
@@ -23,6 +28,7 @@ export interface ThreadAgentOptions {
   adapter?: AgentHarnessAdapter;
   getThread: (id: string) => Thread;
   onChange: (id: string) => void;
+  tools?: AgentHarnessTools;
 }
 
 interface ActiveAgent {
@@ -38,6 +44,7 @@ export class ThreadAgentManager {
   private active = new Map<string, ActiveAgent>();
   private readonly directory: string;
   private disposed = false;
+  private initializing = new Map<string, Promise<ActiveAgent>>();
 
   constructor(private readonly options: ThreadAgentOptions) {
     this.directory = join(options.home, "thread-agents");
@@ -69,6 +76,10 @@ export class ThreadAgentManager {
         kind: "failed",
         error: "Agent was interrupted by a daemon restart. Send a message to resume.",
       };
+      for (const submission of state.submissions ?? []) {
+        if (submission.status === "running" || submission.status === "queued")
+          submission.status = "failed";
+      }
       for (const tool of state.tools) {
         if (tool.status === "pending" || tool.status === "in_progress") tool.status = "cancelled";
       }
@@ -78,60 +89,179 @@ export class ThreadAgentManager {
     return structuredClone(state);
   }
 
-  /** Start one turn and return immediately so the client can render streamed events. */
-  prompt(params: { id: string; text: string; context?: string }): ThreadAgentState {
+  /** Freeze each pending comment once and queue an individual answer at the Thread tail. */
+  prompt(params: { id: string; text: string; context?: string; retry?: string }): ThreadAgentState {
     if (!this.options.enabled)
       throw new Error(
         "Thread agent prototype is disabled; set CUELOOP_AGENT_THREADS=1 on the daemon",
       );
-    const state = this.mutable(params.id);
-
     if (!this.options.adapter) throw new Error("Thread agent harness is not configured");
-    if (state.harness && state.harness.id !== this.options.adapter.id)
-      throw new Error("Thread agent belongs to a different harness; create a new Thread");
-    state.harness ??= { id: this.options.adapter.id, label: this.options.adapter.label };
-    if (state.phase.kind === "running" || state.phase.kind === "permission")
-      throw new Error("Thread agent is already running");
-    const comments = state.comments.filter((comment) => !comment.sent);
-    const text = [
-      params.text.trim(),
-      comments.length
-        ? "Feedback on previous answers:\n" +
-          comments
-            .map(
-              (comment) =>
-                `Message ${comment.messageId}\nQuote: ${comment.anchor.quote}\nComment: ${comment.body}`,
-            )
-            .join("\n\n")
-        : "",
-    ]
-      .filter(Boolean)
-      .join("\n\n");
-
-    if (!text) throw new Error("Thread agent needs a message or pending comments");
-    if (state.messages.length >= 128)
-      throw new Error("Thread agent prototype reached its 128-message limit");
+    const state = this.mutable(params.id);
     const thread = this.options.getThread(params.id);
-    const turnId = randomUUID();
-    const revision = thread.revisions.at(-1)?.revision ?? 1;
-    const prompt = params.context
-      ? `${text}\n\nSelected artifact passage (revision ${revision}):\n${params.context}`
-      : text;
-    const recordedBytes = state.messages.reduce(
-      (total, message) => total + Buffer.byteLength(message.text),
-      0,
-    );
 
-    if (recordedBytes + Buffer.byteLength(prompt) > 2 * 1024 * 1024)
-      throw new Error("Thread agent reached its 2 MiB message limit");
-    const wirePrompt = `You are assisting with cueloop Thread ${thread.id}, artifact revision ${revision}.\nThe artifact below is review context. Answer the user's request and identify relevant files.\n\nReviewed ${thread.artifact.type}:\n${thread.artifact.content.slice(0, 32_768)}\n\nUser request:\n${prompt}`;
+    if (thread.status !== "pending") throw new Error("Thread agent review is already resolved");
+    assertHarnessIdentity(state, this.options.adapter);
+    const before = structuredClone(state);
+    try {
+      state.harness ??= { id: this.options.adapter.id, label: this.options.adapter.label };
+      state.submissions ??= [];
+      const submissions = state.submissions;
+      const revision = thread.revisions.at(-1)?.revision ?? 1;
+      const enqueue = (input: Omit<AgentSubmission, "id" | "status">): void => {
+        if (
+          state.messages.length +
+            submissions.filter((entry) => entry.status === "queued" || entry.status === "running")
+              .length +
+            2 >
+          128
+        )
+          throw new Error("Thread agent prototype reached its 128-message limit");
+        if (
+          Buffer.byteLength(input.prompt) > 320_000 ||
+          Buffer.byteLength(input.quote ?? "") > 320_000
+        )
+          throw new Error("Thread agent input exceeds 320 KiB");
+        const used = state.messages.reduce(
+          (total, message) => total + Buffer.byteLength(message.text),
+          0,
+        );
+        if (used + Buffer.byteLength(input.prompt) > 2 * 1024 * 1024)
+          throw new Error("Thread agent input exceeds transcript limit");
+        const submission: AgentSubmission = {
+          ...input,
+          id: randomUUID(),
+          status: stepAgentSubmission("draft", "submit", true),
+        };
 
-    state.messages.push({ id: turnId, role: "user", text: prompt, complete: true, revision });
-    state.phase = { kind: "running" };
-    this.save(state);
-    void this.run(state, thread, turnId, revision, wirePrompt, comments);
+        submission.commentId ??= submission.id;
+        submissions.push(submission);
+        state.messages.push({
+          id: submission.id,
+          submissionId: submission.id,
+          role: "user",
+          text: submission.prompt,
+          complete: true,
+          revision,
+        });
+      };
+
+      if (params.retry) {
+        const submission = submissions.find((entry) => entry.id === params.retry);
+
+        if (!submission || submission.status !== "failed")
+          throw new Error("Thread agent retry requires a failed submission");
+        submission.status = stepAgentSubmission(submission.status, "retry", true);
+      } else {
+        const accepted = new Set(submissions.map((entry) => entry.commentId));
+        for (const annotation of thread.annotations) {
+          if (!isPendingAgentInput(annotation, accepted)) continue;
+          const root =
+            thread.annotations.find(
+              (entry) => entry.id === (annotation.replyTo ?? annotation.id),
+            ) ?? annotation;
+          const discussion = thread.annotations.filter(
+            (entry) => entry.id === root.id || entry.replyTo === root.id,
+          );
+
+          enqueue({ commentId: annotation.id, prompt: annotation.body, quote: root.anchor.quote });
+          // The discussion snapshot is passed as context, while the mirror shows only the new comment.
+          const submission = submissions.at(-1)!;
+          submission.context = JSON.stringify({
+            target: root.target,
+            discussion: discussion.map((entry) => ({ id: entry.id, body: entry.body })),
+          });
+        }
+        for (const comment of state.comments.filter((entry) => !entry.sent)) {
+          enqueue({
+            commentId: comment.id,
+            prompt: comment.body,
+            quote: comment.anchor.quote,
+            messageId: comment.messageId,
+          });
+          const root = agentCommentRoot(state, comment.replyTo ?? comment.id) ?? comment;
+          submissions.at(-1)!.context = JSON.stringify({
+            discussion: [root, ...state.comments.filter((entry) => entry.replyTo === root.id)].map(
+              (entry) => ({ id: entry.id, body: entry.body }),
+            ),
+          });
+          comment.sent = true;
+        }
+        if (params.text.trim()) enqueue({ prompt: params.text.trim(), quote: params.context });
+      }
+      this.save(state);
+    } catch (error) {
+      restoreAgentState(state, before);
+      throw error;
+    }
+    this.drain(state);
 
     return structuredClone(state);
+  }
+
+  /** The daemon enforces read-only originals even when a socket client tries to edit them. */
+  isReadOnly(id: string, annotationId: string): boolean {
+    return Boolean(this.get(id).submissions?.some((entry) => entry.commentId === annotationId));
+  }
+
+  /** Apply harness-advertised choices without submitting a model request. */
+  async configure(params: {
+    id: string;
+    configId?: string;
+    value?: string;
+  }): Promise<ThreadAgentState> {
+    if (!this.options.enabled || !this.options.adapter)
+      throw new Error("Thread agent harness is not configured");
+    const state = this.mutable(params.id);
+
+    if (state.phase.kind === "running" || state.phase.kind === "permission")
+      throw new Error("Thread agent configuration waits for the current turn");
+    const active = await this.connect(state, this.options.getThread(params.id), "", 1);
+
+    if (params.configId === undefined || params.value === undefined) {
+      const current = this.get(params.id);
+      if (current.phase.kind !== "running" && current.phase.kind !== "permission")
+        active.turn = stepAgentTurn(active.turn, "finished");
+      return structuredClone(state);
+    }
+    if (!active.connection.configure)
+      throw new Error("Thread agent harness does not advertise configuration");
+    await active.connection.configure(params.configId, params.value);
+    this.save(state);
+
+    return structuredClone(state);
+  }
+
+  private drain(state: ThreadAgentState): void {
+    if (
+      this.states.get(state.threadId) !== state ||
+      state.phase.kind === "running" ||
+      state.phase.kind === "permission" ||
+      this.disposed
+    )
+      return;
+    const submission = state.submissions?.find((entry) => entry.status === "queued");
+
+    if (!submission) return;
+    submission.status = stepAgentSubmission(submission.status, "start", true);
+    state.phase = { kind: "running" };
+    const thread = this.options.getThread(state.threadId);
+    const revision = thread.revisions.at(-1)?.revision ?? 1;
+    const prompt = `You are assisting cueloop Thread ${thread.id}. Answer this input individually. Use cueloop tools when the user asks to reply to a comment or return feedback to the main session. A reply to a Changes comment must use its original annotation ID.
+Reviewed artifact:
+${thread.artifact.content.slice(0, 32768)}
+Conversation:
+${state.messages
+  .filter((entry) => entry.submissionId !== submission.id)
+  .map((entry) => `${entry.role}: ${entry.text}`)
+  .join("\n")
+  .slice(-65536)}
+Comment ID: ${submission.commentId ?? "none"}
+Quote: ${submission.quote ?? ""}
+Discussion context: ${submission.context ?? submission.messageId ?? ""}
+Input: ${submission.prompt}`;
+
+    this.save(state);
+    void this.run(state, thread, submission.id, revision, prompt, [], submission);
   }
 
   /** Attach quote-primary feedback only to a finalized agent message. */
@@ -139,14 +269,14 @@ export class ThreadAgentManager {
     const state = this.mutable(params.id);
     const message = state.messages.find((message) => message.id === params.comment.messageId);
 
-    if (!message || message.role !== "agent" || !message.complete)
+    if (!message || !message.complete)
       throw new Error("Thread agent comment requires a completed answer");
     if (!resolveAnchor(params.comment.anchor, parseBlocks(message.text)))
       throw new Error("Thread agent comment quote does not resolve");
     const index = state.comments.findIndex((comment) => comment.id === params.comment.id);
     const previous = state.comments[index];
     const root = params.comment.replyTo
-      ? state.comments.find((comment) => comment.id === params.comment.replyTo)
+      ? agentCommentRoot(state, params.comment.replyTo)
       : undefined;
 
     if (
@@ -154,7 +284,10 @@ export class ThreadAgentManager {
       (!root || root.messageId !== message.id || root.id === params.comment.id)
     )
       throw new Error("Thread agent reply requires a comment on the same answer");
-    if (previous && (previous.sent || previous.messageId !== params.comment.messageId))
+    if (
+      this.isReadOnly(params.id, params.comment.id) ||
+      (previous && (previous.sent || previous.messageId !== params.comment.messageId))
+    )
       throw new Error("Thread agent delivered comments are immutable");
     if (Buffer.byteLength(JSON.stringify(params.comment)) > 32_768)
       throw new Error("Thread agent comment exceeds 32 KiB");
@@ -164,6 +297,27 @@ export class ThreadAgentManager {
         throw new Error("Thread agent prototype reached its comment limit");
       state.comments.push({ ...params.comment, sent: false });
     }
+    this.save(state);
+
+    return structuredClone(state);
+  }
+
+  /** Tool replies preserve the answer discussion and are not re-submitted as user input. */
+  reply(id: string, commentId: string, body: string): ThreadAgentState {
+    const state = this.mutable(id);
+    const comment = agentCommentRoot(state, commentId);
+    if (!comment) throw new Error("Thread agent reply comment does not exist");
+    const root = agentCommentRoot(state, comment.replyTo ?? comment.id) ?? comment;
+    if (state.comments.length >= 128)
+      throw new Error("Thread agent prototype reached its comment limit");
+    state.comments.push({
+      ...root,
+      id: randomUUID(),
+      body,
+      sent: true,
+      author: "embedded-agent",
+      replyTo: root.id,
+    });
     this.save(state);
 
     return structuredClone(state);
@@ -255,52 +409,33 @@ export class ThreadAgentManager {
     revision: number,
     prompt: string,
     comments: AgentComment[],
+    submission?: AgentSubmission,
   ): Promise<void> {
     let active = this.active.get(state.threadId);
     const messageStart = state.messages.length;
 
     try {
-      if (!active) {
-        const connection = this.options.adapter!.connect({
-          cwd: thread.artifact.meta.cwd ?? thread.workspace.repoRoot,
-          sessionId: state.harness?.sessionId,
-          onEvent: (event) => this.receive(state, event),
-          onExit: (error) => {
-            if (this.active.get(state.threadId)?.connection !== connection) return;
-            this.active.delete(state.threadId);
-            if (!this.disposed) {
-              state.phase = { kind: "failed", error: error.message };
-              this.save(state);
-            }
-          },
-        });
-
-        active = { connection, turn: stepAgentTurn({ kind: "idle" }, "start"), turnId, revision };
-        this.active.set(state.threadId, active);
-        const sessionId = await connection.start();
-
-        state.harness = {
-          id: this.options.adapter!.id,
-          label: this.options.adapter!.label,
-          sessionId,
-        };
-        active.turn = stepAgentTurn(active.turn, "ready");
-        this.save(state);
-      } else {
-        active.turn = stepAgentTurn(stepAgentTurn(active.turn, "start"), "ready");
-      }
+      active = await this.connect(state, thread, turnId, revision);
       active.turnId = turnId;
       active.revision = revision;
       // Cancellation during initialization must not submit a new model request.
       if (active.turn.kind === "idle") {
+        if (submission) submission.status = "failed";
         state.phase = { kind: "idle" };
         this.save(state);
+        this.drain(state);
 
         return;
       }
       const result = await active.connection.prompt(prompt);
 
       finalizeAgentMessages(state, messageStart, result.outcome);
+      if (submission)
+        submission.status = stepAgentSubmission(
+          submission.status,
+          result.outcome === "completed" ? "complete" : "fail",
+          true,
+        );
       if (result.outcome === "completed") for (const comment of comments) comment.sent = true;
       for (const tool of state.tools) {
         if (tool.status === "pending" || tool.status === "in_progress") tool.status = "cancelled";
@@ -308,18 +443,88 @@ export class ThreadAgentManager {
       state.phase = { kind: "idle" };
       active.turn = stepAgentTurn(active.turn, "finished");
       this.save(state);
+      this.drain(state);
     } catch (error) {
+      if (submission) submission.status = "failed";
       state.phase = {
         kind: "failed",
         error: error instanceof Error ? error.message : "Thread agent request failed",
       };
       this.active.delete(state.threadId);
       active?.connection.close();
-      if (!this.disposed) this.save(state);
+      if (!this.disposed) {
+        this.save(state);
+        this.drain(state);
+      }
     }
   }
 
+  private async connect(
+    state: ThreadAgentState,
+    thread: Thread,
+    turnId: string,
+    revision: number,
+  ): Promise<ActiveAgent> {
+    const pending = this.initializing.get(state.threadId);
+    if (pending) return pending;
+    const promise = this.startConnection(state, thread, turnId, revision);
+
+    this.initializing.set(state.threadId, promise);
+    try {
+      return await promise;
+    } finally {
+      this.initializing.delete(state.threadId);
+    }
+  }
+
+  private async startConnection(
+    state: ThreadAgentState,
+    thread: Thread,
+    turnId: string,
+    revision: number,
+  ): Promise<ActiveAgent> {
+    let active = this.active.get(state.threadId);
+
+    if (!active) {
+      const connection = this.options.adapter!.connect({
+        cwd: thread.artifact.meta.cwd ?? thread.workspace.repoRoot,
+        sessionId: state.harness?.sessionId,
+        tools: this.options.tools,
+        onEvent: (event) => this.receive(state, event),
+        onExit: (error) => {
+          if (this.active.get(state.threadId)?.connection !== connection) return;
+          this.active.delete(state.threadId);
+          if (!this.disposed) {
+            state.phase = { kind: "failed", error: error.message };
+            this.save(state);
+          }
+        },
+      });
+
+      active = { connection, turn: stepAgentTurn({ kind: "idle" }, "start"), turnId, revision };
+      this.active.set(state.threadId, active);
+      const sessionId = await connection.start();
+
+      state.harness = {
+        id: this.options.adapter!.id,
+        label: this.options.adapter!.label,
+        sessionId,
+      };
+      active.turn = stepAgentTurn(active.turn, "ready");
+      this.save(state);
+    } else {
+      active.turn = stepAgentTurn(stepAgentTurn(active.turn, "start"), "ready");
+    }
+
+    return active;
+  }
+
   private receive(state: ThreadAgentState, event: AgentHarnessEvent): void {
+    if (event.kind === "config") {
+      state.configOptions = event.options;
+      this.save(state);
+      return;
+    }
     const active = this.active.get(state.threadId);
 
     if (!active || active.turn.kind === "starting") return;
@@ -340,7 +545,7 @@ export class ThreadAgentManager {
   private applyUpdate(
     state: ThreadAgentState,
     active: ActiveAgent,
-    update: Exclude<AgentHarnessEvent, { kind: "permission" }>,
+    update: Exclude<AgentHarnessEvent, { kind: "permission" | "config" }>,
   ): void {
     if (update.kind === "message") {
       const messageId = update.id ?? `answer-${active.turnId}`;
@@ -353,6 +558,7 @@ export class ThreadAgentManager {
           text: "",
           complete: false,
           revision: active.revision,
+          submissionId: active.turnId,
         };
         state.messages.push(message);
       }
@@ -406,4 +612,27 @@ function finalizeAgentMessages(
 ): void {
   if (outcome !== "completed") return;
   for (const message of state.messages.slice(start)) message.complete = true;
+}
+
+function isPendingAgentInput(
+  annotation: Thread["annotations"][number],
+  accepted: Set<string | undefined>,
+): boolean {
+  return (
+    annotation.kind === "comment" &&
+    !isAgentNote(annotation) &&
+    !annotation.author &&
+    !accepted.has(annotation.id)
+  );
+}
+
+function restoreAgentState(state: ThreadAgentState, before: ThreadAgentState): void {
+  if (before.submissions === undefined) delete state.submissions;
+  if (before.harness === undefined) delete state.harness;
+  Object.assign(state, before);
+}
+
+function assertHarnessIdentity(state: ThreadAgentState, adapter: AgentHarnessAdapter): void {
+  if (state.harness && state.harness.id !== adapter.id)
+    throw new Error("Thread agent belongs to a different harness; create a new Thread");
 }

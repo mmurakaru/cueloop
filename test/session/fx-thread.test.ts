@@ -288,3 +288,179 @@ test.skipIf(!process.env.CUELOOP_TEST_FX)(
   },
   15_000,
 );
+
+test("harness tools reply to the original Changes discussion and return Approve to the waiting main session", async () => {
+  const home = mkdtempSync(join(tmpdir(), "cueloop-agent-tools-"));
+  const calls: string[] = [];
+  const server = new DaemonServer({
+    home,
+    idleExitMs: 0,
+    threadAgent: {
+      enabled: true,
+      adapter: {
+        id: "test-tools",
+        label: "Test tools",
+        connect(options) {
+          return {
+            start: async () => "tool-session",
+            prompt: async () => {
+              const definitions = options.tools!.definitions.map((entry) => entry.name);
+              expect(definitions).toContain("reply_to_comment");
+              expect(definitions).toContain("send_message");
+              const threads = await options.tools!.call(
+                "cueloop_api",
+                JSON.stringify({
+                  method: "session.list",
+                  params: {},
+                }),
+              );
+              expect(Array.isArray(JSON.parse(threads))).toBe(true);
+              await options.tools!.call(
+                "reply_to_comment",
+                JSON.stringify({
+                  id: currentId,
+                  commentId: "changes-comment",
+                  body: "This timer clears on completion.",
+                }),
+              );
+              calls.push("reply");
+              await options.tools!.call(
+                "send_message",
+                JSON.stringify({
+                  id: currentId,
+                  outcome: "approved",
+                  summary: "Approve",
+                }),
+              );
+              calls.push("send");
+              options.onEvent({ kind: "message", text: "Done!" });
+
+              return { outcome: "completed" };
+            },
+            cancel() {},
+            permission() {},
+            close() {},
+          };
+        },
+      },
+    },
+  });
+  let currentId = "";
+  server.start();
+  const client = await DaemonClient.connect({ home });
+
+  try {
+    const thread = await client.sessionCreate(
+      { repoRoot: home, branch: "main" },
+      { type: "plan", content: "Review timer", meta: {} },
+    );
+    currentId = thread.id;
+    const original = {
+      id: "changes-comment",
+      kind: "comment",
+      anchor: makeAnchor(parseBlocks("clearTimeout(timer)"), 0, 0, 19),
+      body: "Explain this and reply here",
+      target: { kind: "file" as const, path: "timer.ts", rev: "worktree" as const },
+    };
+
+    await client.sessionComment(thread.id, original);
+    const waiting = client.sessionWait(thread.id, 3000);
+    await client.agentPrompt({ id: thread.id, text: "" });
+    await expect(
+      client.sessionComment(thread.id, { ...original, body: "Rewrite" }),
+    ).rejects.toThrow("read-only");
+    await expect(client.sessionRemoveAnnotation(thread.id, original.id)).rejects.toThrow(
+      "read-only",
+    );
+    const returned = await waiting;
+
+    expect(calls).toEqual(["reply", "send"]);
+    expect(returned?.message?.outcome).toBe("approved");
+    const reply = returned?.annotations.find((entry) => entry.replyTo === original.id);
+
+    expect(reply?.anchor).toEqual(original.anchor);
+    expect(reply?.target).toEqual(original.target);
+    expect(reply?.body).toBe("This timer clears on completion.");
+    expect(returned?.artifact.content).toBe(thread.artifact.content);
+  } finally {
+    client.close();
+    server.stop();
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test.skipIf(!process.env.CUELOOP_TEST_FX)(
+  "real fx calls cueloop reply and Send message tools over ACP",
+  async () => {
+    const toolCalls: { name: string; args: Record<string, string> }[] = [];
+    const provider = createTestFxProvider({ toolCalls });
+    const home = mkdtempSync(join(tmpdir(), "cueloop-real-tools-"));
+    const server = new DaemonServer({
+      home,
+      idleExitMs: 0,
+      threadAgent: {
+        enabled: true,
+        adapter: createFxHarness({
+          command: [process.env.CUELOOP_TEST_FX!, "acp"],
+          env: provider.env,
+        }),
+      },
+    });
+    server.start();
+    const client = await DaemonClient.connect({ home });
+
+    try {
+      const thread = await client.sessionCreate(
+        { repoRoot: provider.workspace, branch: "main" },
+        { type: "plan", content: "Review the timer", meta: {} },
+      );
+      await client.sessionComment(thread.id, {
+        id: "original",
+        kind: "comment",
+        anchor: makeAnchor(parseBlocks(thread.artifact.content), 0, 0, 6),
+        body: "Explain then Approve",
+      });
+      toolCalls.push(
+        {
+          name: "reply_to_comment",
+          args: {
+            id: thread.id,
+            commentId: "original",
+            body: "The timer clears after completion.",
+          },
+        },
+        { name: "send_message", args: { id: thread.id, outcome: "approved", summary: "Approve" } },
+      );
+      await client.agentPrompt({ id: thread.id, text: "" });
+      const deadline = Date.now() + 5000;
+      while ((await client.sessionGet(thread.id)).status !== "resolved") {
+        const state = await client.agentGet(thread.id);
+        if (state.phase.kind === "permission") {
+          const option = state.phase.permission.options.find(
+            (entry) => entry.kind === "allow_once",
+          );
+
+          expect(option).toBeDefined();
+          await client.agentPermission({
+            id: thread.id,
+            requestId: state.phase.permission.id,
+            optionId: option!.optionId,
+          });
+        }
+        if (Date.now() > deadline) throw new Error("Real fx cueloop tools did not return feedback");
+        await Bun.sleep(5);
+      }
+      const returned = await client.sessionGet(thread.id);
+      expect(returned?.message?.outcome).toBe("approved");
+      expect(returned?.annotations.find((entry) => entry.replyTo === "original")?.body).toBe(
+        "The timer clears after completion.",
+      );
+    } finally {
+      client.close();
+      server.stop();
+      provider.close();
+      rmSync(home, { recursive: true, force: true });
+    }
+  },
+  15000,
+);

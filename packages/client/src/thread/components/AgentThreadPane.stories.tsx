@@ -80,7 +80,7 @@ function renderAgentStory(value: ThreadAgentState): React.ReactNode {
 export const CompletedAnswer: Story = {
   render: () => renderAgentStory(state),
   size: { width: 80, height: 28 },
-  expectedColors: [DARK.accent],
+  expectedColors: [DARK.text],
 };
 
 /** A permission request stays beside the conversation until the reviewer responds. */
@@ -101,5 +101,5 @@ export const WaitingPermission: Story = {
       },
     }),
   size: { width: 80, height: 28 },
-  expectedColors: [DARK.accent],
+  expectedColors: [DARK.blue],
 };
