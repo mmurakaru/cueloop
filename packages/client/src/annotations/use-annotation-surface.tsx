@@ -617,8 +617,8 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
   /** Pre-mount window: buffer printables, honor a fast comment save, agent invocation, or newline. */
   const handlePremountKey = (key: KeyEvent, activeCompose: ComposeState): void => {
     if (key.name === "return") {
-      if (key.super) return;
-      if (key.meta || key.ctrl)
+      if (key.super && onInvoke) return;
+      if (key.meta || key.ctrl || key.super)
         return saveComment(activeCompose.seed, isAgentInvokeKey(key, onInvoke));
       const grown = { ...activeCompose, seed: `${activeCompose.seed}\n` };
 
@@ -641,7 +641,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
   };
 
   const handleComposeKey = (key: KeyEvent, activeCompose: ComposeState): void => {
-    if ((key.name === "return" || key.name === "enter") && key.super) {
+    if (onInvoke && (key.name === "return" || key.name === "enter") && key.super) {
       key.preventDefault();
 
       return;
@@ -876,6 +876,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
       glyph="●"
       tokens={tokens}
       onSave={saveComment}
+      agentEnabled={Boolean(onInvoke)}
       onReady={() => (composerReady.current = true)}
       onInput={(text, caret) => {
         setDraft(text);

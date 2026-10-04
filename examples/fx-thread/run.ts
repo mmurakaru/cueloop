@@ -16,7 +16,8 @@ writeFileSync(
   join(workspace, "retry.ts"),
   "export function retry(task: () => void) {\n  return setTimeout(task, 1000);\n}\n",
 );
-process.env.CUELOOP_FX_THREAD = "1";
+process.env.CUELOOP_CONFIG = join(home, "config.toml");
+writeFileSync(process.env.CUELOOP_CONFIG, "[experimental]\nthread_agent = true\n");
 const server = new DaemonServer({
   home,
   idleExitMs: 0,

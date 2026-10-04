@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import React from "react";
 import { testRender } from "@opentui/react/test-utils";
 import { SCHEMA_VERSION, type Thread, type ThreadAgentState } from "@cueloop/schema";
-import { AgentThreadPane } from "./AgentThreadPane";
+import { AgentThreadPane, AgentThreadPrototype } from "./AgentThreadPane";
 import { ThreadFooter } from "./ThreadFooter";
 import { ThreadView } from "../../markdown/components/ThreadView";
 import { buildDisplay, marksByDisplay } from "../../markdown/view-plan";
@@ -367,3 +367,102 @@ test("Option+Enter saves a comment, Command+Enter leaves its draft, and Ctrl+Ent
     setup.renderer.destroy();
   }
 });
+
+test("comments on a later paragraph of agent output save editable and submit independently", async () => {
+  let state: ThreadAgentState = {
+    ...empty,
+    messages: [
+      { id: "earlier", role: "agent", text: "Earlier reply.", complete: true, revision: 1 },
+      {
+        id: "output",
+        role: "agent",
+        text: "First paragraph.\n\nThe agent can explain this comment.\n\nLast paragraph.",
+        complete: true,
+        revision: 2,
+      },
+    ],
+  };
+  const { client, prompts } = createTestAgentClient(state);
+  client.agentComment = async ({ comment }) => {
+    state = {
+      ...state,
+      comments: [...state.comments.filter((entry) => entry.id !== comment.id), comment],
+    };
+    return state;
+  };
+  const prompt = client.agentPrompt;
+  client.agentPrompt = async (params) => {
+    await prompt(params);
+    state = { ...state, comments: state.comments.map((comment) => ({ ...comment, sent: true })) };
+    return state;
+  };
+  const setup = await testRender(
+    <AgentThreadPane
+      thread={thread}
+      client={client}
+      focused
+      theme={DARK}
+      onActiveChange={noop}
+      onOpenFile={noop}
+    >
+      {artifactView(thread)}
+    </AgentThreadPane>,
+    { width: 100, height: 30, kittyKeyboard: true },
+  );
+
+  try {
+    await waitForText(setup, "The agent can explain");
+    const output = locateText(setup, "The agent can explain");
+
+    await setup.mockMouse.drag(output.column, output.row, output.column + 9, output.row);
+    await typeText(setup, "Explain this to me");
+    await pressKey(setup, "RETURN", { meta: true });
+    expect(state.comments).toHaveLength(1);
+    expect(state.comments[0]?.messageId).toBe("output");
+    expect(state.comments[0]?.anchor.quote).toBe("The agent");
+    expect(state.comments[0]?.sent).toBe(false);
+    expect(prompts).toHaveLength(0);
+    expect(setup.captureCharFrame()).toContain("Explain this to me");
+    await pressKey(setup, "RETURN", { ctrl: true });
+    expect(prompts).toHaveLength(1);
+    expect(state.comments[0]?.sent).toBe(true);
+  } finally {
+    setup.renderer.destroy();
+  }
+});
+
+for (const policy of [
+  { enabled: false, observer: false, pixelPrototype: false },
+  { enabled: true, observer: true, pixelPrototype: false },
+]) {
+  test(`disabled or shared agent views retain the original document without opening a harness (${JSON.stringify(policy)})`, async () => {
+    let reads = 0;
+    const { client } = createTestAgentClient(empty);
+    client.agentGet = async () => {
+      reads++;
+      return empty;
+    };
+    const setup = await testRender(
+      <AgentThreadPrototype
+        {...policy}
+        thread={thread}
+        client={client}
+        focused
+        theme={DARK}
+        onActiveChange={noop}
+        onOpenFile={noop}
+      >
+        {artifactView(thread)}
+      </AgentThreadPrototype>,
+      { width: 100, height: 24 },
+    );
+
+    try {
+      await waitForText(setup, "Original artifact");
+      expect(reads).toBe(0);
+      expect(setup.captureCharFrame()).not.toContain("Thinking");
+    } finally {
+      setup.renderer.destroy();
+    }
+  });
+}

@@ -702,11 +702,13 @@ export function App({
   );
   // opt-in: render a prototype as a kitty pixel mockup instead of the markdown doc
   const [prototypePixels, setPrototypePixels] = useState(false);
+  const [threadAgentEnabled, setThreadAgentEnabled] = useState(false);
 
   useEffect(() => {
     const config = loadConfig({ repoRoot: session?.workspace.repoRoot });
 
     setPrototypePixels(config.experimental.prototypePixels);
+    setThreadAgentEnabled(config.experimental.threadAgent);
     keysRef.current = config.keys;
     keyBindings.setKeys(config.keys);
     setTheme(composeTheme(config.ui.theme, config.themeOverrides, appearance));
@@ -1317,7 +1319,12 @@ export function App({
                   <box style={{ flexGrow: 1, flexDirection: "row" }}>
                     <AgentThreadPrototype
                       key={activeSession.id}
-                      enabled={canRunThreadAgent(isOwner, bodyEditing.editing)}
+                      enabled={canRunThreadAgent({
+                        enabled: threadAgentEnabled,
+                        owner: isOwner,
+                        editing: bodyEditing.editing,
+                        shared: isSharedThreadConnection(openClient, shareTransport),
+                      })}
                       observer={observer}
                       pixelPrototype={isPixelPrototype}
                       thread={activeSession}
@@ -1596,8 +1603,14 @@ export function App({
   );
 }
 
-function canRunThreadAgent(owner: boolean, editing: boolean): boolean {
-  return owner && !editing;
+/** Experimental agent UI is available only in a local owner's review. */
+export function canRunThreadAgent(options: {
+  enabled: boolean;
+  owner: boolean;
+  editing: boolean;
+  shared: boolean;
+}): boolean {
+  return options.enabled && options.owner && !options.editing && !options.shared;
 }
 
 function isSubmittedComment(
@@ -1617,4 +1630,12 @@ function flushReviewMutations(controller: ReviewController): Promise<void> {
 
 function threadAgentControls(active: boolean, controls: React.ReactNode): React.ReactNode {
   return active ? controls : undefined;
+}
+
+/** Injected shared transports never own a local harness connection. */
+function isSharedThreadConnection(
+  openClient: AppProps["openClient"],
+  shareTransport: ShareTransport | undefined,
+): boolean {
+  return Boolean(openClient || shareTransport);
 }

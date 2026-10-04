@@ -7,11 +7,12 @@ export async function daemonCommand(argv: string[]): Promise<number> {
   let idleExitMs: number | undefined = 0;
 
   if (argv.includes("--autostart")) idleExitMs = envIdle ? Number(envIdle) : undefined;
-  const { configuredAgentHarness } = await import("./agent-harness");
+  const { configuredAgentHarness, threadAgentEnabled } = await import("./agent-harness");
   const server = new DaemonServer({
     idleExitMs,
     threadAgent: {
-      enabled: process.env.CUELOOP_AGENT_THREADS === "1" || process.env.CUELOOP_FX_THREAD === "1",
+      enabled: true,
+      enabledForThread: (thread) => threadAgentEnabled(thread.workspace.repoRoot),
       adapter: configuredAgentHarness(),
     },
   });

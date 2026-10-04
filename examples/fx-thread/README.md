@@ -1,12 +1,17 @@
 # Agent Thread prototype
 
-This draft extends the existing Thread document with a local agent conversation. Its header, panels, annotation controls, and Send message footer keep their existing behavior. It requires Bun and fx 0.0.12 on PATH and is disabled in normal launches and shared views.
+This draft extends the existing Thread document with a local agent conversation. Its header, panels, annotation controls, and Send message footer keep their existing behavior. It requires Bun and fx 0.0.12 on PATH and is disabled by default and in shared views. Enable it in user or repository `config.toml`:
+
+```toml
+[experimental]
+thread_agent = true
+```
 
 ```sh
 bun run dev:watch
 ```
 
-This enables the prototype, opens a seeded review, and stores daemon state in the checkout's ignored `.cueloop-dev` directory. Model requests use your configured fx account. Client and daemon reload on source edits; interrupted submissions expose Retry.
+With the flag enabled, this opens a seeded review and stores daemon state in the checkout's ignored `.cueloop-dev` directory. Model requests use your configured fx account. Client and daemon reload on source edits; interrupted submissions expose Retry.
 
 For a credential-free demonstration using real fx against an isolated localhost provider:
 
@@ -26,7 +31,7 @@ Add `--live` to use your configured provider in the temporary workspace.
 - Select model and reasoning choices through the existing footer overlay menus.
 - Send message (n) still returns the artifact review to its waiting main session. The embedded harness can also call `send_message`, `reply_to_comment`, and `cueloop_api`, including replying to the original Changes discussion.
 
-Close and reopen without losing local history. Cancellation is available through `agent.cancel`; closing the client does not cancel the turn. Source launches outside `dev:watch` require `CUELOOP_AGENT_THREADS=1` on both daemon and client and a separate `CUELOOP_HOME`.
+Close and reopen without losing local history. Cancellation is available through `agent.cancel`; closing the client does not cancel the turn. The TOML flag gates both client UI and daemon operations. Environment flags cannot bypass it. Restart the client after changing configuration; use a separate `CUELOOP_HOME` for isolated launches.
 
 ## Harness boundary
 

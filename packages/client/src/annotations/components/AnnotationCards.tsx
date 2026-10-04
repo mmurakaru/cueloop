@@ -29,6 +29,7 @@ import { referenceStyleFor } from "../../ui/components/syntax-highlight";
 // Option+Enter saves a comment; Ctrl+Enter may additionally invoke the agent.
 // Plain Enter breaks the line. Command+Enter belongs to the terminal.
 const COMPOSE_KEY_BINDINGS: KeyBinding[] = [
+  { name: "return", super: true, action: "submit" },
   { name: "return", meta: true, action: "submit" },
   { name: "return", ctrl: true, action: "submit" },
   { name: "return", action: "newline" },
@@ -55,6 +56,7 @@ export function Composer({
   onReady,
   onInput,
   placeholder,
+  agentEnabled = false,
 }: {
   seed: string;
   glyph: string;
@@ -63,6 +65,7 @@ export function Composer({
   onReady: () => void;
   onInput: (text: string, caret: number) => void;
   placeholder?: string;
+  agentEnabled?: boolean;
 }): React.ReactNode {
   const editorRef = useRef<TextareaRenderable | null>(null);
   const pastedImageCount = useRef(0);
@@ -113,7 +116,11 @@ export function Composer({
         placeholder={placeholder}
         placeholderColor={tokens.textDim}
         cursorStyle={{ style: "block", blinking: true }}
-        keyBindings={COMPOSE_KEY_BINDINGS}
+        keyBindings={
+          agentEnabled
+            ? COMPOSE_KEY_BINDINGS.filter((binding) => !binding.super)
+            : COMPOSE_KEY_BINDINGS
+        }
         onSubmit={() => onSave(editorRef.current?.plainText ?? "")}
         onContentChange={() => {
           const editor = editorRef.current;

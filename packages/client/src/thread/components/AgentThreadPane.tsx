@@ -308,13 +308,7 @@ export function AgentThreadPane(props: AgentThreadPaneProps): React.ReactNode {
 export function AgentThreadPrototype(
   props: AgentThreadPaneProps & { enabled: boolean; observer: boolean; pixelPrototype: boolean },
 ): React.ReactNode {
-  if (
-    !props.enabled ||
-    props.observer ||
-    props.pixelPrototype ||
-    (process.env.CUELOOP_AGENT_THREADS !== "1" && process.env.CUELOOP_FX_THREAD !== "1")
-  )
-    return props.children;
+  if (!props.enabled || props.observer || props.pixelPrototype) return props.children;
 
   return <AgentThreadPane {...props} />;
 }

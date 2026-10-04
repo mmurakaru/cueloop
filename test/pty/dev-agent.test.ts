@@ -24,6 +24,7 @@ ptyTest.skipIf(Boolean(process.env.CUELOOP_TEST_EXECUTABLE))(
       `#!/bin/sh\nexec '${process.execPath.replaceAll("'", "'\\''")}' '${executable.replaceAll("'", "'\\''")}'\n`,
     );
     chmodSync(fixtureBin, 0o755);
+    writeFileSync(join(home, "no-config.toml"), "[experimental]\nthread_agent = true\n");
     const session = launchTuiSession({
       home,
       args: [],

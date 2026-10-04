@@ -1,3 +1,4 @@
+import { threadAgentEnabled } from "./agent-harness";
 /**
  * `cueloop dev`: open the TUI against an isolated dev home seeded once with a
  * plan and a diff under this repo's project plus a standalone reply thread, so
@@ -97,16 +98,15 @@ async function refreshDevSeed(client: DaemonClient, home: string): Promise<void>
 
 /** `cueloop dev`: seed an isolated dev home (refreshing a stale seed), then open the TUI on it. */
 export async function devCommand(): Promise<number> {
-  const home = (process.env.CUELOOP_HOME ??=
-    process.env.CUELOOP_AGENT_THREADS === "1"
-      ? join(process.cwd(), ".cueloop-dev")
-      : join(homedir(), ".cueloop-dev"));
+  const home = (process.env.CUELOOP_HOME ??= threadAgentEnabled(process.cwd())
+    ? join(process.cwd(), ".cueloop-dev")
+    : join(homedir(), ".cueloop-dev"));
 
   let sessionId: string | undefined;
   const client = await DaemonClient.connect({ autostart: true });
   try {
     await refreshDevSeed(client, home);
-    if (process.env.CUELOOP_AGENT_THREADS === "1")
+    if (threadAgentEnabled(process.cwd()))
       sessionId = (await client.sessionList()).find(
         (thread) => thread.artifact.meta.title === "Read the repository",
       )?.id;

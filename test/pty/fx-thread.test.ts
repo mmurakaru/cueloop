@@ -42,12 +42,12 @@ ptyTest(
         meta: { title: "Retry review" },
       },
     });
+    writeFileSync(join(home, "no-config.toml"), "[experimental]\nthread_agent = true\n");
     let session = launchTuiSession({
       home,
       args: [thread.id],
       cols: 120,
       rows: 30,
-      env: { CUELOOP_FX_THREAD: "1" },
     });
 
     try {
@@ -93,7 +93,6 @@ ptyTest(
         args: [thread.id],
         cols: 120,
         rows: 30,
-        env: { CUELOOP_FX_THREAD: "1" },
       });
       await session.waitForReady();
       await session.waitForText("Send message (1)");

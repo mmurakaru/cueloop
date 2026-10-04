@@ -25,6 +25,7 @@ import { ThreadAgentSchema } from "./thread-agent-validation";
 export interface ThreadAgentOptions {
   home: string;
   enabled: boolean;
+  enabledForThread?: (thread: Thread) => boolean;
   adapter?: AgentHarnessAdapter;
   getThread: (id: string) => Thread;
   onChange: (id: string) => void;
@@ -48,6 +49,21 @@ export class ThreadAgentManager {
 
   constructor(private readonly options: ThreadAgentOptions) {
     this.directory = join(options.home, "thread-agents");
+  }
+
+  /** Experimental policy is resolved against the Thread workspace by the local CLI. */
+  isEnabled(id: string): boolean {
+    return (
+      this.options.enabled && (this.options.enabledForThread?.(this.options.getThread(id)) ?? true)
+    );
+  }
+
+  /** Refuse agent API calls while its experimental flag is disabled. */
+  assertEnabled(id: string): void {
+    if (!this.isEnabled(id))
+      throw new Error(
+        "Thread agent is disabled; enable [experimental] thread_agent in config.toml",
+      );
   }
 
   /** Read a transcript without starting an agent or contacting a model. */
@@ -91,10 +107,7 @@ export class ThreadAgentManager {
 
   /** Freeze each pending comment once and queue an individual answer at the Thread tail. */
   prompt(params: { id: string; text: string; context?: string; retry?: string }): ThreadAgentState {
-    if (!this.options.enabled)
-      throw new Error(
-        "Thread agent prototype is disabled; set CUELOOP_AGENT_THREADS=1 on the daemon",
-      );
+    this.assertEnabled(params.id);
     if (!this.options.adapter) throw new Error("Thread agent harness is not configured");
     const state = this.mutable(params.id);
     const thread = this.options.getThread(params.id);
@@ -200,6 +213,8 @@ export class ThreadAgentManager {
 
   /** The daemon enforces read-only originals even when a socket client tries to edit them. */
   isReadOnly(id: string, annotationId: string): boolean {
+    if (!this.isEnabled(id)) return false;
+
     return Boolean(this.get(id).submissions?.some((entry) => entry.commentId === annotationId));
   }
 
@@ -209,8 +224,8 @@ export class ThreadAgentManager {
     configId?: string;
     value?: string;
   }): Promise<ThreadAgentState> {
-    if (!this.options.enabled || !this.options.adapter)
-      throw new Error("Thread agent harness is not configured");
+    this.assertEnabled(params.id);
+    if (!this.options.adapter) throw new Error("Thread agent harness is not configured");
     const state = this.mutable(params.id);
 
     if (state.phase.kind === "running" || state.phase.kind === "permission")

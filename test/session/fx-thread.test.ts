@@ -464,3 +464,45 @@ test.skipIf(!process.env.CUELOOP_TEST_FX)(
   },
   15000,
 );
+
+test("disabled experimental agents reject all agent socket methods without starting a harness", async () => {
+  const home = mkdtempSync(join(tmpdir(), "cueloop-agent-disabled-"));
+  const server = new DaemonServer({ home, idleExitMs: 0 });
+  server.start();
+  const owner = await DaemonClient.connect({ home });
+
+  try {
+    const thread = await owner.sessionCreate(
+      { repoRoot: home, branch: "main" },
+      { type: "plan", content: "Review normally", meta: {} },
+    );
+    const rejected = await Promise.allSettled([
+      owner.agentGet(thread.id),
+      owner.agentConfigure({ id: thread.id }),
+      owner.agentPrompt({ id: thread.id, text: "Start" }),
+      owner.agentCancel(thread.id),
+      owner.agentPermission({ id: thread.id, requestId: "permission", optionId: "allow" }),
+      owner.agentComment({
+        id: thread.id,
+        comment: {
+          id: "comment",
+          messageId: "answer",
+          body: "Explain",
+          sent: false,
+          anchor: makeAnchor(parseBlocks("answer"), 0, 0, 6),
+        },
+      }),
+    ]);
+
+    for (const result of rejected) {
+      expect(result.status).toBe("rejected");
+      if (result.status === "rejected")
+        expect(String(result.reason)).toContain("Thread agent is disabled");
+    }
+    expect((await owner.sessionGet(thread.id)).annotations).toHaveLength(0);
+  } finally {
+    owner.close();
+    server.stop();
+    rmSync(home, { recursive: true, force: true });
+  }
+});

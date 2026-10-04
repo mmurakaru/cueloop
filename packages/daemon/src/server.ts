@@ -47,7 +47,7 @@ type MethodHandler = (connection: Connection, request: Request) => Response["res
 
 export interface DaemonOptions {
   /** Explicit prototype configuration; commands cannot arrive from socket callers. */
-  threadAgent?: Pick<ThreadAgentOptions, "enabled" | "adapter">;
+  threadAgent?: Pick<ThreadAgentOptions, "enabled" | "enabledForThread" | "adapter">;
   home?: string;
   /** Idle-exit delay; 0 disables (tests, foreground runs). */
   idleExitMs?: number;
@@ -87,9 +87,8 @@ export class DaemonServer {
     this.core = new DaemonCore(this.home);
     this.threadAgent = new ThreadAgentManager({
       home: this.home,
-      enabled:
-        options.threadAgent?.enabled ??
-        (process.env.CUELOOP_AGENT_THREADS === "1" || process.env.CUELOOP_FX_THREAD === "1"),
+      enabled: options.threadAgent?.enabled ?? false,
+      enabledForThread: options.threadAgent?.enabledForThread,
       adapter: options.threadAgent?.adapter,
       getThread: (id) => this.core.sessionGet(id),
       tools: {
@@ -397,18 +396,36 @@ export class DaemonServer {
   }
 
   private readonly handlers: Record<MethodName, MethodHandler> = {
-    "agent.configure": (_connection, request) =>
-      this.threadAgent.configure(parseParams("agent.configure", request.params)),
-    "agent.get": (_connection, request) =>
-      this.threadAgent.get(parseParams("agent.get", request.params).id),
-    "agent.prompt": (_connection, request) =>
-      this.threadAgent.prompt(parseParams("agent.prompt", request.params)),
-    "agent.cancel": (_connection, request) =>
-      this.threadAgent.cancel(parseParams("agent.cancel", request.params).id),
-    "agent.comment": (_connection, request) =>
-      this.threadAgent.comment(parseParams("agent.comment", request.params)),
-    "agent.permission": (_connection, request) =>
-      this.threadAgent.permission(parseParams("agent.permission", request.params)),
+    "agent.configure": (_connection, request) => {
+      const params = parseParams("agent.configure", request.params);
+      this.threadAgent.assertEnabled(params.id);
+      return this.threadAgent.configure(params);
+    },
+    "agent.get": (_connection, request) => {
+      const { id } = parseParams("agent.get", request.params);
+      this.threadAgent.assertEnabled(id);
+      return this.threadAgent.get(id);
+    },
+    "agent.prompt": (_connection, request) => {
+      const params = parseParams("agent.prompt", request.params);
+      this.threadAgent.assertEnabled(params.id);
+      return this.threadAgent.prompt(params);
+    },
+    "agent.cancel": (_connection, request) => {
+      const { id } = parseParams("agent.cancel", request.params);
+      this.threadAgent.assertEnabled(id);
+      return this.threadAgent.cancel(id);
+    },
+    "agent.comment": (_connection, request) => {
+      const params = parseParams("agent.comment", request.params);
+      this.threadAgent.assertEnabled(params.id);
+      return this.threadAgent.comment(params);
+    },
+    "agent.permission": (_connection, request) => {
+      const params = parseParams("agent.permission", request.params);
+      this.threadAgent.assertEnabled(params.id);
+      return this.threadAgent.permission(params);
+    },
     "daemon.ping": () => ({ pid: process.pid, version: this.version }),
     "daemon.hello": (connection, request) => {
       const params = parseParams("daemon.hello", request.params);
