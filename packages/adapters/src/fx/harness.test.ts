@@ -1,6 +1,6 @@
 import { createFxHarness } from "@cueloop/adapters/fx/harness";
 import { afterEach, expect, test } from "bun:test";
-import { mkdtempSync, rmSync, existsSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, existsSync, writeFileSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -200,4 +200,62 @@ test("a resumed successful turn never finalizes a previously interrupted answer"
 
   expect(messages[1]!.complete).toBe(false);
   expect(messages.at(-1)?.complete).toBe(true);
+});
+
+test("structured notices stay in diagnostics and exact startup wording from the assistant stays visible", async () => {
+  const { manager, thread, options } = createTestAgent();
+
+  manager.prompt({ id: thread.id, text: "structured notices" });
+  await waitForAgent(manager, "idle");
+  expect(manager.get(thread.id).messages.at(-1)?.text).toBe(
+    "[context] skill catalog shortened 112 descriptions: effective=20480 bytes source=compiled default\n",
+  );
+  const diagnostic = JSON.parse(
+    readFileSync(
+      join(options.home, "thread-agents", `${thread.id}.diagnostics.ndjson`),
+      "utf8",
+    ).trim(),
+  );
+
+  expect(diagnostic.severity).toBe("future-severity");
+  expect(diagnostic.source).toBe("protocol");
+  expect(diagnostic.text).toBe("Continuing without it.");
+});
+
+test("legacy startup notices cannot hide subsequent HTTP errors sharing their ID", async () => {
+  const { manager, thread, options } = createTestAgent();
+
+  manager.prompt({ id: thread.id, text: "startup failure" });
+  await waitForAgent(manager, "idle");
+  expect(manager.get(thread.id).messages.map((message) => message.text)).toContain(
+    "HTTP 401: authentication failed\n",
+  );
+  const path = join(options.home, "thread-agents", `${thread.id}.diagnostics.ndjson`);
+
+  expect(readFileSync(path, "utf8")).toContain('"source":"legacy-text"');
+  manager.remove(thread.id);
+  expect(existsSync(path)).toBe(false);
+});
+
+test("an error-severity advisory notice does not fail a successful harness turn", async () => {
+  const { manager, thread } = createTestAgent();
+
+  manager.prompt({ id: thread.id, text: "structured error notice" });
+  await waitForAgent(manager, "idle");
+  expect(manager.get(thread.id).messages.at(-1)?.complete).toBe(true);
+  expect(
+    manager
+      .get(thread.id)
+      .messages.some((message) => message.text.includes("Continuing without it")),
+  ).toBe(false);
+});
+
+test("switching to structured notices flushes a pending legacy prefix before its continuation", async () => {
+  const { manager, thread } = createTestAgent();
+
+  manager.prompt({ id: thread.id, text: "structured transition" });
+  await waitForAgent(manager, "idle");
+  expect(manager.get(thread.id).messages.at(-1)?.text).toBe(
+    "[context] skill catalog shortened this is an answer",
+  );
 });

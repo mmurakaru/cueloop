@@ -19,6 +19,7 @@ interface FxRequestMap {
     clientCapabilities: {
       fs?: { readTextFile?: boolean; writeTextFile?: boolean };
       terminal?: boolean;
+      session?: { notices: Record<string, never> };
     };
     clientInfo: { name: string; version: string };
   };

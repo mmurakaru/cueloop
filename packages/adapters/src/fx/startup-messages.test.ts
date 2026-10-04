@@ -1,59 +1,62 @@
 import { expect, test } from "bun:test";
-import { FxStartupMessages } from "./startup-messages";
+import { FxLegacyStartupMessages } from "./startup-messages";
 
-test("startup notices and their continuation chunks do not enter the answer stream", () => {
-  const messages = new FxStartupMessages();
+const catalog =
+  "[context] skill catalog shortened 112 descriptions: effective=20480 bytes source=compiled default\n";
 
-  expect(messages.push("notice", "[context] skill cat")).toBeUndefined();
-  expect(
-    messages.push("notice", "alog shortened 112 descriptions: effective=20480"),
-  ).toBeUndefined();
-  expect(messages.push("notice", "source=compiled default\n")).toBeUndefined();
-  expect(
-    messages.push("notice", "skill discovery warning: candidate /workspace/skill"),
-  ).toBeUndefined();
-  expect(messages.push("answer", "The diff changes the timeout.")).toBe(
-    "The diff changes the timeout.",
+test("a legacy startup line cannot swallow an HTTP error under the same message ID", () => {
+  const diagnostics: string[] = [];
+  const messages = new FxLegacyStartupMessages((text) => diagnostics.push(text));
+
+  expect(messages.push("operational", catalog)).toBeUndefined();
+  expect(messages.push("operational", "HTTP 401: authentication failed\n")).toBe(
+    "HTTP 401: authentication failed\n",
   );
+  expect(diagnostics).toEqual([catalog]);
+});
+
+test("split startup lines route only the known line and preserve its following text", () => {
+  const messages = new FxLegacyStartupMessages(() => {});
+
+  expect(messages.push("notice", catalog.slice(0, 20))).toBeUndefined();
+  expect(messages.push("notice", catalog.slice(20) + "An answer\n")).toBe("An answer\n");
   expect(messages.finish()).toEqual([]);
 });
 
-test("a discovery warning without a preceding catalog notice is suppressed", () => {
-  const messages = new FxStartupMessages();
-
-  expect(messages.push("notice", "skill discovery warn")).toBeUndefined();
-  expect(messages.push("notice", 'ing: candidate "/workspace/skill" was skipped')).toBeUndefined();
-  expect(messages.push("answer", "Here is the answer.")).toBe("Here is the answer.");
-});
-
-test("answers discussing notices, unknown notices, and errors are preserved", () => {
-  const messages = new FxStartupMessages();
+test("unknown wording and an assistant discussing notices remain visible", () => {
+  const messages = new FxLegacyStartupMessages(() => {});
 
   expect(messages.push("answer", "You asked about ")).toBe("You asked about ");
-  expect(messages.push("answer", "skill discovery warning: candidate /workspace/skill")).toBe(
-    "skill discovery warning: candidate /workspace/skill",
-  );
+  expect(messages.push("answer", catalog)).toBe(catalog);
   expect(messages.push("unknown", "[context] important permission failure")).toBe(
     "[context] important permission failure",
   );
-  expect(messages.push("error", "Error: provider authentication failed")).toBe(
-    "Error: provider authentication failed",
+  expect(messages.push("quoted", "[context] skill catalog shortened this is an example\n")).toBe(
+    "[context] skill catalog shortened this is an example\n",
   );
 });
 
-test("ambiguous partial prefixes flush at completion and IDs can be reused on a later turn", () => {
-  const messages = new FxStartupMessages();
+test("incomplete notices flush at turn completion and pending buffers are bounded", () => {
+  const messages = new FxLegacyStartupMessages(() => {});
 
   expect(messages.push("short", "skill")).toBeUndefined();
   expect(messages.finish()).toEqual([{ id: "short", text: "skill" }]);
-  expect(messages.push("short", "A new answer")).toBe("A new answer");
+  const oversized = "skill discovery warning: candidate " + "x".repeat(32768);
+
+  expect(messages.push("long", oversized)).toBe(oversized);
 });
 
-test("unidentified chunks cannot suppress unrelated answers", () => {
-  const messages = new FxStartupMessages();
+test("chunks without a message ID cannot suppress later unrelated output", () => {
+  const messages = new FxLegacyStartupMessages(() => {});
 
-  expect(
-    messages.push(undefined, "skill discovery warning: candidate /workspace/skill"),
-  ).toBeUndefined();
+  expect(messages.push(undefined, catalog)).toBeUndefined();
   expect(messages.push(undefined, "A real answer")).toBe("A real answer");
+});
+
+test("excess message identities fail open instead of creating unbounded pending buffers", () => {
+  const messages = new FxLegacyStartupMessages(() => {});
+
+  for (let i = 0; i < 128; i++) expect(messages.push(String(i), "skill")).toBeUndefined();
+  expect(messages.push("overflow", "skill")).toBe("skill");
+  expect(messages.finish()).toHaveLength(128);
 });

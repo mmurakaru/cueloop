@@ -17,7 +17,7 @@ import type {
   AgentHarnessResult,
 } from "@cueloop/schema";
 import { FxAcpConnection, type FxAcpFrame } from "./acp";
-import { FxStartupMessages } from "./startup-messages";
+import { FxLegacyStartupMessages } from "./startup-messages";
 
 const ConfigOptionSchema = v.object({
   id: v.string(),
@@ -38,7 +38,7 @@ const InitializeSchema = v.object({
 });
 const UpdateSchema = v.object({
   sessionId: v.string(),
-  update: v.object({
+  update: v.looseObject({
     sessionUpdate: v.string(),
     messageId: v.optional(v.string()),
     configOptions: v.optional(v.array(ConfigOptionSchema)),
@@ -48,6 +48,13 @@ const UpdateSchema = v.object({
     kind: v.optional(v.string()),
     status: v.optional(v.picklist(["pending", "in_progress", "completed", "failed", "cancelled"])),
     locations: v.optional(v.array(v.object({ path: v.string(), line: v.optional(v.number()) }))),
+  }),
+});
+const NoticeSchema = v.object({
+  update: v.object({
+    severity: v.string(),
+    title: v.string(),
+    description: v.optional(v.nullable(v.string())),
   }),
 });
 const TextContentSchema = v.object({ type: v.literal("text"), text: v.string() });
@@ -78,7 +85,16 @@ export function createFxHarness(config: FxHarnessOptions = {}): AgentHarnessAdap
 
 class FxHarnessConnection implements AgentHarnessConnection {
   private readonly connection: FxAcpConnection;
-  private readonly startupMessages = new FxStartupMessages();
+  private readonly startupMessages = new FxLegacyStartupMessages((text) =>
+    this.options.onEvent({
+      kind: "diagnostic",
+      severity: "warning",
+      title: "Fx startup notice",
+      text,
+      source: "legacy-text",
+    }),
+  );
+  private structuredNotices = false;
   private sessionId?: string;
   private loading = true;
   private permissionId?: number | string;
@@ -118,7 +134,7 @@ class FxHarnessConnection implements AgentHarnessConnection {
       "initialize",
       {
         protocolVersion: 1,
-        clientCapabilities: {},
+        clientCapabilities: { session: { notices: {} } },
         clientInfo: { name: "cueloop", version: "prototype" },
       },
       InitializeSchema,
@@ -263,7 +279,7 @@ class FxHarnessConnection implements AgentHarnessConnection {
   }
 
   private emitAnswer(id: string | undefined, chunk: string): void {
-    const text = this.startupMessages.push(id, chunk);
+    const text = this.structuredNotices ? chunk : this.startupMessages.push(id, chunk);
 
     if (text !== undefined) this.options.onEvent({ kind: "message", id, text });
   }
@@ -305,6 +321,27 @@ class FxHarnessConnection implements AgentHarnessConnection {
     if (params.sessionId !== this.sessionId) throw new Error("Fx ACP update has the wrong session");
     const update = params.update;
 
+    if (update.sessionUpdate === "notice") {
+      const notice = v.parse(NoticeSchema, frame.params);
+
+      for (const message of this.startupMessages.finish())
+        this.options.onEvent({ kind: "message", ...message });
+      this.structuredNotices = true;
+
+      this.options.onEvent({
+        kind: "diagnostic",
+        severity: notice.update.severity,
+        title: notice.update.title,
+        text: notice.update.description ?? "",
+        source: "protocol",
+      });
+
+      return;
+    }
+    this.receiveUpdate(update);
+  }
+
+  private receiveUpdate(update: v.InferOutput<typeof UpdateSchema>["update"]): void {
     if (
       update.sessionUpdate === "config_option_update" ||
       update.sessionUpdate === "config_options_update"
@@ -338,6 +375,17 @@ class FxHarnessConnection implements AgentHarnessConnection {
         status: update.status,
         locations: update.locations,
         output,
+      });
+    } else if (
+      update.sessionUpdate !== "agent_thought_chunk" &&
+      update.sessionUpdate !== "user_message_chunk"
+    ) {
+      this.options.onEvent({
+        kind: "diagnostic",
+        severity: "info",
+        title: "Fx unhandled session update",
+        text: JSON.stringify(update),
+        source: "protocol",
       });
     }
   }

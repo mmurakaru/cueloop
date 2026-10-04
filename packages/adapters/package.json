@@ -32,7 +32,8 @@
     "./forge-review": "./src/forge-review.ts",
     "./github-review-comment": "./src/github-review-comment.ts",
     "./wake-message": "./src/wake-message.ts",
-    "./fx/harness": "./src/fx/harness.ts"
+    "./fx/harness": "./src/fx/harness.ts",
+    "./pi/harness-output": "./src/pi/harness-output.ts"
   },
   "publishConfig": {
     "access": "public"

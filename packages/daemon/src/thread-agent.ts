@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import * as v from "valibot";
 import {
   parseBlocks,
+  routeHarnessOutput,
   agentCommentRoot,
   stepAgentSubmission,
   isAgentNote,
@@ -18,6 +19,7 @@ import {
   type AgentHarnessEvent,
   type AgentHarnessResult,
 } from "@cueloop/schema";
+import { writeHarnessDiagnostic } from "./harness-diagnostics";
 import { stepAgentTurn, agentTurnCancelled, type AgentTurn } from "./agent-turn";
 import { ThreadAgentSchema } from "./thread-agent-validation";
 
@@ -393,6 +395,7 @@ Input: ${submission.prompt}`;
     active?.connection.close();
     rmSync(this.path(id), { force: true });
     rmSync(this.path(id) + ".tmp", { force: true });
+    rmSync(join(this.directory, `${encodeURIComponent(id)}.diagnostics.ndjson`), { force: true });
   }
 
   private mutable(id: string): ThreadAgentState {
@@ -535,6 +538,15 @@ Input: ${submission.prompt}`;
   }
 
   private receive(state: ThreadAgentState, event: AgentHarnessEvent): void {
+    if (this.states.get(state.threadId) !== state) return;
+    const routed = routeHarnessOutput(event);
+
+    if (routed.destination === "diagnostics") {
+      writeHarnessDiagnostic(this.directory, state.threadId, routed.event);
+
+      return;
+    }
+    event = routed.event;
     if (event.kind === "config") {
       state.configOptions = event.options;
       this.save(state);
@@ -560,7 +572,7 @@ Input: ${submission.prompt}`;
   private applyUpdate(
     state: ThreadAgentState,
     active: ActiveAgent,
-    update: Exclude<AgentHarnessEvent, { kind: "permission" | "config" }>,
+    update: Extract<AgentHarnessEvent, { kind: "message" | "tool" }>,
   ): void {
     if (update.kind === "message") {
       const messageId = update.id ?? `answer-${active.turnId}`;

@@ -3,6 +3,7 @@ import type { AgentPermission, AgentTool, AgentConfigOption } from "./thread-age
 /** Harness events carry transcript data without exposing a provider's wire protocol. */
 export type AgentHarnessEvent =
   | { kind: "message"; id?: string; text: string }
+  | AgentHarnessDiagnostic
   | {
       kind: "tool";
       id: string;
@@ -58,4 +59,13 @@ export interface AgentHarnessTools {
     };
   }[];
   call(name: string, args: string): Promise<string>;
+}
+
+/** Harness diagnostics never enter conversation history; unknown severities retain their spelling. */
+export interface AgentHarnessDiagnostic {
+  kind: "diagnostic";
+  severity: string;
+  title: string;
+  text: string;
+  source: "protocol" | "legacy-text";
 }
