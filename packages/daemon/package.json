@@ -42,7 +42,7 @@
     "@cueloop/extension-api": "0.1.0-alpha.97",
     "@cueloop/schema": "0.1.0-alpha.97",
     "@pierre/diffs": "^1.4.1",
-    "effect": "^4.0.0-rc.117",
+    "effect": "^4.0.0",
     "smol-toml": "^1.8.0",
     "valibot": "^1.5.0"
   },
