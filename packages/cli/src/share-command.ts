@@ -20,7 +20,6 @@ import type { Thread } from "@cueloop/schema";
 
 export interface ShareParams {
   sessionId?: string;
-  /** Fork the session first and share the fork: one artifact to two people, with separate discussions. */
   fork?: boolean;
   host?: string;
   port?: number;
@@ -89,7 +88,16 @@ export async function shareSession(
   const { line, copied } = await deps.publish(shared, { host: params.host, port: params.port });
   const shareId = shareIdFromLine(line);
 
-  if (shareId) await client.sessionSetShareId(session.id, shareId);
+  if (shareId)
+    await client.sessionSetShares(session.id, [
+      ...(session.shares ?? []),
+      {
+        id: shareId,
+        requireAuth: false,
+        allowlist: [],
+        shareBranch: session.history?.branch ?? "main",
+      },
+    ]);
   if (params.fork) deps.out(`forked ${picked.id} as ${session.id}`);
   deps.out(copied ? `share link copied - ${line}` : line);
 
@@ -113,9 +121,15 @@ export async function pullSession(
 
     return 1;
   }
-  const remote = await deps.pull(session.shareId!, { host: params.host, port: params.port });
+  const remote = await deps.pull(session.shares!.at(-1)!.id, {
+    host: params.host,
+    port: params.port,
+  });
   const before = new Set(session.annotations.map((annotation) => annotation.id));
-  const merged = await client.sessionMergeShared(session.id, mergeFromShare(remote));
+  const merged = await client.sessionMergeShared(session.id, {
+    ...mergeFromShare(remote),
+    shareId: session.shares!.at(-1)!.id,
+  });
   // count notes that were not here before, so a pull carrying removals never miscounts
   const added = merged.annotations.filter((annotation) => !before.has(annotation.id)).length;
 
@@ -139,9 +153,9 @@ async function pickSharedSession(client: ThreadClient, sessionId?: string): Prom
   if (sessionId) {
     const session = await client.sessionGet(sessionId);
 
-    return session.shareId ? session : null;
+    return session.shares?.length ? session : null;
   }
   const sessions = await client.sessionList();
 
-  return sessions.filter((session) => session.shareId).at(-1) ?? null;
+  return sessions.filter((session) => session.shares?.length).at(-1) ?? null;
 }

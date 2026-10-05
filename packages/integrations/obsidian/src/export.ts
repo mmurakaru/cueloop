@@ -14,13 +14,11 @@ import { frontmatter } from "./frontmatter";
 export type ExportOn = "approved" | "message" | "manual";
 
 export interface ObsidianConfig {
-  /** Vault path; when unset, the first auto-detected vault is used. */
   vault?: string;
   folder: string;
   filenameFormat: string;
   separator: Separator;
   exportOn: ExportOn;
-  /** Override for Obsidian's own config file location (tests). */
   obsidianConfigPath?: string;
 }
 

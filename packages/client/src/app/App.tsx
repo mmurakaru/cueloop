@@ -79,7 +79,7 @@ import {
 } from "../keyboard/thread-chords";
 import { type DiffFoldControls } from "../diff/components/DiffContentView";
 import { commentCountsByFile, readsFrozenDiff } from "../diff/view-diff";
-import { annotationTarget, isAddressed, isAgentNote, threadShareLinks } from "@cueloop/schema";
+import { annotationTarget, isAddressed, isAgentNote } from "@cueloop/schema";
 import type {
   Annotation,
   Artifact,
@@ -117,45 +117,19 @@ const TOAST_DISMISS_MS = 2000;
 export interface AppProps {
   home?: string;
   sessionId?: string;
-  /** Review data already captured by the command before the UI mounts. */
   initialReview?: { session: Thread; diff: { patch: string; files: DiffFileContents[] } };
-  /** An owner connection already opened by the launching command. */
   initialClient?: ThreadClient;
-  /** The launch directory whose git repo backs the no-session welcome tree; defaults to process.cwd(). */
   cwd?: string;
-  /**
-   * Observer mode (SSH-served connections): every mutating primitive is ignored and
-   * answers "observer - read-only" in the status line; navigation still works.
-   */
   readOnly?: boolean;
   onExit?: (code: number) => void;
-  /** Fired once, after the first frame that paints a usable screen with its keyboard handlers live (ready-signal.ts). */
   onReady?: () => void;
-  /** Timer source for the auto-close countdown; tests inject a ManualClock. */
   clock?: Clock;
-  /** Session source; the sharing gateway injects a blob-backed client. */
   openClient?: () => Promise<ThreadClient>;
   shareTransport?: ShareTransport;
-  /**
-   * Who is at the keyboard. `owner` is the local planner (default). `observer`
-   * is a passive `cueloop serve` watcher (read-only). `collaborator` is a share
-   * viewer: annotates, but cannot edit the plan or submit an agent message.
-   */
   role?: "owner" | "observer" | "collaborator";
-  /**
-   * A collaborator's own SSH fingerprint. On first open of a share it seeds the
-   * name prompt so their notes attribute to a name, not a fingerprint.
-   */
   selfAuthor?: string;
-  /**
-   * The terminal's background appearance (from an OSC query at startup). The
-   * branded transparent theme darkens its text on a light terminal so it is not
-   * light-on-light. Defaults to dark - the historical assumption.
-   */
   appearance?: Appearance;
-  /** The pane composition to open in; a create-command sets it, a bare launch restores the remembered one. */
   layout?: LaunchLayout;
-  /** Serve mode: the frozen working-tree diff an observer reads for the served workbench thread. */
   servedArtifact?: Artifact;
   extensionRegistry?: ClientExtensionRegistry;
 }
@@ -183,12 +157,12 @@ function menuChromeOpen(menuDialog: "keybinds" | "settings" | null): boolean {
 
 /** Whether a thread already has at least one live share link. */
 function isSharedThread(session: Thread | null): boolean {
-  return session !== null && (threadShareLinks(session)?.length ?? 0) > 0;
+  return session !== null && (session.shares?.length ?? 0) > 0;
 }
 
 /** A thread's live share links for the share dialog, or an empty list with no session. */
 function shareLinksFor(session: Thread | null): ShareLink[] {
-  return session ? (threadShareLinks(session) ?? []) : [];
+  return session ? (session.shares ?? []) : [];
 }
 
 /** The title the share dialog shows and prefills a new link with, or empty with no session. */

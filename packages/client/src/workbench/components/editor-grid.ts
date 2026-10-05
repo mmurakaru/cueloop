@@ -8,11 +8,8 @@ export interface EditorTab {
   id: string;
   kind: "changes" | "file" | "welcome";
   label: string;
-  /** Repo-relative path for a file tab; absent for the Changes and Welcome tabs. */
   path?: string;
-  /** A file tab shows either a single-file diff or the file's plain contents. */
   fileView?: "diff" | "contents";
-  /** A preview is replaced by the next file opened in its group. */
   preview?: boolean;
 }
 

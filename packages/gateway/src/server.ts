@@ -1,3 +1,4 @@
+import { unpackGatewayShare } from "./gateway-share-blob";
 /**
  * The sharing gateway: one raw ssh2 front door, one session handler that
  * branches on channel type (the wish / gliderlabs / git-shell model). A shell
@@ -51,13 +52,12 @@ import {
 import { githubClientId } from "./github-device-flow";
 import { runCollaboratorJoin, type CollaboratorJoinOutcome } from "./collaborator-join";
 
-const PushPayloadSchema = v.object({
+const PushPayloadSchema = v.strictObject({
   shareId: v.optional(v.unknown()),
   annotations: v.optional(v.unknown()),
-  access: v.optional(v.unknown()),
+  policy: v.optional(v.object({ requireAuth: v.boolean(), allowlist: v.array(v.string()) })),
 });
 
-const ShareAccessPushSchema = v.object({ githubLogins: v.array(v.string()) });
 const TransportErrorSchema = v.object({
   level: v.optional(v.string()),
   code: v.optional(v.string()),
@@ -74,21 +74,13 @@ export type WatchFrame =
 
 export interface GatewayOptions {
   store: ShareStore;
-  /** 256-bit master key; the per-blob keys derive from it. */
   masterKey: Buffer;
-  /** Where the persisted SSH host key lives. */
   hostKeyPath: string;
-  /** Listen port. Default 22 (the gateway owns it); tests pass 0. */
   port?: number;
-  /** Bind address. Default 0.0.0.0 in production; tests pass 127.0.0.1. */
   host?: string;
-  /** Host shown in the minted `ssh <id>@<host>` line. Default cueloop.dev. */
   publicHost?: string;
-  /** Largest accepted upload. Default MAX_BLOB_BYTES (1 MiB). */
   maxUploadBytes?: number;
-  /** When set, serve Prometheus `/metrics` on this port (loopback). Off if absent. */
   metricsPort?: number;
-  /** Bind for the metrics server. Default 127.0.0.1 - never expose it on the public port. */
   metricsHost?: string;
   onError?: (cause: unknown) => void;
 }
@@ -96,7 +88,6 @@ export interface GatewayOptions {
 export interface GatewayHandle {
   host: string;
   port: number;
-  /** The bound loopback metrics port, when a metrics server was started. */
   metricsPort?: number;
   close(): Promise<void>;
 }
@@ -226,7 +217,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
 
         return end(channel, 1);
       }
-      session = unpackSessionBlob(openBlob(options.masterKey, shareId, stored));
+      session = unpackGatewayShare(openBlob(options.masterKey, shareId, stored), shareId);
     } catch (err) {
       onError(err);
       metrics.recordShare("view", "error", elapsed(startedAt));
@@ -269,7 +260,10 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
         }
       }
       // A private share renders only for an authenticated login on its allowlist; a public share is unchanged.
-      if (session.access && !isShareViewerAllowed(session.access, verifiedGithubLogin)) {
+      if (
+        session.shares?.[0]?.requireAuth &&
+        !isShareViewerAllowed(session.shares[0], verifiedGithubLogin)
+      ) {
         channel.stderr.write(
           "cueloop: this is a private share; connect GitHub as an allowed collaborator to view it\r\n",
         );
@@ -327,12 +321,22 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
 
     try {
       const bytes = await readCapped(channel, maxUploadBytes);
-      // shareId is the planner's local marker; it must never live in the blob,
-      // or a collaborator's view would try to pull/push against the gateway.
-      const { shareId: _local, ...uploaded } = unpackSessionBlob(bytes);
-      const session = { ...uploaded, owner: identity.fingerprint };
+      const uploaded = unpackSessionBlob(bytes);
+
+      if (uploaded.shares?.length !== 1) throw new Error("share upload requires exactly one link");
 
       id = mintShareId();
+      const session = {
+        ...uploaded,
+        shares: [
+          {
+            ...uploaded.shares[0]!,
+            id,
+            owner: identity.fingerprint,
+          },
+        ],
+      };
+
       await store.put(id, sealBlob(options.masterKey, id, packSessionBlob(session)));
     } catch (cause) {
       onError(cause);
@@ -359,9 +363,9 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
       const stored = await store.get(shareId);
 
       if (!stored) return void fail(channel, "this share was not found or has expired");
-      const session = unpackSessionBlob(openBlob(options.masterKey, shareId, stored));
+      const session = unpackGatewayShare(openBlob(options.masterKey, shareId, stored), shareId);
 
-      if (session.owner !== identity.fingerprint)
+      if (session.shares?.[0]?.owner !== identity.fingerprint)
         return void fail(channel, "only the planner who shared this can pull it");
       channel.write(JSON.stringify(session));
       metrics.recordShare("pull", "ok", elapsed(startedAt));
@@ -388,9 +392,9 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
       const stored = await store.get(shareId);
 
       if (!stored) return void fail(channel, "this share was not found or has expired");
-      const session = unpackSessionBlob(openBlob(options.masterKey, shareId, stored));
+      const session = unpackGatewayShare(openBlob(options.masterKey, shareId, stored), shareId);
 
-      if (session.owner !== identity.fingerprint)
+      if (session.shares?.[0]?.owner !== identity.fingerprint)
         return void fail(channel, "only the planner who shared this can watch it");
     } catch (err) {
       onError(err);
@@ -407,7 +411,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
           if (!bytes) return finish();
           send({
             type: "session",
-            session: unpackSessionBlob(openBlob(options.masterKey, shareId, bytes)),
+            session: unpackGatewayShare(openBlob(options.masterKey, shareId, bytes), shareId),
           });
         })
         .catch(onError);
@@ -444,25 +448,20 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
       const stored = await store.get(shareId.output);
 
       if (!stored) return void fail(channel, "this share was not found or has expired");
-      const session = unpackSessionBlob(openBlob(options.masterKey, shareId.output, stored));
+      const session = unpackGatewayShare(
+        openBlob(options.masterKey, shareId.output, stored),
+        shareId.output,
+      );
 
-      if (session.owner !== identity.fingerprint)
+      if (session.shares?.[0]?.owner !== identity.fingerprint)
         return void fail(channel, "only the planner who shared this can push to it");
-      // the owner can also update the link's access on the stored blob: an allowlist makes
-      // it private, the literal "public" clears it, and an absent field leaves it unchanged
-      const access = v.safeParse(ShareAccessPushSchema, payload.access);
       const merged = mergeOwnerAnnotations(session, annotations.output);
-      let withAccess = merged;
+      const withPolicy = payload.policy
+        ? { ...merged, shares: merged.shares?.map((link) => ({ ...link, ...payload.policy })) }
+        : merged;
 
-      if (payload.access === "public") {
-        const { access: _cleared, ...rest } = merged;
-
-        withAccess = rest;
-      } else if (access.success) {
-        withAccess = { ...merged, access: access.output };
-      }
       // Round-trip validates the pushed notes: a malformed one throws here, so the stored blob stays intact.
-      const next = unpackSessionBlob(packSessionBlob(withAccess));
+      const next = unpackSessionBlob(packSessionBlob(withPolicy));
 
       await store.put(
         shareId.output,
@@ -493,9 +492,9 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
       const stored = await store.get(shareId);
 
       if (stored) {
-        const session = unpackSessionBlob(openBlob(options.masterKey, shareId, stored));
+        const session = unpackGatewayShare(openBlob(options.masterKey, shareId, stored), shareId);
 
-        if (session.owner !== identity.fingerprint)
+        if (session.shares?.[0]?.owner !== identity.fingerprint)
           return void fail(channel, "only the planner who shared this can revoke it");
         await store.delete(shareId);
       }

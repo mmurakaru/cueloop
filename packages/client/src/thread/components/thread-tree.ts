@@ -38,7 +38,6 @@ export type InboxRow =
 
 export interface GroupedInbox {
   rows: InboxRow[];
-  /** Threads in display order; the inbox cursor indexes this. */
   ordered: Thread[];
 }
 

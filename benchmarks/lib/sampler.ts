@@ -75,7 +75,6 @@ export function sampleScript(
 
 export interface ScriptProfile {
   metrics: Map<string, number>;
-  /** Absolute paths the profiler wrote: a binary profile plus a readable markdown report. */
   artifacts: string[];
 }
 

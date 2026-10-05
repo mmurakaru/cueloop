@@ -12,9 +12,7 @@ export const SCHEMA_VERSION = "1";
 export interface WorkspaceKey {
   repoRoot: string;
   branch: string;
-  /** Earliest root commit SHA; the project key that survives moving or re-cloning the repo. Absent for a standalone thread. */
   rootCommit?: string;
-  /** Origin remote URL when present; for display and repair only, never the project key. */
   remote?: string;
 }
 
@@ -61,40 +59,25 @@ export function isMarkdownArtifact(type: ArtifactType): boolean {
 }
 
 export interface ArtifactMeta {
-  /** The workflow that submitted this artifact, distinct from its artifact type. */
   workflow?: WorkflowKind;
   cwd?: string;
-  /** Diff source selected when the Thread was created; an older Thread without this field uses Git. */
   vcs?: string;
-  /** Logical change identity when the VCS keeps one through rewrites. */
   vcsChangeId?: string;
-  /** Exact source revision captured for this diff. */
   vcsRevisionId?: string;
   agent?: string;
-  /** Agent-native session id, for resume/fork context. */
   agentSessionId?: string;
-  /** Path to the plan or reply markdown file on disk, so feedback can reference it. */
   planPath?: string;
-  /** Path to the prototype's entry HTML file on disk. */
   prototypePath?: string;
-  /** Pull request reference the diff came from, so the message can be posted back. */
   pr?: string;
-  /** Markdown shown in the Thread pane beside a pull request diff. */
   prBrief?: string;
-  /** Exact pull request commits captured by this review. */
   prBaseSha?: string;
   prHeadSha?: string;
-  /** Newer remote commits detected by the poller; the reviewer chooses when to refresh. */
   prRefreshBaseSha?: string;
   prRefreshHeadSha?: string;
-  /** Canonical GitHub pull request URL. */
   prUrl?: string;
-  /** herdr pane the submitting agent runs in - the review returns focus there. */
   herdrPane?: string;
   title?: string;
-  /** A self-initiated per-repo workbench thread (a bare launch's first comment), not an agent submission. */
   workbench?: boolean;
-  /** A frozen point-in-time capture of a workbench thread's diff, for a remote reviewer who has no working tree. */
   snapshot?: boolean;
 }
 
@@ -125,20 +108,13 @@ export interface DiffFileContents {
   path: string;
   oldContents: string;
   newContents: string;
-  /** git's own classification - not inferred from empty contents, so an
-   *  existing-empty-file edit is a modify, not a create/delete. */
   status: DiffFileStatus;
 }
 
 export interface Artifact {
   type: ArtifactType;
-  /** Markdown source for plans and replies; unified-diff text for diffs. */
   content: string;
   meta: ArtifactMeta;
-  /**
-   * Full file contents for a diff artifact, so hunk curation produces an
-   * exactly applyable patch; absent for legacy or partial (PR) diffs.
-   */
   files?: DiffFileContents[];
 }
 
@@ -151,14 +127,10 @@ export interface Anchor {
   quote: string;
   prefix: string;
   suffix: string;
-  /** Index of the block the anchor starts in (hint). */
   blockIndex?: number;
-  /** Last block of a quote that spans blocks (hint); absent for one block. */
   endBlockIndex?: number;
-  /** Character offsets: `start` within the first block, `end` within the last (hint). */
   start?: number;
   end?: number;
-  /** Prototype anchors: the CSS selector of the annotated element (authority). */
   selector?: string;
 }
 
@@ -196,31 +168,12 @@ export interface Annotation {
   id: string;
   kind: AnnotationKind;
   anchor: Anchor;
-  /** The surface this note was made on; absent means the session's reviewed artifact. */
   target?: AnnotationTarget;
-  /** Comment body. */
   body: string;
-  /** Set by resolution when the quote can no longer be found. */
   orphan?: boolean;
-  /**
-   * SSH key fingerprint of a share collaborator who authored this note. Absent
-   * on the planner's own annotations; the sharing gateway stamps it so the
-   * planner can tell whose note is whose and never overwrite a collaborator's.
-   */
   author?: string;
-  /** GitHub line anchor and presentation fields for an agent-authored PR review comment. */
   reviewComment?: ReviewComment;
-  /**
-   * The root comment this one replies to. Absent on a root. A reply shares its
-   * root's anchor, so a discussion stays one conversation when the text moves.
-   */
   replyTo?: string;
-  /**
-   * Set when a revision addressed this annotation: the agent reported the id
-   * on resubmit ("agent"), or the quoted text disappeared from the revised
-   * plan ("drift"). Addressed annotations leave the default rail view and the
-   * next feedback document, but are never deleted.
-   */
   resolution?: AnnotationResolution;
   createdAt: string;
 }
@@ -236,7 +189,6 @@ export interface ReviewComment {
   path: string;
   line: number;
   startLine?: number;
-  /** Quote-primary anchor for the first line of a multiline finding. */
   startAnchor?: Anchor;
   side: "LEFT" | "RIGHT";
   suggestion?: string;
@@ -244,7 +196,6 @@ export interface ReviewComment {
 }
 
 export interface AnnotationResolution {
-  /** The revision number whose submission addressed this annotation. */
   revision: number;
   source: "agent" | "drift";
 }
@@ -261,7 +212,6 @@ export interface HarnessBinding {
   harness: string;
   harnessSessionId: string;
   createdAt: string;
-  /** Approval whose one unchanged plan resubmission this harness has consumed. */
   approvedRetryMessageId?: string;
 }
 
@@ -293,13 +243,10 @@ export interface OperationReceipt<Result> {
 }
 
 export interface Message {
-  /** Stable identity used to deduplicate at-least-once harness delivery. */
   id: string;
   outcome: MessageOutcome;
   summary: string;
-  /** The structured review document sent to the harness. */
   body: string;
-  /** Annotation snapshots included in this delivery, for incremental sends. */
   annotations?: Annotation[];
   sentAt: string;
 }
@@ -308,9 +255,7 @@ export interface Revision {
   revision: number;
   content: string;
   submittedAt: string;
-  /** Exact VCS source for this reviewed text, when one was captured. */
   source?: DiffSource;
-  /** File contents captured with this diff revision, retained across refreshes. */
   files?: DiffFileContents[];
 }
 
@@ -322,20 +267,14 @@ export type SessionStatus = "pending" | "resolved";
  * ("github:…") later. Provider-agnostic so those identities slot in unchanged.
  */
 export interface Identity {
-  /** Stable identity key; equals an annotation's `author`. */
   id: string;
-  /** Identity source: the SSH key that authored, or a verified GitHub login. */
   provider: "ssh" | "github";
-  /** Display name; absent = the collaborator stayed anonymous. */
   name?: string;
-  /** Provider handle: a github login, an email, or a short fingerprint. */
   handle?: string;
 }
 
-/** Owner-set access control for a private share: only these GitHub logins may open it. Absent = a public share. */
-export interface ShareAccess {
-  githubLogins: string[];
-}
+/** A share link's public or private policy; a private link with an empty allowlist admits no viewers. */
+export type SharePolicy = Pick<ShareLink, "requireAuth" | "allowlist">;
 
 /**
  * One published share link for a thread. A thread can have several, each an
@@ -344,17 +283,11 @@ export interface ShareAccess {
  * GitHub logins (empty + requireAuth is a private link with no one added yet).
  */
 export interface ShareLink {
-  /** The share id (`p_…`), the link's address and gateway blob key. */
   id: string;
-  /** A local, cosmetic label for the list; never leaves the planner's machine. */
   name?: string;
-  /** True = private (only `allowlist` may open it); false = public. */
   requireAuth: boolean;
-  /** GitHub logins allowed when `requireAuth`; ignored when public. */
   allowlist: string[];
-  /** SSH fingerprint that created the link; the gateway stamps it to gate pulls/pushes/revokes. */
   owner?: string;
-  /** The branch this link follows and shows collaborators; `main` when absent. */
   shareBranch?: string;
 }
 
@@ -365,65 +298,26 @@ export interface TextCut {
   quote: string;
 }
 
+/** A Thread carries share policy and ownership on each entry in shares. */
 export interface Thread {
   schemaVersion: string;
   id: string;
   workspace: WorkspaceKey;
   artifact: Artifact;
-  /** Revision history; artifact.content always equals the latest revision. */
   revisions: Revision[];
   annotations: Annotation[];
-  /**
-   * The session's history as a tree of entries with named branches; the
-   * artifact text and the open comments derive from the active path. Absent
-   * only on records written before histories existed; the store migrates
-   * those on read.
-   */
   history?: SessionHistory;
-  /** A diff review's reject decisions; the working copy is the patch they leave. */
   curation?: HunkRejection[];
-  /**
-   * The reviewer's working copy of the artifact source (plan edits).
-   * Serializes as ONE unified diff against the submitted revision.
-   * Undefined = no direct edits.
-   */
   workingCopy?: string;
-  /** Exact source ranges behind character Cuts in the current working copy. */
   textCuts?: TextCut[];
-  /**
-   * File paths the reviewer marked viewed during the guided walk (diff
-   * sessions). Persisting with the session means a resumed review keeps its
-   * progress. Undefined = the walk never started.
-   */
   viewedPaths?: string[];
-  /** Acceptance receipts persist atomically with review messages for safe explicit retries. */
   messageOperations?: OperationReceipt<Message>[];
   message: Message | null;
   status: SessionStatus;
   createdAt: string;
-  /**
-   * Comments off the active path - removed, or made on a segment a tip moved
-   * away from. Nothing is deleted: a navigate or switch that brings their
-   * entries back onto the path shows them again.
-   */
   shelvedAnnotations?: Annotation[];
-  /** The session this one was forked from. */
   parentSessionId?: string;
-  /** Published share links for this thread; each is an independent gateway blob. Migrated from the legacy scalar fields on read. */
   shares?: ShareLink[];
-  /** @deprecated Legacy single-share id; migrated into `shares` on read. */
-  shareId?: string;
-  /** @deprecated Legacy single-share branch; migrated into `shares` on read. */
-  shareBranch?: string;
-  /** @deprecated Legacy single-share owner fingerprint; migrated into `shares` on read. */
-  owner?: string;
-  /** @deprecated Legacy single-share allowlist; migrated into `shares` on read. */
-  access?: ShareAccess;
-  /**
-   * Identities that authored annotations here, keyed by id (union-by-id, like
-   * annotations). The gateway records a collaborator's identity and chosen name;
-   * the rail resolves an annotation's `author` against this registry.
-   */
   participants?: Identity[];
 }
 

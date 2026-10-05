@@ -99,6 +99,7 @@ Verification recipes:
   products in docs, code, commits, or issues. Naming our own dependencies and
   integration targets (OpenTUI, @pierre/diffs, herdr, pi, Claude Code, Codex, Obsidian) is fine.
 - Comments state intent and invariants, not narration.
+- Keep interface bodies free of comments.
 - Blank-line padding: keep a blank line before every `return` and after a run of
   declarations, including before `if` statements. The local
   `statement-padding/blank-lines` oxlint rule enforces this; `bun run format`

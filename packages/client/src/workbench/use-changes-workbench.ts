@@ -24,7 +24,6 @@ import {
 /** Seed the workbench for a bare launch: the region opens on a disposable Welcome tab. */
 export interface ChangesWorkbenchOptions {
   seed?: "changes" | "welcome";
-  /** The launch layout the right region opens in; overrides the seed's defaults. */
   layout?: LaunchLayout;
 }
 
@@ -78,7 +77,6 @@ export interface ChangesWorkbench {
   close: (groupId: string, tabId: string) => void;
   split: (groupId: string, direction: SplitDirection) => void;
   openFile: (path: string, fileView: "diff" | "contents", persistent?: boolean) => void;
-  /** Re-open defaults when the session changes: a diff opens the region in changed-files mode. */
   syncSession: (sessionId: string | undefined, isDiff: boolean) => void;
 }
 

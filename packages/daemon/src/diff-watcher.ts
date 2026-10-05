@@ -90,15 +90,11 @@ function resolveGitDirs(repoRoot: string): { gitDir: string; commonDir: string }
 }
 
 interface RepoWatch {
-  /** One watcher per watched working-tree directory plus the narrow git-metadata watches; all close together. */
   handles: FSWatcher[];
-  /** Live diff session ids sharing this repo root; the watch closes when the last one leaves. */
   sessionIds: Set<string>;
   jjSessionIds: Set<string>;
   jjPoll: ReturnType<typeof setInterval> | null;
-  /** Absolute paths git ignores under the root, so the walk skips them. */
   ignored: Set<string>;
-  /** Directories already watched, so a runtime-created dir is not watched twice. */
   watchedDirs: Set<string>;
   reconcilePending: boolean;
   debounce: ReturnType<typeof setTimeout> | null;

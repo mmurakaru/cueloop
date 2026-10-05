@@ -21,9 +21,7 @@ import {
 
 /** How much slower a metric may get before the gate fails it: both bounds must be exceeded. */
 interface RegressionThreshold {
-  /** head / base at or above which growth is material. */
   maxRegressionRatio: number;
-  /** Growth below this, in the metric's unit, is never material. */
   minAbsoluteRegression: number;
 }
 
@@ -68,7 +66,6 @@ export interface ComparisonRow {
   unit: MetricResult["unit"];
   base: number | null;
   head: number | null;
-  /** head minus base, in the metric's unit; null without both sides. */
   delta: number | null;
   threshold: RegressionThreshold | null;
   status: RowStatus;
@@ -79,7 +76,6 @@ export interface Comparison {
   baseVersion: string | undefined;
   headVersion: string | undefined;
   rows: ComparisonRow[];
-  /** True when any row is `fail` or `missing-head`. */
   failed: boolean;
 }
 
@@ -218,9 +214,7 @@ function formatThreshold(
 }
 
 export interface ComparisonMarkdownOptions {
-  /** The heading; the gate names itself, a pull request comment names the comparison. */
   title?: string;
-  /** The line under the heading; replaces the default "base X vs head Y" subtitle. */
   subtitle?: string;
 }
 

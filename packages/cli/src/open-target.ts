@@ -47,9 +47,7 @@ export function isSessionId(value: string): boolean {
 }
 
 export interface OpenTargetQuery {
-  /** Only sessions this predicate accepts are eligible - the primitive's artifact scope. */
   match: (session: Thread) => boolean;
-  /** Positional id-or-title selector; absent means "latest pending". */
   selector?: string;
 }
 

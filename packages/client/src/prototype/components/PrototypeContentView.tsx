@@ -37,11 +37,7 @@ export interface PrototypeContentViewProps {
   prototypePath: string;
   canComment: boolean;
   onCommentElement: (element: PrototypeElement, body: string) => void;
-  /** Signals when the inline compose owns the keyboard, so the app suppresses
-   *  its global keymap and the compose textarea receives the typed note. */
   onComposingChange?: (active: boolean) => void;
-  /** True while an app overlay (menu, settings) covers the sheet; the image is
-   *  removed so those overlays are not shown through the graphics layer. */
   hidden?: boolean;
   theme?: Theme;
 }

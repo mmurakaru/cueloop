@@ -33,7 +33,6 @@ export interface BareWorkbenchFileViewProps {
   path: string;
   controller: WorkbenchCommenter;
   quickActions: QuickAction[];
-  /** Reports whether the composer is open, so the shell suspends its inbox keys while typing. */
   onComposingChange?: (composing: boolean) => void;
   onExit: () => void;
   theme?: Theme;

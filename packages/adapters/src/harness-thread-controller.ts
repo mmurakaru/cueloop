@@ -28,8 +28,8 @@ export interface HarnessThreadClient extends ThreadSessionClient {
   deliveryAcknowledge(deliveryId: string): Promise<Delivery>;
 }
 
+/** sendMessage must ignore a Message ID already sent, including retries after a lost acknowledgement. */
 export interface HarnessMessageAdapter {
-  /** Must ignore a Message id it has already injected successfully. */
   sendMessage(message: Message): void | Promise<void>;
 }
 
@@ -68,7 +68,6 @@ export interface ForgeReviewPort {
       headRefOid: string;
     };
   }>;
-  /** Legacy explicit Message post-back. Never called during ordinary delivery. */
   postPullRequestMessage(
     pullRequestReference: string,
     message: Message,
@@ -124,7 +123,6 @@ export type OpenedWorkflow = BoundThread & {
 export interface BoundThread {
   binding: HarnessBinding;
   thread: Thread;
-  /** True only for the one unchanged resubmission permitted by an approval. */
   approvedRetry: boolean;
 }
 

@@ -93,6 +93,5 @@ export interface PiExtensionAPI {
     event: "session_start" | "session_shutdown" | "session_switch" | "session_fork",
     handler: (event: PiSessionEvent, context: PiContext) => void | Promise<void>,
   ): void;
-  /** Inject a message into the live session - the non-blocking wake path. */
   sendUserMessage(content: string, options?: PiSendMessageOptions): void;
 }

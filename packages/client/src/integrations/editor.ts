@@ -62,8 +62,6 @@ const TERMINAL_EDITORS = new Set([
 
 export interface ResolvedEditor {
   argv: string[];
-  /** True when this editor blocks the hand-off until the file is closed - a
-   * terminal editor, or a known GUI editor with its wait flag applied. */
   waits: boolean;
 }
 
@@ -111,10 +109,8 @@ function suspectsNoWait(resolved: ResolvedEditor, elapsedMs: number, unchanged: 
 }
 
 export interface EditHandOff {
-  /** Editor from [ui] editor config; overrides the environment. */
   editor?: string;
   env?: Record<string, string | undefined>;
-  /** Confirm gate for a suspected no-wait return; true re-reads the file. */
   confirmSaved?: (editorLabel: string, path: string) => boolean;
   now?: () => number;
 }

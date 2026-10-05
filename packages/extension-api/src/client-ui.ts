@@ -44,9 +44,7 @@ export interface WorkspacePanelView {
 
 /** Client-only registration API; server and VCS capabilities use the daemon entry point. */
 export interface ClientExtensionAPI {
-  /** Use this React instance for hooks so components share the host renderer's dispatcher. */
   react: typeof React;
-  /** Host keyboard hook; package-local OpenTUI hooks do not share the host context. */
   useKeyboard: typeof import("@opentui/react").useKeyboard;
   registerSection(section: ThreadSidebarSection): ExtensionUIDisposable;
   registerAction(action: ThreadHeaderAction): ExtensionUIDisposable;

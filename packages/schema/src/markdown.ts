@@ -20,11 +20,8 @@ export type BlockKind =
 
 export interface Block {
   kind: BlockKind;
-  /** Content with markers stripped; code, table, and frontmatter blocks keep inner lines verbatim. */
   text: string;
-  /** For code blocks: the fence info string ("ts", "diff", ...). */
   lang?: string;
-  /** 0-based inclusive line range in the source this block occupies. */
   lineStart: number;
   lineEnd: number;
 }

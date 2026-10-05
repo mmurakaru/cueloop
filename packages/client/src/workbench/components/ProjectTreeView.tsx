@@ -16,7 +16,6 @@ const PROJECT_FILES_REFRESH_MS = 2000;
 export interface ProjectTreeViewProps {
   loadFiles: () => Promise<string[]>;
   onSelectFile: (path: string, persistent?: boolean) => void;
-  /** The pane owns the keyboard: j/k and arrows move the cursor; Enter opens or folds. */
   focused?: boolean;
   theme?: Theme;
 }

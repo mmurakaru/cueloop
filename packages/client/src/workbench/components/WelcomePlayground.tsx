@@ -20,7 +20,6 @@ import { diffRowBlocks, fileContentsRows, marksByRows } from "../../diff/view-di
 
 export interface WelcomePlaygroundProps {
   quickActions: QuickAction[];
-  /** Reports whether the playground composer is open, so the shell suspends its inbox keys while typing. */
   onComposingChange?: (composing: boolean) => void;
   suspended?: boolean;
   theme?: Theme;

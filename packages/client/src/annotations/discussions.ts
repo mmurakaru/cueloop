@@ -12,9 +12,7 @@ import { comparePositions, type TextSpan } from "./thread-selection";
 /** One conversation: a root annotation, its replies, and the span they mark. */
 export interface Discussion {
   key: string;
-  /** The annotation replies attach to. */
   rootId: string;
-  /** The block the card renders under: where the span ends. */
   blockIndex: number;
   span: TextSpan;
   annotations: Annotation[];

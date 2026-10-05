@@ -18,9 +18,7 @@ import { Toolbar } from "../../ui/components/primitives/Toolbar";
 export interface TreePaneProps {
   rows: TreeRow[];
   selectedEntryId?: string;
-  /** The owner of an open review may move the tree; everyone else reads it. */
   canMove: boolean;
-  /** The owner may fork, a resolved review included. */
   canFork: boolean;
   onSelect: (entryId: string) => void;
   onGo: (entryId: string) => void;

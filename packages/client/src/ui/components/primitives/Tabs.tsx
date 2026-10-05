@@ -14,7 +14,6 @@ import { FRAME_BORDER_STYLE } from "./frame";
 interface TabsContextValue {
   selectedKey: string;
   onSelectionChange: (key: string) => void;
-  /** Text color of the selected tab; defaults to the accent token. */
   selectedColor?: string;
   theme?: Theme;
 }

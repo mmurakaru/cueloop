@@ -13,7 +13,6 @@ export interface WalkFile {
   path: string;
   added: number;
   removed: number;
-  /** The first changed lines, signed (+/-), for the card's diff preview. */
   preview: { sign: "+" | "-"; text: string }[];
 }
 

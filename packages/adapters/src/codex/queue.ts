@@ -1,15 +1,12 @@
 export interface CodexQueueOptions {
-  /** The Codex thread/session id to queue into. */
   threadId: string;
   message: string;
-  /** Codex binary; defaults to "codex" on PATH. */
   codexBin?: string;
   cwd?: string;
 }
 
 export interface CodexQueueResult {
   ok: boolean;
-  /** Stderr tail when the queue add failed (e.g. the daemon lacks thread/queue/add). */
   error?: string;
 }
 

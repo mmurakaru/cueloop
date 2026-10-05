@@ -12,7 +12,6 @@ import { useStore } from "zustand";
 export type ShareCategory = "external" | "export";
 
 export interface ShareWizardDraft {
-  /** The link being edited, or null when creating a new one. */
   editingId: string | null;
   name: string;
   requireAuth: boolean;
@@ -21,7 +20,6 @@ export interface ShareWizardDraft {
 
 export interface ShareDialogState {
   category: ShareCategory;
-  /** Null = the links list; a draft = the new/edit wizard. */
   wizard: ShareWizardDraft | null;
   setCategory: (category: ShareCategory) => void;
   openWizard: (draft: ShareWizardDraft) => void;
@@ -29,7 +27,6 @@ export interface ShareDialogState {
   setName: (name: string) => void;
   setRequireAuth: (requireAuth: boolean) => void;
   setAllowlist: (allowlist: string[]) => void;
-  /** Reset to the opening state (links list, external tab) when the dialog opens. */
   reset: () => void;
 }
 

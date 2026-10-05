@@ -17,9 +17,7 @@ export interface MetricGroup {
 export interface ChartLine {
   metric: string;
   color: string;
-  /** The `d` attribute of the SVG polyline, empty when the metric has no points. */
   path: string;
-  /** The metric's most recent value, or null when it never appears. */
   last: number | null;
 }
 

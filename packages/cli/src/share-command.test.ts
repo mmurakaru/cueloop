@@ -53,7 +53,6 @@ function fakeClient(sessions: Thread[]): ThreadClient {
     sessionCutBlock: unimplemented("sessionCutBlock"),
     sessionRestoreBlock: unimplemented("sessionRestoreBlock"),
     sessionCurate: unimplemented("sessionCurate"),
-    sessionSetAccess: unimplemented("sessionSetAccess"),
     sessionNavigate: unimplemented("sessionNavigate"),
     sessionBranch: unimplemented("sessionBranch"),
     sessionSwitch: unimplemented("sessionSwitch"),
@@ -67,14 +66,13 @@ function fakeClient(sessions: Thread[]): ThreadClient {
     }),
     sessionSetViewed: unimplemented("sessionSetViewed"),
     sessionSetTitle: unimplemented("sessionSetTitle"),
-    sessionSetShareId: mock(async (id: string, shareId: string) => {
-      const session = sessions.find((candidate) => candidate.id === id)!;
+    sessionSetShares: mock(async (id: string, shares) => {
+      const session = sessions.find((c) => c.id === id)!;
 
-      session.shareId = shareId;
+      session.shares = shares;
 
       return session;
     }),
-    sessionSetShares: mock(async (id: string) => sessions.find((c) => c.id === id)!),
     sessionMergeShared: mock(
       async (
         id: string,
@@ -113,6 +111,26 @@ function depsSpy(overrides: Partial<ShareDeps> = {}): ShareDeps & { lines: strin
 }
 
 describe(shareSession, () => {
+  test("sharing again appends a link and pull selects the newest link", async () => {
+    const first = { id: "p_first", requireAuth: true, allowlist: ["octocat"], shareBranch: "main" };
+    const session = sessionFixture("ses_1", { shares: [first] });
+    const client = fakeClient([session]);
+
+    await shareSession(client, { sessionId: session.id }, depsSpy());
+    expect(session.shares).toEqual([
+      first,
+      { id: "p_abc123xy", requireAuth: false, allowlist: [], shareBranch: "main" },
+    ]);
+    const pull = mock(async () => sessionFixture("remote"));
+
+    await pullSession(client, { sessionId: session.id }, { pull, out: () => {} });
+    expect(pull).toHaveBeenCalledWith("p_abc123xy", { host: undefined, port: undefined });
+    expect(client.sessionMergeShared).toHaveBeenCalledWith(session.id, {
+      annotations: [],
+      shareId: "p_abc123xy",
+    });
+  });
+
   test("publishes the named session and reports the copied ssh line", async () => {
     // Arrange
     const publish = mock(
@@ -225,7 +243,9 @@ describe(shareSession, () => {
     await shareSession(client, { sessionId: "ses_1" }, deps);
 
     // Assert
-    expect(client.sessionSetShareId).toHaveBeenCalledWith("ses_1", "p_abc123xy");
+    expect(client.sessionSetShares).toHaveBeenCalledWith("ses_1", [
+      { id: "p_abc123xy", requireAuth: false, allowlist: [], shareBranch: "main" },
+    ]);
   });
 
   test("--fork shares a fork of the session and leaves the original unshared", async () => {
@@ -245,8 +265,10 @@ describe(shareSession, () => {
       expect.objectContaining({ id: "ses_1_fork", parentSessionId: "ses_1" }),
       expect.anything(),
     );
-    expect(client.sessionSetShareId).toHaveBeenCalledWith("ses_1_fork", "p_abc123xy");
-    expect(session.shareId).toBeUndefined();
+    expect(client.sessionSetShares).toHaveBeenCalledWith("ses_1_fork", [
+      { id: "p_abc123xy", requireAuth: false, allowlist: [], shareBranch: "main" },
+    ]);
+    expect(session.shares).toBeUndefined();
     expect(deps.lines[0]).toBe("forked ses_1 as ses_1_fork");
   });
 });
@@ -265,7 +287,7 @@ describe(pullSession, () => {
   test("unions collaborator notes in, ignoring the planner's own unauthored notes", async () => {
     // Arrange - the planner's own note carries no author; the collaborator's does
     const local = sessionFixture("ses_1", {
-      shareId: "p_abc123xy",
+      shares: [{ id: "p_abc123xy", requireAuth: false, allowlist: [] }],
       annotations: [annotationFixture("mine")],
     });
     const client = fakeClient([local]);
@@ -286,7 +308,10 @@ describe(pullSession, () => {
 
   test("does not resurrect a note the planner deleted locally after sharing", async () => {
     // Arrange - the planner deleted "mine" locally; the share blob still carries it, unauthored
-    const local = sessionFixture("ses_1", { shareId: "p_abc123xy", annotations: [] });
+    const local = sessionFixture("ses_1", {
+      shares: [{ id: "p_abc123xy", requireAuth: false, allowlist: [] }],
+      annotations: [],
+    });
     const deps = pullDepsSpy(sessionFixture("ses_1", { annotations: [annotationFixture("mine")] }));
 
     // Act
@@ -300,7 +325,7 @@ describe(pullSession, () => {
   test("reports when nothing new came back", async () => {
     // Arrange
     const local = sessionFixture("ses_1", {
-      shareId: "p_abc123xy",
+      shares: [{ id: "p_abc123xy", requireAuth: false, allowlist: [] }],
       annotations: [annotationFixture("theirs", "SHA256:mate")],
     });
     const deps = pullDepsSpy(
@@ -317,7 +342,7 @@ describe(pullSession, () => {
   test("counts only the new notes when a pull also carries a removal", async () => {
     // Arrange: the owner holds one collaborator note; the share brings a new note and removes the old one
     const local = sessionFixture("ses_1", {
-      shareId: "p_abc123xy",
+      shares: [{ id: "p_abc123xy", requireAuth: false, allowlist: [] }],
       annotations: [annotationFixture("gone", "SHA256:mate")],
     });
     const remote = sessionFixture("ses_1", {

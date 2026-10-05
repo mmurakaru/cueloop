@@ -16,7 +16,6 @@ export type EntryAuthor = "agent" | "reviewer";
 
 interface EntryBase {
   id: string;
-  /** null on the root entry. */
   parentId: string | null;
   createdAt: string;
 }
@@ -52,11 +51,8 @@ export const MAIN_BRANCH = "main";
 
 export interface SessionHistory {
   entries: SessionEntry[];
-  /** Named tips; `main` always exists. */
   tips: Record<string, string>;
-  /** The branch whose path the session shows. */
   branch: string;
-  /** Checkpoints: an entry id to the name a reviewer gave it. */
   labels: Record<string, string>;
 }
 
@@ -160,17 +156,10 @@ export function validateHistory(history: SessionHistory): string | null {
 }
 
 export interface DerivedPath {
-  /** The last revision on the path: what the artifact shows. */
   head: SessionEntry & { type: "revision" };
-  /**
-   * Comments added on the path and not removed after, in order. Whether one
-   * is addressed by a revision is the annotation's own state, not the path's.
-   */
   annotationIds: string[];
-  /** Messages on the path, oldest first. */
   messages: Message[];
   summaries: Array<SessionEntry & { type: "branch-summary" }>;
-  /** Agent revisions on the path: one per round. */
   rounds: number;
 }
 
@@ -259,7 +248,6 @@ export function switchBranch(history: SessionHistory, name: string): SessionHist
 }
 
 export interface NavigateOptions {
-  /** Record the abandoned segment as a branch summary parented at the target. */
   summary?: string;
   createdAt?: string;
 }

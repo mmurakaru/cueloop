@@ -35,13 +35,9 @@ export type AnchorMatchStrategy = "exact" | "trimmed" | "normalized" | "fuzzy";
 export interface ResolvedAnchor {
   blockIndex: number;
   start: number;
-  /** Last block of the quote; equals blockIndex unless the quote spans blocks. */
   endBlockIndex: number;
-  /** Offset within the end block. */
   end: number;
-  /** True whenever the binding was not an exact quote match. */
   approximate: boolean;
-  /** Which cascade tier bound the quote. */
   strategy: AnchorMatchStrategy;
 }
 

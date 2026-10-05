@@ -124,11 +124,8 @@ export interface UpdateDeps {
   installDir: () => string | undefined;
   fetchLatestVersion: () => Promise<string | undefined>;
   runInstaller: (targetInstallDir: string) => Promise<number>;
-  /** Stop the running daemon after an update so the next launch autostarts the new build; resolves true when one was stopped. */
   stopDaemon: () => Promise<boolean>;
-  /** Progress and status, on stdout - not an error, so it must not read as one. */
   out: (message: string) => void;
-  /** A failure that ends the run, on stderr. */
   error: (message: string) => void;
 }
 

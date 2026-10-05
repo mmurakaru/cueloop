@@ -54,15 +54,10 @@ async function captureFrozenArtifact(
 }
 
 export interface ServeOptions {
-  /** TCP port for the SSH listener; 0 picks an ephemeral port. Default 2222. */
   port?: number;
-  /** Bind address. Default 127.0.0.1 - widen deliberately (e.g. a tailnet IP). */
   host?: string;
-  /** Open every connection on this session; omit for the inbox. */
   sessionId?: string;
-  /** CUELOOP_HOME override (daemon socket + ssh host key live under it). */
   home?: string;
-  /** Silence the @opentui/ssh startup banner (tests). Default true. */
   banner?: boolean;
   onError?: (cause: unknown) => void;
 }
@@ -70,7 +65,6 @@ export interface ServeOptions {
 export interface ServeHandle {
   host: string;
   port: number;
-  /** SHA256 host-key fingerprints, for out-of-band verification. */
   fingerprints: string[];
   close(): Promise<void>;
 }

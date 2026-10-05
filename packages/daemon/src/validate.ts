@@ -32,7 +32,6 @@ import {
   REVIEW_SEVERITIES,
   type ReviewComment,
   type SessionHistory,
-  type ShareAccess,
   type ShareLink,
   validateHistory,
   type Message,
@@ -310,12 +309,11 @@ export const Params = {
   "session.label": v.object({ id: SessionId, label: NonEmpty }),
   "session.fork": v.object({ id: SessionId }),
   "session.refreshDiff": v.object({ id: SessionId }),
-  "session.setShareId": v.object({ id: SessionId, shareId: NonEmpty }),
   "session.setShares": v.object({ id: SessionId, shares: v.array(ShareLinkSchema) }),
-  "session.setAccess": v.object({ id: SessionId, githubLogins: v.array(NonEmpty) }),
   "session.delete": v.object({ id: SessionId }),
   "session.mergeShared": v.object({
     id: SessionId,
+    shareId: v.optional(NonEmpty),
     annotations: v.array(FullAnnotationSchema),
     participants: v.optional(v.array(IdentitySchema)),
     // the removal entries a share recorded, carried by id so a merge applies each once
@@ -484,7 +482,7 @@ export const SessionHistorySchema = v.pipe(
 
 /** Persisted records are validated on recovery: a bad file is skipped, not fatal. */
 export const ThreadRecordSchema = v.pipe(
-  v.object({
+  v.strictObject({
     schemaVersion: v.literal(SCHEMA_VERSION),
     id: NonEmpty,
     workspace: WorkspaceSchema,
@@ -513,12 +511,6 @@ export const ThreadRecordSchema = v.pipe(
     shelvedAnnotations: v.optional(v.array(FullAnnotationSchema)),
     parentSessionId: v.optional(v.string()),
     shares: v.optional(v.array(ShareLinkSchema)),
-    shareId: v.optional(v.string()),
-    shareBranch: v.optional(v.string()),
-    owner: v.optional(v.string()),
-    access: v.optional(
-      v.object({ githubLogins: v.array(NonEmpty) } satisfies EntriesOf<ShareAccess>),
-    ),
     participants: v.optional(v.array(IdentitySchema)),
   } satisfies EntriesOf<Thread>),
   v.rawCheck(({ dataset, addIssue }) => {

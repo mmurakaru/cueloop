@@ -6,11 +6,8 @@
  */
 
 export interface PrototypeElement {
-  /** Stable CSS selector - the annotation anchor's authority. */
   selector: string;
-  /** Short human label for the rail card (element text, else the selector). */
   quote: string;
-  /** Element rectangle in CSS pixels within the captured viewport. */
   box: ElementBox;
 }
 
@@ -30,7 +27,6 @@ export interface PrototypeRenderer {
   readonly viewport: PrototypeViewport;
   screenshot(): Promise<Uint8Array>;
   elementAt(cssX: number, cssY: number): Promise<PrototypeElement | null>;
-  /** Scroll the page by a pixel delta; returns whether the scroll position moved. */
   scrollBy(deltaY: number): Promise<boolean>;
   close(): Promise<void>;
 }
@@ -38,12 +34,8 @@ export interface PrototypeRenderer {
 export interface LaunchOptions {
   filePath: string;
   viewport: PrototypeViewport;
-  /** Capture density; 1 when the viewport already matches the region's pixels. */
   deviceScaleFactor?: number;
-  /** Absolute path to a Chrome/Chromium binary; falls back to the channel. */
   executablePath?: string;
-  /** The terminal's color scheme, emulated as prefers-color-scheme so a mockup
-   *  with theme-aware CSS renders to match the surface it emerges into. */
   colorScheme?: "dark" | "light";
 }
 

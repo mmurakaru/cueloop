@@ -30,7 +30,6 @@ export interface AnnotatableFileViewProps {
   onComposingChange?: (composing: boolean) => void;
   onCursorChange?: (rowIndex: number) => void;
   onObserverBlocked?: (reason: "observer" | "resolved") => void;
-  /** Persist a comment on this file; the view built the anchor against the file's own lines. */
   onAddComment: (anchor: Anchor, body: string) => void;
   onReply: (rootAnnotationId: string, body: string) => void;
   onUpdateAnnotation: (id: string, body: string) => void;

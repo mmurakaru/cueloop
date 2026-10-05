@@ -2,14 +2,16 @@ import { DaemonClient, DaemonClientError, type ConnectOptions } from "./client";
 import { DaemonTransportError } from "./client-errors";
 import type { EventFrame } from "./protocol";
 
+// eslint-disable-next-line type-evidence/no-unknown-parameters -- Socket and read failures arrive from an untyped Promise rejection boundary.
+type ThreadSubscriptionErrorHandler = (error: unknown) => void;
+
 /** Notifications are refresh hints; each connection starts with an authoritative read. */
 export interface ThreadSubscriptionOptions<Value> {
   connect: () => Promise<DaemonClient>;
   matches: (event: EventFrame) => boolean;
   read: (client: DaemonClient, signal: AbortSignal) => Promise<Value>;
   onValue: (value: Value, client: DaemonClient) => void;
-  // eslint-disable-next-line type-evidence/no-unknown-parameters -- Socket and read failures arrive from an untyped Promise rejection boundary.
-  onError: (error: unknown) => void;
+  onError: ThreadSubscriptionErrorHandler;
   onConnect?: (client: DaemonClient) => void;
   reconnectMs?: number;
 }

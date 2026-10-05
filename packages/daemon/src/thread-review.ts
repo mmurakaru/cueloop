@@ -90,19 +90,13 @@ function firstHeading(markdown: string): string | undefined {
 
 export interface OpenReviewOptions {
   type: ArtifactType;
-  /** Workflow identity keeps plan/refine and diff/review Threads separate. */
   workflow?: WorkflowKind;
   content: string;
-  /** Workspace resolution root and meta.cwd; defaults to process.cwd(). */
   cwd?: string;
-  /** Optional explicit VCS selection for a diff that matches the checkout capture. */
   vcs?: string;
-  /** The native logical change, set after a captured JJ diff is verified. */
   vcsChangeId?: string;
-  /** Pre-resolved workspace key; skips git resolution when the caller already has it. */
   workspace?: WorkspaceKey;
   agent?: string;
-  /** When set, a resubmit from the same agent session becomes a revision, not a new session. */
   agentSessionId?: string;
   planPath?: string;
   prototypePath?: string;
@@ -112,19 +106,8 @@ export interface OpenReviewOptions {
   prHeadSha?: string;
   prUrl?: string;
   herdrPane?: string;
-  /**
-   * Full file contents per changed file for a working-tree diff, carried onto
-   * the artifact so hunk curation produces an exactly applyable patch.
-   */
   files?: DiffFileContents[];
-  /** Defaults to a markdown artifact's first heading (plan, reply); diffs get no derived title. */
   title?: string;
-  /**
-   * Per-file agent notes for diff sessions: the submitting agent's own
-   * explanation of each file's change, in dead prose. Stored as annotations
-   * with kind "note" anchored at the file path, so they render as regular
-   * rail cards and feed the guided walk's agent-note block.
-   */
   notes?: ReviewNote[];
 }
 
@@ -171,11 +154,8 @@ async function attachNotes(
 }
 
 export interface AwaitMessageOptions {
-  /** Total wait budget; Infinity keeps polling until resolved or aborted. */
   timeoutMs: number;
-  /** Chunk length for the poll loop; between chunks the session is re-read for progress. */
   pollMs?: number;
-  /** Called with the fresh session after each chunk that is still pending. */
   onProgress?: (session: Thread) => void;
   signal?: AbortSignal;
 }
@@ -238,9 +218,7 @@ function outcome(session: Thread): MessageResult {
 }
 
 export interface AwaitResolveOptions {
-  /** Long-poll chunk length; the wait re-arms each chunk until resolved or aborted. Default 30s. */
   pollMs?: number;
-  /** Abort the wait (the harness session shut down); resolves to null. */
   signal?: AbortSignal;
 }
 

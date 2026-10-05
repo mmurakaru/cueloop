@@ -6,7 +6,6 @@
 import { docsNav, normalizePath } from "../nav";
 
 interface DocsSidebarProps {
-  /** The current pathname, so the active link highlights. */
   path: string;
 }
 

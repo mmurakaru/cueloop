@@ -23,9 +23,7 @@ export function isExpired(storedAtMs: number, nowMs: number, ttlMs = SHARE_TTL_M
 
 export interface ShareStore {
   put(id: string, bytes: Uint8Array): Promise<void>;
-  /** The stored bytes, or null when no blob exists for that id or it has expired. */
   get(id: string): Promise<Uint8Array | null>;
-  /** Remove the blob for an id; a no-op when it is already absent, so revoke is idempotent. */
   delete(id: string): Promise<void>;
 }
 

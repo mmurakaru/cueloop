@@ -75,25 +75,16 @@ export interface DiffFoldControls {
 export interface DiffContentViewProps {
   rows: DiffRow[];
   session: Thread;
-  /** Annotations resolved onto rows (marksByRows), with char ranges and spans. */
   marks: Map<number, Mark[]>;
   quickActions: QuickAction[];
   observer: boolean;
-  /** Whether comments can be drafted here; false for a non-diff thread's view-only live diff. */
   commentsEnabled?: boolean;
-  /** A message is in: no draft may open; the app answers with its read-only status. */
   resolved?: boolean;
-  /** True while a menu, dialog, or overlay owns the keyboard. */
   suspended?: boolean;
-  /** Reports whether a composer is open, so session chords can yield to typing. */
   onComposingChange?: (composing: boolean) => void;
-  /** An observer or a resolved review refused a draft; the app shows why. */
   onObserverBlocked?: (reason: "observer" | "resolved") => void;
-  /** Reports the caret's row, so row-level primitives (reject, fold) act where the caret is. */
   onCursorChange?: (rowIndex: number) => void;
-  /** The rail's focused card; the discussion holding it takes focus here. */
   focusedAnnotationId?: string;
-  /** Reports the focused discussion's root comment, so the rail follows. */
   onFocusAnnotation?: (annotationId: string | undefined) => void;
   onAnnotate: (span: TextSpan, body: string) => void;
   onReply: (rootAnnotationId: string, body: string) => void;
@@ -101,21 +92,14 @@ export interface DiffContentViewProps {
   onInvoke?: () => void;
   annotationAction?: (id: string) => { label: string; run: () => void } | undefined;
   isAnnotationReadOnly?: (id: string) => boolean;
-  /** The author's display name for a comment's hover tooltip. */
   resolveAuthorLabel?: (annotation: Annotation) => string | undefined;
   onNavCommand?: (key: KeyEvent, selection: TextSpan | null) => boolean;
   onExit: () => void;
-  /** Row indices the owner rejected during curation; drawn struck through. */
   rejectedRows?: Set<number>;
-  /** File-band chevron/copy/unfold actions; when absent the band shows no controls. */
   fold?: DiffFoldControls;
-  /** A single-file tab has no file-collapse chevron, but keeps copy and expand. */
   showFileCollapse?: boolean;
-  /** Per-file +/- counts from the base rows, so a collapsed file keeps its badge; else computed here. */
   fileStats?: ReadonlyMap<string, { additions: number; deletions: number }>;
-  /** Render old|new side by side instead of one inline column; the App gates this on zoom. */
   split?: boolean;
-  /** A plain-file view (all context rows): one line-number gutter, no +/- sign. */
   fileView?: boolean;
   theme?: Theme;
 }
@@ -298,17 +282,14 @@ interface SplitSideNodes {
  * model only has to be right enough for spacers and the caret reveal.
  */
 interface LayoutItem {
-  /** Index into the unified rows, or into the split rows when side by side. */
   index: number;
   height: number;
 }
 
 interface SheetLayout {
   items: LayoutItem[];
-  /** Visual-line offset of each item from the top of the content. */
   offsets: number[];
   total: number;
-  /** The layout item that shows a given base row, for the caret reveal. */
   itemOfRow: number[];
 }
 

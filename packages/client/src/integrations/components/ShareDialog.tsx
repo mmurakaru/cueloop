@@ -343,11 +343,8 @@ function Wizard({
 
 export interface ShareDialogProps {
   isOpen: boolean;
-  /** The thread's title, shown in the list header and prefilled as a new link's name. */
   threadName: string;
-  /** The thread's live share links, newest last. */
   links: ShareLink[];
-  /** Owners publish and edit; an observer sees the list read-only (no create/edit/delete). */
   isOwner: boolean;
   onCreateLink: (input: NewShareLink) => void;
   onUpdateLink: (id: string, input: NewShareLink) => void;

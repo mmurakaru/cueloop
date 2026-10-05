@@ -59,15 +59,12 @@ const READY_TIMEOUT_MS = 20_000;
 
 /** What the wait helpers need from a session: the screen and the exit state. */
 export interface PtyScreenReader {
-  /** The rendered screen as right-trimmed rows joined by newline. */
   text(): string;
-  /** The child's exit record, or null while it runs. */
   exit(): ExitEvent | null;
 }
 
 export interface PtyScreenWaitOptions {
   timeoutMs?: number;
-  /** Named in the timeout error so a red run says what the test waited for. */
   what?: string;
 }
 
@@ -142,17 +139,12 @@ export function waitForPtyText(
 }
 
 export interface LaunchTuiSessionOptions {
-  /** The isolated CUELOOP_HOME whose daemon owns the session under review. */
   home: string;
-  /** CLI arguments, typically the session id to open. */
   args: string[];
-  /** Override Bun arguments to exercise source-only development scripts. */
   sourceArgs?: string[];
-  /** Working directory for commands that inspect the current checkout. */
   cwd?: string;
   cols?: number;
   rows?: number;
-  /** Per-test overrides applied last; set TERM=dumb or NO_COLOR here. */
   env?: Record<string, string>;
 }
 

@@ -84,7 +84,6 @@ function fakeClient(session: Thread) {
     sessionCutBlock: unimplemented("sessionCutBlock"),
     sessionRestoreBlock: unimplemented("sessionRestoreBlock"),
     sessionCurate: unimplemented("sessionCurate"),
-    sessionSetAccess: unimplemented("sessionSetAccess"),
     sessionNavigate: mock(pending),
     sessionBranch: mock(pending),
     sessionSwitch: mock(pending),
@@ -96,7 +95,6 @@ function fakeClient(session: Thread) {
     })),
     sessionSetViewed: unimplemented("sessionSetViewed"),
     sessionSetTitle: unimplemented("sessionSetTitle"),
-    sessionSetShareId: mock(async (_id: string, _shareId: string) => session),
     sessionSetShares: mock(async () => session),
     sessionMergeShared: unimplemented("sessionMergeShared"),
     sessionDelete: unimplemented("sessionDelete"),
@@ -252,7 +250,11 @@ describe("tree primitives", () => {
     // Assert
     expect(forked.controller.getSnapshot().session!.id).toBe("ses_1_fork");
     expect(shared.controller.getSnapshot().session!.id).toBe("ses_1");
-    expect(publish).toHaveBeenCalledWith(expect.objectContaining({ id: "ses_1_fork" }));
+    expect(publish).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "ses_1_fork" }),
+      {},
+      { requireAuth: false, allowlist: [], shareBranch: "main" },
+    );
     expect(shared.client.sessionSetShares).toHaveBeenCalledWith("ses_1_fork", [
       { id: "p_ses_1_fork", requireAuth: false, allowlist: [], shareBranch: "main" },
     ]);

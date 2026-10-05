@@ -62,24 +62,15 @@ export type Intent =
 export interface KeyInput {
   name: string;
   shift: boolean;
-  /** Option/Alt arrives as `meta` in this terminal stack (never as a raw alt). */
   meta?: boolean;
 }
 
 export interface KeyState {
-  /** Loaded keymap (config.ts): action -> key combos. */
   keys: Record<string, string[]>;
   readOnly: boolean;
-  /**
-   * Owner-only primitives a share collaborator lacks (undefined = owner, allowed).
-   * A collaborator annotates but cannot edit the plan (cut / $EDITOR runs on
-   * the gateway) or submit an agent message (there is no agent on a share).
-   */
   canEditPlan?: boolean;
   canSubmitMessage?: boolean;
-  /** Owner-only: publish the plan as a share. A collaborator never re-shares. */
   canShare?: boolean;
-  /** Layer that owns keys before the grammar runs. */
   overlay:
     | "none"
     | "walk"
@@ -91,15 +82,12 @@ export interface KeyState {
     | "completion-prompt"
     | "completion-counting";
   view: "inbox" | "plan" | "diff";
-  /** Plan-only span selection sub-mode. */
   spanMode: boolean;
-  /** The walk cursor sits on the end card - return offers the submit action. */
   walkAtEnd: boolean;
   resolved: boolean;
   hasInboxItems: boolean;
   annotationCount: number;
   hasFocusedAnnotation: boolean;
-  /** Cursor sits on annotatable text: a work block (plan) or a code row (diff). */
   cursorAnnotatable: boolean;
 }
 

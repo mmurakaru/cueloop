@@ -30,7 +30,6 @@ type ReviewSize = Parameters<typeof renderReadyApp>[1];
 export interface InProcessReview {
   reviewHome: TestReviewHome;
   setup: ReadyAppSetup;
-  /** Milliseconds from render start to the ready signal: the cost of rendering this artifact. */
   renderReadyMs: number;
   cleanup(): void;
 }

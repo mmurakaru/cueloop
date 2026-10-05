@@ -29,6 +29,7 @@ function sessionWith(annotations: Annotation[]): Thread {
       { revision: 1, content: "# Plan\n\nthing\n", submittedAt: "2026-01-01T00:00:00.000Z" },
     ],
     annotations,
+    shares: [{ id: "p_abc123xy", requireAuth: false, allowlist: [], owner: "SHA256:owner" }],
     message: null,
     status: "pending",
     createdAt: "2026-01-01T00:00:00.000Z",

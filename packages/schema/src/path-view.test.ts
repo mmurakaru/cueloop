@@ -7,7 +7,7 @@ import {
   switchBranch,
   type SessionHistory,
 } from "./history";
-import { applyPathView, viewFollowing, viewOfPath } from "./path-view";
+import { applyPathView, sharePublicationView, viewFollowing, viewOfPath } from "./path-view";
 import type { Annotation, Thread } from "./types";
 
 const AT = "2026-09-01T10:00:00.000Z";
@@ -163,7 +163,7 @@ describe("viewFollowing", () => {
     const shared = viewFollowing(session);
 
     // Assert: main's path only, back at the first comment, no working copy, no shelf, the branch named
-    expect(shared.shareBranch).toBe("main");
+    expect(shared.history!.branch).toBe("main");
     expect(shared.history!.tips).toEqual({ main: history.entries[1]!.id });
     expect(shared.history!.entries.map((entry) => entry.type)).toEqual(["revision", "comment"]);
     expect(shared.annotations.map((entry) => entry.id)).toEqual(["a1"]);
@@ -189,7 +189,7 @@ describe("viewFollowing", () => {
       artifact: { type: "plan", content: "Plan v1", meta: {} },
       revisions: [],
       annotations: [],
-      shareBranch: "gone",
+      shares: [{ id: "p_test", requireAuth: false, allowlist: [], shareBranch: "gone" }],
       history,
       message: null,
       status: "pending",
@@ -200,7 +200,34 @@ describe("viewFollowing", () => {
     const shared = viewFollowing(session);
 
     // Assert: it does not throw, and falls back to main
-    expect(shared.shareBranch).toBe("main");
+    expect(shared.history!.branch).toBe("main");
     expect(shared.history!.branch).toBe("main");
   });
+});
+
+test("a publication carries only its selected link's policy, without other owners or allowlists", () => {
+  const session: Thread = {
+    schemaVersion: "1",
+    id: "ses_1",
+    workspace: { repoRoot: "/repo", branch: "main" },
+    artifact: { type: "plan", content: "Plan", meta: {} },
+    revisions: [],
+    annotations: [],
+    message: null,
+    status: "pending",
+    createdAt: AT,
+    shares: [
+      { id: "p_other", owner: "SHA256:owner", requireAuth: true, allowlist: ["private-member"] },
+    ],
+  };
+  const shared = sharePublicationView(session, { requireAuth: true, allowlist: ["octocat"] });
+
+  expect(shared.shares).toEqual([
+    { id: session.id, requireAuth: true, allowlist: ["octocat"], shareBranch: "main" },
+  ]);
+  expect(session.shares![0]!.allowlist).toEqual(["private-member"]);
+  expect(
+    sharePublicationView(session, { requireAuth: false, allowlist: ["discarded"] }).shares![0]!
+      .allowlist,
+  ).toEqual([]);
 });

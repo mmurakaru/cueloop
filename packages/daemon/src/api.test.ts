@@ -974,6 +974,27 @@ describe("tree primitives", () => {
     ]);
   });
 
+  test("a merge uses the named share link's branch rather than another link's branch", () => {
+    const thread = core.sessionCreate({ workspace: WS, artifact: PLAN });
+
+    core.sessionBranch(thread.id, "alt");
+    core.sessionSetShares(thread.id, [
+      { id: "p_main", requireAuth: false, allowlist: [], shareBranch: "main" },
+      { id: "p_alt", requireAuth: false, allowlist: [], shareBranch: "alt" },
+    ]);
+    const note = { ...comment("from-main", "teammate"), createdAt: "now" };
+    const merged = core.sessionMergeShared(thread.id, { shareId: "p_main", annotations: [note] });
+
+    expect(merged.history!.branch).toBe("alt");
+    expect(merged.annotations).toEqual([]);
+    expect(derivePath(merged.history!, tipOf(merged.history!, "main")).annotationIds).toEqual([
+      "from-main",
+    ]);
+    expect(() =>
+      core.sessionMergeShared(thread.id, { shareId: "p_unknown", annotations: [note] }),
+    ).toThrow("no share link");
+  });
+
   test("a merge lands on the branch the share follows, wherever the owner stands", () => {
     // Arrange: the owner works on a side branch while the share follows main
     const created = core.sessionCreate({ workspace: WS, artifact: PLAN });
@@ -1005,7 +1026,7 @@ describe("tree primitives", () => {
     const created = core.sessionCreate({ workspace: WS, artifact: PLAN });
 
     core.sessionAnnotate(created.id, comment("a1", "first"), "Ana");
-    core.sessionSetShareId(created.id, "share-1");
+    core.sessionSetShares(created.id, [{ id: "share-1", requireAuth: false, allowlist: [] }]);
     core.sessionSendMessage(created.id, "changes_requested", "again");
     core.sessionSubmitRevision(created.id, "# Plan\n\nRound two.\n", ["a1"]);
     core.sessionLabel(created.id, "round two");
@@ -1019,7 +1040,7 @@ describe("tree primitives", () => {
     expect(fork.parentSessionId).toBe(created.id);
     expect(fork.status).toBe("pending");
     expect(fork.message).toBeNull();
-    expect(fork.shareId).toBeUndefined();
+    expect(fork.shares).toBeUndefined();
     expect(fork.workingCopy).toBeUndefined();
     expect(fork.artifact.content).toBe("# Plan\n\nRound two.\n");
     expect(fork.revisions.map((revision) => revision.revision)).toEqual([1, 2]);

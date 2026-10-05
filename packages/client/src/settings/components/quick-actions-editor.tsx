@@ -18,13 +18,9 @@ const ACTION_INPUT_KEY_BINDINGS: KeyBinding[] = [{ name: "return", action: "subm
 
 export interface QuickActionsEditorProps {
   actions: QuickAction[];
-  /** The highlighted row; equals the settings body row index. */
   selectedIndex: number;
-  /** The row whose system-prompt input is open and focused, or null. */
   expandedIndex: number | null;
-  /** Which field the open editor focuses first - set by the clicked row. */
   expandedField: "prompt" | "metadata";
-  /** Select and toggle a row's editor open/closed, focusing the given field. */
   onToggleExpand: (index: number, field: "prompt" | "metadata") => void;
   onEditPrompt: (index: number, prompt: string) => void;
   onEditMetadata: (index: number, metadata: string) => void;

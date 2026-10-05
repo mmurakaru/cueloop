@@ -6,15 +6,10 @@
  */
 
 export interface LaunchLayout {
-  /** The Threads sidebar is open. */
   threads: boolean;
-  /** The right region: the Changes editor, the Project tree, or closed. */
   rightSidebar: "changes" | "project" | "off";
-  /** The Changes editor is zoomed - the Thread pane hides so the diff fills the middle. */
   zoomChanges: boolean;
-  /** Which Project sidebar tab opens while the Changes editor stays visible. */
   projectMode?: "changes" | "tree";
-  /** Keyboard focus when opening a selected Thread. */
   focusPane?: "threads" | "thread" | "changes" | "project";
 }
 

@@ -13,7 +13,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Client } from "ssh2";
-import { SCHEMA_VERSION, type Thread } from "@cueloop/schema";
+import { SCHEMA_VERSION, type Thread, type SharePolicy } from "@cueloop/schema";
 import { packSessionBlob } from "@cueloop/daemon/share-blob";
 import { generateMasterKey, openBlob } from "./crypto";
 import { unpackSessionBlob } from "@cueloop/daemon/share-blob";
@@ -31,6 +31,7 @@ const SESSION: Thread = {
   artifact: { type: "plan", content: PLAN, meta: { title: "Rollout Plan", planPath: "plan.md" } },
   revisions: [{ revision: 1, content: PLAN, submittedAt: "2026-01-01T00:00:00.000Z" }],
   annotations: [],
+  shares: [{ id: "upload", requireAuth: false, allowlist: [] }],
   message: null,
   status: "pending",
   createdAt: "2026-01-01T00:00:00.000Z",
@@ -228,7 +229,10 @@ describe("share upload then view", () => {
 
   test("refuses a private share to a viewer who cannot authenticate an allowed login", async () => {
     // Arrange - a private share; the test gateway has no GitHub app, so a viewer cannot authenticate
-    const privateSession: Thread = { ...SESSION, access: { githubLogins: ["octocat"] } };
+    const privateSession: Thread = {
+      ...SESSION,
+      shares: [{ id: "upload", requireAuth: true, allowlist: ["octocat"] }],
+    };
     const id = idFrom(await shareUpload(handle.port, packSessionBlob(privateSession)));
 
     // Act
@@ -564,6 +568,7 @@ function sharePush(
   shareId: string,
   annotations: object[],
   privateKey: string,
+  policy?: SharePolicy,
 ): Promise<{ err: string; code: number | null }> {
   return new Promise((resolve, reject) => {
     const conn = new Client();
@@ -583,7 +588,7 @@ function sharePush(
             conn.end();
             resolve({ err, code });
           });
-          stream.end(JSON.stringify({ shareId, annotations }));
+          stream.end(JSON.stringify({ shareId, annotations, policy }));
         });
       })
       .on("error", reject)
@@ -592,6 +597,28 @@ function sharePush(
 }
 
 describe("planner push", () => {
+  test("the owner updates a link between private and public without losing its gateway identity", async () => {
+    const id = idFrom(await shareUpload(handle.port, packSessionBlob(SESSION)));
+    const storedLink = async () =>
+      unpackSessionBlob(openBlob(MASTER, id, (await store.get(id))!)).shares![0]!;
+    const initial = await storedLink();
+
+    expect(
+      (
+        await sharePush(handle.port, id, [], CLIENT_KEY, {
+          requireAuth: true,
+          allowlist: ["octocat"],
+        })
+      ).code,
+    ).toBe(0);
+    expect(await storedLink()).toEqual({ ...initial, requireAuth: true, allowlist: ["octocat"] });
+    expect(
+      (await sharePush(handle.port, id, [], CLIENT_KEY, { requireAuth: false, allowlist: [] }))
+        .code,
+    ).toBe(0);
+    expect(await storedLink()).toEqual({ ...initial, requireAuth: false, allowlist: [] });
+  });
+
   test("the owner mirrors a note up and it lands in the blob, unauthored and stamped", async () => {
     // Arrange
     const id = idFrom(await shareUpload(handle.port, packSessionBlob(SESSION)));
@@ -769,17 +796,22 @@ describe("planner watch", () => {
 });
 
 describe("upload hygiene", () => {
-  test("strips the planner's local shareId from the stored blob", async () => {
-    // Arrange - a re-shared session carries an old shareId; it must not reach the blob
-    const carried = { ...SESSION, shareId: "p_oldshare" };
+  test("replaces uploaded link identifiers and ownership with gateway authority", async () => {
+    // The uploaded identifier and owner are untrusted.
+    const carried = {
+      ...SESSION,
+      shares: [{ id: "p_oldshare", requireAuth: false, allowlist: [], owner: "spoofed" }],
+    };
 
     // Act
     const id = idFrom(await shareUpload(handle.port, packSessionBlob(carried)));
     const stored = unpackSessionBlob(openBlob(MASTER, id, (await store.get(id))!));
 
     // Assert
-    expect(stored.shareId).toBeUndefined();
-    expect(stored.owner).toBeTruthy();
+    expect(stored.shares).toHaveLength(1);
+    expect(stored.shares![0]!.id).toBe(id);
+    expect(stored.shares![0]!.owner).toBeTruthy();
+    expect(stored.shares![0]!.owner).not.toBe("spoofed");
   });
 });
 

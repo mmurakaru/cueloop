@@ -7,18 +7,13 @@
  */
 
 import { derivePath, followBranch, MAIN_BRANCH, pathOf, type SessionHistory } from "./history";
-import type { Annotation, Thread, TextCut } from "./types";
+import type { Annotation, ShareLink, SharePolicy, Thread, TextCut } from "./types";
 
 export interface PathView {
-  /** The last agent revision on the path: what the artifact shows. */
   content: string;
-  /** The reviewer's edits over it, when the path's head is a reviewer revision. */
   workingCopy: string | undefined;
-  /** Exact character Cuts attached to the reviewer revision at the path head. */
   textCuts: TextCut[] | undefined;
-  /** The comments open on the path, in path order. */
   annotations: Annotation[];
-  /** Every other comment the session knows. */
   shelvedAnnotations: Annotation[];
 }
 
@@ -72,11 +67,11 @@ export function applyPathView(session: Thread, view: PathView): void {
  * without a history travels as it is.
  */
 export function viewFollowing(session: Thread, branch?: string): Thread {
-  const asked = branch ?? session.shareBranch ?? MAIN_BRANCH;
+  const asked = branch ?? session.shares?.at(-1)?.shareBranch ?? MAIN_BRANCH;
   // a branch that no longer exists falls back to main, matching the daemon
   const followed =
     session.history && session.history.tips[asked] === undefined ? MAIN_BRANCH : asked;
-  const shared: Thread = { ...session, shareBranch: followed };
+  const shared: Thread = { ...session };
 
   if (!session.history) return shared;
   const history = followBranch(session.history, followed);
@@ -87,4 +82,24 @@ export function viewFollowing(session: Thread, branch?: string): Thread {
   delete shared.shelvedAnnotations;
 
   return shared;
+}
+
+/** Publish one link's branch and policy, without carrying other links; the gateway assigns its final ID and owner. */
+export function sharePublicationView(
+  session: Thread,
+  publication: SharePolicy & Pick<ShareLink, "shareBranch">,
+): Thread {
+  const shared = viewFollowing(session, publication.shareBranch ?? session.history?.branch);
+
+  return {
+    ...shared,
+    shares: [
+      {
+        id: session.id,
+        requireAuth: publication.requireAuth,
+        allowlist: publication.requireAuth ? publication.allowlist : [],
+        shareBranch: shared.history?.branch ?? publication.shareBranch ?? MAIN_BRANCH,
+      },
+    ],
+  };
 }

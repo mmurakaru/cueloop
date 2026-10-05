@@ -32,9 +32,7 @@ export interface EditorGridProps {
   onSplit: (groupId: string, direction: SplitDirection) => void;
   onZoom: () => void;
   zoomed: boolean;
-  /** The body of a group's active tab; `groupFocused` tells a keyboard-owning body whether it has the keys. */
   renderTab: (tab: EditorTab, groupFocused: boolean) => React.ReactNode;
-  /** Comments per file path, shown as a dot-and-count badge on a file tab. */
   commentCounts?: ReadonlyMap<string, number>;
   theme?: Theme;
 }

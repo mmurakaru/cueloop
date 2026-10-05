@@ -18,7 +18,6 @@ export interface TextPosition {
 /** Where one visual line of a block sits on screen, in cells. */
 export interface LineGeometry {
   blockIndex: number;
-  /** Char range of the block's text this line shows. */
   start: number;
   end: number;
   x: number;

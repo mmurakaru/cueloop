@@ -16,16 +16,12 @@ const CUT_ATTRIBUTES = createTextAttributes({ strikethrough: true, dim: true });
 
 export interface CodeBlockProps {
   id?: string;
-  /** Markdown fence info string ("tsx", "python", ...). */
   language?: string;
   content: string;
   isCursor?: boolean;
-  /** Vertical rhythm above the block. */
   marginTop?: number;
   isAnnotated?: boolean;
-  /** Working-copy change tag rendered after the language label. */
   changeTag?: "new" | "edited";
-  /** A cut (removed) block: struck-through gray content, no tag. */
   cut?: boolean;
   theme?: Theme;
 }

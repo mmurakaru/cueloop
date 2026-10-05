@@ -67,11 +67,8 @@ export type { EventFrame } from "./protocol";
 
 export interface ConnectOptions {
   home?: string;
-  /** Spawn the daemon when the socket is not alive. */
   autostart?: boolean;
-  /** Capability role for this connection; a review-side agent connects capped. Defaults to owner. */
   role?: DaemonRole;
-  /** The author a non-owner connection acts as; its comments, removals, and name are bound to it. */
   author?: string;
 }
 
@@ -105,10 +102,8 @@ export interface ThreadClient {
   onEvent(listener: (event: EventFrame) => void): () => void;
   subscribe(): Promise<void>;
   sessionGet(id: string): Promise<Thread>;
-  /** Create a local owner Thread; shared clients omit this capability. */
   sessionCreate?(workspace: WorkspaceKey, artifact: Artifact): Promise<Thread>;
   sessionList(filter?: { status?: "pending" | "resolved" }): Promise<Thread[]>;
-  /** Add a comment; the primary annotate method. `sessionAnnotate` is the retained alias. */
   sessionComment(
     id: string,
     annotation: Omit<Annotation, "createdAt">,
@@ -119,54 +114,33 @@ export interface ThreadClient {
     annotation: Omit<Annotation, "createdAt">,
     authorName?: string,
   ): Promise<Thread>;
-  /** Remove a comment; a non-owner connection removes only the comments of the author it is bound to. */
   sessionRemoveAnnotation(id: string, annotationId: string): Promise<Thread>;
   sessionSetWorkingCopy(
     id: string,
     workingCopy: string | undefined,
     textCuts?: TextCut[],
   ): Promise<Thread>;
-  /** Cut the `blockIndex`-th block of the working copy. */
   sessionCutBlock(id: string, blockIndex: number): Promise<Thread>;
-  /** Re-insert the `baseBlockIndex`-th block of the submitted revision before `line` (default: the end). */
   sessionRestoreBlock(id: string, baseBlockIndex: number, line?: number): Promise<Thread>;
-  /** Replace a diff review's reject decisions; the working copy follows. */
   sessionCurate(id: string, rejections: HunkRejection[]): Promise<Thread>;
-  /** Replace the private-share allowlist of GitHub logins; presence marks the share private. */
-  sessionSetAccess(id: string, githubLogins: string[]): Promise<Thread>;
   sessionSetViewed(id: string, viewedPaths: string[]): Promise<Thread>;
-  /** Rename a session's display title; an empty title restores the derived default. */
   sessionSetTitle(id: string, title: string): Promise<Thread>;
-  /** Tracked, repo-relative file paths for the session's workspace; a client with no local repo (a share) omits it. */
   projectFiles?(sessionId: string): Promise<string[]>;
-  /** UTF-8 contents of a repo-relative file, or null when it cannot be read safely; omitted by a client with no local repo. */
   fileContents?(sessionId: string, path: string): Promise<string | null>;
-  /** Tracked, repo-relative paths for the git repo containing `cwd`, for the no-session welcome shell. */
   repoFiles?(cwd: string): Promise<string[]>;
-  /** UTF-8 contents of a repo-relative file in `cwd`'s repo, or null when unreadable. */
   repoFileContents?(cwd: string, path: string): Promise<string | null>;
-  /** Changed files (path plus git status) in the working tree at `cwd`. */
   repoChanges?(cwd: string): Promise<{ path: string; status: DiffFileStatus }[]>;
-  /** The live working-tree diff (patch plus per-file contents) at `cwd`. */
   repoDiff?(cwd: string, vcs?: string): Promise<WorkingTreeDiff>;
-  /** Refresh a local diff or explicitly pull a moved PR head. */
   sessionRefreshDiff?(id: string): Promise<{ changed: boolean }>;
-  /** Find-or-create the per-repo workbench thread for `cwd`, so a bare launch's first comment persists. */
   sessionWorkbench?(cwd: string): Promise<Thread>;
-  /** Move a branch's tip (the current one, or `branch` after switching to it) back to an entry on its path; a summary records the abandoned segment. */
   sessionNavigate(id: string, entryId: string, summary?: string, branch?: string): Promise<Thread>;
-  /** Start a branch at the current tip and switch to it. */
   sessionBranch(id: string, name: string): Promise<Thread>;
   sessionSwitch(id: string, branch: string): Promise<Thread>;
-  /** Name the current tip as a checkpoint. */
   sessionLabel(id: string, label: string): Promise<Thread>;
-  /** Copy the current path into a new session; returns the fork. */
   sessionFork(id: string): Promise<Thread>;
-  sessionSetShareId(id: string, shareId: string): Promise<Thread>;
   sessionSetShares(id: string, shares: ShareLink[]): Promise<Thread>;
   sessionMergeShared(id: string, incoming: SharedMerge): Promise<Thread>;
   sessionDelete(id: string): Promise<void>;
-  /** Record the caller's own identity name (collaborator self-naming on a share). */
   sessionSetSelfName(id: string, name: string): Promise<Thread>;
   sessionSendMessage(
     id: string,
@@ -694,9 +668,6 @@ export class DaemonClient implements ThreadClient {
   sessionCurate(id: string, rejections: HunkRejection[]): Promise<Thread> {
     return this.request("session.curate", { id, rejections }, ThreadRecordSchema);
   }
-  sessionSetAccess(id: string, githubLogins: string[]): Promise<Thread> {
-    return this.request("session.setAccess", { id, githubLogins }, ThreadRecordSchema);
-  }
   sessionSetViewed(id: string, viewedPaths: string[]): Promise<Thread> {
     return this.request("session.setViewed", { id, viewedPaths }, ThreadRecordSchema);
   }
@@ -763,9 +734,6 @@ export class DaemonClient implements ThreadClient {
   /** Re-capture a diff session's working tree; changed=true when the patch moved and an event fired. */
   sessionRefreshDiff(id: string): Promise<{ changed: boolean }> {
     return this.request("session.refreshDiff", { id }, RefreshDiffResultSchema);
-  }
-  sessionSetShareId(id: string, shareId: string): Promise<Thread> {
-    return this.request("session.setShareId", { id, shareId }, ThreadRecordSchema);
   }
 
   sessionSetShares(id: string, shares: ShareLink[]): Promise<Thread> {

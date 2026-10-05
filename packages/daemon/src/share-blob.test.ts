@@ -20,6 +20,13 @@ beforeEach(() => {
 afterEach(() => rmSync(home, { recursive: true, force: true }));
 
 describe("share blob roundtrip", () => {
+  test("unsupported scalar policy is rejected instead of silently becoming public", () => {
+    const thread = core.sessionCreate({ workspace: WS, artifact: PLAN });
+    const bytes = gzipSync(JSON.stringify({ ...thread, access: { githubLogins: ["octocat"] } }));
+
+    expect(() => unpackSessionBlob(bytes)).toThrow("blob is not a valid session");
+  });
+
   test("pack then unpack restores the session with its annotations", () => {
     // Arrange
     const session = core.sessionCreate({ workspace: WS, artifact: PLAN });

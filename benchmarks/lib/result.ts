@@ -12,7 +12,6 @@ export type MetricUnit = "ms" | "bytes" | "count" | "boolean";
 
 interface MetricClassification {
   unit: MetricUnit;
-  /** Whether a gate compares this metric between two runs. */
   comparable: boolean;
 }
 

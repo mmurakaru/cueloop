@@ -239,9 +239,7 @@ function buildProgram(
 interface MetalRingProps {
   children: ReactNode;
   theme: "dark" | "light";
-  /** Corner radius in CSS px; matches the child's border-radius. */
   radius?: number;
-  /** Ring thickness in CSS px. */
   thickness?: number;
   className?: string;
 }

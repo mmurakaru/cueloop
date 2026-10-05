@@ -15,13 +15,9 @@ import type { Artifact, DiffFileContents, Thread } from "@cueloop/schema";
 export interface TestReviewHome {
   home: string;
   server: DaemonServer;
-  /** A plan thread over `markdown`; the title also becomes the plan path stem. */
   createPlanSession(markdown: string, title?: string): Thread;
-  /** A diff thread over `patch`, with per-file contents when the test needs curation. */
   createDiffSession(patch: string, files?: DiffFileContents[], title?: string): Thread;
-  /** An executable `#!/bin/sh` script in the home with `body`; for stand-in editors and stub commands. */
   createShellScript(name: string, body: string): string;
-  /** A non-interactive editor script that appends `marker` to the file it is given; for hand-off tests. */
   createAppendingEditor(marker: string): string;
   cleanup(): void;
 }

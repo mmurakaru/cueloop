@@ -8,9 +8,7 @@ export type DiffOpKind = "ctx" | "del" | "add";
 
 export interface DiffOp<T = string> {
   kind: DiffOpKind;
-  /** Present for ctx and del. */
   oldValue?: T;
-  /** Present for ctx and add. */
   newValue?: T;
 }
 
