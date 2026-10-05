@@ -3,7 +3,7 @@
  * list of text lines it does not know how to paint. A character-precise caret
  * sits in the text; click/drag marks (word mode on double-click); typing opens a
  * composer anchored at the caret word or held selection; "/" opens the quick-action
- * palette; enter replies, tab folds, esc dismisses; cmd+enter sends. The plan
+ * palette; enter replies, tab folds, esc dismisses; Option+Enter saves, Ctrl+Enter invokes. The plan
  * thread view and the diff sheet both drive this hook and only paint their own
  * rows, so marking and commenting behave identically on prose and on code.
  *
@@ -12,11 +12,11 @@
  * cards this hook builds under the visual line a span ends on.
  */
 
-import React, { useContext, useEffect, useRef, useState } from "react";
+import React, { useContext, useEffect, useEffectEvent, useRef, useState } from "react";
 import type { KeyEvent, MouseEvent as TerminalMouseEvent, TextRenderable } from "@opentui/core";
 import { flushSync } from "@opentui/react";
 import { useSharedKeyboard } from "../keyboard/use-shared-keyboard";
-import type { Annotation, Thread } from "@cueloop/schema";
+import { agentInputTarget, type Annotation, type Thread } from "@cueloop/schema";
 import type { Mark } from "../markdown/view-plan";
 import type { QuickAction } from "../settings/config";
 import type { Theme } from "../appearance/theme";
@@ -64,15 +64,27 @@ export interface LineSource {
   annotatable(blockIndex: number): boolean;
 }
 
-export interface ComposeState {
-  /** The block the card renders under: where the span ends. */
+/** Prompt drafts cannot carry a discussion or edit target; comment drafts retain those targets. */
+export type ComposeState = { blockIndex: number; seed: string } & (
+  | { kind: "prompt"; discussionKey: null; editAnnotationId: null; span: TextSpan }
+  | {
+      kind: "comment";
+      discussionKey: string | null;
+      editAnnotationId: string | null;
+      span: TextSpan | null;
+    }
+);
+
+/** A completed reply requests an empty continuation prompt once per reply ID. */
+export interface PromptFocusRequest {
+  replyId: string;
   blockIndex: number;
-  /** Reply target; null composes a new discussion. */
-  discussionKey: string | null;
-  span: TextSpan | null;
-  seed: string;
-  /** When set, the composer rewrites this annotation instead of appending. */
-  editAnnotationId: string | null;
+}
+
+/** Rejected prompt text returns to the visible composer once per request. */
+export interface PromptRestoreRequest {
+  id: number;
+  text: string;
 }
 
 export interface AnnotationSurfaceOptions {
@@ -112,6 +124,14 @@ export interface AnnotationSurfaceOptions {
   onAnnotate: (span: TextSpan, body: string) => void;
   onReply: (rootAnnotationId: string, body: string) => void;
   onUpdateAnnotation: (id: string, body: string) => void;
+  isAnnotationReadOnly?: (id: string) => boolean;
+  annotationAction?: (id: string) => { label: string; run: () => void } | undefined;
+  requestedBlock?: { blockIndex: number };
+  onInvoke?: () => void;
+  /** The final prompt block accepts unmarked typing without creating a discussion. */
+  isPromptBlock?: (blockIndex: number) => boolean;
+  promptFocusRequest?: PromptFocusRequest;
+  promptRestoreRequest?: PromptRestoreRequest;
   /** The visible scroll viewport used to keep a held mouse mark moving at its edges. */
   dragViewport?: () => {
     top: number;
@@ -153,6 +173,7 @@ export interface AnnotationSurface {
   onLineMouseDown: (event: TerminalMouseEvent) => void;
   /** Drag routing for the view root, so a fast flick off a row never strands the gesture. */
   rootMouseProps: {
+    onMouseDown: (event: TerminalMouseEvent) => void;
     onMouseDrag: (event: TerminalMouseEvent) => void;
     onMouseDragEnd: () => void;
     onMouseUp: () => void;
@@ -210,6 +231,13 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     onAnnotate,
     onReply,
     onUpdateAnnotation,
+    isAnnotationReadOnly,
+    annotationAction,
+    requestedBlock,
+    onInvoke,
+    isPromptBlock,
+    promptFocusRequest,
+    promptRestoreRequest,
     dragViewport,
     resolveAuthorLabel,
     onNavCommand,
@@ -226,6 +254,15 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
 
     return { head: start, anchor: start };
   });
+  const focusRequested = useEffectEvent(() => onFocusAnnotation?.(undefined));
+  useEffect(() => {
+    if (requestedBlock === undefined) return;
+    const next = { blockIndex: requestedBlock.blockIndex, char: 0 };
+
+    setCursor(requestedBlock.blockIndex);
+    setCaret({ head: next, anchor: next });
+    focusRequested();
+  }, [requestedBlock]);
   const [compose, setCompose] = useState<ComposeState | null>(null);
   const dragPointer = useRef<{ x: number; y: number } | null>(null);
   const edgeScrollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -291,6 +328,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
   const [slashIndex, setSlashIndex] = useState(0);
   const composerReady = useRef(false);
   const composeRef = useRef<ComposeState | null>(null);
+  const promptDraft = useRef("");
   // every visual line registers its renderable so a drag can hit-test any
   // row on screen, across blocks (rows without text resolve to the block above)
   const lineRenderables = useRef(
@@ -317,9 +355,10 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     return span ? tightenSpan(span, textLengthOf) : null;
   })();
   const caretIsSelection = heldSpan !== null;
-  /** The typing anchor: the held selection (char-precise), else the marked word. */
+  /** Agent comments require a held selection; legacy surfaces may use the caret word. */
   const caretSpan = (): TextSpan | null => {
     if (heldSpan) return heldSpan;
+    if (onInvoke) return isPromptBlock?.(head.blockIndex) ? { start: head, end: head } : null;
     const word = wordRangeAt(blockText(head.blockIndex), head.char);
 
     return word
@@ -327,7 +366,9 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
           start: { blockIndex: cursor, char: word.start },
           end: { blockIndex: cursor, char: word.end },
         }
-      : null;
+      : blockText(head.blockIndex).length === 0
+        ? { start: head, end: head }
+        : null;
   };
   const collapseCaret = (): void => setCaret({ head, anchor: head });
   const spanQuote = (span: TextSpan): string => {
@@ -444,16 +485,19 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     if (slashActive) setSlashIndex(0);
   }, [slashActive]);
 
-  const saveComment = (body: string): void => {
+  const saveComment = (body: string, invoke = false): void => {
     // the body saves verbatim - typed newlines are the author's choice;
     // trimming only decides whether the draft is empty enough to discard
     const target = composeRef.current;
+    const prompt = target?.kind === "prompt";
 
+    if (prompt && !invoke) return;
     closeCompose();
     collapseCaret();
     if (!target || body.trim().length === 0) return;
     if (target.editAnnotationId !== null) {
       onUpdateAnnotation(target.editAnnotationId, body);
+      if (invoke) onInvoke?.();
 
       return;
     }
@@ -462,35 +506,64 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
 
       if (discussion) {
         onReply(discussion.rootId, body);
+        if (invoke) onInvoke?.();
 
         return;
       }
     }
     const span = target.span ?? caretSpan();
 
-    if (span) onAnnotate(span, body);
+    if (span) {
+      onAnnotate(span, body);
+      if (invoke) onInvoke?.();
+    }
   };
   /** A new discussion on the typing anchor; the card renders under the span's last block. */
   const openNewCompose = (seed: string): void => {
     const span = caretSpan();
 
-    openCompose({
-      blockIndex: span?.end.blockIndex ?? head.blockIndex,
-      discussionKey: null,
-      span,
-      seed,
-      editAnnotationId: null,
-    });
+    if (
+      onInvoke &&
+      agentInputTarget(Boolean(isPromptBlock?.(head.blockIndex)), Boolean(heldSpan)) === "none"
+    )
+      return;
+    if (isPromptBlock?.(head.blockIndex) && span) {
+      openCompose({
+        kind: "prompt",
+        blockIndex: head.blockIndex,
+        discussionKey: null,
+        span,
+        seed: promptDraft.current + seed,
+        editAnnotationId: null,
+      });
+    } else {
+      openCompose({
+        kind: "comment",
+        blockIndex: span?.end.blockIndex ?? head.blockIndex,
+        discussionKey: null,
+        span,
+        seed,
+        editAnnotationId: null,
+      });
+    }
+    if (isPromptBlock?.(head.blockIndex)) promptDraft.current = "";
   };
 
   // clicking away commits the draft (blur-save); only a standalone "/query" is a palette
   // artifact, so prose that merely ends in a "/name" still saves
   const blurSaveCompose = (): void => {
-    if (!composeRef.current) return;
+    const target = composeRef.current;
+
+    if (!target) return;
+    if (target.kind === "prompt") {
+      promptDraft.current = composeTextRef.current;
+
+      return closeCompose();
+    }
     if (isStandaloneSlashQuery(composeText) || composeText.trim().length === 0) {
       return closeCompose();
     }
-    saveComment(composeText);
+    saveComment(composeText, false);
   };
 
   /** Extend the held selection to the pointer's position (word mode snaps both ends). */
@@ -590,10 +663,12 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     return false;
   };
 
-  /** Pre-mount window: buffer printables, honor a fast cmd+enter or newline. */
+  /** Pre-mount window: buffer printables, honor a fast comment save, agent invocation, or newline. */
   const handlePremountKey = (key: KeyEvent, activeCompose: ComposeState): void => {
     if (key.name === "return") {
-      if (key.super || key.meta || key.ctrl) return saveComment(activeCompose.seed);
+      if (key.super && onInvoke) return;
+      if (key.meta || key.ctrl || key.super)
+        return saveComment(activeCompose.seed, isAgentInvokeKey(key, onInvoke));
       const grown = { ...activeCompose, seed: `${activeCompose.seed}\n` };
 
       composeRef.current = grown;
@@ -615,6 +690,16 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
   };
 
   const handleComposeKey = (key: KeyEvent, activeCompose: ComposeState): void => {
+    if (onInvoke && (key.name === "return" || key.name === "enter") && key.super) {
+      key.preventDefault();
+
+      return;
+    }
+    if (isAgentInvokeKey(key, onInvoke)) {
+      key.preventDefault();
+
+      return saveComment(composerReady.current ? composeTextRef.current : activeCompose.seed, true);
+    }
     // the textarea owns every key while open; the view takes dismiss (which
     // also releases the discussion focus), the slash palette, and pre-mount input
     if (key.name === "escape") {
@@ -683,6 +768,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
 
       if (replyTarget) {
         openCompose({
+          kind: "comment",
           blockIndex: replyTarget.blockIndex,
           discussionKey: replyTarget.key,
           span: null,
@@ -778,9 +864,10 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
 
     if (discussion) {
       const last = discussion.annotations.at(-1)!;
-      const editingOwn = last.author === undefined;
+      const editingOwn = last.author === undefined && !isAnnotationReadOnly?.(last.id);
 
       return openCompose({
+        kind: "comment",
         blockIndex: discussion.blockIndex,
         discussionKey: discussion.key,
         span: null,
@@ -797,6 +884,10 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     const activeCompose = composeRef.current;
 
     if (activeCompose) return handleComposeKey(key, activeCompose);
+    if (isAgentInvokeKey(key, onInvoke)) {
+      key.preventDefault();
+      return onInvoke?.();
+    }
     if (key.name === "escape") {
       // from type mode esc only enters nav, so a held mark survives for `c`
       if (!navModeRef.current) return setNavMode(true);
@@ -833,9 +924,10 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     <Composer
       key={compose.seed}
       seed={compose.seed}
-      glyph="●"
+      glyph={compose.kind === "prompt" ? null : "●"}
       tokens={tokens}
       onSave={saveComment}
+      agentEnabled={Boolean(onInvoke)}
       onReady={() => (composerReady.current = true)}
       onInput={(text, caret) => {
         setDraft(text);
@@ -877,6 +969,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
             annotation={annotation}
             tokens={tokens}
             authorLabel={resolveAuthorLabel?.(annotation)}
+            action={annotationAction?.(annotation.id)}
           />
         ),
       };
@@ -930,7 +1023,8 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     line: VisualLine,
     isLastLine: boolean,
   ): React.ReactNode[] => {
-    const endsInLine = (end: number): boolean => end - 1 >= line.start && end - 1 < line.end;
+    const endsInLine = (end: number): boolean =>
+      (end === 0 && line.start === 0) || (end - 1 >= line.start && end - 1 < line.end);
     const nodes: React.ReactNode[] = [];
     const composeHere = compose && compose.blockIndex === blockIndex;
     const newComposeHere = Boolean(composeHere && compose.discussionKey === null && composerNode);
@@ -939,6 +1033,16 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     const composeStart = compose?.span?.start;
 
     const pushComposeCard = (): void => {
+      if (compose?.kind === "prompt") {
+        nodes.push(
+          <box key="compose-prompt" style={{ paddingLeft: 2 }}>
+            {composerNode}
+          </box>,
+        );
+        nodes.push(paletteNode);
+
+        return;
+      }
       nodes.push(
         <DiscussionCard
           key="compose-new"
@@ -992,6 +1096,99 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
       } else lineRenderables.current.delete(key);
     };
 
+  const focusPrompt = (blockIndex: number): void => {
+    const position = { blockIndex, char: 0 };
+
+    setNavMode(false);
+    setFocusedDiscussion(null);
+    setCursor(blockIndex);
+    setCaret({ head: position, anchor: position });
+    openCompose({
+      kind: "prompt",
+      blockIndex,
+      discussionKey: null,
+      span: { start: position, end: position },
+      seed: promptDraft.current,
+      editAnnotationId: null,
+    });
+    promptDraft.current = "";
+  };
+  const movePromptDraft = useEffectEvent(() => {
+    const active = composeRef.current;
+    const blockIndex = source.count - 1;
+
+    if (
+      active?.kind !== "prompt" ||
+      !isPromptBlock?.(blockIndex) ||
+      active.blockIndex === blockIndex
+    )
+      return;
+    const position = { blockIndex, char: 0 };
+
+    openCompose({
+      ...active,
+      blockIndex,
+      span: { start: position, end: position },
+      seed: composeTextRef.current,
+    });
+    setCursor(blockIndex);
+    setCaret({ head: position, anchor: position });
+  });
+  useEffect(() => {
+    movePromptDraft();
+  }, [source.count]);
+  const restoredPrompt = useRef<number | null>(null);
+  const restorePrompt = useEffectEvent(() => {
+    if (!promptRestoreRequest || suspended || !onInvoke) return;
+    if (restoredPrompt.current === promptRestoreRequest.id) return;
+    restoredPrompt.current = promptRestoreRequest.id;
+    const active = composeRef.current;
+    const newerDraft = active?.kind === "prompt" ? composeTextRef.current : promptDraft.current;
+
+    if (active?.kind !== "prompt") blurSaveCompose();
+    promptDraft.current = [promptRestoreRequest.text, newerDraft].filter(Boolean).join("\n");
+    focusPrompt(source.count - 1);
+  });
+  useEffect(() => {
+    restorePrompt();
+  }, [promptRestoreRequest?.id, suspended]);
+  const focusedReply = useRef<string | null>(null);
+  const continueConversation = useEffectEvent(() => {
+    if (!promptFocusRequest || suspended || !onInvoke) return;
+    if (focusedReply.current === promptFocusRequest.replyId) return;
+    focusedReply.current = promptFocusRequest.replyId;
+    // An arriving answer cannot replace a draft or a marked passage under review.
+    if (composeRef.current || heldSpan || dragging.current || promptDraft.current) return;
+    focusPrompt(promptFocusRequest.blockIndex);
+  });
+  useEffect(() => {
+    continueConversation();
+  }, [promptFocusRequest?.replyId, promptFocusRequest?.blockIndex, suspended]);
+  const onPromptMouseDown = (event: TerminalMouseEvent): void => {
+    if (!onInvoke || suspended) return;
+    const blockIndex = source.count - 1;
+    const geometry = allGeometry();
+    const promptLine = geometry.find((entry) => isPromptBlock?.(entry.blockIndex));
+    const lastReplyLine = geometry
+      .filter((entry) => entry.blockIndex === blockIndex - 1)
+      .sort((left, right) => right.y - left.y)[0];
+    const promptStart = promptLine ? promptLine.y - 1 : lastReplyLine && lastReplyLine.y + 1;
+    const viewport = dragViewport?.();
+
+    if (
+      !isPromptBlock?.(blockIndex) ||
+      promptStart === undefined ||
+      event.y < promptStart ||
+      (viewport && event.y >= viewport.bottom)
+    )
+      return;
+    if (composeRef.current?.kind === "prompt") {
+      promptDraft.current = composeTextRef.current;
+    } else blurSaveCompose();
+    endDrag();
+    focusPrompt(blockIndex);
+  };
+
   const onLineMouseDown = (event: TerminalMouseEvent): void => {
     blurSaveCompose();
     const pressed = positionAt(allGeometry(), event.x, event.y);
@@ -1033,10 +1230,28 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     spanQuote,
     registerLine,
     onLineMouseDown,
-    rootMouseProps: { onMouseDrag: handleRootDrag, onMouseDragEnd: endDrag, onMouseUp: endDrag },
+    rootMouseProps: {
+      onMouseDown: onPromptMouseDown,
+      onMouseDrag: handleRootDrag,
+      onMouseDragEnd: endDrag,
+      onMouseUp: endDrag,
+    },
     rangesFor,
     cardsAfterLine,
     jumpToDiscussion,
     blurSaveCompose,
   };
+}
+
+function isAgentInvokeKey(
+  key: { name: string; ctrl?: boolean; meta?: boolean; super?: boolean },
+  onInvoke?: () => void,
+): boolean {
+  return Boolean(
+    onInvoke &&
+    (key.name === "return" || key.name === "enter") &&
+    key.ctrl &&
+    !key.meta &&
+    !key.super,
+  );
 }

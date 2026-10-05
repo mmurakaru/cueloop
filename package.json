@@ -26,7 +26,8 @@
     "check:release": "bun run scripts/check-release-integrity.ts",
     "check:publish": "bun run scripts/check-publish-integrity.ts",
     "verify:published": "bun run scripts/verify-published.ts",
-    "sync:dist-tags": "bun run scripts/sync-dist-tags.ts"
+    "sync:dist-tags": "bun run scripts/sync-dist-tags.ts",
+    "check:agent-laws": "bun run scripts/check-agent-laws.ts"
   },
   "devDependencies": {
     "@changesets/changelog-github": "^1.0.1",

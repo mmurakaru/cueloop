@@ -19,3 +19,12 @@ test("serves labeled review badges in the agreed severity colors", () => {
     expect(svg).toContain('<path fill="#2a2a2a"');
   }
 });
+
+test("serves the security shield badge in the Thread blue", () => {
+  const svg = readFileSync(`${publicRoot}/badges/security.svg`, "utf8");
+
+  expect(svg).toContain('width="20" height="20"');
+  expect(svg).toContain('fill="#a9c8f5"');
+  expect(svg).toContain('stroke="#2a2a2a"');
+  expect(svg).not.toContain("#FFACFE");
+});
