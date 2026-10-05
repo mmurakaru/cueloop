@@ -330,6 +330,7 @@ describe("wire pins", () => {
     workingCopy: "# ",
     textCuts: [{ start: 2, end: 3, quote: "P" }],
     viewedPaths: ["src/a.ts"],
+    messageOperations: [{ operationId: "operation", fingerprint: "hash", result: fullMessage }],
     message: fullMessage,
     status: "pending",
     createdAt: "now",

@@ -40,6 +40,7 @@ function parseAcceptedMediaTypes(accept: string): AcceptedMediaType[] {
 function mediaTypeSpecificity(accepted: string, offered: string): number | null {
   if (accepted === offered) return 2;
   const [offeredType] = offered.split("/", 1);
+
   if (accepted === `${offeredType}/*`) return 1;
   if (accepted === "*/*") return 0;
 

@@ -43,6 +43,7 @@ async function sessionCreate({ client, flags }: SessionContext): Promise<number>
 
   if (!isArtifactType(type)) {
     console.error(`unknown artifact type "${type}" - one of: ${ARTIFACT_TYPES.join(", ")}`);
+
     return 2;
   }
   const contentFile = stringFlag(flags, "content-file");
@@ -178,6 +179,7 @@ async function sessionAnnotateCommand({
   if (replyTo !== undefined) base.replyTo = replyTo;
   const annotation: Omit<Annotation, "createdAt"> =
     target === undefined ? base : { ...base, target };
+
   out(await client.sessionAnnotate(id, annotation, stringFlag(flags, "author-name")));
 
   return 0;

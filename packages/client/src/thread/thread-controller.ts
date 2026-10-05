@@ -829,6 +829,7 @@ class Controller implements ReviewController {
 
   async projectFiles(): Promise<string[]> {
     const session = this.snapshot.session;
+
     if (this.client?.projectFiles === undefined || !session) return [];
 
     return this.client.projectFiles(session.id);
@@ -836,6 +837,7 @@ class Controller implements ReviewController {
 
   async readFile(path: string): Promise<string | null> {
     const session = this.snapshot.session;
+
     if (this.client?.fileContents === undefined || !session) return null;
 
     return this.client.fileContents(session.id, path);
@@ -861,6 +863,7 @@ class Controller implements ReviewController {
   async repoChanges(): Promise<readonly DiffFileContents[]> {
     // a plain diff review pins its captured snapshot; a workbench thread and every other thread reflect the live working tree
     const session = this.snapshot.session;
+
     if (readsFrozenDiff(session)) return session!.artifact.files ?? [];
     const initialFiles = this.consumeInitialDiffFiles(session);
 
@@ -871,6 +874,7 @@ class Controller implements ReviewController {
         this.sidebarRepoRoot(),
         session?.artifact.meta.workbench ? (session.artifact.meta.vcs ?? "git") : undefined,
       );
+
       // a thread switch during the request would let this response overwrite the new thread's diff,
       // showing changes from the wrong repo; compare the thread id, not the object, so an unrelated
       // re-render that replaced the snapshot for the SAME thread does not drop its diff to "No changes"
@@ -885,6 +889,7 @@ class Controller implements ReviewController {
             file.oldContents !== diff.files[index]?.oldContents ||
             file.newContents !== diff.files[index]?.newContents,
         );
+
       if (changed) {
         this.liveDiff = diff;
         // rows() derive from the fresh patch; re-render so an open diff tab repaints
@@ -1004,6 +1009,7 @@ class Controller implements ReviewController {
         content: "",
         meta: { title: "New Thread" },
       });
+
       this.locallyViewed.clear();
       this.viewingId = thread.id;
       this.update({ session: thread });
@@ -1737,6 +1743,7 @@ class Controller implements ReviewController {
     const actionBodies = Object.fromEntries(
       slashItemsFrom(this.quickActions).map((item) => [item.name, item.body]),
     );
+
     this.client!.sessionSendMessage(session.id, message, summary, actionBodies)
       .then((resolved) => {
         // The completion overlay heading already states the message, so the
@@ -1835,6 +1842,7 @@ class Controller implements ReviewController {
 
     if (!links.some((link) => link.id === id)) return;
     const allowlist = input.requireAuth ? input.allowlist : [];
+
     // re-push the link's access to its blob: an allowlist for private, "public" clears it
     void this.shareTransport
       .push(id, [], input.requireAuth ? { githubLogins: allowlist } : "public")

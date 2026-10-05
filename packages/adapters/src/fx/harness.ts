@@ -148,6 +148,7 @@ class FxHarnessConnection implements AgentHarnessConnection {
         { sessionId: this.sessionId, cwd: this.options.cwd, mcpServers: this.mcpServers },
         ConfigResultSchema,
       );
+
       this.options.onEvent({ kind: "config", options: result.configOptions ?? [] });
     } else {
       const result = await this.connection.request(
@@ -237,8 +238,10 @@ class FxHarnessConnection implements AgentHarnessConnection {
         frame.params,
       );
       const tools = this.options.tools;
+
       if (!tools) throw new Error("Fx ACP cueloop tools are unavailable");
       let result: FxToolResult;
+
       if (params.method === "server/discover")
         result = {
           resultType: "complete",
@@ -287,6 +290,7 @@ class FxHarnessConnection implements AgentHarnessConnection {
   private receive(frame: FxAcpFrame): void {
     if (frame.method === "mcp/message") {
       void this.serveTool(frame);
+
       return;
     }
     if (frame.method === "session/request_permission") {

@@ -193,6 +193,7 @@ describe("diff review", () => {
   test("pasting an image into a diff comment drops in an [Image #n] placeholder", async () => {
     // Arrange - mark the added line and open the inline comment composer
     const setup = await renderApp();
+
     await dragText(setup, "new Map()", "new Map()", "new Map()".length);
     await typeText(setup, "see ");
 

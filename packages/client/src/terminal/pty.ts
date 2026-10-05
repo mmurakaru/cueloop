@@ -228,6 +228,7 @@ class Pty implements IPty {
         this.exitEvent.fire({ exitCode });
       } else {
         const delay = Math.min(READ_IDLE_MAX_MS, READ_IDLE_MS * 2 ** Math.min(idlePolls, 5));
+
         idlePolls += 1;
         await new Promise((resolve) => setTimeout(resolve, delay));
       }

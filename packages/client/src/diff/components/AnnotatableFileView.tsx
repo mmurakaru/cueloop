@@ -52,12 +52,14 @@ export function AnnotatableFileView(props: AnnotatableFileViewProps): React.Reac
   const tokens = useComponentTheme(props.theme);
   const [loaded, setLoaded] = useState<FileLoad | null>(null);
   const loadRef = useRef(props.loadContents);
+
   useEffect(() => {
     loadRef.current = props.loadContents;
   });
 
   useEffect(() => {
     let alive = true;
+
     void loadRef.current(props.path).then(
       (contents) => {
         if (alive)

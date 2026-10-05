@@ -112,6 +112,7 @@ export function handleCueloopPublicApi(request: Request): Response {
       "api_method_not_allowed",
       `${request.method} is not supported for this read-only API.`,
     );
+
     response.headers.set("Allow", "GET, HEAD, OPTIONS");
 
     return response;
