@@ -130,3 +130,68 @@ test("production subscription shows daemon updates and reconnects without an inj
     rmSync(home, { recursive: true, force: true });
   }
 });
+
+test("reconnecting during a running turn preserves state without a configuration error", async () => {
+  const { mkdtempSync, rmSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const { DaemonServer } = await import("@cueloop/daemon");
+  const { DaemonClient } = await import("@cueloop/daemon/client");
+  const { createTestSdkHarness } = await import("../../../../test/helpers/sdk-harness");
+  const home = mkdtempSync(join(tmpdir(), "cueloop-agent-ui-running-"));
+  const harness = createTestSdkHarness();
+  const server = new DaemonServer({
+    home,
+    idleExitMs: 0,
+    threadAgent: { enabled: true, adapter: harness.adapter },
+  });
+  server.start();
+  const client = await DaemonClient.connect({ home });
+  const thread = await client.sessionCreate(
+    { repoRoot: home, branch: "main" },
+    { type: "plan", content: "Watch this", meta: {} },
+  );
+  let connection: InstanceType<typeof DaemonClient> | undefined;
+  let connections = 0;
+  function TestRunningSubscription(): React.ReactNode {
+    const agent = useThreadAgent(thread.id, home);
+    useEffect(() => {
+      if (agent.client instanceof DaemonClient && agent.client !== connection) {
+        connection = agent.client;
+        connections++;
+      }
+    }, [agent.client]);
+
+    return (
+      <text>
+        {connections} {agent.state.phase.kind} {agent.error || "No error"}
+      </text>
+    );
+  }
+  const setup = await testRender(<TestRunningSubscription />, { width: 100, height: 4 });
+
+  try {
+    await waitForText(setup, "idle");
+    await client.agentPrompt({ id: thread.id, text: "Question" });
+    await waitForText(setup, "running");
+    expect((await client.agentConfigure({ id: thread.id })).phase.kind).toBe("running");
+    const rejected = await client
+      .agentConfigure({ id: thread.id, configId: "model", value: "other" })
+      .catch((error: Error) => error);
+    expect(rejected).toMatchObject({
+      code: "internal",
+      message: "Thread agent configuration waits for the current turn",
+    });
+    connection!.close();
+    await waitForText(setup, "2 running");
+    harness.complete();
+    await waitForText(setup, "2 idle");
+    expect(setup.captureCharFrame()).toContain("No error");
+    expect(setup.captureCharFrame()).not.toContain("configuration waits");
+  } finally {
+    setup.renderer.destroy();
+    client.close();
+    server.stop();
+    rmSync(home, { recursive: true, force: true });
+  }
+});

@@ -246,8 +246,12 @@ export class ThreadAgentManager {
     if (!this.options.adapter) throw new Error("Thread agent harness is not configured");
     const state = this.mutable(params.id);
 
-    if (state.phase.kind === "running" || state.phase.kind === "permission")
+    if (state.phase.kind === "running" || state.phase.kind === "permission") {
+      // Discovery can read existing choices without reconfiguring an active turn.
+      if (params.configId === undefined || params.value === undefined)
+        return structuredClone(state);
       throw new Error("Thread agent configuration waits for the current turn");
+    }
     const active = await this.connect(state, this.options.getThread(params.id), "", 1);
 
     if (params.configId === undefined || params.value === undefined) {
