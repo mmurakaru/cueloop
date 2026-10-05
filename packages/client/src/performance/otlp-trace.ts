@@ -28,6 +28,7 @@ export interface TraceSpan {
 
 function randomHex(bytes: number): string {
   const buffer = new Uint8Array(bytes);
+
   crypto.getRandomValues(buffer);
 
   return Array.from(buffer, (byte) => byte.toString(16).padStart(2, "0")).join("");
@@ -97,6 +98,7 @@ export function phaseMarksToSpans(scope: string, marks: readonly PhaseMark[]): T
   let cursorMs = startMs;
   const children = marks.map((mark) => {
     const phaseStartMs = cursorMs;
+
     cursorMs += mark.elapsedMs;
 
     return {
@@ -118,10 +120,12 @@ export async function postOtlpTrace(
   spans: readonly TraceSpan[],
 ): Promise<void> {
   const endpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+
   if (endpoint === undefined || spans.length === 0) return;
 
   // strip a trailing slash so an endpoint like "http://host:4318/" does not become "//v1/traces"
   const base = endpoint.replace(/\/+$/, "");
+
   await fetch(`${base}/v1/traces`, {
     method: "POST",
     headers: { "content-type": "application/json" },

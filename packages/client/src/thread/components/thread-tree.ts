@@ -18,6 +18,7 @@ export function projectName(workspace: WorkspaceKey): string {
       .split(/[/:]/)
       .filter((part) => part.length > 0)
       .at(-1);
+
     if (base !== undefined) return base;
   }
 
@@ -66,12 +67,14 @@ export function groupInbox(
     }
 
     const key = session.workspace.rootCommit;
+
     if (key === undefined) {
       standalone.push(session);
       continue;
     }
 
     const existing = projects.get(key);
+
     if (existing !== undefined) existing.sessions.push(session);
     else projects.set(key, { name: projectName(session.workspace), sessions: [session] });
   }
@@ -89,6 +92,7 @@ export function groupInbox(
   }
 
   const projectEntries = [...projects.entries()].sort((a, b) => a[1].name.localeCompare(b[1].name));
+
   if (projectEntries.length > 0) {
     rows.push({ kind: "section", id: "section:projects", label: "Projects" });
     for (const [key, project] of projectEntries) {

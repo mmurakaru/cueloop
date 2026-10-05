@@ -813,6 +813,7 @@ export function DiffContentView({
           </>
         );
       }
+
       // stacked: caret bar, old new (each tinted red/green on its side), then the change sign;
       // the numbers sit on the row's soft band, only the changed code carries the brighter backdrop
       return lineIndex === 0 ? (

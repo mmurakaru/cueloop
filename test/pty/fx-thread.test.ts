@@ -33,6 +33,7 @@ ptyTest(
         }),
       },
     });
+
     server.start();
     const client = await DaemonClient.connect({ home });
     const thread = server.core.sessionCreate({
@@ -43,6 +44,7 @@ ptyTest(
         meta: { title: "Retry review" },
       },
     });
+
     writeFileSync(join(home, "no-config.toml"), "[experimental]\nthread_agent = true\n");
     let session = launchTuiSession({
       home,
@@ -155,6 +157,7 @@ ptyTest(
         }),
       },
     });
+
     server.start();
     const client = await DaemonClient.connect({ home });
     const thread = server.core.sessionCreate({
@@ -166,6 +169,7 @@ ptyTest(
         meta: { title: "Count review" },
       },
     });
+
     writeFileSync(
       join(home, "no-config.toml"),
       '[experimental]\nthread_agent = true\n[ui]\nlayout = { threads = true, right_sidebar = "off", zoom_changes = false }\n',

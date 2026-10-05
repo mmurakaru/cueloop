@@ -75,6 +75,7 @@ export function AgentThreadPane(props: AgentThreadPaneProps): React.ReactNode {
   const busy = state.phase.kind === "running" || state.phase.kind === "permission";
 
   const [pulse, setPulse] = useState(false);
+
   useEffect(() => {
     if (!busy) return;
     const timer = setInterval(() => setPulse((value) => !value), 600);
@@ -99,8 +100,10 @@ export function AgentThreadPane(props: AgentThreadPaneProps): React.ReactNode {
       />,
     ),
   );
+
   useEffect(() => {
     notifyActive(true);
+
     return () => notifyActive(false);
   }, []);
   useEffect(() => {
@@ -122,8 +125,10 @@ export function AgentThreadPane(props: AgentThreadPaneProps): React.ReactNode {
     try {
       while (invocations.current.length) {
         const input = invocations.current.shift()!;
+
         try {
           const writesSaved = (await Promise.all(input.writes)).every(Boolean);
+
           if (!writesSaved) {
             rejected.push(input.text);
             continue;
@@ -147,12 +152,14 @@ export function AgentThreadPane(props: AgentThreadPaneProps): React.ReactNode {
     }
   };
   const invokeRef = useRef<() => Promise<void>>(async () => {});
+
   useEffect(() => {
     invokeRef.current = invoke;
   });
   const notifyInvoke = useEffectEvent((invoke: (() => void) | undefined) =>
     props.onInvokeChange?.(invoke),
   );
+
   useEffect(() => {
     notifyInvoke(() => void invokeRef.current());
 
@@ -208,6 +215,7 @@ export function AgentThreadPane(props: AgentThreadPaneProps): React.ReactNode {
   };
 
   const notifyActions = useEffectEvent(() => props.onActionsChange?.(actionFor));
+
   useEffect(() => {
     notifyActions();
   }, [state, projection]);
@@ -257,14 +265,17 @@ export function AgentThreadPane(props: AgentThreadPaneProps): React.ReactNode {
 
         if (source?.kind === "tail") {
           draft.current = body;
+
           return;
         }
         if (source?.kind === "mirror") {
           if (source.commentId) reply(source.commentId, body);
+
           return;
         }
         if (source?.kind === "artifact" && end?.kind === "artifact") {
           child?.onAnnotate(span, body);
+
           return;
         }
         if (

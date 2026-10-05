@@ -15,6 +15,7 @@ import { makeAnchor, parseBlocks } from "@cueloop/schema";
 
 const home = mkdtempSync(join(tmpdir(), "cueloop-snapshot-plan-"));
 const server = new DaemonServer({ home, idleExitMs: 0 });
+
 server.start();
 
 const PLAN = `# Implementation Plan: Offline Sync Engine

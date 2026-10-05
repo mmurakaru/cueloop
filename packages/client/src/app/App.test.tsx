@@ -378,6 +378,7 @@ describe("no-thread shell", () => {
     // unique "rename" row - the star action sits directly above it
     await waitForText(setup, "rename");
     const rename = locateText(setup, "rename");
+
     await setup.mockMouse.click(rename.column, rename.row - 1);
 
     // Assert - a Starred section now holds the thread

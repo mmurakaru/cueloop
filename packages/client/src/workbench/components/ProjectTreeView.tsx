@@ -56,6 +56,7 @@ export function ProjectTreeView({
     if (key.name === "k" || key.name === "up")
       return setCursorId(rows[Math.max(cursorIndex - 1, 0)]!.id);
     const row = rows[cursorIndex];
+
     if (!row) return;
     if (key.name === "return" || key.name === "enter")
       return row.isFolder ? toggle(row.id) : onSelectFile(row.id, true);

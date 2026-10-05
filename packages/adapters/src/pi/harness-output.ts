@@ -3,6 +3,7 @@ import type { AgentHarnessEvent } from "@cueloop/schema";
 
 const EnvelopeSchema = v.object({ type: v.string() });
 const PiFrameSchema = v.looseObject({ type: v.string() });
+
 type PiHarnessFrame = v.InferOutput<typeof PiFrameSchema>;
 const PI_UI_ACTIVITY_METHODS = new Set([
   "select",

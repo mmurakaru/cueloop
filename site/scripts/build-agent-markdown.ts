@@ -76,6 +76,7 @@ export function markdownRouteForDocsFile(filePath: string): string {
 function writeMarkdownPage(page: MarkdownPage): void {
   for (const prefix of ["_markdown", ""]) {
     const outputPath = join(outputRoot, prefix, page.route, "index.md");
+
     mkdirSync(dirname(outputPath), { recursive: true });
     writeFileSync(outputPath, page.markdown);
   }
@@ -86,6 +87,7 @@ export async function buildAgentMarkdownPages(): Promise<void> {
 
   for await (const relativePath of glob.scan({ cwd: docsRoot })) {
     const filePath = join(docsRoot, relativePath);
+
     writeMarkdownPage({
       route: markdownRouteForDocsFile(filePath),
       markdown: renderAgentMarkdownDocument(readFileSync(filePath, "utf8")),

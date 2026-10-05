@@ -25,6 +25,7 @@ export interface MarkdownHighlightRange {
 /** The absolute source offset where each 0-based line begins. */
 function lineStartOffsets(source: string): number[] {
   const offsets = [0];
+
   for (let index = 0; index < source.length; index++) {
     if (source[index] === "\n") offsets.push(index + 1);
   }
@@ -39,6 +40,7 @@ const INLINE_TOKEN = /(`+)(?:.+?)\1|\[[^\]]+\]\([^)]+\)/g;
 function scanInlineTokens(text: string, base: number, into: MarkdownHighlightRange[]): void {
   INLINE_TOKEN.lastIndex = 0;
   let match: RegExpExecArray | null;
+
   while ((match = INLINE_TOKEN.exec(text)) !== null) {
     const token = match[0];
     const start = base + match.index;

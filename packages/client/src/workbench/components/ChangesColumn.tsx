@@ -140,6 +140,7 @@ export function ChangesFileTree({
       return setCursor(Math.min(cursorIndex + 1, rows.length - 1));
     if (key.name === "k" || key.name === "up") return setCursor(Math.max(cursorIndex - 1, 0));
     const row = rows[cursorIndex];
+
     if (!row) return;
     if (key.name === "return" || key.name === "enter")
       return row.isFolder ? toggle(row.id) : onSelectFile(row.id, true);

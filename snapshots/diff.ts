@@ -16,8 +16,10 @@ const home = mkdtempSync(join(tmpdir(), "cueloop-snapshot-diff-"));
 // An isolated working tree named "cueloop" so the footer reads "cueloop / …" and
 // the DiffWatcher (which watches repoRoot) can't overwrite the seeded files.
 const repoRoot = join(mkdtempSync(join(tmpdir(), "cl-diff-root-")), "cueloop");
+
 mkdirSync(repoRoot);
 const server = new DaemonServer({ home, idleExitMs: 0 });
+
 server.start();
 
 const PATCH = `diff --git a/src/user-service.ts b/src/user-service.ts
@@ -87,6 +89,7 @@ const rows = diffRows(PATCH);
 const rowAt = (needle: string): number => rows.findIndex((row) => row.text.includes(needle));
 const anchorAt = (needle: string) => {
   const index = rowAt(needle);
+
   return { ...diffRowAnchor(rows, index), blockIndex: index };
 };
 

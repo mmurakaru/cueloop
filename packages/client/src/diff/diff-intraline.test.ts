@@ -225,6 +225,7 @@ describe("createIntralineResolver", () => {
       // Act - the resolver word-diffs only the one block whose row is asked for
       spy.mockClear();
       const resolver = createIntralineResolver(rows);
+
       resolver.runsForRow(1); // a row in block 0
       const oneBlockCalls = spy.mock.calls.length;
 

@@ -10,6 +10,7 @@ const PERF_SERVICE_NAME = "cueloop-client";
 
 export function reportPerfMarks(scope: string): void {
   const marks = takePerfMarks();
+
   if (marks.length === 0) return;
 
   if (process.env.CUELOOP_PERF === "1") process.stderr.write(formatPerfBlock(scope, marks));

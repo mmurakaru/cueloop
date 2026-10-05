@@ -57,9 +57,11 @@ import {
   PendingDeliverySchema,
 } from "./validate";
 import type { WorkingTreeDiff } from "./working-tree";
+import { DaemonTransportError, type DaemonRequestOptions } from "./client-errors";
+export { DaemonTransportError, type DaemonRequestOptions } from "./client-errors";
 import { DAEMON_VERSION } from "./version";
 import { ThreadAgentSchema } from "./thread-agent-validation";
-import type { AgentComment, ThreadAgentState } from "@cueloop/schema";
+import type { AgentComment, ThreadAgentState, AgentPromptRequest } from "@cueloop/schema";
 
 export type { EventFrame } from "./protocol";
 
@@ -226,7 +228,8 @@ export class DaemonClient implements ThreadClient {
   private daemonVersion: string | undefined;
   private nextId = 1;
   private eventListeners = new Set<(event: EventFrame) => void>();
-  private disconnectListeners = new Set<() => void>();
+  private disconnectListeners = new Set<(reason: DaemonTransportError) => void>();
+  private disconnectReason: DaemonTransportError | undefined;
   private closed = false;
   private role: DaemonRole = "owner";
   private author: string | undefined;
@@ -255,7 +258,15 @@ export class DaemonClient implements ThreadClient {
       if (!options.autostart || err instanceof DaemonClientError) {
         client.close();
 
-        throw err;
+        throw err instanceof DaemonClientError || err instanceof DaemonTransportError
+          ? err
+          : new DaemonTransportError(
+              "connection",
+              "Daemon connection failed",
+              "not_sent",
+              undefined,
+              { cause: err },
+            );
       }
     }
 
@@ -270,7 +281,9 @@ export class DaemonClient implements ThreadClient {
     this.writer = null;
     this.closed = false;
     for (const pendingRequest of this.pending.values())
-      pendingRequest.reject(new Error("daemon connection replaced"));
+      pendingRequest.reject(
+        new DaemonTransportError("connection", "daemon connection replaced", "unknown"),
+      );
     this.pending.clear();
   }
 
@@ -310,7 +323,11 @@ export class DaemonClient implements ThreadClient {
       const output = readFileSync(startupLogPath, "utf8").trim();
       const detail = output ? `\ndaemon startup output:\n${output.slice(-4_096)}` : "";
 
-      throw new Error(`daemon did not come up at ${path}: ${String(lastError)}${detail}`);
+      throw new DaemonTransportError(
+        "connection",
+        `Daemon startup failed at ${path}: ${String(lastError)}${detail}`,
+        "not_sent",
+      );
     } finally {
       rmSync(startupLogPath, { force: true });
     }
@@ -318,15 +335,23 @@ export class DaemonClient implements ThreadClient {
 
   private async dial(path: string): Promise<void> {
     const buffer = new LineBuffer();
+
+    this.disconnectReason = undefined;
     const epoch = ++this.connectionEpoch;
 
     const close = () => {
       if (this.connectionEpoch !== epoch) return;
       this.closed = true;
       for (const pendingRequest of this.pending.values())
-        pendingRequest.reject(new Error("daemon connection closed"));
+        pendingRequest.reject(
+          new DaemonTransportError("connection", "daemon connection closed", "unknown"),
+        );
       this.pending.clear();
-      for (const listener of this.disconnectListeners) listener();
+      const reason =
+        this.disconnectReason ??
+        new DaemonTransportError("connection", "daemon connection closed", "unknown");
+
+      for (const listener of this.disconnectListeners) listener(reason);
     };
 
     if (typeof Bun !== "undefined") {
@@ -399,7 +424,7 @@ export class DaemonClient implements ThreadClient {
   }
 
   /** Notify an adapter when its daemon socket closes so it can reconnect and replay Messages. */
-  onDisconnect(listener: () => void): () => void {
+  onDisconnect(listener: (reason: DaemonTransportError) => void): () => void {
     this.disconnectListeners.add(listener);
 
     return () => this.disconnectListeners.delete(listener);
@@ -410,7 +435,27 @@ export class DaemonClient implements ThreadClient {
 
     try {
       frame = parseInboundFrame(line);
-    } catch {
+    } catch (cause) {
+      this.disconnectReason = new DaemonTransportError(
+        "protocol",
+        "daemon sent a malformed frame",
+        "unknown",
+        undefined,
+        { cause },
+      );
+      for (const pendingRequest of this.pending.values())
+        pendingRequest.reject(
+          new DaemonTransportError(
+            "protocol",
+            "daemon sent a malformed frame",
+            "unknown",
+            undefined,
+            { cause },
+          ),
+        );
+      this.pending.clear();
+      this.close();
+
       return;
     }
     if ("event" in frame) {
@@ -431,49 +476,109 @@ export class DaemonClient implements ThreadClient {
     method: string,
     params: Request["params"],
     resultSchema: v.GenericSchema<unknown, TOutput>,
-    timeoutMs = 30_000,
+    options: number | DaemonRequestOptions = 30_000,
   ): Promise<TOutput> {
-    if (this.closed || !this.socket) return Promise.reject(new Error("not connected"));
+    const { timeoutMs = 30_000, signal } = v.is(v.number(), options)
+      ? { timeoutMs: options }
+      : options;
+
+    if (signal?.aborted)
+      return Promise.reject(
+        new DaemonTransportError("cancelled", `request ${method} cancelled`, "not_sent", method),
+      );
+    if (this.closed || !this.socket)
+      return Promise.reject(
+        new DaemonTransportError("connection", "not connected", "not_sent", method),
+      );
     const id = this.nextId++;
 
     return new Promise<TOutput>((resolve, reject) => {
-      const timer = setTimeout(() => {
+      const cleanup = () => {
+        clearTimeout(timer);
+        signal?.removeEventListener("abort", abort);
         this.pending.delete(id);
-        reject(new Error(`request ${method} timed out`));
+      };
+      const fail = (error: Error) => {
+        cleanup();
+        reject(error);
+      };
+      const abort = () =>
+        fail(
+          new DaemonTransportError("cancelled", `request ${method} cancelled`, "unknown", method),
+        );
+      const timer = setTimeout(() => {
+        fail(new DaemonTransportError("timeout", `request ${method} timed out`, "unknown", method));
       }, timeoutMs);
 
       this.pending.set(id, {
         resolve: (value) => {
-          clearTimeout(timer);
-          resolve(v.parse(resultSchema, value));
+          cleanup();
+          try {
+            const parsed = v.safeParse(resultSchema, value);
+
+            if (!parsed.success)
+              throw new DaemonTransportError(
+                "protocol",
+                `request ${method} returned an invalid result`,
+                "unknown",
+                method,
+                { cause: parsed.issues },
+              );
+            resolve(parsed.output);
+          } catch (cause) {
+            reject(
+              cause instanceof DaemonTransportError
+                ? cause
+                : new DaemonTransportError(
+                    "protocol",
+                    `request ${method} returned an invalid result`,
+                    "unknown",
+                    method,
+                    { cause },
+                  ),
+            );
+          }
         },
-        reject: (error) => {
-          clearTimeout(timer);
-          reject(error);
-        },
+        reject: fail,
       });
-      this.writer!.write(JSON.stringify({ id, method, params }) + "\n");
+      signal?.addEventListener("abort", abort, { once: true });
+      try {
+        this.writer!.write(JSON.stringify({ id, method, params }) + "\n");
+      } catch (cause) {
+        fail(
+          new DaemonTransportError(
+            "connection",
+            `request ${method} could not be written`,
+            "unknown",
+            method,
+            { cause },
+          ),
+        );
+      }
     });
   }
 
   close(): void {
     this.closed = true;
+    for (const pendingRequest of this.pending.values())
+      pendingRequest.reject(
+        new DaemonTransportError("connection", "daemon connection closed", "unknown"),
+      );
+    this.pending.clear();
     this.socket?.end();
   }
 
   // ── typed primitives ─────────────────────────────
   /** Read the agent transcript without starting a model request. */
-  agentGet(id: string): Promise<ThreadAgentState> {
-    return this.request("agent.get", { id }, ThreadAgentSchema);
+  agentGet(id: string, options?: DaemonRequestOptions): Promise<ThreadAgentState> {
+    return this.request("agent.get", { id }, ThreadAgentSchema, options);
   }
   /** Submit a question and optional selected passage to the daemon-owned agent. */
-  agentPrompt(params: {
-    id: string;
-    text: string;
-    context?: string;
-    retry?: string;
-  }): Promise<ThreadAgentState> {
-    return this.request("agent.prompt", params, ThreadAgentSchema);
+  agentPrompt(
+    params: AgentPromptRequest,
+    options?: DaemonRequestOptions,
+  ): Promise<ThreadAgentState> {
+    return this.request("agent.prompt", params, ThreadAgentSchema, options);
   }
   /** Cancel the active turn; the daemon retains partial output. */
   agentCancel(id: string): Promise<ThreadAgentState> {
@@ -681,11 +786,14 @@ export class DaemonClient implements ThreadClient {
     outcome: MessageOutcome,
     summary: string,
     actionBodies?: Record<string, string>,
+    operationId?: string,
+    options?: DaemonRequestOptions,
   ): Promise<Thread> {
     return this.request(
       "session.sendMessage",
-      { id, outcome, summary, actionBodies },
+      { id, outcome, summary, actionBodies, operationId },
       ThreadRecordSchema,
+      options,
     );
   }
   harnessBind(
@@ -764,6 +872,7 @@ export class DaemonClient implements ThreadClient {
 }
 
 export class DaemonClientError extends Error {
+  readonly _tag = "DaemonClientError";
   constructor(
     readonly code: string,
     message: string,
