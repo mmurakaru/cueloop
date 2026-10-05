@@ -208,7 +208,7 @@ export class OwnerDaemonSdk extends ReviewDaemonSdk {
         operationId: SdkOperationId;
         text: string;
         context?: string;
-        retry?: string;
+        retry?: SdkSubmissionId;
       },
       options?: DaemonRequestOptions,
     ): Promise<AgentAcceptance> => {
