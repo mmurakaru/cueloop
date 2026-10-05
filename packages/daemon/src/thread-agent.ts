@@ -126,7 +126,11 @@ export class ThreadAgentManager {
     const thread = this.options.getThread(params.id);
     const receipt = findPromptOperationReceipt(state, params);
 
-    if (receipt) return structuredClone(state);
+    if (receipt) {
+      this.drain(state);
+
+      return structuredClone(state);
+    }
     if (!this.options.adapter) throw new Error("Thread agent harness is not configured");
     if (thread.status !== "pending") throw new Error("Thread agent review is already resolved");
     assertHarnessIdentity(state, this.options.adapter);
@@ -286,6 +290,8 @@ export class ThreadAgentManager {
     const submission = state.submissions?.find((entry) => entry.status === "queued");
 
     if (!submission) return;
+    const before = structuredClone(state);
+
     submission.status = stepAgentSubmission(submission.status, "start", true);
     state.phase = { kind: "running" };
     const thread = this.options.getThread(state.threadId);
@@ -304,7 +310,13 @@ Quote: ${submission.quote ?? ""}
 Discussion context: ${submission.context ?? submission.messageId ?? ""}
 Input: ${submission.prompt}`;
 
-    this.save(state);
+    try {
+      this.save(state);
+    } catch (error) {
+      // Acceptance is already durable; a retry can resume the queue before any harness request.
+      restoreAgentState(state, before);
+      throw error;
+    }
     void this.run(state, thread, submission.id, revision, prompt, [], submission);
   }
 

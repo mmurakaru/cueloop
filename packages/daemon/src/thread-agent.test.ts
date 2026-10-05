@@ -353,3 +353,60 @@ test("prompt operation receipts survive restart without requeueing accepted inpu
     rmSync(home, { recursive: true, force: true });
   }
 });
+
+test("retrying accepted work after a failed running-state save starts the harness once", async () => {
+  const home = mkdtempSync(join(tmpdir(), "cueloop-agent-start-save-"));
+  const thread = createTestThread(home);
+  const blockedPath = join(home, "thread-agents", `${thread.id}.json.tmp`);
+  let saves = 0;
+  let prompts = 0;
+  const started = Promise.withResolvers<void>();
+  const adapter: AgentHarnessAdapter = {
+    id: "start-save-test",
+    label: "Start save test",
+    connect: () => ({
+      start: async () => "session",
+      prompt: () => {
+        prompts++;
+        started.resolve();
+
+        return new Promise(() => {});
+      },
+      cancel() {},
+      permission() {},
+      close() {},
+    }),
+  };
+  const manager = new ThreadAgentManager({
+    home,
+    enabled: true,
+    adapter,
+    getThread: () => thread,
+    onChange() {
+      if (++saves === 1) mkdirSync(blockedPath);
+    },
+  });
+
+  try {
+    const input = { id: thread.id, text: "Start once", operationId: "start-once" };
+
+    expect(() => manager.prompt(input)).toThrow();
+    expect(manager.get(thread.id).phase.kind).toBe("idle");
+    expect(manager.get(thread.id).submissions?.[0]?.status).toBe("queued");
+    expect(prompts).toBe(0);
+    const acceptedIds = manager.get(thread.id).promptOperations?.[0]?.result;
+
+    rmSync(blockedPath, { recursive: true });
+    const replay = manager.prompt(input);
+
+    expect(replay.promptOperations?.[0]?.result).toEqual(acceptedIds);
+    expect(replay.submissions).toHaveLength(1);
+    await started.promise;
+    expect(prompts).toBe(1);
+    manager.prompt(input);
+    expect(prompts).toBe(1);
+  } finally {
+    manager.dispose();
+    rmSync(home, { recursive: true, force: true });
+  }
+});
