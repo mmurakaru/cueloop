@@ -100,6 +100,7 @@ test("deleted file caret scrolls one row and stays at the file boundaries", asyn
 
     for (let index = 0; index < 12; index++) {
       const before = box.scrollTop;
+
       await press(setup, "down");
       steps.push(box.scrollTop - before);
       const caretRow = setup

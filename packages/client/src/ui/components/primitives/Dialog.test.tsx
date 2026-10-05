@@ -23,6 +23,7 @@ test("clicking the backdrop dismisses; clicking inside the panel does not", asyn
     </Dialog>,
     { width: 60, height: 20 },
   );
+
   await settle(setup);
 
   // the top-left corner is backdrop, outside the centered panel

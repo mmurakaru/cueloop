@@ -35,6 +35,7 @@ const MIN_FREE_BYTES = 6 * 1024 * 1024 * 1024;
 
 const ScenarioSpecSchema = v.object({ name: v.string(), description: v.string() });
 const ScenariosSchema = v.array(ScenarioSpecSchema);
+
 type ScenarioSpec = v.InferOutput<typeof ScenarioSpecSchema>;
 
 /** The linux release arch for the current machine, as the installer names it. */

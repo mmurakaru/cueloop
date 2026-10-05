@@ -33,6 +33,7 @@ function hasSpanColor(
     for (const span of line.spans) {
       if (!span.text.includes(needle) || !span.fg) continue;
       const [red, green, blue] = span.fg.toInts();
+
       if (red === color[0] && green === color[1] && blue === color[2]) return true;
     }
   }
@@ -47,6 +48,7 @@ for (const mode of ["dark", "light"] as const) {
       width: 120,
       height: 32,
     });
+
     await waitForText(setup, "Second review");
 
     await clickText(setup, "Second review");

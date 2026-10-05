@@ -272,6 +272,7 @@ describe("the four-pane workbench", () => {
       workspace: { repoRoot: repo, branch: "main" },
       artifact: { type: "diff", content: "", meta: { title: "live changes", workbench: true } },
     });
+
     writeFileSync(join(repo, "README.md"), "# Edited\n");
     const setup = await renderReadyApp(
       <App home={home} sessionId={liveSession.id} layout={reviewLayout()} />,
@@ -336,6 +337,7 @@ describe("the four-pane workbench", () => {
     const setup = await renderApp();
 
     const frame = setup.captureCharFrame();
+
     expect(frame).toContain("cueloop");
     expect(frame).toContain("Changes");
     expect(frame).toContain("store.ts");
@@ -353,6 +355,7 @@ describe("the four-pane workbench", () => {
     await waitForText(setup, "README.md");
 
     const frame = setup.captureCharFrame();
+
     // the full tree is showing...
     expect(frame).toContain("README.md");
     expect(frame).toContain("src");
@@ -367,10 +370,12 @@ describe("the four-pane workbench", () => {
     await waitForText(setup, "README.md");
 
     const readme = locateText(setup, "README.md");
+
     await setup.mockMouse.click(readme.column, readme.row);
     await waitForText(setup, "Workbench Fixture");
 
     const frame = setup.captureCharFrame();
+
     // the contents tab carries the file's text with no diff markers
     expect(frame).toContain("A tiny tracked repo.");
     expect(frame.split("\n")[HEADER_ROW]!).toContain("README.md");
@@ -382,15 +387,18 @@ describe("the four-pane workbench", () => {
     await setup.mockMouse.click(treeToggleColumn(setup), HEADER_ROW);
     await waitForText(setup, "README.md");
     const readme = locateText(setup, "README.md");
+
     await setup.mockMouse.click(readme.column, readme.row);
     await waitForState(setup, () =>
       setup.captureCharFrame().split("\n")[HEADER_ROW]!.includes("README.md"),
     );
 
     const folder = locateText(setup, "src");
+
     await setup.mockMouse.click(folder.column, folder.row);
     await waitForText(setup, "util.ts");
     const util = locateText(setup, "util.ts");
+
     await setup.mockMouse.click(util.column, util.row);
     await waitForState(setup, () => {
       const header = setup.captureCharFrame().split("\n")[HEADER_ROW]!;
@@ -419,15 +427,18 @@ describe("the four-pane workbench", () => {
     await setup.mockMouse.click(treeToggleColumn(setup), HEADER_ROW);
     await waitForText(setup, "README.md");
     const readme = locateText(setup, "README.md");
+
     await setup.mockMouse.click(readme.column, readme.row);
     await waitForText(setup, "Workbench Fixture");
 
     // the split control appears only on a file tab
     const split = locateText(setup, "split");
+
     await setup.mockMouse.click(split.column, split.row);
     await waitForText(setup, "right");
 
     const menu = setup.captureCharFrame();
+
     expect(menu).toContain("left");
     expect(menu).toContain("right");
     expect(menu).toContain("up");
@@ -450,11 +461,13 @@ describe("the four-pane workbench", () => {
     const setup = await renderApp();
 
     const changes = locateText(setup, "Changes");
+
     // the tab's close box sits just past the label; the ✕ is a hover affordance, the box always clicks
     await setup.mockMouse.click(changes.column + 8, changes.row);
     await waitForState(setup, () => !setup.captureCharFrame().includes("store.ts"));
 
     const frame = setup.captureCharFrame();
+
     // the Changes editor is gone...
     expect(frame).not.toContain("store.ts");
     // ...but the Project sidebar and its toggles remain
@@ -483,11 +496,13 @@ describe("the four-pane workbench", () => {
     // deep-linked into a session, the Threads sidebar starts collapsed: the brand rides in the
     // Thread header and the inbox groups are hidden
     const collapsed = setup.captureCharFrame();
+
     expect(collapsed).toContain("cueloop");
     expect(collapsed).not.toContain("Threads");
 
     // the sidebar toggle sits just left of the brand (one glyph plus its margin)
     const brand = locateText(setup, "cueloop");
+
     await setup.mockMouse.click(brand.column - 3, brand.row);
     await waitForText(setup, "Threads");
 
@@ -496,6 +511,7 @@ describe("the four-pane workbench", () => {
 
     // toggling again collapses it back
     const reopened = locateText(setup, "cueloop");
+
     await setup.mockMouse.click(reopened.column - 3, reopened.row);
     await waitForState(setup, () => !setup.captureCharFrame().includes("Threads"));
     expect(setup.captureCharFrame()).not.toContain("Threads");
@@ -505,10 +521,12 @@ describe("the four-pane workbench", () => {
     const setup = await renderApp();
 
     const zoom = locateText(setup, NERD.zoom);
+
     await setup.mockMouse.click(zoom.column, zoom.row);
     await waitForState(setup, () => !setup.captureCharFrame().includes("Select a thread"));
 
     const frame = setup.captureCharFrame();
+
     // the Thread pane's prompt is gone...
     expect(frame).not.toContain("Select a thread");
     // ...while the Changes editor and Project sidebar stay
@@ -525,9 +543,11 @@ describe("the four-pane workbench", () => {
         height: 20,
       },
     );
+
     await waitForText(setup, "store.ts");
 
     const zoom = locateText(setup, NERD.zoom);
+
     await setup.mockMouse.click(zoom.column, zoom.row);
     await waitForState(
       setup,
@@ -554,20 +574,24 @@ describe("the four-pane workbench", () => {
     // open the collapsed Threads sidebar first (its toggle sits three cells left of the brand); the
     // brand rides the Thread header, which zoom then hides, so it must be reached before zooming
     const brand = locateText(setup, "cueloop");
+
     await setup.mockMouse.click(brand.column - 3, brand.row);
     await waitForText(setup, "Zoomed Plan");
 
     // zoom the diff - the Thread pane hides and the footer rides the Changes pane
     const zoom = locateText(setup, NERD.zoom);
+
     await setup.mockMouse.click(zoom.column, zoom.row);
     await waitForState(setup, () => !setup.captureCharFrame().includes("Select a thread"));
 
     // switch to the plan thread: it has no Changes editor, so a stranded zoom would blank the middle
     const planRow = locateText(setup, "Zoomed Plan");
+
     await setup.mockMouse.click(planRow.column, planRow.row);
     await waitForText(setup, "Review this plan.");
 
     const frame = setup.captureCharFrame();
+
     // the Thread pane is back with the plan, and the diff's Changes editor is gone - never a blank middle
     expect(frame).toContain("Review this plan.");
     expect(frame).not.toContain("store.ts");
@@ -578,6 +602,7 @@ describe("the four-pane workbench", () => {
 
     // zoom the Changes editor - the Thread pane hides
     const zoom = locateText(setup, NERD.zoom);
+
     await setup.mockMouse.click(zoom.column, zoom.row);
     await waitForState(setup, () => !setup.captureCharFrame().includes("Select a thread"));
 
@@ -585,6 +610,7 @@ describe("the four-pane workbench", () => {
     await setup.mockMouse.click(rightToggleColumn(setup), HEADER_ROW);
     await waitForText(setup, "Select a thread");
     const frame = setup.captureCharFrame();
+
     expect(frame).toContain("Select a thread");
     // the right region is collapsed and the Changes editor is gone
     expect(frame).not.toContain("store.ts");
@@ -634,6 +660,7 @@ describe("the bare-launch welcome shell", () => {
       <App home={welcomeHome} sessionId={undefined} cwd={welcomeRepo} />,
       { width: 180, height: 14 },
     );
+
     await waitForText(setup, "cueloop");
 
     return setup;
@@ -678,11 +705,13 @@ describe("the bare-launch welcome shell", () => {
     await setup.mockMouse.click(treeToggleColumn(setup), HEADER_ROW);
     await waitForText(setup, "README.md");
     const readme = locateText(setup, "README.md");
+
     await setup.mockMouse.click(readme.column, readme.row);
     await waitForText(setup, "edited in the working tree");
 
     // comment on a line - the first note find-or-creates the workbench thread
     const line = "edited in the working tree";
+
     await dragText(setup, line, line, line.length);
     await typeText(setup, "workbench note");
     await pressKey(setup, "RETURN", { meta: true });
@@ -694,6 +723,7 @@ describe("the bare-launch welcome shell", () => {
     const workbench = welcomeServer.core
       .sessionList()
       .find((thread) => thread.artifact.meta.workbench === true)!;
+
     expect(workbench.workspace.rootCommit).toBeTruthy();
     await waitForState(setup, () =>
       welcomeServer.core
@@ -780,6 +810,7 @@ describe("the bare-launch welcome shell", () => {
       <App home={welcomeHome} sessionId={undefined} cwd={welcomeRepo} layout={reviewLayout()} />,
       { width: 180, height: 14 },
     );
+
     await waitForText(setup, "README.md");
     expect(setup.captureCharFrame()).toContain("README.md");
   });
@@ -789,6 +820,7 @@ describe("the bare-launch welcome shell", () => {
       <App home={welcomeHome} sessionId={undefined} cwd={welcomeRepo} layout={planLayout()} />,
       { width: 180, height: 14 },
     );
+
     await waitForText(setup, "cueloop");
     // rightSidebar "off": neither the Changes list nor the launch repo's files paint
     expect(setup.captureCharFrame()).not.toContain("README.md");
@@ -806,6 +838,7 @@ describe("the bare-launch welcome shell", () => {
       />,
       { width: 180, height: 14 },
     );
+
     await waitForText(setup, "Select a thread");
     expect(setup.captureCharFrame()).toContain("Select a thread");
   });
@@ -820,6 +853,7 @@ describe("the bare-launch welcome shell", () => {
       />,
       { width: 180, height: 14 },
     );
+
     await waitForText(setup, "README.md");
 
     // close the Changes/Project region; the remembered layout follows it to "off"
@@ -842,11 +876,13 @@ describe("the bare-launch welcome shell", () => {
 
     await waitForText(setup, "README.md");
     const readme = locateText(setup, "README.md");
+
     await setup.mockMouse.click(readme.column, readme.row);
 
     // a diff shows both the removed old line and the added new line; contents would show only the new
     await waitForText(setup, "A tiny tracked repo.");
     const frame = setup.captureCharFrame();
+
     expect(frame).toContain("A tiny tracked repo.");
     expect(frame).toContain("edited in the working tree");
   });
@@ -856,8 +892,10 @@ describe("the bare-launch welcome shell", () => {
       <App home={welcomeHome} sessionId={undefined} cwd={welcomeRepo} />,
       { width: 160, height: 28 },
     );
+
     await waitForText(setup, "quick brown fox");
     const line = locateText(setup, "quick brown fox");
+
     await setup.mockMouse.click(line.column, line.row);
 
     // esc enters nav; the footer names what this surface can do, not the diff commands
@@ -892,11 +930,14 @@ describe("the bare-launch welcome shell", () => {
       <App home={welcomeHome} sessionId={undefined} cwd={welcomeRepo} />,
       { width: 160, height: 28 },
     );
+
     await waitForText(setup, "README.md");
     const readme = locateText(setup, "README.md");
+
     await setup.mockMouse.click(readme.column, readme.row);
     await waitForText(setup, "edited in the working tree");
     const line = locateText(setup, "edited in the working tree");
+
     await setup.mockMouse.click(line.column, line.row);
 
     await press(setup, "escape");
@@ -905,6 +946,7 @@ describe("the bare-launch welcome shell", () => {
     await pressKey(setup, "x");
     await waitForText(setup, "● x");
     const frame = setup.captureCharFrame();
+
     expect(frame).toContain("edited in the working tree");
     expect(frame).not.toContain("change rejected");
 
@@ -916,13 +958,16 @@ describe("the bare-launch welcome shell", () => {
       <App home={welcomeHome} sessionId={undefined} cwd={welcomeRepo} />,
       { width: 160, height: 28 },
     );
+
     await waitForText(setup, "README.md");
     await setup.mockMouse.click(treeToggleColumn(setup), HEADER_ROW);
     await waitForText(setup, "README.md");
     const readme = locateText(setup, "README.md");
+
     await setup.mockMouse.click(readme.column, readme.row);
     await waitForText(setup, "edited in the working tree");
     const line = locateText(setup, "edited in the working tree");
+
     await setup.mockMouse.click(line.column, line.row);
 
     await press(setup, "escape");
@@ -940,6 +985,7 @@ describe("the bare-launch welcome shell", () => {
     // the Welcome playground measures its width before it paints, so wait for its copy
     await waitForText(setup, "Getting started");
     const frame = setup.captureCharFrame();
+
     // the getting-started surface is an editor tab, not the thread pane
     expect(frame.split("\n")[HEADER_ROW]!).toContain("Welcome");
     expect(frame).toContain("Getting started");
@@ -952,6 +998,7 @@ describe("the bare-launch welcome shell", () => {
       <App home={welcomeHome} sessionId={undefined} cwd={welcomeRepo} />,
       { width: 160, height: 24 },
     );
+
     await waitForText(setup, "Getting started");
 
     // focus starts on the Threads sidebar: a letter drives the inbox, it never drafts in the editor
@@ -960,6 +1007,7 @@ describe("the bare-launch welcome shell", () => {
 
     // clicking a line in the Welcome editor focuses that pane; now typing composes there
     const line = locateText(setup, "quick brown fox");
+
     await setup.mockMouse.click(line.column, line.row);
     await typeText(setup, "note");
     await waitForText(setup, "● note");
@@ -977,6 +1025,7 @@ describe("the bare-launch welcome shell", () => {
       <App home={welcomeHome} sessionId={undefined} cwd={welcomeRepo} />,
       { width: 160, height: 28 },
     );
+
     await waitForText(setup, "quick brown fox");
 
     // open the playground composer, then type letters that are also inbox keys (j, k, d), one at a
@@ -999,6 +1048,7 @@ describe("the bare-launch welcome shell", () => {
     const setup = await renderWelcome();
 
     const welcome = locateText(setup, "Welcome");
+
     // the close box sits just past the label
     await setup.mockMouse.click(welcome.column + 8, welcome.row);
     await waitForState(
@@ -1008,6 +1058,7 @@ describe("the bare-launch welcome shell", () => {
 
     // the Threads sidebar and the Thread empty state remain - never a blank shell
     const frame = setup.captureCharFrame();
+
     expect(frame).toContain("cueloop");
     expect(frame).toContain("Select a thread");
   });
@@ -1085,9 +1136,11 @@ describe("the bare-launch welcome shell", () => {
     const lines = setup.captureCharFrame().split("\n");
     // the reopen toggle's divider sits at the far right; find its column on the header row
     const headerDivider = lines[HEADER_ROW]!.lastIndexOf("│");
+
     expect(headerDivider).toBeGreaterThan(0);
     // that column stays clear below the two-row header - no full-height column rule
     const bodyRows = lines.slice(3).filter((line) => line.length > headerDivider);
+
     expect(bodyRows.length).toBeGreaterThan(0);
     for (const line of bodyRows) {
       expect(line[headerDivider]).not.toBe("│");

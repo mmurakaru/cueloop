@@ -9,6 +9,7 @@ import {
   stepAgentSubmission,
   isAgentNote,
   type AgentSubmission,
+  type AgentPromptRequest,
   type AgentHarnessTools,
   resolveAnchor,
   type AgentComment,
@@ -19,6 +20,11 @@ import {
   type AgentHarnessEvent,
   type AgentHarnessResult,
 } from "@cueloop/schema";
+import {
+  findPromptOperationReceipt,
+  recordPromptOperation,
+  settlePromptOperations,
+} from "./operation-receipts";
 import { writeHarnessDiagnostic } from "./harness-diagnostics";
 import { stepAgentTurn, agentTurnCancelled, type AgentTurn } from "./agent-turn";
 import { ThreadAgentSchema } from "./thread-agent-validation";
@@ -90,7 +96,11 @@ export class ThreadAgentManager {
         };
 
     if (state.threadId !== id) throw new Error("Thread agent record has the wrong thread identity");
-    if (state.phase.kind === "running" || state.phase.kind === "permission") {
+    if (
+      state.phase.kind === "running" ||
+      state.phase.kind === "permission" ||
+      state.submissions?.some((entry) => entry.status === "queued" || entry.status === "running")
+    ) {
       state.phase = {
         kind: "failed",
         error: "Agent was interrupted by a daemon restart. Send a message to resume.",
@@ -103,21 +113,29 @@ export class ThreadAgentManager {
         if (tool.status === "pending" || tool.status === "in_progress") tool.status = "cancelled";
       }
     }
+    settlePromptOperations(state);
     this.states.set(id, state);
 
     return structuredClone(state);
   }
 
   /** Freeze each pending comment once and queue an individual answer at the Thread tail. */
-  prompt(params: { id: string; text: string; context?: string; retry?: string }): ThreadAgentState {
+  prompt(params: AgentPromptRequest): ThreadAgentState {
     this.assertEnabled(params.id);
-    if (!this.options.adapter) throw new Error("Thread agent harness is not configured");
     const state = this.mutable(params.id);
     const thread = this.options.getThread(params.id);
+    const receipt = findPromptOperationReceipt(state, params);
 
+    if (receipt) {
+      this.drain(state);
+
+      return structuredClone(state);
+    }
+    if (!this.options.adapter) throw new Error("Thread agent harness is not configured");
     if (thread.status !== "pending") throw new Error("Thread agent review is already resolved");
     assertHarnessIdentity(state, this.options.adapter);
     const before = structuredClone(state);
+
     try {
       state.harness ??= { id: this.options.adapter.id, label: this.options.adapter.label };
       state.submissions ??= [];
@@ -141,6 +159,7 @@ export class ThreadAgentManager {
           (total, message) => total + Buffer.byteLength(message.text),
           0,
         );
+
         if (used + Buffer.byteLength(input.prompt) > 2 * 1024 * 1024)
           throw new Error("Thread agent input exceeds transcript limit");
         const submission: AgentSubmission = {
@@ -166,9 +185,11 @@ export class ThreadAgentManager {
 
         if (!submission || submission.status !== "failed")
           throw new Error("Thread agent retry requires a failed submission");
+        delete submission.cancelled;
         submission.status = stepAgentSubmission(submission.status, "retry", true);
       } else {
         const accepted = new Set(submissions.map((entry) => entry.commentId));
+
         for (const annotation of thread.annotations) {
           if (!isPendingAgentInput(annotation, accepted)) continue;
           const root =
@@ -182,6 +203,7 @@ export class ThreadAgentManager {
           enqueue({ commentId: annotation.id, prompt: annotation.body, quote: root.anchor.quote });
           // The discussion snapshot is passed as context, while the mirror shows only the new comment.
           const submission = submissions.at(-1)!;
+
           submission.context = JSON.stringify({
             target: root.target,
             discussion: discussion.map((entry) => ({ id: entry.id, body: entry.body })),
@@ -195,6 +217,7 @@ export class ThreadAgentManager {
             messageId: comment.messageId,
           });
           const root = agentCommentRoot(state, comment.replyTo ?? comment.id) ?? comment;
+
           submissions.at(-1)!.context = JSON.stringify({
             discussion: [root, ...state.comments.filter((entry) => entry.replyTo === root.id)].map(
               (entry) => ({ id: entry.id, body: entry.body }),
@@ -204,6 +227,7 @@ export class ThreadAgentManager {
         }
         if (params.text.trim()) enqueue({ prompt: params.text.trim(), quote: params.context });
       }
+      recordPromptOperation(state, before, params);
       this.save(state);
     } catch (error) {
       restoreAgentState(state, before);
@@ -231,14 +255,20 @@ export class ThreadAgentManager {
     if (!this.options.adapter) throw new Error("Thread agent harness is not configured");
     const state = this.mutable(params.id);
 
-    if (state.phase.kind === "running" || state.phase.kind === "permission")
+    if (state.phase.kind === "running" || state.phase.kind === "permission") {
+      // Discovery can read existing choices without reconfiguring an active turn.
+      if (params.configId === undefined || params.value === undefined)
+        return structuredClone(state);
       throw new Error("Thread agent configuration waits for the current turn");
+    }
     const active = await this.connect(state, this.options.getThread(params.id), "", 1);
 
     if (params.configId === undefined || params.value === undefined) {
       const current = this.get(params.id);
+
       if (current.phase.kind !== "running" && current.phase.kind !== "permission")
         active.turn = stepAgentTurn(active.turn, "finished");
+
       return structuredClone(state);
     }
     if (!active.connection.configure)
@@ -260,6 +290,8 @@ export class ThreadAgentManager {
     const submission = state.submissions?.find((entry) => entry.status === "queued");
 
     if (!submission) return;
+    const before = structuredClone(state);
+
     submission.status = stepAgentSubmission(submission.status, "start", true);
     state.phase = { kind: "running" };
     const thread = this.options.getThread(state.threadId);
@@ -278,7 +310,13 @@ Quote: ${submission.quote ?? ""}
 Discussion context: ${submission.context ?? submission.messageId ?? ""}
 Input: ${submission.prompt}`;
 
-    this.save(state);
+    try {
+      this.save(state);
+    } catch (error) {
+      // Acceptance is already durable; a retry can resume the queue before any harness request.
+      restoreAgentState(state, before);
+      throw error;
+    }
     void this.run(state, thread, submission.id, revision, prompt, [], submission);
   }
 
@@ -324,8 +362,10 @@ Input: ${submission.prompt}`;
   reply(id: string, commentId: string, body: string): ThreadAgentState {
     const state = this.mutable(id);
     const comment = agentCommentRoot(state, commentId);
+
     if (!comment) throw new Error("Thread agent reply comment does not exist");
     const root = agentCommentRoot(state, comment.replyTo ?? comment.id) ?? comment;
+
     if (state.comments.length >= 128)
       throw new Error("Thread agent prototype reached its comment limit");
     state.comments.push({
@@ -348,6 +388,9 @@ Input: ${submission.prompt}`;
 
     if (active && (state.phase.kind === "running" || state.phase.kind === "permission")) {
       active.turn = stepAgentTurn(active.turn, "stop");
+      const submission = state.submissions?.find((entry) => entry.status === "running");
+
+      if (submission) submission.cancelled = true;
       for (const tool of state.tools) {
         if (tool.status === "pending" || tool.status === "in_progress") tool.status = "cancelled";
       }
@@ -410,6 +453,7 @@ Input: ${submission.prompt}`;
   }
 
   private save(state: ThreadAgentState): void {
+    settlePromptOperations(state);
     if (this.states.get(state.threadId) !== state) return;
     const data = JSON.stringify(state);
 
@@ -449,6 +493,7 @@ Input: ${submission.prompt}`;
       const result = await active.connection.prompt(prompt);
 
       finalizeAgentMessages(state, messageStart, result.outcome);
+      if (submission && result.outcome === "cancelled") submission.cancelled = true;
       if (submission)
         submission.status = stepAgentSubmission(
           submission.status,
@@ -485,6 +530,7 @@ Input: ${submission.prompt}`;
     revision: number,
   ): Promise<ActiveAgent> {
     const pending = this.initializing.get(state.threadId);
+
     if (pending) return pending;
     const promise = this.startConnection(state, thread, turnId, revision);
 
@@ -551,6 +597,7 @@ Input: ${submission.prompt}`;
     if (event.kind === "config") {
       state.configOptions = event.options;
       this.save(state);
+
       return;
     }
     const active = this.active.get(state.threadId);
@@ -656,6 +703,7 @@ function isPendingAgentInput(
 
 function restoreAgentState(state: ThreadAgentState, before: ThreadAgentState): void {
   if (before.submissions === undefined) delete state.submissions;
+  if (before.promptOperations === undefined) delete state.promptOperations;
   if (before.harness === undefined) delete state.harness;
   Object.assign(state, before);
 }

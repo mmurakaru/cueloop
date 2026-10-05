@@ -21,11 +21,13 @@ test("a long branch truncates on one line and keeps the send control in place", 
     </box>,
     { width: 60, height: 3 },
   );
+
   await settle(setup);
   await settle(setup);
 
   const frame = setup.captureCharFrame();
   const footerRow = frame.split("\n").find((line) => line.includes("cueloop"))!;
+
   // the repo/branch context and the send control share the single footer row
   expect(footerRow).toContain("Send message (0)");
   // the branch is clipped to an ellipsis, not wrapped onto a second row

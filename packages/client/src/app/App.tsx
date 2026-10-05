@@ -376,6 +376,7 @@ function ProjectPanelBody(props: {
       />
     );
   }
+
   return (
     <ProjectTreeView
       key={props.diffSourceKey}
@@ -617,6 +618,7 @@ export function App({
   // A shared plan you own polls for collaborator notes while it is open; the
   // merge refreshes through the normal event path. Stops on leave.
   const threadShared = isSharedThread(session);
+
   useEffect(() => {
     if (!isOwner || !threadShared) return;
 
@@ -655,6 +657,7 @@ export function App({
   const [focusedPane, setFocusedPane] = useState<FocusPane>(() =>
     initialFocusedPane(sessionId, workbench.zoomed, layout),
   );
+
   // only the session view persists from here; the bare shell owns its own (NoThreadShell), so this
   // workbench stays inactive with no session and never clobbers what the shell saved
   useRememberLayout(
@@ -765,6 +768,7 @@ export function App({
   };
   const syncGithubIdentity = (): void => {
     const generation = (identityGenerationRef.current += 1);
+
     void resolveGithubIdentity().then((github) => {
       if (identityGenerationRef.current !== generation) return;
       if (!github) return controller.setStatus("GitHub not connected - run gh auth login");
@@ -850,6 +854,7 @@ export function App({
     () => (session && isDiff ? commentCountsByFile(session, rows) : undefined),
     [session, isDiff, rows],
   );
+
   // entering a diff opens the right region in changed-files mode; a plan or reply opens it closed
   workbench.syncSession(session?.id, isDiff);
   // plans, replies, and the default (markdown) prototype open in the thread view, diffs in the
@@ -989,6 +994,7 @@ export function App({
     workbench.changesOpen,
     workbench.projectOpen,
   );
+
   useEffect(() => {
     // the bare shell drives its panes from its own workbench, so only reconcile against this one
     if (!session) return;

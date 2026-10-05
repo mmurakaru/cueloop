@@ -226,6 +226,7 @@ export interface Annotation {
 }
 
 export const REVIEW_SEVERITIES = ["p0", "p1", "p2"] as const;
+
 export type ReviewSeverity = (typeof REVIEW_SEVERITIES)[number];
 
 /** Data needed to render and publish one agent-authored pull request comment. */
@@ -281,7 +282,15 @@ export interface PendingDelivery {
 }
 
 export const MESSAGE_OUTCOMES = ["comment", "approved", "changes_requested"] as const;
+
 export type MessageOutcome = (typeof MESSAGE_OUTCOMES)[number];
+
+/** Durable acceptance records are committed together with the mutation they identify. */
+export interface OperationReceipt<Result> {
+  operationId: string;
+  fingerprint: string;
+  result: Result;
+}
 
 export interface Message {
   /** Stable identity used to deduplicate at-least-once harness delivery. */
@@ -387,6 +396,8 @@ export interface Thread {
    * progress. Undefined = the walk never started.
    */
   viewedPaths?: string[];
+  /** Acceptance receipts persist atomically with review messages for safe explicit retries. */
+  messageOperations?: OperationReceipt<Message>[];
   message: Message | null;
   status: SessionStatus;
   createdAt: string;

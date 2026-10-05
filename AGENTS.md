@@ -100,8 +100,9 @@ Verification recipes:
   integration targets (OpenTUI, @pierre/diffs, herdr, pi, Claude Code, Codex, Obsidian) is fine.
 - Comments state intent and invariants, not narration.
 - Blank-line padding: keep a blank line before every `return` and after a run of
-  declarations. oxlint cannot enforce this yet (upstream oxc#479 for the rule,
-  oxc#22053 for oxfmt); enable it in config once it lands.
+  declarations, including before `if` statements. The local
+  `statement-padding/blank-lines` oxlint rule enforces this; `bun run format`
+  fixes it before oxfmt runs. Keep consecutive declarations together.
 - Keybindings/labels locked: deletion = Cut, submit = "Send message (n)".
 
 ## releases

@@ -41,6 +41,7 @@ test("j moves onto a file and Enter opens it", async () => {
     />,
     { width: 40, height: 12 },
   );
+
   await settle(setup);
   await waitForText(setup, "a.ts");
 
@@ -117,6 +118,7 @@ test("without focus the keyboard opens nothing", async () => {
     <ChangesFileTree files={files} onSelectFile={(path) => opened.push(path)} theme={DARK} />,
     { width: 40, height: 12 },
   );
+
   await settle(setup);
   await waitForText(setup, "a.ts");
 

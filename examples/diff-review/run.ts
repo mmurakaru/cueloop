@@ -23,6 +23,7 @@ import { runClient } from "@cueloop/client";
 
 const home = mkdtempSync(join(tmpdir(), "cueloop-example-"));
 const server = new DaemonServer({ home, idleExitMs: 0 });
+
 server.start();
 
 const PATCH = `diff --git a/src/rate-limiter.ts b/src/rate-limiter.ts

@@ -18,6 +18,7 @@ function perfInstrumentationEnabled(): boolean {
 export function perfMark(label: string): void {
   if (!perfInstrumentationEnabled()) return;
   const now = performance.now();
+
   phaseMarks.push({ label, elapsedMs: now - (lastMarkAt ?? 0) });
   lastMarkAt = now;
 }

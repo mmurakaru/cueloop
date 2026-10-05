@@ -141,12 +141,14 @@ const pageUrl = new URL(path, Astro.site).href;
         /* storage unavailable */
       }
     };
+
     function toggleNav(shell: HTMLElement) {
       if (isMobile()) {
         shell.classList.toggle("is-nav-open");
       } else {
         shell.classList.add("is-nav-interacting");
         const collapsed = shell.classList.toggle("is-nav-collapsed");
+
         writeStore(NAV_KEY, collapsed ? "collapsed" : "open");
       }
     }
@@ -155,12 +157,14 @@ const pageUrl = new URL(path, Astro.site).href;
       document.querySelectorAll<HTMLPreElement>(".docs-content .prose pre").forEach((pre) => {
         if (pre.querySelector(".code-copy")) return;
         const button = document.createElement("button");
+
         button.type = "button";
         button.className = "code-copy";
         button.textContent = "copy";
         button.setAttribute("aria-label", "Copy code");
         button.addEventListener("click", async () => {
           const code = pre.querySelector("code")?.textContent ?? pre.textContent ?? "";
+
           try {
             await navigator.clipboard.writeText(code.replace(/\n$/, ""));
             button.textContent = "copied";
@@ -173,15 +177,18 @@ const pageUrl = new URL(path, Astro.site).href;
       });
 
       const shell = document.getElementById("docs-shell");
+
       if (!shell) return;
 
       // Toggle the top/bottom scroll fade only while the sidebar overflows.
       // Disconnect the prior observer so client navigations do not stack them.
       const aside = shell.querySelector<HTMLElement>(".docs-aside");
+
       if (aside) {
         navResizeObserver?.disconnect();
         const syncFade = () =>
           aside.classList.toggle("is-scrollable", aside.scrollHeight > aside.clientHeight + 1);
+
         syncFade();
         navResizeObserver = new ResizeObserver(syncFade);
         navResizeObserver.observe(aside);
@@ -192,6 +199,7 @@ const pageUrl = new URL(path, Astro.site).href;
         if (el.dataset.wired) return;
         el.dataset.wired = "1";
         const isClose = el.hasAttribute("data-nav-close");
+
         el.addEventListener("click", () =>
           isClose ? shell.classList.remove("is-nav-open") : toggleNav(shell),
         );
@@ -209,6 +217,7 @@ const pageUrl = new URL(path, Astro.site).href;
       window.__cueloopDocsKeys = true;
       document.addEventListener("keydown", (event) => {
         const shell = document.getElementById("docs-shell");
+
         if (!shell) return;
         if (event.key === "Escape") shell.classList.remove("is-nav-open");
         if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "b") {

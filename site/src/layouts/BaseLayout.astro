@@ -50,10 +50,12 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
       // paint, so View Transitions never flash the server default theme.
       (function () {
         const root = document.documentElement;
+
         root.classList.add("js");
         function applyTheme() {
           try {
             const pref = localStorage.getItem("cueloop-theme") || "system";
+
             root.dataset.theme =
               pref === "light" || pref === "dark"
                 ? pref
@@ -163,6 +165,7 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
         if (reduceMotion) {
           // Honour the preference: reveal everything, no motion.
           gsap.set([...heroChildren, ...revealBlocks], { opacity: 1, y: 0 });
+
           return;
         }
 
