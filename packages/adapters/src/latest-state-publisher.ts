@@ -5,13 +5,15 @@ export function createLatestStatePublisher(write: () => Promise<void>): () => Pr
 
   return () => {
     dirty = true;
-    pending ??= (async () => {
-      while (dirty) {
-        dirty = false;
-        await write();
+    pending ??= Promise.resolve().then(async () => {
+      try {
+        while (dirty) {
+          dirty = false;
+          await write();
+        }
+      } finally {
+        pending = undefined;
       }
-    })().finally(() => {
-      pending = undefined;
     });
 
     return pending;
