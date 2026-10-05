@@ -21,6 +21,7 @@ test("the input is focused on open, so typing lands in the dialog", async () => 
     />,
     { width: 60, height: 12 },
   );
+
   await settle(setup);
 
   await typeText(setup, "!");
@@ -45,14 +46,17 @@ test("clicking save fires onSave and clicking cancel fires onCancel", async () =
     />,
     { width: 60, height: 12 },
   );
+
   await settle(setup);
 
   const save = locateText(setup, "save");
+
   await setup.mockMouse.click(save.column, save.row);
   expect(saved).toBe(1);
   expect(cancelled).toBe(0);
 
   const cancel = locateText(setup, "cancel");
+
   await setup.mockMouse.click(cancel.column, cancel.row);
   expect(cancelled).toBe(1);
   expect(saved).toBe(1);

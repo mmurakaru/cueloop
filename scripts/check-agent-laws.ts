@@ -28,6 +28,7 @@ const BendTurnSchema = v.variant("$", [
   v.object({ $: v.literal("Running") }),
   v.object({ $: v.literal("Stopping") }),
 ]);
+
 type BendTurn = v.InferOutput<typeof BendTurnSchema>;
 const states: AgentTurn[] = [
   { kind: "idle" },

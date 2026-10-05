@@ -23,6 +23,7 @@ test("agent socket methods enforce owner access and preserve the original review
       }),
     },
   });
+
   server.start();
   const owner = await DaemonClient.connect({ home });
   const capped = await DaemonClient.connect({ home, role: "agent" });
@@ -94,6 +95,7 @@ test.skipIf(!process.env.CUELOOP_TEST_FX)(
         }),
       },
     });
+
     server.start();
     let client = await DaemonClient.connect({ home });
 
@@ -146,6 +148,7 @@ test.skipIf(!process.env.CUELOOP_TEST_FX)(
         },
       });
       const sessionId = state.harness?.sessionId;
+
       client.close();
       server.stop();
       server = new DaemonServer({
@@ -194,6 +197,7 @@ test.skipIf(!process.env.CUELOOP_TEST_FX)(
         }),
       },
     });
+
     server.start();
     const client = await DaemonClient.connect({ home });
 
@@ -255,6 +259,7 @@ test.skipIf(!process.env.CUELOOP_TEST_FX)(
         }),
       },
     });
+
     server.start();
     const client = await DaemonClient.connect({ home });
 
@@ -305,6 +310,7 @@ test("harness tools reply to the original Changes discussion and return Approve 
             start: async () => "tool-session",
             prompt: async () => {
               const definitions = options.tools!.definitions.map((entry) => entry.name);
+
               expect(definitions).toContain("reply_to_comment");
               expect(definitions).toContain("send_message");
               const threads = await options.tools!.call(
@@ -314,6 +320,7 @@ test("harness tools reply to the original Changes discussion and return Approve 
                   params: {},
                 }),
               );
+
               expect(Array.isArray(JSON.parse(threads))).toBe(true);
               await options.tools!.call(
                 "reply_to_comment",
@@ -346,6 +353,7 @@ test("harness tools reply to the original Changes discussion and return Approve 
     },
   });
   let currentId = "";
+
   server.start();
   const client = await DaemonClient.connect({ home });
 
@@ -354,6 +362,7 @@ test("harness tools reply to the original Changes discussion and return Approve 
       { repoRoot: home, branch: "main" },
       { type: "plan", content: "Review timer", meta: {} },
     );
+
     currentId = thread.id;
     const original = {
       id: "changes-comment",
@@ -365,6 +374,7 @@ test("harness tools reply to the original Changes discussion and return Approve 
 
     await client.sessionComment(thread.id, original);
     const waiting = client.sessionWait(thread.id, 3000);
+
     await client.agentPrompt({ id: thread.id, text: "" });
     await expect(
       client.sessionComment(thread.id, { ...original, body: "Rewrite" }),
@@ -406,6 +416,7 @@ test.skipIf(!process.env.CUELOOP_TEST_FX)(
         }),
       },
     });
+
     server.start();
     const client = await DaemonClient.connect({ home });
 
@@ -414,6 +425,7 @@ test.skipIf(!process.env.CUELOOP_TEST_FX)(
         { repoRoot: provider.workspace, branch: "main" },
         { type: "plan", content: "Review the timer", meta: {} },
       );
+
       await client.sessionComment(thread.id, {
         id: "original",
         kind: "comment",
@@ -433,8 +445,10 @@ test.skipIf(!process.env.CUELOOP_TEST_FX)(
       );
       await client.agentPrompt({ id: thread.id, text: "" });
       const deadline = Date.now() + 5000;
+
       while ((await client.sessionGet(thread.id)).status !== "resolved") {
         const state = await client.agentGet(thread.id);
+
         if (state.phase.kind === "permission") {
           const option = state.phase.permission.options.find(
             (entry) => entry.kind === "allow_once",
@@ -451,6 +465,7 @@ test.skipIf(!process.env.CUELOOP_TEST_FX)(
         await Bun.sleep(5);
       }
       const returned = await client.sessionGet(thread.id);
+
       expect(returned?.message?.outcome).toBe("approved");
       expect(returned?.annotations.find((entry) => entry.replyTo === "original")?.body).toBe(
         "The timer clears after completion.",
@@ -468,6 +483,7 @@ test.skipIf(!process.env.CUELOOP_TEST_FX)(
 test("disabled experimental agents reject all agent socket methods without starting a harness", async () => {
   const home = mkdtempSync(join(tmpdir(), "cueloop-agent-disabled-"));
   const server = new DaemonServer({ home, idleExitMs: 0 });
+
   server.start();
   const owner = await DaemonClient.connect({ home });
 
@@ -532,6 +548,7 @@ test("harness tools cannot inspect or mutate another Thread or repository", asyn
       },
     },
   });
+
   server.start();
   const client = await DaemonClient.connect({ home });
 
@@ -544,6 +561,7 @@ test("harness tools cannot inspect or mutate another Thread or repository", asyn
       { repoRoot: "/unrelated", branch: "main" },
       { type: "plan", content: "Unrelated", meta: {} },
     );
+
     await client.agentPrompt({ id: origin.id, text: "Review" });
     expect(tools).toBeDefined();
     for (const method of ["session.get", "session.delete", "session.sendMessage"]) {
@@ -590,6 +608,7 @@ test("harness tools cannot inspect or mutate another Thread or repository", asyn
         }),
       ),
     );
+
     expect(listed.map((entry: { id: string }) => entry.id)).toEqual([origin.id]);
     const inspected = JSON.parse(
       await tools!.call(
@@ -600,6 +619,7 @@ test("harness tools cannot inspect or mutate another Thread or repository", asyn
         }),
       ),
     );
+
     expect(inspected.id).toBe(origin.id);
     expect((await client.sessionGet(other.id)).status).toBe("pending");
   } finally {

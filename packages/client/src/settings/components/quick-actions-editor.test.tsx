@@ -99,12 +99,15 @@ describe("editing an expanded action", () => {
       />,
       { width: 60, height: 8 },
     );
+
     await settle(setup);
 
     // clicking the title opens the title field; clicking the description opens the metadata field
     const title = locateText(setup, "Ship it");
+
     await setup.mockMouse.click(title.column, title.row);
     const description = locateText(setup, "be terse");
+
     await setup.mockMouse.click(description.column, description.row);
 
     expect(toggles).toEqual([

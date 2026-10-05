@@ -23,6 +23,7 @@ const PRIMITIVE_ROLES = {
   "agent.prompt": "owner",
   "agent.cancel": "owner",
   "agent.comment": "owner",
+  "agent.reply": "owner",
   "agent.permission": "owner",
   "daemon.ping": "any",
   "daemon.hello": "any",

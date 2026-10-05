@@ -303,6 +303,7 @@ describe("reply", () => {
 
     // Act
     const id = controller.reply("a1", "agreed");
+
     await tick();
 
     // Assert

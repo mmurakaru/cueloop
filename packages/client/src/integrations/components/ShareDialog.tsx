@@ -393,6 +393,7 @@ export function ShareDialog({
   const moveWizardFocus = (delta: number): void => {
     const ring = wizardRing();
     const at = Math.max(0, ring.indexOf(wizardFocus));
+
     setWizardFocus(ring[Math.min(ring.length - 1, Math.max(0, at + delta))] ?? "name");
   };
 

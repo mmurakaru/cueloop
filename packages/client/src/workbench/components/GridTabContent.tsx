@@ -111,6 +111,7 @@ export function GridTabContent(props: {
   theme: Theme;
 }): React.ReactNode {
   const { tab } = props;
+
   if (tab.kind === "file" && tab.fileView === "contents" && tab.path !== undefined) {
     const filePath = tab.path;
 

@@ -159,8 +159,10 @@ function lineWordSetCache(): (text: string) => ReadonlySet<string> {
 
   return (text) => {
     const cached = cache.get(text);
+
     if (cached !== undefined) return cached;
     const words = new Set(text.toLowerCase().split(/\s+/).filter(Boolean));
+
     cache.set(text, words);
 
     return words;

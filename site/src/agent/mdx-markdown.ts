@@ -15,6 +15,7 @@ interface ProtectedCode {
 function protectCode(source: string): ProtectedCode {
   const segments: string[] = [];
   let sentinel = "CUELOOP_PROTECTED_CODE";
+
   while (source.includes(sentinel)) sentinel += "_UNIQUE";
 
   const protect = (value: string): string => {

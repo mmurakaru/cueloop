@@ -405,6 +405,7 @@ test("Up keeps the caret on the first screen row while wrapped lines scroll", as
     />,
     { width: 60, height: 12 },
   );
+
   await settle(setup);
   const found = findById(setup.renderer.root, "diff-scroll");
 

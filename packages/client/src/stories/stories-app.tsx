@@ -59,6 +59,7 @@ function StoriesApp({ stories, onExit }: StoriesAppProps): React.ReactNode {
   const toggleFolder = (id: string): void => {
     setExpandedIds((current) => {
       const next = new Set(current);
+
       if (next.has(id)) next.delete(id);
       else next.add(id);
 
@@ -73,6 +74,7 @@ function StoriesApp({ stories, onExit }: StoriesAppProps): React.ReactNode {
   const collapseFolder = (id: string): void => {
     setExpandedIds((current) => {
       const next = new Set(current);
+
       next.delete(id);
 
       return next;
@@ -83,6 +85,7 @@ function StoriesApp({ stories, onExit }: StoriesAppProps): React.ReactNode {
     const index = rows.findIndex((row) => row.id === selectedId);
     const nextIndex = Math.max(0, Math.min(rows.length - 1, index + delta));
     const nextRow = rows[nextIndex];
+
     if (nextRow !== undefined) setSelectedId(nextRow.id);
   };
 

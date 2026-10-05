@@ -1,4 +1,4 @@
-import type { Anchor } from "./types";
+import type { Anchor, OperationReceipt } from "./types";
 
 /** An agent message keeps its identity after streaming and across reconnects. */
 export interface AgentMessage {
@@ -56,6 +56,10 @@ export interface ThreadAgentState {
   tools: AgentTool[];
   comments: AgentComment[];
   submissions?: AgentSubmission[];
+  /** Original accepted submission identities survive acknowledgement loss and daemon restart. */
+  promptOperations?: (OperationReceipt<string[]> & {
+    outcome?: "completed" | "failed" | "cancelled";
+  })[];
   configOptions?: AgentConfigOption[];
 }
 
@@ -68,6 +72,8 @@ export interface AgentSubmission {
   quote?: string;
   context?: string;
   status: "queued" | "running" | "completed" | "failed";
+  /** Explicit cancellation is terminal without changing legacy retry status. */
+  cancelled?: boolean;
 }
 
 /** Model and reasoning choices are advertised by the harness, never invented by the UI. */
@@ -77,4 +83,13 @@ export interface AgentConfigOption {
   category?: string;
   currentValue: string;
   options: { value: string; name: string }[];
+}
+
+/** Prompt submission preserves operation identity while optional context remains separate from input. */
+export interface AgentPromptRequest {
+  id: string;
+  text: string;
+  context?: string;
+  retry?: string;
+  operationId?: string;
 }

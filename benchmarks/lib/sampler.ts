@@ -118,6 +118,7 @@ export async function profileScript(
   extraEnv: Record<string, string> = {},
 ): Promise<ScriptProfile> {
   const runDir = join(outDir, `${script}-${kind}-${Date.now()}`);
+
   mkdirSync(runDir, { recursive: true });
   const metrics = await runScriptProcess(script, extraEnv, profileFlags(kind, runDir, script));
   const artifacts = readdirSync(runDir).map((file) => join(runDir, file));

@@ -450,6 +450,7 @@ describe("diff file fold", () => {
       { path: "src/gone.ts", oldContents: "old line\n", newContents: "", status: "deleted" },
     ];
     const session = diffSession(files);
+
     session.artifact.content = patch;
     session.revisions[0]!.content = patch;
     const { controller } = await connected(session);

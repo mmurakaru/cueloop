@@ -93,6 +93,7 @@ async function inspectPiExtension(work: string): Promise<void> {
 
     if (timedOut) throw new Error("pi RPC did not exit in 15 seconds");
     const output = await new Response(processHandle.stdout).text();
+
     if (exitCode !== 0) {
       throw new Error(
         `pi RPC exited with code ${exitCode}: ${output} ${await new Response(processHandle.stderr).text()}`,
@@ -156,6 +157,7 @@ const hostEnv = {
   CODEX_HOME: join(work, "codex-home"),
 };
 const globalPrefix = Bun.spawnSync(["npm", "prefix", "-g"]).stdout.toString().trim();
+
 function globalHostCommand(name: "claude" | "codex" | "pi"): string {
   const path = join(globalPrefix, "bin", name);
 

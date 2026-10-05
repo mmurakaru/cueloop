@@ -62,7 +62,7 @@ export function Composer({
   glyph: string | null;
   tokens: Theme;
   onSave: (body: string) => void;
-  onReady: () => void;
+  onReady: (readText: () => string) => void;
   onInput: (text: string, caret: number) => void;
   placeholder?: string;
   agentEnabled?: boolean;
@@ -102,7 +102,7 @@ export function Composer({
     editor.editBuffer.setSyntaxStyle(referenceStyleFor(tokens).style);
     paintReferences(editor);
     setRows(composeRowCount(editor.plainText, editor.width));
-    onReady();
+    onReady(() => editorRef.current?.plainText ?? "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
