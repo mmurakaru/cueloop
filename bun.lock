@@ -26,38 +26,38 @@
     },
     "packages/adapters": {
       "name": "@cueloop/adapters",
-      "version": "0.1.0-alpha.96",
+      "version": "0.1.0-alpha.98",
       "dependencies": {
-        "@cueloop/daemon": "0.1.0-alpha.96",
-        "@cueloop/schema": "0.1.0-alpha.96",
+        "@cueloop/daemon": "0.1.0-alpha.98",
+        "@cueloop/schema": "0.1.0-alpha.98",
         "valibot": "^1.5.0",
       },
     },
     "packages/cli": {
       "name": "cueloop",
-      "version": "0.1.0-alpha.96",
+      "version": "0.1.0-alpha.98",
       "bin": {
         "cueloop": "./src/main.ts",
       },
       "dependencies": {
-        "@cueloop/adapters": "0.1.0-alpha.96",
-        "@cueloop/client": "0.1.0-alpha.96",
-        "@cueloop/daemon": "0.1.0-alpha.96",
-        "@cueloop/extension-api": "0.1.0-alpha.96",
-        "@cueloop/schema": "0.1.0-alpha.96",
-        "@modelcontextprotocol/server": "2.0.0",
+        "@cueloop/adapters": "0.1.0-alpha.98",
+        "@cueloop/client": "0.1.0-alpha.98",
+        "@cueloop/daemon": "0.1.0-alpha.98",
+        "@cueloop/extension-api": "0.1.0-alpha.98",
+        "@cueloop/schema": "0.1.0-alpha.98",
+        "@modelcontextprotocol/server": "2.1.0",
         "@valibot/to-json-schema": "1.8.0",
         "valibot": "^1.5.0",
       },
     },
     "packages/client": {
       "name": "@cueloop/client",
-      "version": "0.1.0-alpha.96",
+      "version": "0.1.0-alpha.98",
       "dependencies": {
-        "@cueloop/daemon": "0.1.0-alpha.96",
-        "@cueloop/extension-api": "0.1.0-alpha.96",
-        "@cueloop/integration-obsidian": "0.1.0-alpha.96",
-        "@cueloop/schema": "0.1.0-alpha.96",
+        "@cueloop/daemon": "0.1.0-alpha.98",
+        "@cueloop/extension-api": "0.1.0-alpha.98",
+        "@cueloop/integration-obsidian": "0.1.0-alpha.98",
+        "@cueloop/schema": "0.1.0-alpha.98",
         "@opentui/core": "^0.5.12",
         "@opentui/keymap": "0.5.12",
         "@opentui/react": "^0.5.12",
@@ -78,10 +78,10 @@
     },
     "packages/daemon": {
       "name": "@cueloop/daemon",
-      "version": "0.1.0-alpha.96",
+      "version": "0.1.0-alpha.98",
       "dependencies": {
-        "@cueloop/extension-api": "0.1.0-alpha.96",
-        "@cueloop/schema": "0.1.0-alpha.96",
+        "@cueloop/extension-api": "0.1.0-alpha.98",
+        "@cueloop/schema": "0.1.0-alpha.98",
         "@pierre/diffs": "^1.4.1",
         "effect": "^4.0.0-rc.117",
         "smol-toml": "^1.8.0",
@@ -90,9 +90,9 @@
     },
     "packages/extension-api": {
       "name": "@cueloop/extension-api",
-      "version": "0.1.0-alpha.96",
+      "version": "0.1.0-alpha.98",
       "dependencies": {
-        "@cueloop/schema": "0.1.0-alpha.96",
+        "@cueloop/schema": "0.1.0-alpha.98",
         "valibot": "^1.5.0",
       },
       "peerDependencies": {
@@ -102,7 +102,7 @@
     },
     "packages/gateway": {
       "name": "@cueloop/gateway",
-      "version": "0.1.0-alpha.96",
+      "version": "0.1.0-alpha.98",
       "bin": {
         "cueloop-gateway": "./src/main.ts",
       },
@@ -122,16 +122,16 @@
     },
     "packages/integrations/obsidian": {
       "name": "@cueloop/integration-obsidian",
-      "version": "0.1.0-alpha.96",
+      "version": "0.1.0-alpha.98",
       "dependencies": {
-        "@cueloop/extension-api": "0.1.0-alpha.96",
-        "@cueloop/schema": "0.1.0-alpha.96",
+        "@cueloop/extension-api": "0.1.0-alpha.98",
+        "@cueloop/schema": "0.1.0-alpha.98",
         "valibot": "^1.5.0",
       },
     },
     "packages/pi": {
       "name": "@cueloop/pi",
-      "version": "0.1.0-alpha.96",
+      "version": "0.1.0-alpha.98",
       "dependencies": {
         "@cueloop/adapters": "0.1.0-alpha.96",
       },
@@ -141,7 +141,7 @@
     },
     "packages/schema": {
       "name": "@cueloop/schema",
-      "version": "0.1.0-alpha.96",
+      "version": "0.1.0-alpha.98",
     },
   },
   "packages": {
@@ -313,9 +313,9 @@
 
     "@manypkg/tools": ["@manypkg/tools@2.1.2", "", { "dependencies": { "jju": "^1.4.0", "tinyglobby": "^0.2.13", "yaml": "^2.9.0" } }, "sha512-6QEf6yqFbETdwGITKq57aYoPfX/3K8XFNwsAlx0C1M7o8cb79sv1M3w+tWuWvIcSbNqrLF7OD7YpZMVVz335hQ=="],
 
-    "@modelcontextprotocol/core": ["@modelcontextprotocol/core@2.0.0", "", { "dependencies": { "zod": "^4.2.0" } }, "sha512-pJCEwGG7Lfr/+PQp9ZTwKXNeO5wzbfKL7H3MYpCorM4oFBoQrdjnBgEoqG+RjhsvS1FKrDbKux+M1HhlnGWqcA=="],
+    "@modelcontextprotocol/core": ["@modelcontextprotocol/core@2.1.0", "", { "dependencies": { "zod": "^4.2.0" } }, "sha512-YdFj5gMRHr0gYNAhTbQDgjLHiEJdIAUYxomhKseUNye7ZGlISQmUoLh2sveFFCiQ7j2YMffT1kgSND0FSfIFjQ=="],
 
-    "@modelcontextprotocol/server": ["@modelcontextprotocol/server@2.0.0", "", { "dependencies": { "@modelcontextprotocol/core": "2.0.0", "zod": "^4.2.0" } }, "sha512-YhHWdHfpFMQfd0prsEnxKeS3Qz3ytIGmsS0sth4KDjnacIT7hxk6hXHkJ9KysxlkvTM+WZAtQbbcUhdoP4Hvtw=="],
+    "@modelcontextprotocol/server": ["@modelcontextprotocol/server@2.1.0", "", { "dependencies": { "@modelcontextprotocol/core": "2.1.0", "zod": "^4.2.0" } }, "sha512-FdvwZU5N03O77Suh35JqjAqq5R1ZTEPFtwu6N4BgBq28qrQtrCnpbLL5U2pwYCuE194jAw0xnlOVmIqhfoYuUQ=="],
 
     "@opentui/core": ["@opentui/core@0.5.12", "", { "dependencies": { "bun-ffi-structs": "0.3.1", "diff": "9.0.0", "marked": "17.0.1", "string-width": "7.2.0", "strip-ansi": "7.1.2" }, "optionalDependencies": { "@opentui/core-darwin-arm64": "0.5.12", "@opentui/core-darwin-x64": "0.5.12", "@opentui/core-linux-arm64": "0.5.12", "@opentui/core-linux-arm64-musl": "0.5.12", "@opentui/core-linux-x64": "0.5.12", "@opentui/core-linux-x64-musl": "0.5.12", "@opentui/core-win32-arm64": "0.5.12", "@opentui/core-win32-x64": "0.5.12" }, "peerDependencies": { "web-tree-sitter": "0.25.10" } }, "sha512-ZXBE5gmvdovmV8zJQrOQf6E44v1tJRDEgrM2MYhEglzgXZ+smIUp95O8zeRYGsuIzQIiMPMgQqKtTJuzvAb7BQ=="],
 
