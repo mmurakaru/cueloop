@@ -15,7 +15,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 export interface CellRegion {
-  /** 0-based screen cell of the region's top-left corner. */
   column: number;
   row: number;
   columns: number;

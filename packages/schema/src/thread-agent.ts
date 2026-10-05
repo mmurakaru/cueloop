@@ -49,14 +49,12 @@ export type AgentPhase =
 /** A thread agent transcript is separate from the artifact and its revision history. */
 export interface ThreadAgentState {
   threadId: string;
-  /** Session identity is bound to its adapter; another harness cannot resume it. */
   harness?: { id: string; label: string; sessionId?: string };
   phase: AgentPhase;
   messages: AgentMessage[];
   tools: AgentTool[];
   comments: AgentComment[];
   submissions?: AgentSubmission[];
-  /** Original accepted submission identities survive acknowledgement loss and daemon restart. */
   promptOperations?: (OperationReceipt<string[]> & {
     outcome?: "completed" | "failed" | "cancelled";
   })[];
@@ -72,7 +70,6 @@ export interface AgentSubmission {
   quote?: string;
   context?: string;
   status: "queued" | "running" | "completed" | "failed";
-  /** Explicit cancellation is terminal without changing legacy retry status. */
   cancelled?: boolean;
 }
 

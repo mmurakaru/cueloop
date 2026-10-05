@@ -102,7 +102,6 @@ function annotationDeliveryFingerprint(annotation: Annotation | undefined): stri
 export interface SharedMerge {
   annotations: Annotation[];
   participants?: Identity[];
-  /** Removal entries by id; a merge applies each once and never rewrites what it already holds. */
   removals?: Array<{ id: string; annotationId: string; createdAt: string }>;
 }
 
@@ -117,7 +116,6 @@ export type EventName =
 export interface DaemonEvent {
   event: EventName;
   sessionId: string;
-  /** The history entry the change appended, when it appended one. */
   entryId?: string;
 }
 

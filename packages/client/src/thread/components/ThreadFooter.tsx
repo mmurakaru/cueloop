@@ -14,9 +14,7 @@ export interface ThreadFooterProps {
   repo: string;
   branch: string;
   onSubmit?: () => void;
-  /** When false the send control dims and does not fire (e.g. an observer). */
   canSubmit?: boolean;
-  /** Open reviewer annotations included in the next Message. */
   pendingAnnotations?: number;
   theme?: Theme;
 }

@@ -17,22 +17,16 @@ import { subscribeToFrames } from "./use-frame-measure";
 export interface TerminalVirtualizerOptions {
   scrollbox: RefObject<ScrollBoxRenderable | null>;
   count: number;
-  /** Rows an item occupies before it is measured (its wrapped visual lines). */
   estimateSize: (index: number) => number;
-  /** Items this many rows beyond the viewport stay mounted, so a scroll step never shows a gap. */
   overscan: number;
 }
 
 export interface TerminalVirtualizer {
   items: VirtualItem[];
   totalSize: number;
-  /** Ref callback for an item's row box, so its real height (cards included) replaces the estimate. */
   measureRef: (index: number) => (renderable: BoxRenderable | null) => void | (() => void);
-  /** Scroll the item into view; "auto" only scrolls when it is off screen. */
   scrollToIndex: (index: number, align?: "auto" | "start" | "center" | "end") => void;
-  /** Measured or estimated visual-row offset of an item. */
   startOfIndex: (index: number) => number | undefined;
-  /** Move the native viewport to an exact visual-row offset. */
   scrollToOffset: (offset: number) => void;
 }
 

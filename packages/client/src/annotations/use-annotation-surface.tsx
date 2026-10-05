@@ -60,7 +60,6 @@ import {
 export interface LineSource {
   count: number;
   textAt(blockIndex: number): string;
-  /** A block the caret can rest on and a comment can anchor to (a diff's header rows cannot). */
   annotatable(blockIndex: number): boolean;
 }
 
@@ -94,32 +93,19 @@ export interface AnnotationSurfaceOptions {
   quickActions: QuickAction[];
   tokens: Theme;
   observer: boolean;
-  /**
-   * Whether this surface accepts comments. False for a non-diff thread's live
-   * working-tree diff, which is view-only: its rows are diff rows, but the
-   * thread anchors comments in plan coordinates, so a draft here would misanchor.
-   */
   commentsEnabled?: boolean;
-  /** A message is in: no draft may open; the app answers with its read-only status. */
   resolved: boolean;
-  /** True while a menu, dialog, or overlay owns the keyboard. */
   suspended: boolean;
-  /** Reports whether a composer is open, so session chords can yield to typing. */
   onComposingChange?: (composing: boolean) => void;
-  /** An observer or a resolved review refused a draft; the app shows why. */
   onObserverBlocked?: (reason: "observer" | "resolved") => void;
-  /** Reports the caret's block, so block-level primitives (cut, restore) act where the caret is. */
   onCursorChange?: (blockIndex: number) => void;
-  /** Scroll a visual row before crossing a tall gap; true defers the caret move. */
   onVerticalStep?: (
     fromBlock: number,
     toBlock: number,
     direction: -1 | 1,
     targetY?: number,
   ) => boolean;
-  /** The rail's focused card; the discussion holding it takes focus here. */
   focusedAnnotationId?: string;
-  /** Reports the focused discussion's root comment, so the rail follows. */
   onFocusAnnotation?: (annotationId: string | undefined) => void;
   onAnnotate: (span: TextSpan, body: string) => void;
   onReply: (rootAnnotationId: string, body: string) => void;
@@ -128,19 +114,15 @@ export interface AnnotationSurfaceOptions {
   annotationAction?: (id: string) => { label: string; run: () => void } | undefined;
   requestedBlock?: { blockIndex: number };
   onInvoke?: () => void;
-  /** The final prompt block accepts unmarked typing without creating a discussion. */
   isPromptBlock?: (blockIndex: number) => boolean;
   promptFocusRequest?: PromptFocusRequest;
   promptRestoreRequest?: PromptRestoreRequest;
-  /** The visible scroll viewport used to keep a held mouse mark moving at its edges. */
   dragViewport?: () => {
     top: number;
     bottom: number;
     scrollBy: (rows: -1 | 1) => boolean;
   } | null;
-  /** The author's display name for a comment's hover tooltip; the rail resolves it against the participant registry. */
   resolveAuthorLabel?: (annotation: Annotation) => string | undefined;
-  /** Resolve a nav-mode key to a session/curation/tree/diff command; true when it acted. */
   onNavCommand?: (key: KeyEvent, selection: TextSpan | null) => boolean;
   onExit: () => void;
 }
@@ -148,42 +130,30 @@ export interface AnnotationSurfaceOptions {
 export interface AnnotationSurface {
   palette: AnnotationPalette;
   discussions: Discussion[];
-  /** The caret's block. */
   cursor: number;
   head: TextPosition;
   compose: ComposeState | null;
-  /** True while the surface is in nav mode: bare keys act as commands, typing does not compose. */
   navMode: boolean;
   focusedDiscussion: string | null;
-  /** The block to keep in view: an opening card, a focused discussion, else the caret. */
   revealBlockIndex: number;
-  /** Screen row of the mounted visual line carrying the caret. */
   headVisualY: () => number | undefined;
-  /** Capture mounted lines before a viewport scroll, then keep an exiting caret at its visible edge. */
   prepareViewportScroll: () => (delta: number, top: number, bottom: number) => void;
-  /** The text a span covers, blocks joined by a space, for previews. */
   spanQuote: (span: TextSpan) => string;
-  /** Ref callback for one visual line, so a drag can hit-test it. */
   registerLine: (
     blockIndex: number,
     lineIndex: number,
     line: VisualLine,
   ) => (renderable: TextRenderable | null) => void;
-  /** Press on a visual line: place the caret (word mode on double-click) and start a drag. */
   onLineMouseDown: (event: TerminalMouseEvent) => void;
-  /** Drag routing for the view root, so a fast flick off a row never strands the gesture. */
   rootMouseProps: {
     onMouseDown: (event: TerminalMouseEvent) => void;
     onMouseDrag: (event: TerminalMouseEvent) => void;
     onMouseDragEnd: () => void;
     onMouseUp: () => void;
   };
-  /** Ranges to paint on a block: discussion marks, the compose mark, the caret cell. */
   rangesFor: (blockIndex: number) => MarkRange[];
-  /** Cards anchored to a visual line: discussion cards, the new-discussion composer, the palette. */
   cardsAfterLine: (blockIndex: number, line: VisualLine, isLastLine: boolean) => React.ReactNode[];
   jumpToDiscussion: (key: string) => void;
-  /** Clicking away from an open composer commits the draft. */
   blurSaveCompose: () => void;
 }
 

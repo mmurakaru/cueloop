@@ -15,9 +15,7 @@ export interface ScrollAreaProps {
   theme?: Theme;
   scrollRef?: RefObject<ScrollBoxRenderable | null>;
   id?: string;
-  /** Reveal this mounted row when keyboard selection changes. */
   revealId?: string;
-  /** Use gesture acceleration for a scrollable file tree. */
   gestureWheel?: boolean;
 }
 

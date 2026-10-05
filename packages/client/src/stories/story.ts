@@ -10,20 +10,13 @@ import type React from "react";
 import type { TreeNode } from "../ui/components/primitives/tree-model";
 
 export interface StoryMeta {
-  /** Catalog path, e.g. "primitives/Card". */
   title: string;
 }
 
 export interface Story {
   render?: () => React.ReactNode;
-  /** Raw ANSI to paint through AnsiScreen instead of a React tree; exactly one of render or ansi is set. */
   ansi?: () => string;
-  /**
-   * Colors (hex tokens) that must appear among the rendered frame's styled
-   * spans - the color regression net for color-bearing stories.
-   */
   expectedColors?: string[];
-  /** Virtual terminal size; defaults to 80x24. */
   size?: { width: number; height: number };
 }
 

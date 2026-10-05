@@ -37,7 +37,6 @@ export interface ThreadAgentOptions {
   adapter?: AgentHarnessAdapter;
   getThread: (id: string) => Thread;
   onChange: (id: string) => void;
-  /** Each harness receives tools scoped to the Thread that opened its connection. */
   tools?: (thread: Thread) => AgentHarnessTools;
 }
 

@@ -26,7 +26,6 @@ type DiffSide = "addition" | "deletion";
 /** A line resolved onto its owning hunk, and its change block when it is one. */
 export interface LocatedLine {
   hunkIndex: number;
-  /** Present only when the line sits inside a change block (an add/del line). */
   changeIndex?: number;
 }
 

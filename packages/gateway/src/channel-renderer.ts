@@ -41,9 +41,7 @@ export interface PtySize {
 }
 
 export interface ChannelRender {
-  /** Mirror an SSH window-change onto the renderer. */
   resize(size: PtySize): void;
-  /** Unmount React and destroy the renderer; idempotent. */
   destroy(): void;
 }
 

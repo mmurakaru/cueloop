@@ -21,19 +21,12 @@ import { unifiedDiffText } from "./diff";
 export interface FeedbackInput {
   outcome: MessageOutcome;
   summary: string;
-  /** The submitted artifact content (latest revision). */
   artifactContent: string;
-  /** The reviewer's working copy; undefined = no direct edits. For a diff it is
-   *  the curated patch (accepted hunks); for a plan it is the edited source. */
   workingCopy?: string;
-  /** Artifact kind; defaults to "plan". A diff working copy is already a patch. */
   artifactType?: ArtifactType;
   annotations: Annotation[];
-  /** Path the agent knows the artifact by (plan or prototype), for direct reference. */
   artifactPath?: string;
-  /** Session id, so the document can teach the addressed-ids resubmit call. */
   sessionId?: string;
-  /** cueloop quick-action name -> body; a `/name` reference in a comment expands to it for the agent. */
   actionBodies?: Record<string, string>;
 }
 

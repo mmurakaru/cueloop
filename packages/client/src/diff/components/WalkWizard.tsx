@@ -17,14 +17,10 @@ import { DialogActions } from "../../ui/components/primitives/DialogActions";
 
 export interface WalkWizardProps {
   files: WalkFile[];
-  /** The wizard step; index === files.length renders the end card. */
   index: number;
   viewedPaths: ReadonlySet<string>;
-  /** The agent's note for the current file; the gray block renders only when set. */
   note?: string;
-  /** Terminal width bounds the card width. */
   terminalWidth: number;
-  /** End-card submit: leaves the walk and opens the rail confirm. */
   onSubmitRequest: () => void;
   onBack: () => void;
   theme?: Theme;

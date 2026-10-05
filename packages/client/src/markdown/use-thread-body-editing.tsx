@@ -15,13 +15,9 @@ import type { ReviewController } from "../thread/thread-controller";
 import { MarkdownThreadEditor, type MarkdownEditorHandle } from "./components/MarkdownThreadEditor";
 
 export interface ThreadBodyEditing {
-  /** True while the inline markdown editor owns the thread pane and its keys. */
   editing: boolean;
-  /** Open the editor when the active thread is editable; a no-op otherwise. */
   openEditor: () => void;
-  /** Save the current text and close - the header edit/normal toggle's exit. */
   requestExit: () => void;
-  /** The editor element for the thread pane, bound to the working copy and theme. */
   renderEditor: (theme: Theme) => React.ReactNode;
 }
 

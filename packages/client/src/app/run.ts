@@ -22,7 +22,6 @@ export interface RunClientOptions {
   initialReview?: { session: Thread; diff: { patch: string; files: DiffFileContents[] } };
   initialClient?: ThreadClient;
   home?: string;
-  /** The layout a create-command opens in; omit to restore the remembered one, then the default. */
   layout?: LaunchLayout;
 }
 

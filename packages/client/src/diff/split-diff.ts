@@ -10,13 +10,10 @@ import type { DiffRow } from "./view-diff";
 
 /** One code line on one side of the split, carrying its originating unified row. */
 export interface SplitLine {
-  /** The unified diff row this side renders; the anchor and curation target. */
   row: DiffRow;
-  /** Index of the originating row in the base list; the cursor and curation index. */
   rowIndex: number;
   kind: "ctx" | "del" | "add";
   text: string;
-  /** Old line number for the left column, new line number for the right column. */
   lineNumber?: number;
 }
 
@@ -24,13 +21,9 @@ export interface SplitLine {
 export interface SplitRow {
   kind: "file" | "hunk" | "pair";
   file: string;
-  /** Header text for file and hunk rows. */
   text?: string;
-  /** Index of the header in the base list, for file and hunk rows. */
   rowIndex?: number;
-  /** Old side: a context or deletion line, or absent (blank filler). */
   left?: SplitLine;
-  /** New side: a context or addition line, or absent (blank filler). */
   right?: SplitLine;
 }
 

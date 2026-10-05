@@ -12,11 +12,8 @@ export interface TreeProps {
   selectedId?: string;
   flattenEmptyDirectories?: boolean;
   showStatus?: boolean;
-  /** Drop the folder/file glyph prefix, for a plain text tree (e.g. the settings nav). */
   hideIcons?: boolean;
-  /** Keep file navigator entries to one visual row, truncating long names. */
   singleLine?: boolean;
-  /** The selected row's backdrop; defaults to `elevated` (invisible on an elevated dialog, use `border` there). */
   selectedBackground?: string;
   indentWidth?: number;
   icons?: TreeIcons;

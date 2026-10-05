@@ -10,15 +10,10 @@ import { derivePath, followBranch, MAIN_BRANCH, pathOf, type SessionHistory } fr
 import type { Annotation, Thread, TextCut } from "./types";
 
 export interface PathView {
-  /** The last agent revision on the path: what the artifact shows. */
   content: string;
-  /** The reviewer's edits over it, when the path's head is a reviewer revision. */
   workingCopy: string | undefined;
-  /** Exact character Cuts attached to the reviewer revision at the path head. */
   textCuts: TextCut[] | undefined;
-  /** The comments open on the path, in path order. */
   annotations: Annotation[];
-  /** Every other comment the session knows. */
   shelvedAnnotations: Annotation[];
 }
 

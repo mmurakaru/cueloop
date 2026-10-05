@@ -32,13 +32,9 @@ export type DisplayType = "same" | "mod" | "del" | "add";
 export interface DisplayBlock {
   type: DisplayType;
   kind: Block["kind"];
-  /** Block in the working copy (absent for del). */
   work?: Block;
-  /** Block in the submitted revision (absent for add). */
   base?: Block;
-  /** Source projection for mapping a visible base-text selection back to Markdown. */
   baseSourceSegments?: readonly BlockTextSourceSegment[];
-  /** Exact base-text ranges removed by character Cut. */
   textCutRanges?: CharRange[];
   orderedItemNumber?: number;
 }
@@ -346,12 +342,9 @@ export type RunRole =
 export interface StyleRun {
   text: string;
   role: RunRole;
-  /** Offset of this run in the block's working text; null for del runs. */
   start: number | null;
-  /** Offset in the submitted block when an exact Cut preserves source provenance. */
   baseStart?: number;
   annotationId?: string;
-  /** Link target for `link` runs. */
   href?: string;
 }
 
@@ -360,9 +353,7 @@ export interface Mark {
   end: number;
   role: RunRole;
   annotationId?: string;
-  /** The whole anchored stretch in display coordinates; one thread per span. */
   span?: TextSpan;
-  /** The recorded PR line remains visible, but its quote no longer resolves. */
   outdated?: boolean;
 }
 
@@ -591,7 +582,6 @@ export function inlineStyleRuns(text: string, base: number): StyleRun[] {
 export interface RenderedRun {
   text: string;
   role: RunRole;
-  /** Offset of this run in the block's rendered text. */
   start: number;
   href?: string;
 }

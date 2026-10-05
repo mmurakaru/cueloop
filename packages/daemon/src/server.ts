@@ -36,24 +36,19 @@ import { parseAgentToolInput, assertAgentToolScope } from "./agent-tools";
 import { ThreadAgentManager, type ThreadAgentOptions } from "./thread-agent";
 
 interface Connection {
-  /** The author a non-owner connection acts as, bound in the handshake. */
   author?: string;
   write(data: string): void;
   subscribed: boolean;
-  /** Capability role for this connection; the owner until a daemon.hello caps it. */
   role: DaemonRole;
 }
 
 type MethodHandler = (connection: Connection, request: Request) => Response["result"];
 
 export interface DaemonOptions {
-  /** Explicit prototype configuration; commands cannot arrive from socket callers. */
   threadAgent?: Pick<ThreadAgentOptions, "enabled" | "enabledForThread" | "adapter">;
   home?: string;
-  /** Idle-exit delay; 0 disables (tests, foreground runs). */
   idleExitMs?: number;
   onIdleExit?: () => void;
-  /** The version the ping handshake reports; defaults to this build. Tests override it to pose as a stale daemon. */
   version?: string;
 }
 

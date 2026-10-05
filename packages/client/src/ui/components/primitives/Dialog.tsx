@@ -15,9 +15,7 @@ export interface DialogProps {
   title?: string;
   width: number;
   height: number;
-  /** Solid panel fill for content-heavy dialogs; default transparent. */
   background?: string;
-  /** Dismiss on a click outside the panel. */
   onDismiss?: () => void;
   theme?: Theme;
   children: React.ReactNode;

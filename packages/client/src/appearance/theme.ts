@@ -23,13 +23,10 @@ export interface Theme {
   markCommentBackground: string;
   insertedForeground: string;
   deletedForeground: string;
-  /** The band behind a whole added line, and the stronger tint under its intra-line changed words. */
   insertedBackground: string;
   insertedEmphasisBackground: string;
-  /** The band behind a whole removed line, and the stronger tint under its intra-line changed words. */
   deletedBackground: string;
   deletedEmphasisBackground: string;
-  /** Layer behind centered dialogs; transparent keeps the session visible. */
   backdrop: string;
 }
 

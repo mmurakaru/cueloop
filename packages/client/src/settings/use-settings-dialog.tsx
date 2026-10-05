@@ -37,7 +37,6 @@ export interface SettingsDialogModel {
   cycleSetting: (rowKey: string) => void;
   handleSettingsKey: (name: string) => void;
   onCategorySelect: (categoryId: string) => void;
-  /** Open the settings dialog focused on the left nav, from a fresh state. */
   openSettings: () => void;
 }
 

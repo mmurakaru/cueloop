@@ -36,10 +36,6 @@ export const MESSAGE_OUTCOME_LABEL: Record<MessageOutcome, string> = {
 export interface ConfirmCardProps {
   message: MessageOutcome;
   summary: string;
-  /**
-   * The guided walk's honest coverage line for diff sessions, e.g.
-   * "2/3 files viewed". Undefined = no walk data, the row does not render.
-   */
   viewedSummary?: string;
   onInput: (summary: string) => void;
   onSelectMessage: (message: MessageOutcome) => void;

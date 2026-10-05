@@ -12,7 +12,6 @@ import { FRAME_BORDER_STYLE, frameTitle } from "./frame";
 
 export interface CardProps {
   title?: string;
-  /** Number of content rows inside the border; the box adds the two border rows. */
   contentRows: number;
   width?: number;
   borderColor?: string;

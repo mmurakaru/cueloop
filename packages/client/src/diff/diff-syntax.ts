@@ -26,7 +26,6 @@ function stripTrailingNewline(text: string): string {
 interface HighlightJob {
   filetype: string;
   source: string;
-  /** Row index for each line of `source`, in order. */
   rowIndexByLine: number[];
 }
 

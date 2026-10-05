@@ -116,7 +116,6 @@ async function trackedFileContents(cwd: string): Promise<DiffFileContents[]> {
 
 export interface WorkingTreeDiff {
   patch: string;
-  /** Full file contents per curatable changed file, keeping curation applyable. */
   files: DiffFileContents[];
 }
 

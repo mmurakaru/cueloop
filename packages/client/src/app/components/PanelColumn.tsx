@@ -10,7 +10,6 @@ import { NERD, HEADER_UNDERLINE_CHARS } from "../../ui/components/primitives/ico
 export interface FileTabProps {
   label: string;
   active?: boolean;
-  /** When set, a close control reveals on hover (a disposable tab). */
   onClose?: () => void;
   theme?: Theme;
 }
@@ -36,13 +35,9 @@ export function FileTab({ label, active, onClose, theme }: FileTabProps): React.
 }
 
 export interface PanelColumnProps {
-  /** Fixed column width; omit for the flex-growing center panel. */
   width?: number;
-  /** Draw the divider on this side (the sidebar borders right, the rest border left). */
   border?: "left" | "right";
-  /** Tabs and controls for the header cell. */
   header: React.ReactNode;
-  /** Right-aligned header controls (toggles, search). */
   headerRight?: React.ReactNode;
   onFocus?: () => void;
   children: React.ReactNode;

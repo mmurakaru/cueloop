@@ -14,9 +14,7 @@ import { Button } from "../../ui/components/primitives/Button";
 export interface CompletionOverlayProps {
   message: MessageOutcome;
   completion: { phase: "prompt" } | { phase: "counting"; remaining: number };
-  /** Latest status line (e.g. the vault-export path) stays visible here. */
   status: string;
-  /** Where focus goes on close (the agent's pane), when known. */
   returnsTo?: string;
   onClose: () => void;
   onBackToPlan: () => void;

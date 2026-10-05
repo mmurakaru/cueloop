@@ -20,7 +20,6 @@ import type { Thread } from "@cueloop/schema";
 
 export interface ShareParams {
   sessionId?: string;
-  /** Fork the session first and share the fork: one artifact to two people, with separate discussions. */
   fork?: boolean;
   host?: string;
   port?: number;

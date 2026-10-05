@@ -22,22 +22,14 @@ import { threadTitle, type InboxRow } from "./thread-tree";
 export interface ThreadTreeProps {
   rows: InboxRow[];
   cursor: number;
-  /** The open thread's id; highlights it instead of the cursor (the left sidebar case). */
   activeId?: string;
   focused?: boolean;
-  /** Ids of starred threads; a starred row carries the star glyph and the menu offers Unstar. */
   pinnedIds?: ReadonlySet<string>;
-  /** The column width, so titles fade to fit one line. */
   width?: number;
-  /** Open a thread by clicking its row (the left sidebar case). */
   onSelect?: (sessionId: string) => void;
-  /** Ask to delete a thread (the menu's Delete, wired to the confirm dialog). */
   onRequestDelete?: (id: string, title: string) => void;
-  /** Toggle a thread's starred state (the menu's Star/Unstar). */
   onPin?: (id: string) => void;
-  /** Rename a thread's title (the menu's Rename). */
   onRename?: (id: string, title: string) => void;
-  /** Create an empty Thread; omitting it retains the ordinary sidebar. */
   onCreateThread?: () => void;
   theme?: Theme;
 }

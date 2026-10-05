@@ -112,39 +112,27 @@ export function resolveQuickAction(
 export interface CueloopConfig {
   keys: Record<string, string[]>;
   theme: Theme;
-  /** The `[theme]` per-token overrides alone, so a live theme switch can re-compose them onto a new preset. */
   themeOverrides: Partial<Theme>;
   ui: {
     autoClose: AutoClose;
     editor?: string;
-    /** The selected theme preset name; its tokens are the base for `theme`, before any `[theme]` overrides. */
     theme: ThemeName;
-    /** How the Changes diff renders when wide: old|new side by side or one stacked column. */
     diffView: DiffViewMode;
     defaultMessage: MessageOutcome;
-    /** Session ids the user has pinned to the top of the sidebar; client-local view state. */
     pins: string[];
-    /** The last pane layout a bare launch restores; unset until the user changes one. */
     layout?: LaunchLayout;
   };
-  /** Planner-local author renames: identity id → display name ([authors] table). */
   authors: Record<string, string>;
-  /** The local reviewer's own display name, and whether it was typed or synced from GitHub ([identity] table). */
   identity: IdentityConfig;
-  /** Marker-popover quick actions ([[actions]] tables); the 5 defaults when unset. */
   actions: QuickAction[];
-  /** Directory of user-level skills surfaced in the "/" palette ([skills] path); ~/.agents/skills default. */
   skillsPath: string;
   review: ReviewConfig;
   integrations: IntegrationsConfig;
-  /** Opt-in experimental features ([experimental] table); all default off. */
   experimental: ExperimentalConfig;
 }
 
 export interface ExperimentalConfig {
-  /** Render a prototype as a pixel mockup (kitty graphics) instead of the default markdown design doc. */
   prototypePixels: boolean;
-  /** Allow the local session owner to invoke a harness inside the Thread. */
   threadAgent: boolean;
 }
 
@@ -152,7 +140,6 @@ export interface ExperimentalConfig {
 export type IdentityProvider = "typed" | "github";
 
 export interface IdentityConfig {
-  /** The reviewer's own display name; absent until they set or sync one. */
   name?: string;
   provider: IdentityProvider;
 }

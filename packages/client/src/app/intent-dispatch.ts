@@ -75,20 +75,13 @@ export interface IntentDispatchDeps {
   session: Thread | null;
   defaultMessage: MessageOutcome;
   focusedAnnotationId: string | undefined;
-  /** The curation item selected for undo, if any. */
   selectedCurationId: string | undefined;
   railTab: RailTab;
-  /** The tree row selected in the session tree; the target of go. */
   selectedEntryId: string | undefined;
-  /** Planner-local author renames, for seeding the rename prompt. */
   authorNames: Record<string, string>;
-  /** Marker-popover quick actions, in list order; picking one inserts a preset comment. */
   quickActions: QuickAction[];
-  /** Persist an author rename and update the live overrides (App-owned). */
   renameAuthor: (id: string, name: string) => void;
-  /** Rename a thread's title through the daemon. */
   renameThread: (id: string, title: string) => void;
-  /** Set the local reviewer's typed display name and persist it (App-owned). */
   setLocalIdentityName: (name: string) => void;
 
   liveInput: MutableRefObject<string>;
@@ -105,9 +98,7 @@ export interface IntentDispatchDeps {
   selectCardFromDocument: (annotationId: string) => void;
   openBodyEditor: () => void;
   openCardEdit: (annotationId: string) => void;
-  /** Flip split/stacked diff and persist it (App-owned); split lays out only when wide/zoomed. */
   toggleDiffView: () => void;
-  /** Open the share dialog (App-owned); the dialog owns its own keys and links. */
   openShareDialog: () => void;
 }
 

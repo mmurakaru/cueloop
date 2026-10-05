@@ -209,16 +209,7 @@ export interface ControllerSnapshot {
   toast: ToastState | null;
   error: string | null;
   completion: Completion;
-  /**
-   * Annotations whose anchor stopped resolving after the last editor
-   * hand-off - the reconciliation banner count. 0 = no banner.
-   */
   editOrphanCount: number;
-  /**
-   * The guided walk's cursor (diff sessions): which wizard step is on
-   * screen. index === file count is the end card. null = not walking; the
-   * viewed set itself rides the session record, so leaving loses nothing.
-   */
   walk: { index: number } | null;
 }
 
@@ -256,103 +247,58 @@ export interface NewShareLink {
 export interface ReviewControllerOptions {
   home?: string;
   sessionId?: string;
-  /** Captured before the UI mounts, so the first review frame has its thread and live diff. */
   initialSession?: Thread;
   initialDiff?: { patch: string; files: DiffFileContents[] };
-  /** The owner connection that supplied the first review snapshot. */
   initialClient?: ThreadClient;
-  /** The directory the client launched in; its git repo backs the no-session welcome tree. Defaults to process.cwd(). */
   cwd?: string;
-  /** Observer mode: stored for the key reducer's read-only gate. */
   readOnly?: boolean;
   onExit?: (code: number) => void;
-  /** Timer source for the auto-close countdown; tests inject a ManualClock. */
   clock?: Clock;
-  /**
-   * How the controller gets its session client. Defaults to dialing the local
-   * daemon; the sharing gateway injects a blob-backed client so the same <App>
-   * renders a decrypted share instead.
-   */
   openClient?: () => Promise<ThreadClient>;
   shareTransport?: ShareTransport;
-  /** Serve mode: pin this frozen diff onto the served thread so an observer sees a stable snapshot. */
   servedArtifact?: Artifact;
 }
 
 export interface ReviewController {
   readonly readOnly: boolean;
-  /** Snapshot listeners (stable identity - safe for useSyncExternalStore). */
   subscribe(listener: () => void): () => void;
   getSnapshot(): ControllerSnapshot;
-  /** Dial the daemon (autostart), subscribe to events, fetch session or inbox. */
   connect(): void;
   close(): void;
-  /** Loaded config parts the controller acts on: auto-close and exporters. */
   applyConfig(config: CueloopConfig): void;
   setStatus(message: string): void;
   showToast(body: string, title?: string): void;
   dismissToast(): void;
-  /** Derived projections, cached per session identity. */
   display(): DisplayBlock[];
   rows(): DiffRow[];
-  /** Fold a file's diff body to just its band, or unfold it; rows() reflects the change. */
   setFileCollapsed(file: string, collapsed: boolean): void;
   isFileCollapsed(file: string): boolean;
-  /** Weave a file's full contents inline (unchanged lines as context), or fold back to hunks. */
   setFileExpanded(file: string, expanded: boolean): void;
   isFileExpanded(file: string): boolean;
-  /** Whether the file carries the full contents weaving needs (curatable diffs do). */
   canExpandFile(file: string): boolean;
-  /** Copy a file's path to the clipboard; the control reports the outcome. */
   copyFilePath(file: string): Promise<boolean>;
-  /** Per-file added/removed line counts from the base rows (survives collapse). */
   fileStats(): Map<string, { additions: number; deletions: number }>;
-  /** The walk's step list, derived from the diff rows. */
   files(): WalkFile[];
   working(): string;
-  /** The workspace's tracked files (git ls-files) for the Project tree; empty when unavailable. */
   projectFiles(): Promise<string[]>;
-  /** Read a workspace file's contents for a Changes file tab; null when it cannot be read. */
   readFile(path: string): Promise<string | null>;
-  /** The launch repo's tracked files for the no-session welcome Project tree; empty when not a repo. */
   repoFiles(): Promise<string[]>;
-  /** Read a launch-repo file's contents for a welcome file tab; null when it cannot be read. */
   repoReadFile(path: string): Promise<string | null>;
-  /** The launch repo's working-tree changed files for the no-session welcome Changes tree. */
   repoChanges(): Promise<readonly DiffFileContents[]>;
-  /** Explicitly pull a PR diff after its head moved. */
   refreshDiff(): Promise<void>;
-  /** Open a session from the inbox. */
   open(id: string): void;
-  /** Create and open an empty local Thread for a new conversation. */
   createEmptyThread(): Promise<void>;
-  /** Delete a session for good (inbox delete); the inbox refreshes on the event. */
   deleteSession(id: string): void;
-  /** Rename a session's title; the inbox refreshes on the event. */
   renameSession(id: string, title: string): void;
-  /** Record the viewer's own name into the share's participant registry (collaborator self-naming). */
   setSelfName(name: string): void;
-  /** Cut a marked range, or toggle the block under the cursor. */
   cut(displayIndex: number, start?: number, end?: number, endDisplayIndex?: number): void;
-  /** Toggle rejection of the whole hunk under the diff cursor (owner curation). */
   toggleRejectHunk(rowIndex: number): void;
-  /** Toggle rejection of the single change under the diff cursor (owner curation). */
   toggleRejectChange(rowIndex: number): void;
-  /** Rendered row indices dropped by the current reject decisions (for dimming). */
   rejectedRows(): Set<number>;
-  /** The curated-out rejections as rail items, in the order they were rejected. */
   curationItems(): CurationItem[];
-  /** Undo one curation item by id: drop the rejection and recompute the working copy. */
   restoreCuration(id: string): void;
-  /** The $EDITOR hand-off on the working copy. */
   edit(): void;
-  /** Track an edited thread body as the working copy and re-resolve annotations against it. */
   saveEditedBody(content: string): void;
-  /**
-   * Anchor and store an annotation; both plan and diff anchor constructions.
-   * `end` is an offset within `endDisplayIndex` (the same block by default).
-   * Returns the minted annotation id so the view can select the new card.
-   */
   annotate(
     kind: "comment",
     displayIndex: number,
@@ -360,18 +306,10 @@ export interface ReviewController {
     end: number,
     body: string,
     endDisplayIndex?: number,
-    /** The surface being annotated; a `file` target anchors into the Changes diff rows. */
     target?: AnnotationTarget,
   ): string | undefined;
-  /** Persist a comment whose anchor a surface already built (e.g. a file-contents view). */
   addComment(anchor: Anchor, target: AnnotationTarget, body: string): string | undefined;
-  /**
-   * Comment from the bare launch shell, where no thread is open: find-or-create the per-repo
-   * workbench thread, open it (the shell becomes a thread view), then add the comment. This is the
-   * first write a browse-only launch makes - nothing is on disk until it runs.
-   */
   commentOnWorkbench(anchor: Anchor, target: AnnotationTarget, body: string): Promise<void>;
-  /** As commentOnWorkbench, for a note drawn on the bare-launch Changes diff (row coords, file target). */
   commentOnWorkbenchDiff(
     displayIndex: number,
     start: number,
@@ -379,66 +317,35 @@ export interface ReviewController {
     endDisplayIndex: number,
     body: string,
   ): Promise<void>;
-  /**
-   * Reply to `rootAnnotationId`: the reply shares the root's anchor and names
-   * it in replyTo, so the discussion stays one conversation. Returns the minted id.
-   */
   reply(rootAnnotationId: string, body: string): string | undefined;
-  /** Anchor a prototype comment to a DOM element by its selector. */
   annotatePrototype(selector: string, quote: string, body: string): string | undefined;
-  /** Rewrite a stored annotation's body in place (the rail-card edit). */
   updateAnnotation(id: string, body: string): void;
   flushMutations?(): Promise<void>;
   removeAnnotation(id: string): void;
   setWorkingCopy(content: string | undefined): void;
-  /** Enter the guided walk at the first unviewed file (diff sessions). */
   walkStart(): void;
-  /** Mark the current file viewed (persists with the session) and advance. */
   walkForward(): void;
   walkBack(): void;
-  /** Leave the walk; the viewed set stays on the session record. */
   walkLeave(): void;
-  /** Resolve the review, run the export, start the completion hand-back. */
   submit(message: MessageOutcome, summary: string): void;
-  /** Publish the current session as a public share link; the ssh line lands on the clipboard. */
   share(): void;
-  /** Stop sharing the current session, revoking every link at the gateway. Owner only. */
   unshare(): void;
-  /** Replace the private-share allowlist of GitHub logins for the current session. Owner only. */
   setShareAccess(githubLogins: string[]): void;
-  /** The current thread's share links (a legacy single share migrates to a one-element list). */
   shareLinks(): ShareLink[];
-  /** Publish a new share link with the given name and auth; the ssh line lands on the clipboard. Owner only. */
   createShareLink(input: NewShareLink): void;
-  /** Update a link's name and auth in place, re-pushing its access to the gateway. Owner only. */
   updateShareLink(id: string, input: NewShareLink): void;
-  /** Revoke a link and remove it from the thread. Owner only. */
   deleteShareLink(id: string): void;
-  /** Copy a link's ssh line to the clipboard. */
   copyShareLink(id: string): void;
-  /** The session tree as rows for the rail's Tree tab, cached per session identity. */
   treeRows(): TreeRow[];
-  /**
-   * Go to an entry: switch to the branch whose tip it is, or move the current
-   * branch's tip back to it, with an optional branch summary. Owner only.
-   */
   goToEntry(entryId: string, summary?: string): void;
-  /** Start a branch at the current tip and switch to it. */
   branch(name: string): void;
-  /** Name the current tip as a checkpoint. */
   labelTip(label: string): void;
-  /** Copy the current path into a new session and open it. */
   fork(): void;
-  /** Fork, then share the fork; the current session stays open and unshared. */
   forkAndShare(): void;
-  /** Pull a shared plan's collaborator notes back and union them in (planner only). */
   pullShared(): Promise<void>;
-  /** Poll the share for collaborator notes while it is open; returns a stop handle. */
   startShareSync(): () => void;
-  /** Close the review and, inside herdr, bounce focus back to the agent. */
   finishReview(): void;
   dismissCompletion(): void;
-  /** From the completion prompt: persist auto-close and start the countdown. */
   optInAutoClose(): void;
 }
 
@@ -450,9 +357,7 @@ interface DerivedSessionProjection {
   display: DisplayBlock[];
   rows: DiffRow[];
   files: WalkFile[];
-  /** Raw per-file contents; parsed into a model lazily on first curation touch, not all upfront. */
   fileContents: Map<string, DiffFileContents>;
-  /** Parsed file models, filled on demand from fileContents and memoized here. */
   models: Map<string, FileDiffMetadata>;
   tree: TreeRow[];
 }

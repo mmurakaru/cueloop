@@ -21,21 +21,15 @@ export type InlineRole = "text" | "strong" | "em" | "code" | "strike" | "link" |
 export interface InlineRun {
   text: string;
   role: InlineRole;
-  /** Offset of this run in the input text; null for a concealed marker. */
   start: number | null;
-  /** Link target, present only on `link` runs. */
   href?: string;
 }
 
 /** An emphasis span opened by a delimiter at some index, once its close is found. */
 interface Span {
-  /** Length of the opening marker (e.g. 2 for `**`). */
   openLength: number;
-  /** Length of the closing marker. */
   closeLength: number;
-  /** Index in `text` where the closing marker starts. */
   closeIndex: number;
-  /** Emphasis role applied to the span's (recursively parsed) content. */
   role: "strong" | "em" | "strike";
 }
 

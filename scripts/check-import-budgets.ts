@@ -29,7 +29,6 @@ export interface ImportViolation {
 /** The workspace package a source file belongs to, by the directory that holds its package.json. */
 export interface PackageHome {
   name: string;
-  /** Repo-relative directory, `packages/daemon` or `packages/integrations/obsidian`. */
   directory: string;
 }
 

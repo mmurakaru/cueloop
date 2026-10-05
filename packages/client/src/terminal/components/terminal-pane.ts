@@ -36,14 +36,11 @@ export function embeddedTerminalAvailable(): boolean {
 
 /** Props for `<terminalPane>`: the child to run plus its cwd/env and a plan-context seed. */
 export interface TerminalPaneOptions extends RenderableOptions {
-  /** The program to run, e.g. "claude" / "pi" / "codex" / a shell. */
   command?: string;
   args?: string[];
   cwd?: string;
   env?: Record<string, string>;
-  /** Text left unsubmitted in the child after it starts (plan-context seed). */
   seedText?: string;
-  /** Fired when the child process exits. */
   onExit?: (exitCode: number) => void;
 }
 

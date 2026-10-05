@@ -18,10 +18,8 @@ import { markdownHighlightRanges } from "../markdown-highlight";
 import { markdownEditorStyle } from "../markdown-editor-syntax-style";
 
 export interface MarkdownThreadEditorProps {
-  /** The thread body's working copy; the editor opens on this markdown text. */
   initialText: string;
   theme: Theme;
-  /** Called with the edited markdown when the reviewer leaves (cmd/ctrl+enter or the header toggle); both save. */
   onExitEditor: (text: string) => void;
 }
 

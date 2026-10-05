@@ -30,15 +30,10 @@ export interface ShareWriteBack {
   store: ShareStore;
   masterKey: Buffer;
   shareId: string;
-  /** The collaborator's SSH fingerprint, stamped on the notes they author. */
   author: string;
-  /** A verified display name (e.g. from GitHub) to persist on the author's participant record. */
   participantName?: string;
-  /** The verified identity source, so a comment stamps the github provider and handle, not anonymous ssh. */
   participantSource?: ParticipantSource;
-  /** Timestamp source; injectable so tests are deterministic. */
   now?: () => string;
-  /** When present, the viewer follows the share live: each write re-reads the blob and emits session.updated. */
   changes?: ShareChangeFeed;
 }
 

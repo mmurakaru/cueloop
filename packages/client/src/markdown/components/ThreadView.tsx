@@ -155,13 +155,11 @@ export const THREAD_VIEW_CHEATSHEET: CheatsheetSection[] = [
 ];
 
 export interface ThreadViewProps {
-  /** Agent transcripts permit feedback only on finalized answer blocks. */
   canAnnotateBlock?: (blockIndex: number) => boolean;
   isAnnotationReadOnly?: (id: string) => boolean;
   annotationAction?: (id: string) => { label: string; run: () => void } | undefined;
   requestedBlock?: { blockIndex: number };
   onInvoke?: () => void;
-  /** The final prompt line uses a plain composer instead of a comment card. */
   isPromptBlock?: (blockIndex: number) => boolean;
   promptFocusRequest?: PromptFocusRequest;
   promptRestoreRequest?: PromptRestoreRequest;
@@ -171,26 +169,17 @@ export interface ThreadViewProps {
   marks: Map<number, Mark[]>;
   quickActions: QuickAction[];
   observer: boolean;
-  /** True while a menu, dialog, or overlay owns the keyboard. */
   suspended?: boolean;
-  /** Comments an edit orphaned: their passage is gone from the working copy. */
   editOrphanCount?: number;
-  /** Reports whether a composer is open, so session chords can yield to typing. */
   onComposingChange?: (composing: boolean) => void;
-  /** A message is in: no draft may open; the app answers with its read-only status. */
   resolved?: boolean;
-  /** An observer or a resolved review refused a draft; the app shows why. */
   onObserverBlocked?: (reason: "observer" | "resolved") => void;
-  /** Reports the caret's block, so block-level primitives (cut, restore) act where the caret is. */
   onCursorChange?: (blockIndex: number) => void;
-  /** The rail's focused card; the discussion holding it takes focus here. */
   focusedAnnotationId?: string;
-  /** Reports the focused discussion's root comment, so the rail follows. */
   onFocusAnnotation?: (annotationId: string | undefined) => void;
   onAnnotate: (span: TextSpan, body: string) => void;
   onReply: (rootAnnotationId: string, body: string) => void;
   onUpdateAnnotation: (id: string, body: string) => void;
-  /** The author's display name for a comment's hover tooltip. */
   resolveAuthorLabel?: (annotation: Annotation) => string | undefined;
   onNavCommand?: (key: KeyEvent, selection: TextSpan | null) => boolean;
   onExit: () => void;

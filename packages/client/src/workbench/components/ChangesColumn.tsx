@@ -18,7 +18,6 @@ import { buildFileTree } from "./file-tree";
 export interface DiffColumnsState {
   changesOpen: boolean;
   toggleChanges: () => void;
-  /** The path under the diff cursor, highlighted in the Changes tree. */
   currentFilePath?: string;
   scrollToFile: (path: string) => void;
 }
@@ -84,10 +83,8 @@ export function DiffChangesToggle({
 export interface ChangesColumnProps {
   open: boolean;
   files?: readonly DiffFileContents[];
-  /** The path whose diff the sheet is scrolled to, highlighted in the tree. */
   selectedPath?: string;
   onSelectFile: (path: string, persistent?: boolean) => void;
-  /** Comments per file path, shown as a dot-and-count badge on each entry. */
   commentCounts?: ReadonlyMap<string, number>;
   focused?: boolean;
   width?: number;

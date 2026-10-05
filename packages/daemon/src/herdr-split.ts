@@ -18,15 +18,8 @@ const SplitPaneSchema = v.object({
 const HARNESS_SPLIT_RATIO = "0.4";
 
 export interface LaunchHarnessInSplitOptions {
-  /** The harness launch command run in the split, e.g. "cc", "pi", "codex". */
   command: string;
-  /** Working directory for the split - the reviewed session's cwd. */
   cwd: string;
-  /**
-   * A plan-context briefing typed into the split after the harness command, left
-   * unsubmitted for the reviewer to send. Best-effort: on a slow harness start it
-   * may reach the shell instead, so the launch never depends on it.
-   */
   seedText?: string;
 }
 

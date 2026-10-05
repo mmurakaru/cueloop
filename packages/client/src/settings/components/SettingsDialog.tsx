@@ -22,7 +22,6 @@ export interface SettingsCategory {
   id: string;
   name: string;
   rows: SettingsRowDescriptor[];
-  /** A bespoke body (e.g. the quick-actions editor) rendered instead of typed rows. */
   customBody?: React.ReactNode;
 }
 
@@ -33,11 +32,9 @@ const KEYBINDS_CATEGORY_ID = "keybinds";
 
 export interface SettingsDialogProps {
   isOpen: boolean;
-  /** The client version, shown in the dialog footer (its home now the menu bar is gone). */
   version: string;
   categories: SettingsCategory[];
   values: SettingsValues;
-  /** The keybinds cheatsheet, shown when the Keybinds leaf is active. */
   keybindsSections: CheatsheetSection[];
   activeCategoryId: string;
   activeRowIndex: number;

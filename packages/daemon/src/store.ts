@@ -39,13 +39,10 @@ export interface RecoveryReport {
 
 /** What the daemon needs from session storage. */
 export interface ThreadRepository {
-  /** Load what is stored; called once on boot. */
   recover(): RecoveryReport;
   get(id: string): Thread | undefined;
-  /** Every session, oldest first. */
   list(): Thread[];
   upsert(session: Thread): void;
-  /** True when a session was removed. */
   delete(id: string): boolean;
 }
 

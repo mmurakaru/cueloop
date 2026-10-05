@@ -30,9 +30,7 @@ export interface ShareTarget {
 }
 
 export interface ShareResult {
-  /** The one line to paste: `ssh p_xxxxxxxx@host`. */
   line: string;
-  /** Whether the line made it onto the system clipboard. */
   copied: boolean;
 }
 
@@ -136,9 +134,7 @@ export async function revokeShare(shareId: string, target: ShareTarget = {}): Pr
 }
 
 export interface ShareWatchHandlers {
-  /** The whole session record, each time the share changes. */
   onSession: (session: Thread) => void;
-  /** The stream ended, for any reason; the caller decides whether to reconnect. */
   onClose: (reason: string) => void;
 }
 

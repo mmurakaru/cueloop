@@ -68,26 +68,18 @@ export interface AppShellProps {
   onToggleSidebar: () => void;
   onOpenMenu: () => void;
   threadsPanel: React.ReactNode;
-  /** The Thread header title; mirrors the selected sidebar thread, blank on a bare launch. */
   threadTitle: string;
-  /** Owner actions at the right edge of the Thread header (Edit/Share) - the only thread-header controls. */
   threadActions?: React.ReactNode;
   threadPanel: React.ReactNode;
   changesOpen: boolean;
   projectOpen: boolean;
-  /** Toggle the Changes editor (also switches the Project tree to changed-files mode). */
   onToggleChanges: () => void;
-  /** Toggle the Project tree to the full project view. */
   onToggleProject: () => void;
-  /** Open or close the whole right region (the right sidebar). */
   onToggleRight: () => void;
   projectMode: ProjectPanelMode;
-  /** The Changes editor grid; rendered only when changesOpen. */
   changesPanel?: React.ReactNode;
-  /** The thread footer, shown beneath the Changes grid while the Thread pane is zoomed away. */
   changesFooter?: React.ReactNode;
   projectPanel: React.ReactNode;
-  /** Hide the Thread pane so Changes fills the middle (zoom); the sidebars stay. */
   zoomHideThread?: boolean;
   footer?: React.ReactNode;
   children?: React.ReactNode;

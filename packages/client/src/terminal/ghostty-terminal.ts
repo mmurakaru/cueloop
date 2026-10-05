@@ -26,11 +26,9 @@ export interface GhosttyCursor {
 
 /** One decoded screen cell: its glyph, colors, cell width, and text decorations. */
 export interface GhosttyCell {
-  /** Unicode code point; 0 = blank. */
   codepoint: number;
   fg: GhosttyColor;
   bg: GhosttyColor;
-  /** Ghostty width tag: 0 = normal, 1 = double-width lead, 2 = trailing cell. */
   width: number;
   bold: boolean;
   italic: boolean;

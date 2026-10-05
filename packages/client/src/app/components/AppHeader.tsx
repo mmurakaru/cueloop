@@ -14,9 +14,7 @@ export interface AppHeaderProps {
   sidebarOpen: boolean;
   sidebarWidth?: number;
   onToggleSidebar: () => void;
-  /** The center segment title; mirrors the selected sidebar thread, blank when none. */
   title: string;
-  /** Owner actions rendered at the right edge of the thread segment (Edit/Share). */
   editShare?: React.ReactNode;
   changesOpen: boolean;
   changesWidth?: number;

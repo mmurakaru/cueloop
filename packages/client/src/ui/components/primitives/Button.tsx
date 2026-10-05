@@ -10,10 +10,8 @@ import type { Theme } from "../../../appearance/theme";
 import { useComponentTheme } from "../../../appearance/components/theme-context";
 
 export interface ButtonProps {
-  /** Unified activation: mouse release today, keyboard activation tomorrow. */
   onPress: () => void;
   isDisabled?: boolean;
-  /** solid = accent-filled call to action; plain = quiet word-button. */
   variant?: "solid" | "plain" | "accent-text";
   foreground?: string;
   marginRight?: number;

@@ -12,7 +12,6 @@ export interface HistoryRecord {
   sha: string;
   date: string;
   version?: string;
-  /** metric name to [median, p95] */
   metrics: Record<string, MetricPoint>;
 }
 

@@ -18,9 +18,7 @@ import type { AppProps } from "../app/App";
  * waiting for a piece of text and hoping the keyboard is bound by then.
  */
 export interface AppReadyProbe {
-  /** Pass as the App's `onReady` prop. */
   onReady: () => void;
-  /** Resolves once the App has fired its ready signal. */
   ready: Promise<void>;
 }
 

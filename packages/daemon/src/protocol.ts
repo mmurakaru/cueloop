@@ -21,7 +21,6 @@ export interface Response {
 export interface EventFrame {
   event: string;
   sessionId: string;
-  /** The history entry the change appended, when it appended one. */
   entryId?: string;
 }
 

@@ -19,7 +19,6 @@ export interface TestChangedFile {
 
 export interface TestGitRepo {
   dir: string;
-  /** The working tree against HEAD, untracked files included, as the CLI captures it. */
   diff(): Promise<WorkingTreeDiff>;
   cleanup(): void;
 }

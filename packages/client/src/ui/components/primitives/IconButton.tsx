@@ -10,13 +10,9 @@ import { useTooltip } from "../Tooltip";
 export interface IconButtonProps {
   glyph: string;
   onPress?: () => void;
-  /** Paint the glyph in the brand accent to mark the current mode or view. */
   active?: boolean;
-  /** Dim the glyph and ignore presses. */
   disabled?: boolean;
-  /** Override the resolved foreground (wins over active/disabled colouring). */
   color?: string;
-  /** Label shown on hover, surfaced at the screen root so a tiny header cell cannot clip it. */
   tip?: string;
   marginLeft?: number;
   marginRight?: number;

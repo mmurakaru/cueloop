@@ -61,13 +61,11 @@ interface GateOptions {
   head: Side;
   out: string;
   summary: string | null;
-  /** When set, a regression is recorded and accepted instead of failing the gate. */
   acceptReason: string | null;
 }
 
 interface Measurement {
   head: Map<string, number[]>;
-  /** Null when the base binary failed to run. */
   base: Map<string, number[]> | null;
   baseError: string | null;
 }

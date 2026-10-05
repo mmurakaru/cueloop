@@ -74,21 +74,13 @@ export type WatchFrame =
 
 export interface GatewayOptions {
   store: ShareStore;
-  /** 256-bit master key; the per-blob keys derive from it. */
   masterKey: Buffer;
-  /** Where the persisted SSH host key lives. */
   hostKeyPath: string;
-  /** Listen port. Default 22 (the gateway owns it); tests pass 0. */
   port?: number;
-  /** Bind address. Default 0.0.0.0 in production; tests pass 127.0.0.1. */
   host?: string;
-  /** Host shown in the minted `ssh <id>@<host>` line. Default cueloop.dev. */
   publicHost?: string;
-  /** Largest accepted upload. Default MAX_BLOB_BYTES (1 MiB). */
   maxUploadBytes?: number;
-  /** When set, serve Prometheus `/metrics` on this port (loopback). Off if absent. */
   metricsPort?: number;
-  /** Bind for the metrics server. Default 127.0.0.1 - never expose it on the public port. */
   metricsHost?: string;
   onError?: (cause: unknown) => void;
 }
@@ -96,7 +88,6 @@ export interface GatewayOptions {
 export interface GatewayHandle {
   host: string;
   port: number;
-  /** The bound loopback metrics port, when a metrics server was started. */
   metricsPort?: number;
   close(): Promise<void>;
 }

@@ -11,7 +11,6 @@ const PR_POLL_INTERVAL_MS = 30_000;
 
 interface PrPoll {
   pr: string;
-  /** Last refs seen; null until the baseline check lands, so the first observation never fires. */
   lastRefs: PullRequestRefs | null;
   timer: ReturnType<typeof setInterval>;
 }

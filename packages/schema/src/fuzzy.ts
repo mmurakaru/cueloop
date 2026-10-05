@@ -8,11 +8,8 @@
 
 /** A window of the haystack that best matches the needle. */
 export interface FuzzyMatch {
-  /** Inclusive start offset into the haystack. */
   start: number;
-  /** Exclusive end offset into the haystack. */
   end: number;
-  /** Similarity of the matched window to the needle, in [0, 1]. */
   similarity: number;
 }
 

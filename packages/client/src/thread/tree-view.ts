@@ -16,19 +16,12 @@ import {
 
 export interface TreeRow {
   entryId: string;
-  /** Branch nesting: 0 is the trunk, each segment off it one deeper. */
   depth: number;
-  /** One glyph naming the entry kind, for the left column. */
   glyph: string;
-  /** What the entry is, in a few words. */
   text: string;
-  /** On the current branch's path: painted bright; everything else dim. */
   onPath: boolean;
-  /** Branches whose tip rests on this entry. */
   tips: string[];
-  /** The current branch's tip: where the next entry lands. */
   isCurrentTip: boolean;
-  /** The checkpoint name, when labelled. */
   label?: string;
 }
 

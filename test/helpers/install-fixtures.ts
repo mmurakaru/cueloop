@@ -36,16 +36,9 @@ export function testBinaryScript(version: string): string {
 }
 
 export interface TestReleaseServer {
-  /** Request paths seen so far, in order. */
   requests: string[];
-  /** A temp directory the test may install into. */
   installDir: string;
-  /** Where the installer puts the binary inside `installDir`. */
   installedBinary: string;
-  /**
-   * An environment for `sh install.sh`: hermetic, pointed at this server,
-   * installing into `installDir`, banner and rc edits off unless overridden.
-   */
   environment(overrides?: Record<string, string>): Record<string, string>;
   close(): void;
 }

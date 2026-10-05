@@ -55,9 +55,7 @@ function HandleChip({
 export interface HandleChipsInputProps {
   logins: string[];
   onChange: (logins: string[]) => void;
-  /** Whether this field owns the cursor and backspace; false shows the chips without a blinking caret. */
   focused?: boolean;
-  /** Fired on backspace when the field is empty and no chips remain, so the caller can collapse the section. */
   onEmptyBackspace?: () => void;
   theme?: Theme;
 }

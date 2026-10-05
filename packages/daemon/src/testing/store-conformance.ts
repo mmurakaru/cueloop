@@ -12,9 +12,7 @@ import { SCHEMA_VERSION, type Thread } from "@cueloop/schema";
 import type { ThreadRepository } from "../store";
 
 export interface StoreHarness {
-  /** A fresh, empty adapter that will recover `records` on `recover()`. */
   open: (records: unknown[]) => ThreadRepository;
-  /** A new adapter over whatever `store` persisted, as after a daemon restart. */
   restart: (store: ThreadRepository) => ThreadRepository;
 }
 

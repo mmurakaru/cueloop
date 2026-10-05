@@ -11,7 +11,6 @@ import { wordRanges } from "../annotations/thread-selection";
 export interface MarkRange {
   start: number;
   end: number;
-  /** The bare caret's single cell - a cursor, not yet a mark. */
   caretOnly?: boolean;
 }
 
