@@ -16,6 +16,9 @@ the daemon's workspace configuration. Shared collaborators cannot invoke them.
 Thread reads and review comments only. An `agent` role here means a review-side
 agent, not the daemon-owned embedded harness. The daemon enforces authorization;
 TypeScript narrows the available operations but does not grant authority.
+The SDK brands Thread, operation and submission IDs separately. Thread reads
+return branded identities; `sdk.ids.thread`, `sdk.ids.operation` and
+`sdk.ids.submission` parse external strings for incremental adoption.
 
 ## Acceptance, completion and retries
 
@@ -79,7 +82,9 @@ The Thread-agent UI uses this shared lifecycle.
 ## Effect and example
 
 `CueloopSdk.ownerLayer` acquires the owner connection with `Effect.acquireRelease`.
-Its operations have a typed `DaemonSdkError` channel. Effect interruption is passed
+Its operations have a typed `DaemonSdkError` channel. `threads.watch(id)` is a
+scoped stream of refreshed snapshots with a one-item sliding buffer. It coalesces
+state updates rather than promising delivery of every event. Effect interruption is passed
 through an AbortSignal, including to completion waits. Scope finalization closes
 the connection. The layer does not replace the daemon or rewrite UI state in
 Effect.

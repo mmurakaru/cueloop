@@ -43,6 +43,19 @@ test("malformed response results reject promptly and leave the connection usable
       kind: "protocol",
       certainty: "unknown",
     });
+    await expect(
+      client.request(
+        "test.transform",
+        {},
+        v.pipe(
+          v.string(),
+          v.transform(() => {
+            throw new Error("Invalid transformation");
+          }),
+        ),
+        100,
+      ),
+    ).rejects.toMatchObject({ kind: "protocol", certainty: "unknown" });
     expect((await client.ping()).pid).toBe(process.pid);
   } finally {
     client?.close();

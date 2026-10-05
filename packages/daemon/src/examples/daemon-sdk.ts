@@ -20,7 +20,7 @@ const reviewConversation = Effect.gen(function* () {
   });
   const accepted = yield* sdk.agents.prompt({
     threadId: thread.id,
-    operationId: randomUUID(),
+    operationId: sdk.ids.operation(randomUUID()),
     text: "Explain this Thread and its comment.",
   });
   const completed = yield* sdk.agents.wait(accepted, { timeoutMs: 300_000 });
@@ -35,7 +35,7 @@ const reviewConversation = Effect.gen(function* () {
     });
   yield* sdk.sessions.sendMessage({
     threadId: thread.id,
-    operationId: randomUUID(),
+    operationId: sdk.ids.operation(randomUUID()),
     outcome: "approved",
     summary: "Review complete",
   });

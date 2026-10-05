@@ -1,4 +1,4 @@
-import type { Anchor } from "./types";
+import type { Anchor, OperationReceipt } from "./types";
 
 /** An agent message keeps its identity after streaming and across reconnects. */
 export interface AgentMessage {
@@ -57,12 +57,9 @@ export interface ThreadAgentState {
   comments: AgentComment[];
   submissions?: AgentSubmission[];
   /** Original accepted submission identities survive acknowledgement loss and daemon restart. */
-  promptOperations?: {
-    operationId: string;
-    fingerprint: string;
-    result: string[];
+  promptOperations?: (OperationReceipt<string[]> & {
     outcome?: "completed" | "failed" | "cancelled";
-  }[];
+  })[];
   configOptions?: AgentConfigOption[];
 }
 
@@ -86,4 +83,13 @@ export interface AgentConfigOption {
   category?: string;
   currentValue: string;
   options: { value: string; name: string }[];
+}
+
+/** Prompt submission preserves operation identity while optional context remains separate from input. */
+export interface AgentPromptRequest {
+  id: string;
+  text: string;
+  context?: string;
+  retry?: string;
+  operationId?: string;
 }

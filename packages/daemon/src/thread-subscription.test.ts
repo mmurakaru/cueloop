@@ -6,17 +6,7 @@ import { DaemonServer } from "./server";
 import { DaemonClient } from "./client";
 import { subscribeThreadState, connectThreadObserver } from "./thread-subscription";
 
-function createTestSignal<Value>() {
-  let resolve!: (value: Value) => void;
-  // eslint-disable-next-line type-evidence/no-unknown-parameters -- This test latch forwards Promise rejection reasons.
-  let reject!: (reason: unknown) => void;
-  const promise = new Promise<Value>((accept, fail) => {
-    resolve = accept;
-    reject = fail;
-  });
-
-  return { promise, resolve, reject };
-}
+import { createTestSignal } from "../../../test/helpers/test-signal";
 
 test("subscription refresh discards stale reads and disposal suppresses late callbacks", async () => {
   const home = mkdtempSync(join(tmpdir(), "cueloop-subscription-"));
@@ -113,6 +103,66 @@ test("reconnect subscribes again and refreshes authoritative state even without 
     dispose();
     client.close();
     server.stop();
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("a malformed protocol frame stops the observer instead of reconnecting", async () => {
+  const { LineBuffer, parseRequestFrame } = await import("./protocol");
+  const { socketPath } = await import("./paths");
+  const { DAEMON_VERSION } = await import("./version");
+  const home = mkdtempSync(join(tmpdir(), "cueloop-subscription-protocol-"));
+  const failed = createTestSignal<void>();
+  const reads = new Map<object, InstanceType<typeof LineBuffer>>();
+  let connections = 0;
+  const server = Bun.listen({
+    unix: socketPath(home),
+    socket: {
+      open(socket) {
+        reads.set(socket, new LineBuffer());
+        connections++;
+        if (connections > 1) failed.reject(new Error("Unexpected reconnect"));
+      },
+      data(socket, bytes) {
+        reads.get(socket)!.push(bytes.toString(), (line) => {
+          const request = parseRequestFrame(line);
+          socket.write(
+            JSON.stringify({
+              id: request.id,
+              result:
+                request.method === "daemon.ping"
+                  ? { pid: process.pid, version: DAEMON_VERSION }
+                  : {},
+            }) + "\n",
+          );
+          if (request.method === "events.subscribe") socket.write("{broken\n");
+        });
+      },
+      close(socket) {
+        reads.delete(socket);
+      },
+    },
+  });
+  const dispose = subscribeThreadState({
+    connect: connectThreadObserver({ home }),
+    reconnectMs: 1,
+    matches: () => true,
+    read: (client) => client.ping(),
+    onValue() {},
+    onError: (error) => {
+      expect(error).toMatchObject({ kind: "protocol" });
+      failed.resolve();
+    },
+  });
+
+  try {
+    await failed.promise;
+    // A timer boundary proves no reconnect remains scheduled after the protocol closure.
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(connections).toBe(1);
+  } finally {
+    dispose();
+    server.stop(true);
     rmSync(home, { recursive: true, force: true });
   }
 });

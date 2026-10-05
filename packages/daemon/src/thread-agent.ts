@@ -9,6 +9,7 @@ import {
   stepAgentSubmission,
   isAgentNote,
   type AgentSubmission,
+  type AgentPromptRequest,
   type AgentHarnessTools,
   resolveAnchor,
   type AgentComment,
@@ -119,20 +120,14 @@ export class ThreadAgentManager {
   }
 
   /** Freeze each pending comment once and queue an individual answer at the Thread tail. */
-  prompt(params: {
-    id: string;
-    text: string;
-    context?: string;
-    retry?: string;
-    operationId?: string;
-  }): ThreadAgentState {
+  prompt(params: AgentPromptRequest): ThreadAgentState {
     this.assertEnabled(params.id);
-    if (!this.options.adapter) throw new Error("Thread agent harness is not configured");
     const state = this.mutable(params.id);
     const thread = this.options.getThread(params.id);
     const receipt = findPromptOperationReceipt(state, params);
 
     if (receipt) return structuredClone(state);
+    if (!this.options.adapter) throw new Error("Thread agent harness is not configured");
     if (thread.status !== "pending") throw new Error("Thread agent review is already resolved");
     assertHarnessIdentity(state, this.options.adapter);
     const before = structuredClone(state);

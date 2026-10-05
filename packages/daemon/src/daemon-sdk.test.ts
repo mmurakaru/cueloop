@@ -2,45 +2,17 @@ import { expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Effect } from "effect";
+import { Effect, Stream } from "effect";
 import { DaemonServer } from "./server";
 import { DaemonClient } from "./client";
 import { connectOwnerSdk, connectReviewSdk } from "./daemon-sdk";
 import { CueloopSdk } from "./daemon-sdk-effect";
-import type { AgentHarnessAdapter } from "@cueloop/schema";
 
-function createTestAdapter() {
-  let finish: (() => void) | undefined;
-  let cancelled = 0;
-  const adapter: AgentHarnessAdapter = {
-    id: "sdk-test",
-    label: "SDK test",
-    connect({ onEvent }) {
-      return {
-        start: async () => "test-session",
-        prompt: () =>
-          new Promise((resolve) => {
-            finish = () => {
-              onEvent({ kind: "message", id: crypto.randomUUID(), text: "Answer" });
-              resolve({ outcome: "completed" });
-            };
-          }),
-        cancel: () => {
-          cancelled++;
-          finish?.();
-        },
-        permission() {},
-        close() {},
-      };
-    },
-  };
-
-  return { adapter, complete: () => finish?.(), cancelled: () => cancelled };
-}
+import { createTestSdkHarness } from "../../../test/helpers/sdk-harness";
 
 test("SDK accepts once, waits for its own submission and cancelling a wait preserves work", async () => {
   const home = mkdtempSync(join(tmpdir(), "cueloop-sdk-"));
-  const harness = createTestAdapter();
+  const harness = createTestSdkHarness();
   const server = new DaemonServer({
     home,
     idleExitMs: 0,
@@ -54,7 +26,11 @@ test("SDK accepts once, waits for its own submission and cancelling a wait prese
       workspace: { repoRoot: home, branch: "main" },
       artifact: { type: "plan", content: "Explain this", meta: {} },
     });
-    const input = { threadId: thread.id, operationId: "ask-once", text: "Explain" };
+    const input = {
+      threadId: thread.id,
+      operationId: sdk.ids.operation("ask-once"),
+      text: "Explain",
+    };
     const accepted = await sdk.agents.prompt(input);
     const duplicate = await sdk.agents.prompt(input);
     expect(duplicate).toEqual(accepted);
@@ -72,7 +48,7 @@ test("SDK accepts once, waits for its own submission and cancelling a wait prese
     expect((await completed).outcome).toBe("completed");
     const message = {
       threadId: thread.id,
-      operationId: "approve-once",
+      operationId: sdk.ids.operation("approve-once"),
       outcome: "approved" as const,
       summary: "Good",
     };
@@ -97,6 +73,8 @@ test("Effect scope supports review comments and typed owner-only capabilities", 
         workspace: { repoRoot: home, branch: "main" },
         artifact: { type: "plan", content: "Discuss this", meta: {} },
       });
+      const snapshots = yield* sdk.threads.watch(thread.id).pipe(Stream.take(1), Stream.runCollect);
+      expect(snapshots[0]?.id).toBe(thread.id);
       const client = yield* Effect.promise(() => DaemonClient.connect({ home }));
       try {
         yield* Effect.promise(() =>
@@ -174,14 +152,14 @@ test("lost response after message commit is uncertain and an explicit retry surv
     try {
       expect(
         await sdk.sessions.sendMessage({
-          threadId: thread.id,
-          operationId: "lost-ack",
+          threadId: sdk.ids.thread(thread.id),
+          operationId: sdk.ids.operation("lost-ack"),
           outcome: "approved",
           summary: "Done",
         }),
       ).toEqual(original!);
       expect(
-        (await sdk.threads.get(thread.id)).history?.entries.filter(
+        (await sdk.threads.get(sdk.ids.thread(thread.id))).history?.entries.filter(
           (entry) => entry.type === "message",
         ),
       ).toHaveLength(1);
@@ -198,7 +176,7 @@ test("lost response after message commit is uncertain and an explicit retry surv
 test("Effect interruption aborts the completion wait without stopping the harness", async () => {
   const { Fiber } = await import("effect");
   const home = mkdtempSync(join(tmpdir(), "cueloop-sdk-interrupt-"));
-  const harness = createTestAdapter();
+  const harness = createTestSdkHarness();
   const server = new DaemonServer({
     home,
     idleExitMs: 0,
@@ -215,7 +193,7 @@ test("Effect interruption aborts the completion wait without stopping the harnes
       });
       const accepted = yield* sdk.agents.prompt({
         threadId: thread.id,
-        operationId: "interrupt",
+        operationId: sdk.ids.operation("interrupt"),
         text: "Explain",
       });
       const fiber = yield* Effect.forkChild(sdk.agents.wait(accepted));
@@ -231,4 +209,73 @@ test("Effect interruption aborts the completion wait without stopping the harnes
     server.stop();
     rmSync(home, { recursive: true, force: true });
   }
+});
+
+test("lost prompt acknowledgement replays original acceptance after restart without a harness", async () => {
+  const home = mkdtempSync(join(tmpdir(), "cueloop-sdk-lost-prompt-"));
+  const harness = createTestSdkHarness();
+  let server = new DaemonServer({
+    home,
+    idleExitMs: 0,
+    threadAgent: { enabled: true, adapter: harness.adapter },
+  });
+  server.start();
+  const connection = await DaemonClient.connect({ home });
+
+  try {
+    const thread = await connection.sessionCreate(
+      { repoRoot: home, branch: "main" },
+      { type: "plan", content: "Explain", meta: {} },
+    );
+    await connection.subscribe();
+    connection.onEvent((event) => {
+      if (event.event === "agent.updated") connection.close();
+    });
+    await expect(
+      connection.agentPrompt({ id: thread.id, text: "Once", operationId: "lost-prompt" }),
+    ).rejects.toMatchObject({ kind: "connection", certainty: "unknown" });
+    const inspect = await DaemonClient.connect({ home });
+    const accepted = await inspect.agentGet(thread.id);
+    inspect.close();
+    server.stop();
+    server = new DaemonServer({ home, idleExitMs: 0, threadAgent: { enabled: true } });
+    server.start();
+    const sdk = await connectOwnerSdk({ home });
+    try {
+      const replay = await sdk.agents.prompt({
+        threadId: sdk.ids.thread(thread.id),
+        operationId: sdk.ids.operation("lost-prompt"),
+        text: "Once",
+      });
+      expect(replay.submissionIds).toEqual(
+        accepted.promptOperations![0]!.result.map(sdk.ids.submission),
+      );
+      expect((await sdk.agents.get(sdk.ids.thread(thread.id))).submissions).toHaveLength(1);
+      expect((await sdk.agents.wait(replay)).outcome).toBe("failed");
+    } finally {
+      sdk.close();
+    }
+  } finally {
+    connection.close();
+    server.stop();
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("SDK identity types distinguish Thread, operation, and submission capabilities", () => {
+  type ThreadId = import("./daemon-sdk").SdkThreadId;
+  type OperationId = import("./daemon-sdk").SdkOperationId;
+  type SubmissionId = import("./daemon-sdk").SdkSubmissionId;
+  type Review = import("./daemon-sdk").ReviewDaemonSdk;
+  const operationIsThread: OperationId extends ThreadId ? true : false = false;
+  const submissionIsOperation: SubmissionId extends OperationId ? true : false = false;
+  const reviewHasAgent: "agents" extends keyof Review ? true : false = false;
+  const reviewCreatesThread: "create" extends keyof Review["threads"] ? true : false = false;
+
+  expect([operationIsThread, submissionIsOperation, reviewHasAgent, reviewCreatesThread]).toEqual([
+    false,
+    false,
+    false,
+    false,
+  ]);
 });

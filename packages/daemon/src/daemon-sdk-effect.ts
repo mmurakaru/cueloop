@@ -1,9 +1,11 @@
-import { Context, Effect, Layer, type Scope } from "effect";
+import { Context, Effect, Layer, Stream, Queue, Cause, type Scope } from "effect";
 import {
   connectOwnerSdk,
   normalizeSdkError,
   type OwnerDaemonSdk,
   type DaemonSdkError,
+  type SdkThread,
+  type SdkThreadId,
 } from "./daemon-sdk";
 import type { ConnectOptions } from "./client";
 import type { DaemonRequestOptions } from "./client-errors";
@@ -20,7 +22,10 @@ type EffectMethods<Methods> = {
 export class CueloopSdk extends Context.Service<
   CueloopSdk,
   {
-    readonly threads: EffectMethods<OwnerDaemonSdk["threads"]>;
+    readonly ids: OwnerDaemonSdk["ids"];
+    readonly threads: EffectMethods<OwnerDaemonSdk["threads"]> & {
+      watch(threadId: SdkThreadId): Stream.Stream<SdkThread, DaemonSdkError>;
+    };
     readonly comments: EffectMethods<OwnerDaemonSdk["comments"]>;
     readonly sessions: EffectMethods<OwnerDaemonSdk["sessions"]>;
     readonly agents: EffectMethods<OwnerDaemonSdk["agents"]>;
@@ -58,7 +63,29 @@ function sdkEffect<Result>(
 
 function effectSdkService(sdk: OwnerDaemonSdk): CueloopSdk["Service"] {
   return {
+    ids: sdk.ids,
     threads: {
+      watch: (threadId) =>
+        Stream.callback<SdkThread, DaemonSdkError>(
+          Effect.fn(function* (queue) {
+            yield* Effect.acquireRelease(
+              Effect.sync(() =>
+                sdk.observeThread({
+                  threadId,
+                  onValue: (thread) => {
+                    Queue.offerUnsafe(queue, thread);
+                  },
+                  onError: (error) => {
+                    if (error._tag === "DaemonClientError" || error.kind === "protocol")
+                      Queue.failCauseUnsafe(queue, Cause.fail(error));
+                  },
+                }),
+              ),
+              (stop) => Effect.sync(stop),
+            );
+          }),
+          { bufferSize: 1, strategy: "sliding" },
+        ),
       get: (id, options) => sdkEffect((request) => sdk.threads.get(id, request), options),
       create: (input, options) =>
         sdkEffect((request) => sdk.threads.create(input, request), options),

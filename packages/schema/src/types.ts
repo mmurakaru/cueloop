@@ -283,6 +283,13 @@ export interface PendingDelivery {
 export const MESSAGE_OUTCOMES = ["comment", "approved", "changes_requested"] as const;
 export type MessageOutcome = (typeof MESSAGE_OUTCOMES)[number];
 
+/** Durable acceptance records are committed together with the mutation they identify. */
+export interface OperationReceipt<Result> {
+  operationId: string;
+  fingerprint: string;
+  result: Result;
+}
+
 export interface Message {
   /** Stable identity used to deduplicate at-least-once harness delivery. */
   id: string;
@@ -388,7 +395,7 @@ export interface Thread {
    */
   viewedPaths?: string[];
   /** Acceptance receipts persist atomically with review messages for safe explicit retries. */
-  messageOperations?: { operationId: string; fingerprint: string; result: Message }[];
+  messageOperations?: OperationReceipt<Message>[];
   message: Message | null;
   status: SessionStatus;
   createdAt: string;

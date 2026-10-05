@@ -61,7 +61,7 @@ import { DaemonTransportError, type DaemonRequestOptions } from "./client-errors
 export { DaemonTransportError, type DaemonRequestOptions } from "./client-errors";
 import { DAEMON_VERSION } from "./version";
 import { ThreadAgentSchema } from "./thread-agent-validation";
-import type { AgentComment, ThreadAgentState } from "@cueloop/schema";
+import type { AgentComment, ThreadAgentState, AgentPromptRequest } from "@cueloop/schema";
 
 export type { EventFrame } from "./protocol";
 
@@ -228,7 +228,8 @@ export class DaemonClient implements ThreadClient {
   private daemonVersion: string | undefined;
   private nextId = 1;
   private eventListeners = new Set<(event: EventFrame) => void>();
-  private disconnectListeners = new Set<() => void>();
+  private disconnectListeners = new Set<(reason: DaemonTransportError) => void>();
+  private disconnectReason: DaemonTransportError | undefined;
   private closed = false;
   private role: DaemonRole = "owner";
   private author: string | undefined;
@@ -334,6 +335,7 @@ export class DaemonClient implements ThreadClient {
 
   private async dial(path: string): Promise<void> {
     const buffer = new LineBuffer();
+    this.disconnectReason = undefined;
     const epoch = ++this.connectionEpoch;
 
     const close = () => {
@@ -344,7 +346,10 @@ export class DaemonClient implements ThreadClient {
           new DaemonTransportError("connection", "daemon connection closed", "unknown"),
         );
       this.pending.clear();
-      for (const listener of this.disconnectListeners) listener();
+      const reason =
+        this.disconnectReason ??
+        new DaemonTransportError("connection", "daemon connection closed", "unknown");
+      for (const listener of this.disconnectListeners) listener(reason);
     };
 
     if (typeof Bun !== "undefined") {
@@ -417,7 +422,7 @@ export class DaemonClient implements ThreadClient {
   }
 
   /** Notify an adapter when its daemon socket closes so it can reconnect and replay Messages. */
-  onDisconnect(listener: () => void): () => void {
+  onDisconnect(listener: (reason: DaemonTransportError) => void): () => void {
     this.disconnectListeners.add(listener);
 
     return () => this.disconnectListeners.delete(listener);
@@ -429,6 +434,13 @@ export class DaemonClient implements ThreadClient {
     try {
       frame = parseInboundFrame(line);
     } catch (cause) {
+      this.disconnectReason = new DaemonTransportError(
+        "protocol",
+        "daemon sent a malformed frame",
+        "unknown",
+        undefined,
+        { cause },
+      );
       for (const pendingRequest of this.pending.values())
         pendingRequest.reject(
           new DaemonTransportError(
@@ -499,19 +511,31 @@ export class DaemonClient implements ThreadClient {
       this.pending.set(id, {
         resolve: (value) => {
           cleanup();
-          const parsed = v.safeParse(resultSchema, value);
+          try {
+            const parsed = v.safeParse(resultSchema, value);
 
-          if (parsed.success) resolve(parsed.output);
-          else
-            reject(
-              new DaemonTransportError(
+            if (!parsed.success)
+              throw new DaemonTransportError(
                 "protocol",
                 `request ${method} returned an invalid result`,
                 "unknown",
                 method,
                 { cause: parsed.issues },
-              ),
+              );
+            resolve(parsed.output);
+          } catch (cause) {
+            reject(
+              cause instanceof DaemonTransportError
+                ? cause
+                : new DaemonTransportError(
+                    "protocol",
+                    `request ${method} returned an invalid result`,
+                    "unknown",
+                    method,
+                    { cause },
+                  ),
             );
+          }
         },
         reject: fail,
       });
@@ -549,13 +573,7 @@ export class DaemonClient implements ThreadClient {
   }
   /** Submit a question and optional selected passage to the daemon-owned agent. */
   agentPrompt(
-    params: {
-      id: string;
-      text: string;
-      context?: string;
-      retry?: string;
-      operationId?: string;
-    },
+    params: AgentPromptRequest,
     options?: DaemonRequestOptions,
   ): Promise<ThreadAgentState> {
     return this.request("agent.prompt", params, ThreadAgentSchema, options);

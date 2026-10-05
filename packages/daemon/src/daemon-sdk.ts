@@ -1,3 +1,4 @@
+import * as v from "valibot";
 import {
   newAnnotationId,
   type Annotation,
@@ -10,18 +11,41 @@ import {
 } from "@cueloop/schema";
 import { DaemonClient, DaemonClientError, type ConnectOptions } from "./client";
 import { DaemonTransportError, type DaemonRequestOptions } from "./client-errors";
+import {
+  createSdkThreadId,
+  createSdkOperationId,
+  createSdkSubmissionId,
+  type SdkThreadId,
+  type SdkOperationId,
+  type SdkSubmissionId,
+} from "./sdk-identities";
+export {
+  createSdkThreadId,
+  createSdkOperationId,
+  createSdkSubmissionId,
+  type SdkThreadId,
+  type SdkOperationId,
+  type SdkSubmissionId,
+} from "./sdk-identities";
 import { ThreadRecordSchema } from "./validate";
 import { ThreadAgentSchema } from "./thread-agent-validation";
 import { connectThreadObserver, subscribeThreadState } from "./thread-subscription";
+
+/** Validated SDK Thread reads carry a distinct identity without changing the wire model. */
+export type SdkThread = Thread & { id: SdkThreadId };
+const SdkThreadRecordSchema = v.pipe(
+  ThreadRecordSchema,
+  v.transform((thread): SdkThread => ({ ...thread, id: createSdkThreadId(thread.id) })),
+);
 
 /** These errors preserve daemon rejection codes and uncertainty after a lost response. */
 export type DaemonSdkError = DaemonClientError | DaemonTransportError;
 
 /** Acceptance identifies the exact batch; idle Thread state alone does not prove completion. */
 export interface AgentAcceptance {
-  threadId: string;
-  operationId: string;
-  submissionIds: readonly string[];
+  threadId: SdkThreadId;
+  operationId: SdkOperationId;
+  submissionIds: readonly SdkSubmissionId[];
 }
 
 /** Explicit cancellation and failed execution remain distinct terminal outcomes. */
@@ -32,32 +56,71 @@ export interface AgentCompletion extends AgentAcceptance {
 
 /** A review capability cannot create Threads, submit agents, or resolve reviews. */
 export class ReviewDaemonSdk {
-  constructor(protected readonly client: DaemonClient) {}
+  readonly ids = {
+    thread: createSdkThreadId,
+    operation: createSdkOperationId,
+    submission: createSdkSubmissionId,
+  };
+
+  protected closed = false;
+  private readonly observers = new Set<() => void>();
+
+  constructor(
+    protected readonly client: DaemonClient,
+    protected readonly connectionOptions: ConnectOptions = {},
+  ) {}
+
+  /** Snapshot observation owns a separate connection and never replays mutations. */
+  observeThread(input: {
+    threadId: SdkThreadId;
+    onValue: (thread: SdkThread) => void;
+    onError: (error: DaemonSdkError) => void;
+  }): () => void {
+    if (this.closed) {
+      input.onError(new DaemonTransportError("connection", "SDK connection is closed", "not_sent"));
+      return () => {};
+    }
+    const dispose = subscribeThreadState({
+      connect: connectThreadObserver(this.connectionOptions),
+      matches: (event) => event.sessionId === input.threadId,
+      read: (client, signal) =>
+        client.request("session.get", { id: input.threadId }, SdkThreadRecordSchema, { signal }),
+      onValue: input.onValue,
+      onError: (error) => input.onError(normalizeSdkError(error)),
+    });
+    const stop = () => {
+      dispose();
+      this.observers.delete(stop);
+    };
+    this.observers.add(stop);
+
+    return stop;
+  }
 
   get threads() {
     return {
-      get: (threadId: string, options?: DaemonRequestOptions): Promise<Thread> =>
-        this.client.request("session.get", { id: threadId }, ThreadRecordSchema, options),
+      get: (threadId: SdkThreadId, options?: DaemonRequestOptions): Promise<SdkThread> =>
+        this.client.request("session.get", { id: threadId }, SdkThreadRecordSchema, options),
     };
   }
 
   readonly comments = {
     add: (
-      input: { threadId: string; annotation: Parameters<DaemonClient["sessionComment"]>[1] },
+      input: { threadId: SdkThreadId; annotation: Parameters<DaemonClient["sessionComment"]>[1] },
       options?: DaemonRequestOptions,
-    ): Promise<Thread> =>
+    ): Promise<SdkThread> =>
       this.client.request(
         "session.comment",
         { id: input.threadId, annotation: input.annotation },
-        ThreadRecordSchema,
+        SdkThreadRecordSchema,
         options,
       ),
-    list: async (threadId: string, options?: DaemonRequestOptions): Promise<Annotation[]> =>
+    list: async (threadId: SdkThreadId, options?: DaemonRequestOptions): Promise<Annotation[]> =>
       (await this.threads.get(threadId, options)).annotations,
     reply: async (
-      input: { threadId: string; commentId: string; body: string; replyId?: string },
+      input: { threadId: SdkThreadId; commentId: string; body: string; replyId?: string },
       options?: DaemonRequestOptions,
-    ): Promise<Thread> => {
+    ): Promise<SdkThread> => {
       const thread = await this.threads.get(input.threadId, options);
       const comment = thread.annotations.find((entry) => entry.id === input.commentId);
       if (!comment)
@@ -79,13 +142,15 @@ export class ReviewDaemonSdk {
             body: input.body,
           },
         },
-        ThreadRecordSchema,
+        SdkThreadRecordSchema,
         options,
       );
     },
   };
 
   close(): void {
+    this.closed = true;
+    for (const stop of this.observers) stop();
     this.client.close();
   }
 }
@@ -98,16 +163,16 @@ export class OwnerDaemonSdk extends ReviewDaemonSdk {
       create: (
         input: { workspace: WorkspaceKey; artifact: Artifact },
         options?: DaemonRequestOptions,
-      ): Promise<Thread> =>
-        this.client.request("session.create", input, ThreadRecordSchema, options),
+      ): Promise<SdkThread> =>
+        this.client.request("session.create", input, SdkThreadRecordSchema, options),
     };
   }
 
   readonly sessions = {
     sendMessage: async (
       input: {
-        threadId: string;
-        operationId: string;
+        threadId: SdkThreadId;
+        operationId: SdkOperationId;
         outcome: MessageOutcome;
         summary: string;
         actionBodies?: Record<string, string>;
@@ -135,12 +200,12 @@ export class OwnerDaemonSdk extends ReviewDaemonSdk {
   };
 
   readonly agents = {
-    get: (threadId: string, options?: DaemonRequestOptions): Promise<ThreadAgentState> =>
+    get: (threadId: SdkThreadId, options?: DaemonRequestOptions): Promise<ThreadAgentState> =>
       this.client.request("agent.get", { id: threadId }, ThreadAgentSchema, options),
     prompt: async (
       input: {
-        threadId: string;
-        operationId: string;
+        threadId: SdkThreadId;
+        operationId: SdkOperationId;
         text: string;
         context?: string;
         retry?: string;
@@ -171,11 +236,11 @@ export class OwnerDaemonSdk extends ReviewDaemonSdk {
       return {
         threadId: input.threadId,
         operationId: input.operationId,
-        submissionIds: receipt.result,
+        submissionIds: receipt.result.map(createSdkSubmissionId),
       };
     },
     replyToComment: (
-      input: { threadId: string; commentId: string; body: string },
+      input: { threadId: SdkThreadId; commentId: string; body: string },
       options?: DaemonRequestOptions,
     ): Promise<ThreadAgentState> =>
       this.client.request(
@@ -186,12 +251,11 @@ export class OwnerDaemonSdk extends ReviewDaemonSdk {
       ),
     wait: (accepted: AgentAcceptance, options?: DaemonRequestOptions): Promise<AgentCompletion> =>
       this.waitAgentCompletion(accepted, options),
-    cancel: (threadId: string, options?: DaemonRequestOptions): Promise<ThreadAgentState> =>
+    cancel: (threadId: SdkThreadId, options?: DaemonRequestOptions): Promise<ThreadAgentState> =>
       this.client.request("agent.cancel", { id: threadId }, ThreadAgentSchema, options),
   };
 
   private readonly waits = new Set<AbortController>();
-  private closed = false;
 
   override close(): void {
     this.closed = true;
@@ -285,11 +349,8 @@ export class OwnerDaemonSdk extends ReviewDaemonSdk {
     });
   }
 
-  constructor(
-    client: DaemonClient,
-    private readonly connectionOptions: ConnectOptions,
-  ) {
-    super(client);
+  constructor(client: DaemonClient, connectionOptions: ConnectOptions) {
+    super(client, connectionOptions);
   }
 }
 
@@ -307,7 +368,7 @@ export async function connectOwnerSdk(
 export async function connectReviewSdk(
   options: ConnectOptions & { role: "collaborator" | "agent" },
 ): Promise<ReviewDaemonSdk> {
-  return new ReviewDaemonSdk(await DaemonClient.connect(options));
+  return new ReviewDaemonSdk(await DaemonClient.connect(options), options);
 }
 
 /** Preserve typed failures; unexpected transport exceptions carry their original cause. */

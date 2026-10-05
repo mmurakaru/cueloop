@@ -1,13 +1,6 @@
-import type { ThreadAgentState } from "@cueloop/schema";
+import type { ThreadAgentState, OperationReceipt, AgentPromptRequest } from "@cueloop/schema";
 import { createHash } from "node:crypto";
 import { DaemonError } from "./errors";
-
-/** Receipts are retained with their Thread; capacity rejection never silently permits replay. */
-export interface OperationReceipt<Result> {
-  operationId: string;
-  fingerprint: string;
-  result: Result;
-}
 
 /** Hash normalized payloads rather than persisting another copy of private input. */
 export function operationFingerprint(
@@ -43,7 +36,7 @@ export function findOperationReceipt<Result>(
 export function recordPromptOperation(
   state: ThreadAgentState,
   before: ThreadAgentState,
-  input: { operationId?: string; retry?: string; text: string; context?: string },
+  input: AgentPromptRequest,
 ): void {
   if (!input.operationId) return;
   const previous = new Set(before.submissions?.map((entry) => entry.id));
@@ -52,11 +45,7 @@ export function recordPromptOperation(
     : (state.submissions ?? []).filter((entry) => !previous.has(entry.id)).map((entry) => entry.id);
 
   if (!accepted.length) throw new DaemonError("invalid_params", "Agent operation requires input");
-  const fingerprint = operationFingerprint([
-    input.text,
-    input.context ?? null,
-    input.retry ?? null,
-  ]);
+  const fingerprint = promptOperationFingerprint(input);
   (state.promptOperations ??= []).push({
     operationId: input.operationId,
     fingerprint,
@@ -87,11 +76,15 @@ export function settlePromptOperations(state: ThreadAgentState): void {
 /** Prompt identity hashes only explicit input; a retry does not consume newly pending comments. */
 export function findPromptOperationReceipt(
   state: ThreadAgentState,
-  input: { operationId?: string; text: string; context?: string; retry?: string },
+  input: AgentPromptRequest,
 ): OperationReceipt<string[]> | undefined {
   return findOperationReceipt(
     state.promptOperations,
     input.operationId,
-    operationFingerprint([input.text, input.context ?? null, input.retry ?? null]),
+    promptOperationFingerprint(input),
   );
+}
+
+function promptOperationFingerprint(input: AgentPromptRequest): string {
+  return operationFingerprint([input.text, input.context ?? null, input.retry ?? null]);
 }

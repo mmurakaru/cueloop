@@ -47,7 +47,16 @@ export function subscribeThreadState<Value>(options: ThreadSubscriptionOptions<V
           if (!stopped && epoch === generation && version === request)
             options.onValue(value, current);
         } catch (error) {
-          if (!stopped && epoch === generation && version === request) options.onError(error);
+          if (!stopped && epoch === generation && version === request) {
+            if (error instanceof Error && isFatalSubscriptionError(error)) {
+              stopped = true;
+              ++generation;
+              clearTimeout(timer);
+              detach?.();
+              current.close();
+            }
+            options.onError(error);
+          }
         } finally {
           reads.delete(controller);
         }
@@ -55,14 +64,17 @@ export function subscribeThreadState<Value>(options: ThreadSubscriptionOptions<V
       const offEvent = api.onEvent((event) => {
         if (options.matches(event)) void refresh();
       });
-      const offDisconnect = api.onDisconnect(() => {
+      const offDisconnect = api.onDisconnect((reason) => {
         if (stopped || epoch !== generation) return;
         ++generation;
         detach?.();
         for (const read of reads) read.abort();
         connection = undefined;
         current.close();
-        schedule();
+        if (isFatalSubscriptionError(reason)) {
+          stopped = true;
+          options.onError(reason);
+        } else schedule();
       });
       detach = () => {
         offEvent();
@@ -79,11 +91,7 @@ export function subscribeThreadState<Value>(options: ThreadSubscriptionOptions<V
       api?.close();
       connection = undefined;
       options.onError(error);
-      if (
-        !(error instanceof DaemonClientError) &&
-        !(error instanceof DaemonTransportError && error.kind === "protocol")
-      )
-        schedule();
+      if (!(error instanceof Error && isFatalSubscriptionError(error))) schedule();
     }
   };
   void connect();
@@ -102,4 +110,11 @@ export function subscribeThreadState<Value>(options: ThreadSubscriptionOptions<V
 /** Reconnect never replays writes, only subscribes and reads the latest Thread state. */
 export function connectThreadObserver(options: ConnectOptions): () => Promise<DaemonClient> {
   return () => DaemonClient.connect(options);
+}
+
+function isFatalSubscriptionError(error: Error): boolean {
+  return (
+    error instanceof DaemonClientError ||
+    (error instanceof DaemonTransportError && error.kind === "protocol")
+  );
 }
