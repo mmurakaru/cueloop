@@ -1,5 +1,12 @@
 # @cueloop/pi
 
+## 0.1.0-alpha.100
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.100
+
 ## 0.1.0-alpha.99
 
 ### Patch Changes
