@@ -144,6 +144,8 @@ export interface CueloopConfig {
 export interface ExperimentalConfig {
   /** Render a prototype as a pixel mockup (kitty graphics) instead of the default markdown design doc. */
   prototypePixels: boolean;
+  /** Allow the local session owner to invoke a harness inside the Thread. */
+  threadAgent: boolean;
 }
 
 /** Where a display name came from: typed by the user, or verified from a GitHub login. */
@@ -251,6 +253,7 @@ const ObsidianSchema = v.object({
 const IntegrationsSchema = v.object({ obsidian: v.optional(ObsidianSchema) });
 const ExperimentalSchema = v.object({
   prototype_pixels: v.fallback(v.optional(v.boolean()), undefined),
+  thread_agent: v.fallback(v.optional(v.boolean()), undefined),
 });
 const ReviewSchema = v.object({
   skill: v.fallback(v.optional(v.string()), undefined),
@@ -369,9 +372,7 @@ function layer(
   if (integrations.success && integrations.output.obsidian) {
     mergeObsidian(out.integrations.obsidian, integrations.output.obsidian);
   }
-  if (experimental.success && experimental.output.prototype_pixels !== undefined) {
-    out.experimental.prototypePixels = experimental.output.prototype_pixels;
-  }
+  if (experimental.success) applyExperimental(out.experimental, experimental.output);
   if (review.success) applyReview(out.review, review.output);
 
   return out;
@@ -397,7 +398,7 @@ export function loadConfig(
     skillsPath: join(homedir(), ".agents", "skills"),
     review: { skill: "code-review", workspace: "worktree" },
     integrations: { obsidian: { ...OBSIDIAN_DEFAULTS } },
-    experimental: { prototypePixels: false },
+    experimental: { prototypePixels: false, threadAgent: false },
   };
   // Theme name and per-token overrides are separate concerns, composed once
   // after all layers: the last file to set [ui] theme wins, and every [theme]
@@ -628,4 +629,13 @@ export function persistAuthorName(id: string, name: string, userConfigPath?: str
   }
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, text);
+}
+
+/** Only explicitly configured experimental switches override the preceding layer. */
+function applyExperimental(
+  config: ExperimentalConfig,
+  raw: v.InferOutput<typeof ExperimentalSchema>,
+): void {
+  if (raw.prototype_pixels !== undefined) config.prototypePixels = raw.prototype_pixels;
+  if (raw.thread_agent !== undefined) config.threadAgent = raw.thread_agent;
 }

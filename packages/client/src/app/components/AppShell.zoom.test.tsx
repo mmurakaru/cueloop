@@ -13,7 +13,7 @@ import { AppShell } from "./AppShell";
 import { EditorGrid } from "../../workbench/components/EditorGrid";
 import { changesTab, makeGroup, splitGroup } from "../../workbench/components/editor-grid";
 import { NERD } from "../../ui/components/primitives/icons";
-import { allowEventLoopUpdates } from "../../testing/test-support";
+import { allowEventLoopUpdates, settle } from "../../testing/test-support";
 
 const grid = makeGroup([changesTab()]);
 
@@ -59,8 +59,9 @@ async function zoomIconColumn(
     { width, height: 8 },
   );
 
-  allowEventLoopUpdates();
-  await setup.waitForVisualIdle();
+  // Split widths commit through React after the frame measurement. Renderer idle alone
+  // can still expose the initial fractional split, before its whole-cell widths land.
+  await settle(setup);
   const column = setup.captureCharFrame().split("\n")[0]!.indexOf(NERD.zoom);
 
   setup.renderer.destroy();

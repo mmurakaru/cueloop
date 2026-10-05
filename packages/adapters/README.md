@@ -72,3 +72,34 @@ post-back also needs a Message ID journal. A crash between an external side
 effect and recording the ID can repeat it; delivery itself is at least once.
 The same Thread can later route Messages to another bound harness without
 changing the TUI.
+
+## Thread agent harness prototype
+
+The fx harness adapter (`src/fx/harness.ts`) translates ACP into the schema's `AgentHarnessAdapter` contract. The CLI supplies it to the daemon; the daemon never imports this package. Provider session IDs stay paired with their adapter ID. See [the prototype instructions](../../examples/fx-thread) for opt-in development and [the lifecycle experiment](../../examples/agent-lifecycle) for checked recovery laws. Harness-advertised model/reasoning choices and cueloop tool calls pass through the same contract; JSON tool arguments are parsed at the daemon boundary. [Submission laws](../../examples/agent-submission) check queueing, immutable accepted input, and retry behavior.
+
+### Thread agent diagnostic routing
+
+Harness adapters emit `AgentHarnessEvent`. `routeHarnessOutput` sends diagnostic
+notices to a private bounded log at
+`<cueloop-home>/thread-agents/<encoded-thread-id>.diagnostics.ndjson`, outside
+Thread history and subsequent model context. Unknown diagnostic severities stay
+intact. An advisory notice, including one with severity `error`, does not determine
+the turn outcome; prompt results and transport failures still do.
+
+The fx adapter advertises ACP v1 session notices and handles structured `notice`
+updates. After observing a structured notice, it preserves assistant chunks
+without text matching for that connection. The inspected fx 0.0.12 transport does
+not supply notice provenance. `FxLegacyStartupMessages` is an isolated fallback
+for its known complete startup lines, with at most 128 tracked IDs and 32 KiB per pending notice. It never classifies
+an entire message ID: later HTTP errors under the same ID remain visible. Changed
+or unfinished notice wording is preserved. An exact assistant quotation of a
+legacy notice can still be misclassified; upstream structured provenance is
+required to remove that ambiguity.
+
+Pi consumers can import `parsePiHarnessOutput` from
+`@cueloop/adapters/pi/harness-output` at their RPC or SDK boundary. It validates
+frames, retains assistant text without prefix matching, separates notices and
+extension errors, and distinguishes cancellation, failure, activity, and
+`agent_settled`. Callers assign message identities and track turn outcomes across
+retries; neither a prompt acknowledgement nor `agent_end` means the turn settled.
+This provides the output normalization seam, not a new pi subprocess harness.
