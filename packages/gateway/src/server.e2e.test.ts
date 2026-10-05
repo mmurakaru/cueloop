@@ -943,3 +943,45 @@ test("the owner agent channel accepts duplex state and rejects another fingerpri
     owner.end();
   }
 });
+
+test("an agent channel rejects a flood of queued frames from a signed SSH client", async () => {
+  const client = new Client();
+  const result = await new Promise<{ code: number; stderr: string }>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      client.end();
+      reject(new Error("Agent flood rejection timed out"));
+    }, 8000);
+
+    client
+      .on("error", reject)
+      .on("ready", () => {
+        client.exec("cueloop-agent", (error, channel) => {
+          if (error) {
+            clearTimeout(timer);
+            client.end();
+            reject(error);
+
+            return;
+          }
+          let stderr = "";
+
+          channel.resume();
+          channel.stderr.on("data", (chunk: Buffer) => {
+            stderr += chunk.toString("utf8");
+          });
+          channel.on("close", (code: number) => {
+            clearTimeout(timer);
+            client.end();
+            resolve({ code, stderr });
+          });
+          channel.write(
+            (JSON.stringify({ type: "hello", shareId: "p_abcdefgh" }) + "\n").repeat(1000),
+          );
+        });
+      })
+      .connect({ host: "127.0.0.1", port: handle.port, username: "share", privateKey: OTHER_KEY });
+  });
+
+  expect(result.code).toBe(1);
+  expect(result.stderr).toContain("queue capacity exceeded");
+});

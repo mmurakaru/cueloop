@@ -12,6 +12,23 @@ afterEach(() =>
   directories.splice(0).forEach((path) => rmSync(path, { recursive: true, force: true })),
 );
 
+test("unsafe saved conversation IDs cannot open or erase the owner home", async () => {
+  const home = mkdtempSync(join(tmpdir(), "cueloop-pi-unsafe-id-"));
+  const sentinel = join(home, "model-credentials.json");
+  const adapter = createPiHarness({ home, models: createModels() });
+
+  directories.push(home);
+  writeFileSync(sentinel, "owner credentials");
+  for (const sessionId of ["", ".", ".."]) {
+    await expect(adapter.remove!(sessionId)).rejects.toThrow("Unsafe Pi conversation ID");
+    const connection = adapter.connect({ cwd: home, sessionId, onEvent() {}, onExit() {} });
+
+    await expect(connection.start()).rejects.toThrow("Unsafe Pi conversation ID");
+    await connection.close();
+    expect(existsSync(sentinel)).toBe(true);
+  }
+});
+
 test("Pi conversation survives reopen and deduplicates the same admitted input", async () => {
   const home = mkdtempSync(join(tmpdir(), "cueloop-pi-harness-"));
   const models = createModels();

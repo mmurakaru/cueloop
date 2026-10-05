@@ -136,7 +136,7 @@ export class SharedAgentRelay {
         .update(JSON.stringify([id, author, params.operationId]))
         .digest("hex");
       const fingerprint = createHash("sha256")
-        .update(JSON.stringify([params.text, params.context, params.commentId]))
+        .update(JSON.stringify([params.text, params.context, params.commentId, params.inputOnly]))
         .digest("hex");
       const record = await this.read(id);
       const receipt = record.receipts.find((entry) => entry.id === receiptId);
@@ -150,6 +150,7 @@ export class SharedAgentRelay {
       if (record.receipts.length >= 128) throw new Error("Shared agent request capacity reached");
       const pending = thread.annotations.filter(
         (annotation) =>
+          !params.inputOnly &&
           (!params.commentId || params.commentId === annotation.id) &&
           annotation.kind === "comment" &&
           annotation.author === author &&
@@ -160,6 +161,7 @@ export class SharedAgentRelay {
       );
       const comments = (record.state?.comments ?? []).filter(
         (comment) =>
+          !params.inputOnly &&
           (!params.commentId || params.commentId === comment.id) &&
           comment.author === author &&
           !comment.sent &&

@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { generateMasterKey, sealBlob } from "./crypto";
-import { MemoryShareStore, WatchedShareStore } from "./store";
+import { MemoryShareStore, WatchedShareStore, SHARE_TTL_MS } from "./store";
 import { packSessionBlob } from "@cueloop/daemon/share-blob";
 import { SCHEMA_VERSION, type Thread } from "@cueloop/schema";
 import { SharedAgentRelay } from "./shared-agent";
@@ -88,6 +88,7 @@ test("queued comments freeze individually, retain the author, and ordinary comme
     id: thread.id,
     text: "",
     operationId: "viewer-op",
+    commentId: "viewer",
   });
 
   expect(state.submissions?.map((entry) => entry.commentId)).toEqual(["viewer"]);
@@ -184,6 +185,7 @@ test("admission and annotation writes serialize so accepted input cannot be chan
     id: thread.id,
     text: "",
     operationId: "frozen-input",
+    commentId: "comment",
   });
   const edit = client
     .sessionAnnotate(thread.id, { ...annotation, body: "Changed text" })
@@ -200,4 +202,52 @@ test("admission and annotation writes serialize so accepted input cannot be chan
   expect(discussion).toContain("Accepted text");
   await disconnect();
   client.close();
+});
+
+test("a continuation prompt leaves ordinary inline comments editable", async () => {
+  const { relay, thread, save } = createTestRelay();
+
+  thread.annotations = [
+    {
+      id: "ordinary",
+      author: "viewer",
+      kind: "comment",
+      body: "Keep this inline",
+      anchor: { quote: "Review", prefix: "", suffix: " me" },
+      createdAt: "now",
+    },
+  ];
+  await save();
+  const state = await relay.prompt("p_abcdefgh", "viewer", {
+    id: thread.id,
+    text: "Continue",
+    operationId: "continuation",
+    inputOnly: true,
+  });
+
+  expect(state.submissions?.map((entry) => entry.prompt)).toEqual(["Continue"]);
+  expect(await relay.frozen("p_abcdefgh", "ordinary")).toBe(false);
+});
+
+test("shared agent history lives for the artifact retention window", async () => {
+  let now = 0;
+  const store = new WatchedShareStore(new MemoryShareStore(() => now));
+  const key = generateMasterKey();
+  const { thread } = createTestRelay();
+  const save = () => store.put("p_abcdefgh", sealBlob(key, "p_abcdefgh", packSessionBlob(thread)));
+  const relay = new SharedAgentRelay(store, key);
+
+  await save();
+  await relay.prompt("p_abcdefgh", "viewer", {
+    id: thread.id,
+    text: "Retain this",
+    operationId: "retained",
+    inputOnly: true,
+  });
+  now = SHARE_TTL_MS - 1;
+  await save();
+  now += SHARE_TTL_MS - 1;
+  expect((await relay.get("p_abcdefgh")).messages[0]?.text).toBe("Retain this");
+  now++;
+  await expect(relay.get("p_abcdefgh")).rejects.toThrow("not found");
 });

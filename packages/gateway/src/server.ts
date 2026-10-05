@@ -371,6 +371,8 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
     let shareId: string | undefined;
     let detach: (() => Promise<void>) | undefined;
     let closed = false;
+    let queuedBytes = 0;
+    let queuedFrames = 0;
     let pending = Promise.resolve();
     const send = (frame: import("@cueloop/schema").SharedAgentFrame): void => {
       if (!closed) channel.write(`${JSON.stringify(frame)}\n`);
@@ -399,8 +401,19 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
 
       while ((newline = buffer.indexOf("\n")) >= 0) {
         const line = buffer.slice(0, newline);
+        const bytes = Buffer.byteLength(line);
 
         buffer = buffer.slice(newline + 1);
+        queuedBytes += bytes;
+        queuedFrames++;
+        if (queuedFrames > 32 || queuedBytes + Buffer.byteLength(buffer) > 8 * 1024 * 1024) {
+          buffer = "";
+          close();
+          fail(channel, "agent frame queue capacity exceeded");
+          channel.close();
+
+          return;
+        }
         pending = pending
           .then(async () => {
             if (closed) return;
@@ -423,6 +436,10 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
             onError(error);
             fail(channel, "agent relay rejected the frame");
             channel.close();
+          })
+          .finally(() => {
+            queuedBytes -= bytes;
+            queuedFrames--;
           });
       }
     });

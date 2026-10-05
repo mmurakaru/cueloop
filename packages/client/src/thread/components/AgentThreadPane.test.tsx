@@ -1,7 +1,12 @@
 import { expect, test } from "bun:test";
 import React from "react";
 import { testRender } from "@opentui/react/test-utils";
-import { SCHEMA_VERSION, type Thread, type ThreadAgentState } from "@cueloop/schema";
+import {
+  SCHEMA_VERSION,
+  type Thread,
+  type ThreadAgentState,
+  type AgentPromptRequest,
+} from "@cueloop/schema";
 import { AgentThreadPane, AgentThreadPrototype } from "./AgentThreadPane";
 import { ThreadFooter } from "./ThreadFooter";
 import { ThreadView } from "../../markdown/components/ThreadView";
@@ -39,7 +44,7 @@ const empty: ThreadAgentState = {
 
 function createTestAgentClient(initial: ThreadAgentState) {
   let state = initial;
-  const prompts: { id: string; text: string; retry?: string }[] = [];
+  const prompts: AgentPromptRequest[] = [];
   const client: ThreadAgentClient = {
     agentGet: async () => state,
     agentPrompt: async (params) => {
@@ -132,6 +137,7 @@ test("typing on the final blank line invokes the agent while the existing footer
     setup.mockInput.pressKey("RETURN", { ctrl: true });
     await waitForText(setup, "The timer survives cancellation.");
     expect(prompts[0]?.text).toBe("Explain retries");
+    expect(prompts[0]?.inputOnly).toBe(true);
     const send = locateText(setup, "Send message (0)");
 
     await setup.mockMouse.click(send.column, send.row);

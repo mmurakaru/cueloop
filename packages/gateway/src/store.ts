@@ -85,9 +85,10 @@ export class MemoryShareStore implements ShareStore {
 
   async get(id: string): Promise<Uint8Array | null> {
     const entry = this.blobs.get(id);
+    const retention = this.blobs.get(retentionKey(id));
 
     if (!entry) return null;
-    if (isExpired(entry.storedAt, this.now())) {
+    if (!retention || isExpired(retention.storedAt, this.now())) {
       this.blobs.delete(id);
 
       return null;
@@ -122,14 +123,14 @@ export class R2ShareStore implements ShareStore {
     const file = this.client.file(id);
 
     try {
-      const { lastModified } = await file.stat();
+      const { lastModified } = await this.client.file(retentionKey(id)).stat();
 
       if (isExpired(lastModified.getTime(), Date.now())) return null;
 
       return await file.bytes();
     } catch (error) {
       // A missing object reads as gone; a fault on a still-present object stays loud.
-      if (await file.exists()) throw error;
+      if ((await file.exists()) && (await this.client.file(retentionKey(id)).exists())) throw error;
 
       return null;
     }
@@ -139,6 +140,11 @@ export class R2ShareStore implements ShareStore {
     // deleting an absent object is not an error on S3/R2, so revoke stays idempotent
     await this.client.file(id).delete();
   }
+}
+
+/** Companion agent history follows the artifact's retention window. */
+function retentionKey(id: string): string {
+  return id.endsWith(".agent") ? id.slice(0, -".agent".length) : id;
 }
 
 /**

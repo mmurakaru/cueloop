@@ -137,7 +137,12 @@ export function AgentThreadPane(props: AgentThreadPaneProps): React.ReactNode {
           }
           await props.flushMutations?.();
           const accepted = await agent.act((client) =>
-            client.agentPrompt({ id: thread.id, text: input.text, operationId: newAnnotationId() }),
+            client.agentPrompt({
+              id: thread.id,
+              text: input.text,
+              inputOnly: Boolean(input.text.trim()),
+              operationId: newAnnotationId(),
+            }),
           );
 
           if (!accepted) rejected.push(input.text);

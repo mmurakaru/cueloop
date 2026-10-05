@@ -66,7 +66,7 @@ export function createPiHarness(config: PiHarnessOptions): AgentHarnessAdapter {
     remove: async (sessionId) => {
       if (config.removeStorage) await config.removeStorage(sessionId);
       else if (!config.storage)
-        await rm(join(config.home, "pi-conversations", encodeURIComponent(sessionId)), {
+        await rm(conversationDirectory(config.home, sessionId), {
           recursive: true,
           force: true,
         });
@@ -121,10 +121,7 @@ class PiHarnessConnection implements AgentHarnessConnection {
     registry.install(defineExtension({ name: "cueloop", tools: [createReadTool(), ...tools] }));
     this.storage = await (this.config.storage
       ? this.config.storage(this.sessionId, context)
-      : openNodeJsonlStorage(
-          join(this.config.home, "pi-conversations", encodeURIComponent(this.sessionId)),
-          context,
-        ));
+      : openNodeJsonlStorage(conversationDirectory(this.config.home, this.sessionId), context));
     if (this.closing) {
       await this.storage.close(context);
       throw new Error("Pi conversation is closed");
@@ -328,4 +325,11 @@ class PiHarnessConnection implements AgentHarnessConnection {
 
     return entries;
   }
+}
+
+function conversationDirectory(home: string, sessionId: string): string {
+  if (!sessionId || sessionId === "." || sessionId === "..")
+    throw new Error("Unsafe Pi conversation ID");
+
+  return join(home, "pi-conversations", encodeURIComponent(sessionId));
 }
