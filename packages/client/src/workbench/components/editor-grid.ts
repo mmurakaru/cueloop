@@ -81,6 +81,7 @@ export function firstGroupId(node: EditorNode): string {
 /** Whether a group id still exists in the grid; used to re-home focus after a prune. */
 export function containsGroup(node: EditorNode, groupId: string): boolean {
   if (node.type === "group") return node.id === groupId;
+
   return node.children.some((child) => containsGroup(child, groupId));
 }
 
@@ -97,6 +98,7 @@ function replaceGroup(
   fn: (group: EditorGroup) => EditorNode,
 ): EditorNode {
   if (node.type === "group") return node.id === id ? fn(node) : node;
+
   return { ...node, children: node.children.map((child) => replaceGroup(child, id, fn)) };
 }
 
@@ -223,8 +225,10 @@ export function keepFileTab(node: EditorNode, groupId: string, tabId: string): E
 export function pruneEmpty(node: EditorNode): EditorNode | null {
   if (node.type === "group") return node.tabs.length > 0 ? node : null;
   const kept = node.children.map(pruneEmpty).filter((child): child is EditorNode => child !== null);
+
   if (kept.length === 0) return null;
   if (kept.length === 1) return kept[0]!;
+
   return { ...node, children: kept };
 }
 
@@ -233,8 +237,10 @@ export function closeTab(node: EditorNode, groupId: string, tabId: string): Edit
   const next = replaceGroup(node, groupId, (group) => {
     const tabs = group.tabs.filter((tab) => tab.id !== tabId);
     const activeTabId = group.activeTabId === tabId ? (tabs[0]?.id ?? null) : group.activeTabId;
+
     return { ...group, tabs, activeTabId };
   });
+
   return pruneEmpty(next);
 }
 
@@ -249,10 +255,12 @@ export function splitGroup(
   let focusGroupId = groupId;
   const tree = replaceGroup(node, groupId, (group) => {
     const active = group.tabs.find((tab) => tab.id === group.activeTabId) ?? group.tabs[0];
+
     if (active === undefined) return group;
     const movedTab: EditorTab =
       active.kind === "welcome" ? { ...active, id: freshId() } : { ...active, preview: false };
     const newGroup = makeGroup([movedTab]);
+
     focusGroupId = newGroup.id;
     const orientation = direction === "left" || direction === "right" ? "horizontal" : "vertical";
     const newFirst = direction === "left" || direction === "up";
@@ -268,7 +276,9 @@ export function splitGroup(
       activeTabId: sourceTabs[0]!.id,
     };
     const children = newFirst ? [newGroup, sourceGroup] : [sourceGroup, newGroup];
+
     return { type: "branch", id: freshId(), orientation, children };
   });
+
   return { tree, focusGroupId };
 }

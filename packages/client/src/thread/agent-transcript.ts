@@ -169,6 +169,7 @@ export function projectThreadConversation(
     submissionId?: string,
   ): void => {
     const blocks: DisplayBlock[] = buildDisplay(quote);
+
     if (!blocks.length)
       blocks.push({
         type: "same",
@@ -198,6 +199,7 @@ export function projectThreadConversation(
       const replies = [...thread.annotations, ...state.comments].filter(
         (entry) => entry.replyTo === commentId,
       );
+
       for (const reply of replies) {
         const replica = {
           ...annotation,
@@ -227,6 +229,7 @@ export function projectThreadConversation(
             ],
           ],
         ]);
+
     for (const [index, values] of localMarks) {
       marks.set(
         index + offset,
@@ -273,6 +276,7 @@ export function projectThreadConversation(
       );
     }
   };
+
   if (state.submissions?.length) {
     for (const submission of state.submissions) {
       // A prompt may use its submission ID as a discussion root; that is not an inline comment.

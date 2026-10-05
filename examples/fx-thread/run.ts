@@ -12,6 +12,7 @@ const live = process.argv.includes("--live");
 const provider = live ? undefined : createTestFxProvider({ readFile: true });
 const home = mkdtempSync(join(tmpdir(), "cueloop-fx-demo-"));
 const workspace = provider?.workspace ?? home;
+
 writeFileSync(
   join(workspace, "retry.ts"),
   "export function retry(task: () => void) {\n  return setTimeout(task, 1000);\n}\n",
@@ -29,6 +30,7 @@ const server = new DaemonServer({
     }),
   },
 });
+
 server.start();
 process.once("exit", () => {
   server.stop();

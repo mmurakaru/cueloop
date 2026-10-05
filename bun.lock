@@ -80,11 +80,11 @@
       "name": "@cueloop/daemon",
       "version": "0.1.0-alpha.97",
       "dependencies": {
-        "@cueloop/extension-api": "0.1.0-alpha.96",
-        "@cueloop/schema": "0.1.0-alpha.96",
+        "@cueloop/extension-api": "0.1.0-alpha.97",
+        "@cueloop/schema": "0.1.0-alpha.97",
         "@pierre/diffs": "^1.4.1",
         "effect": "^4.0.0-rc.117",
-        "smol-toml": "^1.8.0",
+        "smol-toml": "^1.9.0",
         "valibot": "^1.5.0",
       },
     },
@@ -92,7 +92,7 @@
       "name": "@cueloop/extension-api",
       "version": "0.1.0-alpha.97",
       "dependencies": {
-        "@cueloop/schema": "0.1.0-alpha.96",
+        "@cueloop/schema": "0.1.0-alpha.97",
         "valibot": "^1.5.0",
       },
       "peerDependencies": {
@@ -789,7 +789,7 @@
 
     "sisteransi": ["sisteransi@1.0.5", "", {}, "sha512-bLGGlR1QxBcynn2d5YmDX4MGjlZvy2MRBDRNHLJ8VI6l6+9FUiyTFNJ0IveOSP0bcXgVDPRcfGqA0pjaqUpfVg=="],
 
-    "smol-toml": ["smol-toml@1.8.0", "", {}, "sha512-kCZr2V3ch9i00x8zXRhjUNVcjG9ijES5dDudkXvUVCT5QlJNQWElSJdZqyPemffHoLNUYwOcou0Fy+ojN0uHSQ=="],
+    "smol-toml": ["smol-toml@1.9.0", "", {}, "sha512-hpd+HLON7HdZXqYchMM/+LaTTbdK0AU3NngIJ4KVyWbY9bfQqdL9cD+4yf6dUoU2Ap4VsU0JkQi6FxAI1B2mXQ=="],
 
     "space-separated-tokens": ["space-separated-tokens@2.0.2", "", {}, "sha512-PEGlAwrG8yXGXRjW32fGbg66JAlOAwbObuqVoJpv/mRgoWDQfgH1wDPvtzWyUSNAXBGSk8h755YDbbcEy3SH2Q=="],
 

@@ -15,6 +15,7 @@ async function git(args: string[], cwd: string): Promise<string | null> {
 /** Map a `git diff --name-status` letter to a diff status; renames/copies read as modified. */
 function statusFromCode(code: string): DiffFileStatus {
   const letter = code.charAt(0);
+
   if (letter === "D") return "deleted";
   if (letter === "A") return "added";
 
@@ -35,6 +36,7 @@ export async function workingChangeList(
   for (const line of tracked.split("\n")) {
     if (line.trim().length === 0) continue;
     const parts = line.split("\t");
+
     // a rename is "R100<tab>old<tab>new"; the new path (last field) is what the reviewer opens
     changes.push({ path: parts[parts.length - 1]!, status: statusFromCode(parts[0]!) });
   }

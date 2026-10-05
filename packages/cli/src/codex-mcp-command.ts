@@ -85,6 +85,7 @@ export async function codexMcpCommand(): Promise<number> {
   const server = serveStdio(() => createCodexMcpServer(), {
     onerror: (error) => console.error(`cueloop Codex MCP: ${String(error)}`),
   });
+
   await new Promise<void>((resolve) => process.stdin.once("end", resolve));
   delivery.stop();
   await server.close();

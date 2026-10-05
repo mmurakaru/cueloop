@@ -100,11 +100,13 @@ export function splitDiffRows(rows: DiffRow[]): SplitRow[] {
     if (row.kind === "add") {
       blockFile = row.file;
       pendingAdditions.push({ row, index });
+
       return;
     }
     if (row.kind === "del") {
       blockFile = row.file;
       pendingDeletions.push({ row, index });
+
       return;
     }
     // any non-change row closes the current change block before it renders

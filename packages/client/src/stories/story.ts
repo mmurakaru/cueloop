@@ -97,6 +97,7 @@ function hoistSingleStoryFolders(nodes: TreeNode[]): TreeNode[] {
     if (node.children === undefined) return node;
     const children = hoistSingleStoryFolders(node.children);
     const onlyChild = children.length === 1 ? children[0] : undefined;
+
     if (
       onlyChild !== undefined &&
       onlyChild.children === undefined &&
@@ -126,6 +127,7 @@ export function buildStoryTree(stories: LoadedStory[]): TreeNode[] {
     for (const segment of [section, ...moduleTitle.split("/")]) {
       path = path === "" ? segment : `${path}/${segment}`;
       let folder = foldersByPath.get(path);
+
       if (folder === undefined) {
         folder = { id: path, label: segment, children: [] };
         foldersByPath.set(path, folder);

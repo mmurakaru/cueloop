@@ -53,6 +53,7 @@ export async function runClient(options: RunClientOptions): Promise<number> {
     renderer.useMouse = false;
     renderer.useMouse = true;
   });
+
   return new Promise<number>((resolve) => {
     let exited = false;
     const shutdown = async (code: number): Promise<void> => {

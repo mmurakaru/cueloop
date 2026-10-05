@@ -111,6 +111,7 @@ describe("send message confirm", () => {
       .captureCharFrame()
       .split("\n")
       .find((row) => row.includes("[comment] [approve] [changes]"));
+
     await press(setup, "right");
     const commentSelector = setup
       .captureCharFrame()
@@ -220,6 +221,7 @@ describe("send message confirm", () => {
     // Arrange
     seedAnnotations(1);
     const setup = await renderApp();
+
     await pressKey(setup, "RETURN", { meta: true });
     await waitForText(setup, "[approve]");
 
@@ -233,6 +235,7 @@ describe("send message confirm", () => {
   test("pasting an image into the summary drops in an [Image #n] placeholder", async () => {
     // Arrange
     const setup = await renderApp();
+
     await pressKey(setup, "RETURN", { meta: true });
     await waitForText(setup, "[approve]");
 

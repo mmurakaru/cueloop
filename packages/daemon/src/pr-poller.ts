@@ -29,6 +29,7 @@ export class PrReviewPoller {
   trackPr(sessionId: string, pr: string, reviewedRefs: PullRequestRefs | null = null): void {
     if (this.polls.has(sessionId)) return;
     const timer = setInterval(() => void this.refreshHead(sessionId), this.intervalMs);
+
     // the poll timer must not by itself keep the daemon alive against idle-exit
     timer.unref?.();
     this.polls.set(sessionId, { pr, lastRefs: reviewedRefs, timer });

@@ -123,6 +123,7 @@ function serveTestPrompt(frame: v.InferOutput<typeof InputSchema>): void {
       },
     });
     reply(frame.id!, { stopReason: "end_turn" });
+
     return;
   }
   update({
@@ -197,5 +198,6 @@ function serveTestPrompt(frame: v.InferOutput<typeof InputSchema>): void {
       content: { type: "text", text: "cancellation." },
     });
   reply(frame.id!, { stopReason: "end_turn" });
+
   return;
 }
