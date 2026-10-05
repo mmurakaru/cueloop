@@ -62,6 +62,7 @@ const EMPTY_SNAPSHOT: ControllerSnapshot = {
 function baseController(): ReviewController {
   return {
     readOnly: false,
+    createEmptyThread: mock(async () => {}),
     subscribe: mock(() => () => {}),
     getSnapshot: mock(() => EMPTY_SNAPSHOT),
     connect: mock(),

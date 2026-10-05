@@ -160,6 +160,7 @@ export function NoThreadShell(props: {
   inboxCursor: number;
   /** Open a sidebar thread and move the cursor onto it, so the row shows its selected backdrop at once. */
   onOpenThread: (id: string) => void;
+  onCreateThread?: () => void;
   mode: Mode;
   theme: Theme;
   controller: ReviewController;
@@ -291,6 +292,7 @@ export function NoThreadShell(props: {
                 pinnedIds={pinnedIds}
                 width={30}
                 onSelect={onOpenThread}
+                onCreateThread={props.onCreateThread}
                 onRequestDelete={(id, title) =>
                   setMode({ type: "confirmDelete", sessionId: id, title })
                 }

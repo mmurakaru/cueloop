@@ -26,9 +26,8 @@ import { referenceStyleFor } from "../../ui/components/syntax-highlight";
 
 /* -------------------------------------------------------------- composer */
 
-// cmd+enter sends (super under the kitty protocol, meta where cmd arrives
-// ESC-prefixed, ctrl as the fallback where the terminal itself consumes
-// cmd+enter); plain enter breaks the line
+// Option+Enter saves a comment; Ctrl+Enter may additionally invoke the agent.
+// Plain Enter breaks the line. Command+Enter belongs to the terminal.
 const COMPOSE_KEY_BINDINGS: KeyBinding[] = [
   { name: "return", super: true, action: "submit" },
   { name: "return", meta: true, action: "submit" },
@@ -57,14 +56,16 @@ export function Composer({
   onReady,
   onInput,
   placeholder,
+  agentEnabled = false,
 }: {
   seed: string;
-  glyph: string;
+  glyph: string | null;
   tokens: Theme;
   onSave: (body: string) => void;
   onReady: () => void;
   onInput: (text: string, caret: number) => void;
   placeholder?: string;
+  agentEnabled?: boolean;
 }): React.ReactNode {
   const editorRef = useRef<TextareaRenderable | null>(null);
   const pastedImageCount = useRef(0);
@@ -107,7 +108,9 @@ export function Composer({
 
   return (
     <box style={{ flexDirection: "row" }}>
-      <text selectable={false} fg={tokens.text} style={{ flexShrink: 0 }}>{`${glyph} `}</text>
+      {glyph !== null ? (
+        <text selectable={false} fg={tokens.text} style={{ flexShrink: 0 }}>{`${glyph} `}</text>
+      ) : null}
       <textarea
         ref={editorRef}
         focused
@@ -115,7 +118,11 @@ export function Composer({
         placeholder={placeholder}
         placeholderColor={tokens.textDim}
         cursorStyle={{ style: "block", blinking: true }}
-        keyBindings={COMPOSE_KEY_BINDINGS}
+        keyBindings={
+          agentEnabled
+            ? COMPOSE_KEY_BINDINGS.filter((binding) => !binding.super)
+            : COMPOSE_KEY_BINDINGS
+        }
         onSubmit={() => onSave(editorRef.current?.plainText ?? "")}
         onContentChange={() => {
           const editor = editorRef.current;
@@ -304,11 +311,13 @@ export function CommentRow({
   annotation,
   tokens,
   authorLabel,
+  action,
 }: {
   annotation: Annotation;
   tokens: Theme;
   /** The author's resolved display name, shown as a tooltip when the dot is hovered. */
   authorLabel?: string;
+  action?: { label: string; run: () => void };
 }): React.ReactNode {
   // own comments (no author) wear the filled dot, collaborators the outline
   const own = annotation.author === undefined;
@@ -334,6 +343,20 @@ export function CommentRow({
           <text fg={tokens.text} style={{ wrapMode: "word", flexGrow: 1, flexShrink: 1 }}>
             {line}
           </text>
+          {lineIndex === 0 && action ? (
+            <text
+              fg={tokens.blue}
+              onMouseUp={action.run}
+              onMouseOver={(event: TerminalMouseEvent) => {
+                showTooltip(action.label, event.x, event.y);
+              }}
+              onMouseOut={() => {
+                hideTooltip();
+              }}
+            >
+              {action.label === "Retry" ? "Retry" : "✓✓"}
+            </text>
+          ) : null}
         </box>
       ))}
     </box>

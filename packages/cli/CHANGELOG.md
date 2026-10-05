@@ -1,5 +1,22 @@
 # cueloop
 
+## 0.1.0-alpha.98
+
+### Minor Changes
+
+- [#545](https://github.com/mmurakaru/cueloop/pull/545) [`5f8d2b0`](https://github.com/mmurakaru/cueloop/commit/5f8d2b0ac9d0251372ed05ea5243a8a0cf337700) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Add experimental.thread_agent-gated, local-owner harness replies inside the existing Thread document, with Control Enter submission mirrors, plain final-line prompts with blinking continuation cursors, comments on selected text, empty Thread creation, model and reasoning controls, cueloop tools, and resumable local sessions.
+
+  Keep fx skill-catalog and skill-discovery startup notices out of new Thread conversations.
+
+### Patch Changes
+
+- Updated dependencies [[`5f8d2b0`](https://github.com/mmurakaru/cueloop/commit/5f8d2b0ac9d0251372ed05ea5243a8a0cf337700), [`5f8d2b0`](https://github.com/mmurakaru/cueloop/commit/5f8d2b0ac9d0251372ed05ea5243a8a0cf337700), [`5f8d2b0`](https://github.com/mmurakaru/cueloop/commit/5f8d2b0ac9d0251372ed05ea5243a8a0cf337700), [`5f8d2b0`](https://github.com/mmurakaru/cueloop/commit/5f8d2b0ac9d0251372ed05ea5243a8a0cf337700)]:
+  - @cueloop/client@0.1.0-alpha.98
+  - @cueloop/daemon@0.1.0-alpha.98
+  - @cueloop/schema@0.1.0-alpha.98
+  - @cueloop/adapters@0.1.0-alpha.98
+  - @cueloop/extension-api@0.1.0-alpha.98
+
 ## 0.1.0-alpha.97
 
 ### Patch Changes
