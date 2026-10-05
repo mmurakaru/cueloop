@@ -300,6 +300,7 @@ export interface TextCut {
   quote: string;
 }
 
+/** Legacy shareId, shareBranch, owner, and access fields migrate to shares on read; new callers use shares. */
 export interface Thread {
   schemaVersion: string;
   id: string;

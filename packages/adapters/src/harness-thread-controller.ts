@@ -28,6 +28,7 @@ export interface HarnessThreadClient extends ThreadSessionClient {
   deliveryAcknowledge(deliveryId: string): Promise<Delivery>;
 }
 
+/** sendMessage must ignore a Message ID already sent, including retries after a lost acknowledgement. */
 export interface HarnessMessageAdapter {
   sendMessage(message: Message): void | Promise<void>;
 }
