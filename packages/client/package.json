@@ -35,7 +35,7 @@
     "@opentui/keymap": "0.5.14",
     "@opentui/react": "^0.5.14",
     "@opentui/ssh": "0.5.14",
-    "@pierre/diffs": "^1.4.1",
+    "@pierre/diffs": "^1.5.1",
     "@tanstack/virtual-core": "^3.17.11",
     "diff": "^9",
     "puppeteer-core": "^25.12.0",
