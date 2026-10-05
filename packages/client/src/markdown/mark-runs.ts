@@ -38,6 +38,7 @@ export function runsFor(text: string, ranges: MarkRange[]): Run[] {
 
     if (end <= start) continue;
     const covering = ranges.filter((range) => range.start <= start && end <= range.end);
+
     // the caret cell shows through a mark, so the head of a selection is visible
     runs.push({
       text: text.slice(start, end),

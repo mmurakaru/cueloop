@@ -74,6 +74,7 @@ export async function resolveWorkspace(cwd = process.cwd()): Promise<WorkspaceKe
   const remote = nativeJjRoot ? null : gitRemote;
 
   const workspace: WorkspaceKey = { repoRoot, branch };
+
   // a repo with no commits (or a shallow clone) has no reliable root, so the thread stays standalone
   if (rootCommit) workspace.rootCommit = rootCommit;
   if (remote) workspace.remote = remote;

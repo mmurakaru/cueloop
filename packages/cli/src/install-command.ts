@@ -92,6 +92,7 @@ export async function installExtensionCommand(
 
   if (!installed) {
     const error = discovered.errors.find((message) => message.includes(` ${name}:`));
+
     console.error(`cueloop install: ${error ?? `extension ${name} has no valid cueloop manifest`}`);
     const restored = await runCommand(
       previousSpec

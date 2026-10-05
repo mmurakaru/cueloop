@@ -402,6 +402,7 @@ export function ThreadView({
 
   const blockNodeFor = (blockIndex: number): React.ReactNode => {
     const custom = renderBlock?.(blockIndex);
+
     if (custom !== undefined)
       return (
         <box key={`custom-${blockIndex}`} ref={virtual.measureRef(blockIndex)}>
@@ -465,6 +466,7 @@ export function ThreadView({
       const isLastLine = lineIndex === lines.length - 1;
 
       const cards = surface.cardsAfterLine(blockIndex, line, isLastLine);
+
       lineRows.push(
         lineRowFor(
           {

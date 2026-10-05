@@ -43,6 +43,7 @@ const initial: ThreadAgentState = {
 
 test("model and reasoning choices share the existing overlay and close after selection", async () => {
   const choices: string[] = [];
+
   function TestMenus(): React.ReactNode {
     const menu = useMenuControlState();
     const [state, setState] = useState(initial);
@@ -95,6 +96,7 @@ test("model and reasoning choices share the existing overlay and close after sel
     await click("Second model");
     expect(setup.captureCharFrame()).not.toContain("Extra model 17");
     const model = locateText(setup, "First model");
+
     for (let count = 0; count < 12; count++)
       await setup.mockMouse.scroll(model.column, model.row, "down");
     await settle(setup);

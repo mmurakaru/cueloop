@@ -21,12 +21,15 @@ function blob(
   pointCount = 7,
 ) {
   const nodes: [number, number][] = [];
+
   for (let index = 0; index < pointCount; index++) {
     const angle = (index / pointCount) * Math.PI * 2 + phase * 0.4;
     const pointRadius = radius * (1 + wobble * Math.sin(index * 2.3 + phase));
+
     nodes.push([centerX + pointRadius * Math.cos(angle), centerY + pointRadius * Math.sin(angle)]);
   }
   let path = `M ${nodes[0][0].toFixed(2)} ${nodes[0][1].toFixed(2)}`;
+
   for (let index = 0; index < pointCount; index++) {
     const prev = nodes[(index - 1 + pointCount) % pointCount];
     const curr = nodes[index];
@@ -36,8 +39,10 @@ function blob(
     const control1Y = curr[1] + (next[1] - prev[1]) / 6;
     const control2X = next[0] - (after[0] - curr[0]) / 6;
     const control2Y = next[1] - (after[1] - curr[1]) / 6;
+
     path += ` C ${control1X.toFixed(2)} ${control1Y.toFixed(2)}, ${control2X.toFixed(2)} ${control2Y.toFixed(2)}, ${next[0].toFixed(2)} ${next[1].toFixed(2)}`;
   }
+
   return `${path} Z`;
 }
 

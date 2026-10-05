@@ -107,6 +107,7 @@ export default function (pi: any) {
     input.end();
     const timeout = setTimeout(() => host.kill(), 15_000);
     const exitCode = await host.exited.finally(() => clearTimeout(timeout));
+
     if (exitCode !== 0 || !existsSync(toolsPath)) return false;
     const output = await new Response(host.stdout).text();
     const commandLine = output

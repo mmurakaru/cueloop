@@ -127,8 +127,9 @@ test("typing on the final blank line invokes the agent while the existing footer
     expect(prompts).toHaveLength(0);
     await setup.mockMouse.click(artifact.column, artifact.row);
     await setup.mockMouse.click(artifact.column, artifact.row + 2);
-    await typeText(setup, " retries");
-    await pressKey(setup, "RETURN", { ctrl: true });
+    // Submit the typing burst before waiting for content-change repaint.
+    await setup.mockInput.typeText(" retries");
+    setup.mockInput.pressKey("RETURN", { ctrl: true });
     await waitForText(setup, "The timer survives cancellation.");
     expect(prompts[0]?.text).toBe("Explain retries");
     const send = locateText(setup, "Send message (0)");
@@ -265,6 +266,7 @@ test("three bottom prompts survive delayed acceptance and remain separate submis
   const { client } = createTestAgentClient(empty);
   let release: ((state: ThreadAgentState) => void) | undefined;
   const prompts: string[] = [];
+
   client.agentPrompt = async (params) => {
     prompts.push(params.text);
     if (prompts.length === 1)
@@ -319,8 +321,10 @@ test("typing on an accepted plain prompt cannot edit it or create an unmarked co
   };
   const { client } = createTestAgentClient(state);
   const replies: string[] = [];
+
   client.agentComment = async (params) => {
     replies.push(params.comment.replyTo ?? "");
+
     return state;
   };
   const setup = await testRender(
@@ -411,17 +415,21 @@ test("comments on a later paragraph of agent output save editable and submit ind
     ],
   };
   const { client, prompts } = createTestAgentClient(state);
+
   client.agentComment = async ({ comment }) => {
     state = {
       ...state,
       comments: [...state.comments.filter((entry) => entry.id !== comment.id), comment],
     };
+
     return state;
   };
   const prompt = client.agentPrompt;
+
   client.agentPrompt = async (params) => {
     await prompt(params);
     state = { ...state, comments: state.comments.map((comment) => ({ ...comment, sent: true })) };
+
     return state;
   };
   const setup = await testRender(
@@ -472,8 +480,10 @@ for (const policy of [
   test(`disabled or shared agent views retain the original document without opening a harness (${JSON.stringify(policy)})`, async () => {
     let reads = 0;
     const { client } = createTestAgentClient(empty);
+
     client.agentGet = async () => {
       reads++;
+
       return empty;
     };
     const setup = await testRender(
@@ -505,6 +515,7 @@ test("empty Thread typing and accepted prompts use normal paragraph padding with
   const value = { ...thread, artifact: { ...thread.artifact, content: "" } };
   let accepted = empty;
   const { client, prompts } = createTestAgentClient(empty);
+
   client.agentPrompt = async (params) => {
     prompts.push(params);
     accepted = {
@@ -567,7 +578,15 @@ test("clicking whitespace below the conversation focuses a blinking prompt befor
     const text = locateText(setup, "Original artifact");
 
     await setup.mockMouse.click(text.column + 20, text.row + 5);
-    await settle(setup);
+    await waitForState(
+      setup,
+      () => {
+        const cursor = setup.renderer.getCursorState();
+
+        return cursor.visible && cursor.blinking;
+      },
+      "continuation cursor focused",
+    );
     expect(setup.renderer.getCursorState()).toMatchObject({ visible: true, blinking: true });
     expect(prompts).toHaveLength(0);
     await typeText(setup, "A prompt from whitespace");
@@ -603,6 +622,7 @@ test("an arriving reply preserves a bottom draft and submits it as the next prom
       },
     ],
   };
+
   client.agentPrompt = async (params) => {
     prompts.push(params);
     if (prompts.length === 1)
@@ -670,15 +690,41 @@ test("clicking the first blank row after a reply opens continuation without losi
 
   try {
     await waitForText(setup, "The final reply.");
+    await waitForState(
+      setup,
+      () => setup.renderer.currentFocusedEditor !== null,
+      "initial continuation focus ready",
+    );
     await pressKey(setup, "ESCAPE");
+    await waitForState(
+      setup,
+      () => setup.renderer.currentFocusedEditor === null,
+      "continuation dismissed",
+    );
     const reply = locateText(setup, "The final reply.");
 
     await setup.mockMouse.click(reply.column + 5, reply.row + 1);
-    await settle(setup);
+    await waitForState(
+      setup,
+      () => {
+        const cursor = setup.renderer.getCursorState();
+
+        return setup.renderer.currentFocusedEditor !== null && cursor.visible && cursor.blinking;
+      },
+      "continuation cursor focused",
+    );
     expect(setup.renderer.getCursorState()).toMatchObject({ visible: true, blinking: true });
     await typeText(setup, "Continue here");
     await setup.mockMouse.click(reply.column + 5, reply.row + 1);
-    await settle(setup);
+    await waitForState(
+      setup,
+      () => {
+        const cursor = setup.renderer.getCursorState();
+
+        return setup.renderer.currentFocusedEditor !== null && cursor.visible && cursor.blinking;
+      },
+      "continuation cursor focused",
+    );
     expect(setup.renderer.getCursorState()).toMatchObject({ visible: true, blinking: true });
     await pressKey(setup, "RETURN", { ctrl: true });
     expect(prompts[0]?.text).toBe("Continue here");
@@ -691,6 +737,7 @@ test("a rejected prompt returns visibly to the composer and can be edited before
   const { client, prompts } = createTestAgentClient(empty);
   let reject = true;
   const acceptPrompt = client.agentPrompt;
+
   client.agentPrompt = async (params) => {
     if (reject) {
       reject = false;
@@ -716,6 +763,7 @@ test("a rejected prompt returns visibly to the composer and can be edited before
   try {
     await waitForText(setup, "Original artifact");
     const artifact = locateText(setup, "Original artifact");
+
     await setup.mockMouse.click(artifact.column, artifact.row + 2);
     await typeText(setup, "Explain retries");
     await pressKey(setup, "RETURN", { ctrl: true });
@@ -760,6 +808,7 @@ test("a failed mutation flush restores the prompt alongside a newer visible draf
   try {
     await waitForText(setup, "Original artifact");
     const artifact = locateText(setup, "Original artifact");
+
     await setup.mockMouse.click(artifact.column, artifact.row + 2);
     await typeText(setup, "First question");
     await pressKey(setup, "RETURN", { ctrl: true });

@@ -46,6 +46,7 @@ describe("createGitHubForgeReviewPort", () => {
     );
 
     const imported = await port.importPullRequest("42", home);
+
     await port.postPullRequestMessage("42", message, home);
 
     expect(imported.pullRequest.headRefOid).toBe("head456");

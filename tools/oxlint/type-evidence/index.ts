@@ -17,24 +17,24 @@ import { noWidenThenAssertRule } from "./rules/no-widen-then-assert.ts";
 import { requireSafetyCommentForTypeAssertionRule } from "./rules/require-safety-comment-for-type-assertion.ts";
 
 const typeEvidencePlugin = eslintCompatPlugin({
-	meta: { name: "type-evidence" },
-	rules: {
-		"no-chained-type-assertions": noChainedTypeAssertionsRule,
-		"no-conditional-empty-object-spread": noConditionalEmptyObjectSpreadRule,
-		"no-known-value-widening": noKnownValueWideningRule,
-		"no-module-mocking": noModuleMockingRule,
-		"no-object-parameters": noObjectParametersRule,
-		"no-reflect-apply": noReflectApplyRule,
-		"no-reflect-get": noReflectGetRule,
-		"no-runtime-typeof": noRuntimeTypeofRule,
-		"no-unsafe-dictionary-type": noUnsafeDictionaryTypeRule,
-		"no-shape-in-symbol-names": noForbiddenTermInSymbolNamesRule,
-		"no-unknown-parameters": noUnknownParametersRule,
-		"no-unknown-returns": noUnknownReturnsRule,
-		"no-unknown-type-aliases": noUnknownTypeAliasesRule,
-		"no-widen-then-assert": noWidenThenAssertRule,
-		"require-safety-comment-for-type-assertion": requireSafetyCommentForTypeAssertionRule,
-	},
+  meta: { name: "type-evidence" },
+  rules: {
+    "no-chained-type-assertions": noChainedTypeAssertionsRule,
+    "no-conditional-empty-object-spread": noConditionalEmptyObjectSpreadRule,
+    "no-known-value-widening": noKnownValueWideningRule,
+    "no-module-mocking": noModuleMockingRule,
+    "no-object-parameters": noObjectParametersRule,
+    "no-reflect-apply": noReflectApplyRule,
+    "no-reflect-get": noReflectGetRule,
+    "no-runtime-typeof": noRuntimeTypeofRule,
+    "no-unsafe-dictionary-type": noUnsafeDictionaryTypeRule,
+    "no-shape-in-symbol-names": noForbiddenTermInSymbolNamesRule,
+    "no-unknown-parameters": noUnknownParametersRule,
+    "no-unknown-returns": noUnknownReturnsRule,
+    "no-unknown-type-aliases": noUnknownTypeAliasesRule,
+    "no-widen-then-assert": noWidenThenAssertRule,
+    "require-safety-comment-for-type-assertion": requireSafetyCommentForTypeAssertionRule,
+  },
 });
 
 export default typeEvidencePlugin;

@@ -110,6 +110,7 @@ describe("AnnotatableFileView", () => {
     // Assert - the surface built an anchor quoting the file line and handed it up with the body
     expect(onAddComment).toHaveBeenCalled();
     const [anchor, body] = onAddComment.mock.calls[0]!;
+
     expect(anchor.quote).toContain("return a + b");
     expect(body).toContain("why not reduce?");
 
@@ -118,6 +119,7 @@ describe("AnnotatableFileView", () => {
 
   test("a head-side (deleted-line) note never rebinds onto the current file", async () => {
     const session = planSession();
+
     // a note left on the removed side of this file: the worktree view must not show it
     session.annotations = [
       {

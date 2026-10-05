@@ -31,6 +31,7 @@ test("Enter expands a folder, then j moves down and Enter opens the file", async
     />,
     { width: 40, height: 12 },
   );
+
   await settle(setup);
   await waitForText(setup, "src");
 
@@ -144,6 +145,7 @@ test("without focus the keyboard does nothing", async () => {
     />,
     { width: 40, height: 12 },
   );
+
   await settle(setup);
   await waitForText(setup, "src");
 
@@ -223,6 +225,7 @@ test("a double-click requests a persistent file tab", async () => {
 
   await waitForText(setup, "README.md");
   const file = locateText(setup, "README.md");
+
   await setup.mockMouse.doubleClick(file.column, file.row);
   expect(opened).toEqual([
     { path: "README.md", persistent: false },
