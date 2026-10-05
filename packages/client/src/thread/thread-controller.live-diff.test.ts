@@ -134,6 +134,7 @@ describe("live working-tree diff for a non-diff thread", () => {
       openClient: async () => fakeClient(session),
       shareTransport,
     });
+
     controller.connect();
     await tick();
 
@@ -169,6 +170,7 @@ describe("live working-tree diff for a non-diff thread", () => {
       openClient: async () => client,
       shareTransport,
     });
+
     controller.connect();
     await tick();
     await controller.repoChanges();
@@ -213,11 +215,13 @@ describe("live working-tree diff for a non-diff thread", () => {
       openClient: async () => client,
       shareTransport,
     });
+
     controller.connect();
     await tick();
 
     // thread A's diff is still in flight when the user switches to thread B
     const inFlightA = controller.repoChanges();
+
     controller.open("ses_B");
     await controller.repoChanges();
     // B's diff is showing; now A's stale response lands
@@ -272,6 +276,7 @@ describe("frozen vs live diff by thread kind", () => {
       openClient: async () => fakeClient(session),
       shareTransport,
     });
+
     controller.connect();
     await tick();
 
@@ -294,6 +299,7 @@ describe("frozen vs live diff by thread kind", () => {
       openClient: async () => client,
       shareTransport,
     });
+
     controller.connect();
     await tick();
 
@@ -338,6 +344,7 @@ describe("serve mode pins the served thread to a frozen snapshot", () => {
         meta: { workbench: true, snapshot: true },
       },
     });
+
     controller.connect();
     await tick();
 

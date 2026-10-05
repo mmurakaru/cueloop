@@ -226,6 +226,7 @@ export interface Annotation {
 }
 
 export const REVIEW_SEVERITIES = ["p0", "p1", "p2"] as const;
+
 export type ReviewSeverity = (typeof REVIEW_SEVERITIES)[number];
 
 /** Data needed to render and publish one agent-authored pull request comment. */
@@ -281,6 +282,7 @@ export interface PendingDelivery {
 }
 
 export const MESSAGE_OUTCOMES = ["comment", "approved", "changes_requested"] as const;
+
 export type MessageOutcome = (typeof MESSAGE_OUTCOMES)[number];
 
 /** Durable acceptance records are committed together with the mutation they identify. */

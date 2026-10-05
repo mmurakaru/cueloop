@@ -38,8 +38,10 @@ test("late configuration and action responses cannot replace a newer accepted st
     agentComment: async () => state,
     agentPermission: async () => state,
   };
+
   function TestAgent(): React.ReactNode {
     const agent = useThreadAgent("test", undefined, client);
+
     useEffect(() => {
       request = () => agent.act((api) => api.agentPrompt({ id: "test", text: "Prompt" }));
     }, [agent]);
@@ -51,6 +53,7 @@ test("late configuration and action responses cannot replace a newer accepted st
   try {
     await waitForText(setup, "idle");
     const pending = request();
+
     await request();
     await waitForText(setup, "running");
     first!(initial);
@@ -79,6 +82,7 @@ test("production subscription shows daemon updates and reconnects without an inj
         start: async () => "ui-session",
         prompt: async () => {
           onEvent({ kind: "message" as const, id: "answer", text: "Updated answer" });
+
           return { outcome: "completed" as const };
         },
         cancel() {},
@@ -89,12 +93,14 @@ test("production subscription shows daemon updates and reconnects without an inj
   };
   const options = { home, idleExitMs: 0, threadAgent: { enabled: true, adapter } };
   let server = new DaemonServer(options);
+
   server.start();
   const client = await DaemonClient.connect({ home });
   const thread = await client.sessionCreate(
     { repoRoot: home, branch: "main" },
     { type: "plan", content: "Watch this", meta: {} },
   );
+
   function TestAgentSubscription(): React.ReactNode {
     const agent = useThreadAgent(thread.id, home);
 
@@ -116,6 +122,7 @@ test("production subscription shows daemon updates and reconnects without an inj
     server = new DaemonServer(options);
     server.start();
     const resumed = await DaemonClient.connect({ home });
+
     try {
       await resumed.agentPrompt({ id: thread.id, text: "Continuation" });
     } finally {
@@ -145,6 +152,7 @@ test("reconnecting during a running turn preserves state without a configuration
     idleExitMs: 0,
     threadAgent: { enabled: true, adapter: harness.adapter },
   });
+
   server.start();
   const client = await DaemonClient.connect({ home });
   const thread = await client.sessionCreate(
@@ -153,8 +161,10 @@ test("reconnecting during a running turn preserves state without a configuration
   );
   let connection: InstanceType<typeof DaemonClient> | undefined;
   let connections = 0;
+
   function TestRunningSubscription(): React.ReactNode {
     const agent = useThreadAgent(thread.id, home);
+
     useEffect(() => {
       if (agent.client instanceof DaemonClient && agent.client !== connection) {
         connection = agent.client;
@@ -178,6 +188,7 @@ test("reconnecting during a running turn preserves state without a configuration
     const rejected = await client
       .agentConfigure({ id: thread.id, configId: "model", value: "other" })
       .catch((error: Error) => error);
+
     expect(rejected).toMatchObject({
       code: "internal",
       message: "Thread agent configuration waits for the current turn",

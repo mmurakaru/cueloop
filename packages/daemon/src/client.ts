@@ -335,6 +335,7 @@ export class DaemonClient implements ThreadClient {
 
   private async dial(path: string): Promise<void> {
     const buffer = new LineBuffer();
+
     this.disconnectReason = undefined;
     const epoch = ++this.connectionEpoch;
 
@@ -349,6 +350,7 @@ export class DaemonClient implements ThreadClient {
       const reason =
         this.disconnectReason ??
         new DaemonTransportError("connection", "daemon connection closed", "unknown");
+
       for (const listener of this.disconnectListeners) listener(reason);
     };
 

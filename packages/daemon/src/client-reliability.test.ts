@@ -26,6 +26,7 @@ test("malformed response results reject promptly and leave the connection usable
               : request.method === "daemon.hello"
                 ? {}
                 : "malformed";
+
           socket.write(JSON.stringify({ id: request.id, result }) + "\n");
         });
       },
@@ -77,8 +78,10 @@ test("deadlines, local abort and close reject outstanding requests without cance
       data(socket, data) {
         buffers.get(socket)!.push(data.toString(), (line) => {
           const request = parseRequestFrame(line);
+
           if (request.method === "work") {
             work.push(request.id);
+
             return;
           }
           socket.write(
@@ -101,6 +104,7 @@ test("deadlines, local abort and close reject outstanding requests without cance
 
   try {
     const alreadyCancelled = new AbortController();
+
     alreadyCancelled.abort();
     await expect(
       client.request("work", {}, v.number(), { signal: alreadyCancelled.signal }),
@@ -112,11 +116,13 @@ test("deadlines, local abort and close reject outstanding requests without cance
     expect(work).toHaveLength(1);
     const controller = new AbortController();
     const waiting = client.request("work", {}, v.number(), { signal: controller.signal });
+
     await client.ping();
     controller.abort();
     await expect(waiting).rejects.toMatchObject({ kind: "cancelled", certainty: "unknown" });
     expect(work).toHaveLength(2);
     const pending = client.request("work", {}, v.number());
+
     client.close();
     await expect(pending).rejects.toMatchObject({ kind: "connection", certainty: "unknown" });
     await expect(client.ping()).rejects.toMatchObject({
@@ -142,8 +148,10 @@ test("malformed frames reject all pending requests as protocol failures", async 
       data(socket, data) {
         buffers.get(socket)!.push(data.toString(), (line) => {
           const request = parseRequestFrame(line);
+
           if (request.method === "bad-frame") {
             socket.write("{broken\n");
+
             return;
           }
           socket.write(

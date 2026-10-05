@@ -8,6 +8,7 @@ const reviewConversation = Effect.gen(function* () {
     workspace: { repoRoot: process.cwd(), branch: "main" },
     artifact: { type: "plan", content: "Review this proposal.", meta: { title: "SDK example" } },
   });
+
   yield* sdk.threads.get(thread.id);
   yield* sdk.comments.add({
     threadId: thread.id,
@@ -24,9 +25,11 @@ const reviewConversation = Effect.gen(function* () {
     text: "Explain this Thread and its comment.",
   });
   const completed = yield* sdk.agents.wait(accepted, { timeoutMs: 300_000 });
+
   if (completed.outcome !== "completed")
     throw new Error(`SDK example agent finished: ${completed.outcome}`);
   const comments = yield* sdk.comments.list(thread.id);
+
   if (comments[0])
     yield* sdk.comments.reply({
       threadId: thread.id,
@@ -47,5 +50,6 @@ if (import.meta.main) {
   const threadId = await Effect.runPromise(
     reviewConversation.pipe(Effect.provide(CueloopSdk.ownerLayer({ autostart: true }))),
   );
+
   console.log(`Thread approved: ${threadId}`);
 }

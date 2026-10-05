@@ -430,6 +430,7 @@ export class DaemonCore {
     authorName?: string,
   ): Thread {
     const session = this.mutable(id);
+
     // a welcome-playground note is ephemeral by design: never persisted, so never fed back
     if (annotationTarget(annotation).kind === "welcome") return session;
     const existing = session.annotations.findIndex((candidate) => candidate.id === annotation.id);
@@ -651,6 +652,7 @@ export class DaemonCore {
       this.vcsSources.select(cwd),
       resolveWorkspace(cwd),
     ]);
+
     workspace.repoRoot = selected.repoRoot;
     const key = `${workspace.rootCommit ?? selected.repoRoot}:${selected.adapter.id}`;
     // an open workbench is reused; a resolved one is immutable and would reject the note, so a fresh
@@ -937,6 +939,7 @@ export class DaemonCore {
       message,
       createdAt: message.sentAt,
     });
+
     this.store.upsert(session);
     this.reconcileDeliveries(session);
     this.emit("message.sent", id, entryId);
@@ -994,6 +997,7 @@ export class DaemonCore {
       content,
       createdAt: now,
     });
+
     delete session.workingCopy;
     delete session.textCuts;
     session.message = null;

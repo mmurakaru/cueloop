@@ -28,6 +28,7 @@ describe("JSONL thread store", () => {
   test("a thread is written under a per-project bucket keyed by root commit", () => {
     const home = tmpHome();
     const store = new ThreadStore(home);
+
     store.recover();
     store.upsert(
       createTestThreadRecord("ses_a", "2026-09-01T00:00:00.000Z", {
@@ -36,6 +37,7 @@ describe("JSONL thread store", () => {
     );
 
     const bucket = threadBucket("abcdef0123456789", home);
+
     expect(readdirSync(bucket)).toContain("ses_a.jsonl");
   });
 
@@ -52,6 +54,7 @@ describe("JSONL thread store", () => {
   test("a repo-less thread lands in the standalone bucket", () => {
     const home = tmpHome();
     const store = new ThreadStore(home);
+
     store.recover();
     store.upsert(createTestThreadRecord("ses_s", "2026-09-01T00:00:00.000Z"));
 
@@ -60,8 +63,10 @@ describe("JSONL thread store", () => {
 
   test("boot migrates the old whole-record file and parks the original", () => {
     const home = tmpHome();
+
     mkdirSync(sessionsDir(home), { recursive: true });
     const legacy = createTestThreadRecord("ses_old", "2026-09-01T00:00:00.000Z");
+
     writeFileSync(join(sessionsDir(home), "ses_old.json"), JSON.stringify(legacy));
 
     const store = new ThreadStore(home);
@@ -80,6 +85,7 @@ describe("JSONL thread store", () => {
     const home = tmpHome();
     // a newer JSONL already holds this thread (e.g. written after a rollback)
     const store = new ThreadStore(home);
+
     store.recover();
     store.upsert(
       createTestThreadRecord("ses_x", "2026-09-01T00:00:00.000Z", {
@@ -99,6 +105,7 @@ describe("JSONL thread store", () => {
     );
 
     const reopened = new ThreadStore(home);
+
     reopened.recover();
     // the newer JSONL wins; the legacy snapshot is parked, not applied
     expect(reopened.get("ses_x")?.workspace.branch).toBe("newer");
@@ -108,6 +115,7 @@ describe("JSONL thread store", () => {
   test("a long log compacts to a single line, and the record survives it", () => {
     const home = tmpHome();
     const store = new ThreadStore(home);
+
     store.recover();
     // more upserts than the compaction threshold
     for (let iteration = 0; iteration < 60; iteration++) {
@@ -123,9 +131,11 @@ describe("JSONL thread store", () => {
     const lines = readFileSync(file, "utf8")
       .split("\n")
       .filter((l) => l.trim());
+
     expect(lines.length).toBeLessThan(60);
     // the latest snapshot survives the compaction and a restart
     const reopened = new ThreadStore(home);
+
     reopened.recover();
     expect(reopened.get("ses_a")?.workspace.branch).toBe("b59");
   });
@@ -133,15 +143,18 @@ describe("JSONL thread store", () => {
   test("a crash's torn trailing line is skipped; the last valid snapshot wins", () => {
     const home = tmpHome();
     const store = new ThreadStore(home);
+
     store.recover();
     store.upsert(createTestThreadRecord("ses_a", "2026-09-01T00:00:00.000Z"));
 
     // simulate a crash mid-append: a half-written line at the end
     const file = join(threadBucket(undefined, home), "ses_a.jsonl");
+
     appendFileSync(file, '{"id":"ses_a","half');
 
     const reopened = new ThreadStore(home);
     const report = reopened.recover();
+
     expect(report.recovered).toEqual(["ses_a"]);
     expect(reopened.get("ses_a")?.id).toBe("ses_a");
 
@@ -153,6 +166,7 @@ describe("JSONL thread store", () => {
       }),
     );
     const restarted = new ThreadStore(home);
+
     restarted.recover();
     expect(restarted.get("ses_a")?.workspace.branch).toBe("after-tear");
   });

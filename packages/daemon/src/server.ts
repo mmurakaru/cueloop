@@ -353,6 +353,7 @@ export class DaemonServer {
   private async callAgentTool(threadId: string, name: string, input: string): Promise<string> {
     const args = parseAgentToolInput(name, input);
     const origin = this.core.sessionGet(threadId);
+
     assertAgentToolScope(origin, args);
     if (args.kind === "api" && args.method === "session.list") {
       const { filter } = parseParams("session.list", args.params);
@@ -362,6 +363,7 @@ export class DaemonServer {
     if (args.kind === "reply") {
       const thread = origin;
       const comment = thread.annotations.find((entry) => entry.id === args.commentId);
+
       if (!comment) return JSON.stringify(this.replyAgentComment(args));
       const root =
         thread.annotations.find((entry) => entry.id === (comment.replyTo ?? comment.id)) ?? comment;
@@ -383,6 +385,7 @@ export class DaemonServer {
       );
     }
     const method = args.method;
+
     if (!isKnownMethod(method)) throw new Error("Thread agent tool API method is unavailable");
 
     return JSON.stringify(
@@ -406,36 +409,49 @@ export class DaemonServer {
   private readonly handlers: Record<MethodName, MethodHandler> = {
     "agent.configure": (_connection, request) => {
       const params = parseParams("agent.configure", request.params);
+
       this.threadAgent.assertEnabled(params.id);
+
       return this.threadAgent.configure(params);
     },
     "agent.get": (_connection, request) => {
       const { id } = parseParams("agent.get", request.params);
+
       this.threadAgent.assertEnabled(id);
+
       return this.threadAgent.get(id);
     },
     "agent.prompt": (_connection, request) => {
       const params = parseParams("agent.prompt", request.params);
+
       this.threadAgent.assertEnabled(params.id);
+
       return this.threadAgent.prompt(params);
     },
     "agent.cancel": (_connection, request) => {
       const { id } = parseParams("agent.cancel", request.params);
+
       this.threadAgent.assertEnabled(id);
+
       return this.threadAgent.cancel(id);
     },
     "agent.reply": (_connection, request) => {
       const params = parseParams("agent.reply", request.params);
+
       return this.replyAgentComment(params);
     },
     "agent.comment": (_connection, request) => {
       const params = parseParams("agent.comment", request.params);
+
       this.threadAgent.assertEnabled(params.id);
+
       return this.threadAgent.comment(params);
     },
     "agent.permission": (_connection, request) => {
       const params = parseParams("agent.permission", request.params);
+
       this.threadAgent.assertEnabled(params.id);
+
       return this.threadAgent.permission(params);
     },
     "daemon.ping": () => ({ pid: process.pid, version: this.version }),

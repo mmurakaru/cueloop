@@ -78,6 +78,7 @@ export class ReviewDaemonSdk {
   }): () => void {
     if (this.closed) {
       input.onError(new DaemonTransportError("connection", "SDK connection is closed", "not_sent"));
+
       return () => {};
     }
     const dispose = subscribeThreadState({
@@ -92,6 +93,7 @@ export class ReviewDaemonSdk {
       dispose();
       this.observers.delete(stop);
     };
+
     this.observers.add(stop);
 
     return stop;
@@ -123,10 +125,12 @@ export class ReviewDaemonSdk {
     ): Promise<SdkThread> => {
       const thread = await this.threads.get(input.threadId, options);
       const comment = thread.annotations.find((entry) => entry.id === input.commentId);
+
       if (!comment)
         throw new DaemonClientError("not_found", "SDK comment reply target does not exist");
       const rootId = comment.replyTo ?? comment.id;
       const root = thread.annotations.find((entry) => entry.id === rootId);
+
       if (!root) throw new DaemonClientError("not_found", "SDK comment reply root does not exist");
 
       return this.client.request(
@@ -187,6 +191,7 @@ export class OwnerDaemonSdk extends ReviewDaemonSdk {
         input.operationId,
         options,
       );
+
       if (!thread.message)
         throw new DaemonTransportError(
           "protocol",
@@ -225,6 +230,7 @@ export class OwnerDaemonSdk extends ReviewDaemonSdk {
       const receipt = state.promptOperations?.find(
         (entry) => entry.operationId === input.operationId,
       );
+
       if (!receipt)
         throw new DaemonTransportError(
           "protocol",
@@ -277,6 +283,7 @@ export class OwnerDaemonSdk extends ReviewDaemonSdk {
       );
 
     const controller = new AbortController();
+
     this.waits.add(controller);
     const signal = options.signal
       ? AbortSignal.any([controller.signal, options.signal])
@@ -312,9 +319,11 @@ export class OwnerDaemonSdk extends ReviewDaemonSdk {
           ),
         options.timeoutMs ?? 30_000,
       );
+
       signal.addEventListener("abort", abort, { once: true });
       if (signal.aborted) {
         abort();
+
         return;
       }
       detach = subscribeThreadState({
@@ -329,11 +338,13 @@ export class OwnerDaemonSdk extends ReviewDaemonSdk {
           const receipt = state.promptOperations?.find(
             (entry) => entry.operationId === accepted.operationId,
           );
+
           if (!receipt || receipt.result.join("\n") !== accepted.submissionIds.join("\n")) {
             finish(
               undefined,
               new DaemonClientError("not_found", "SDK accepted agent operation no longer exists"),
             );
+
             return;
           }
           if (receipt.outcome) finish({ ...accepted, outcome: receipt.outcome, state });

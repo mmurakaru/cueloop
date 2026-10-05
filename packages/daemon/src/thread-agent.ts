@@ -131,6 +131,7 @@ export class ThreadAgentManager {
     if (thread.status !== "pending") throw new Error("Thread agent review is already resolved");
     assertHarnessIdentity(state, this.options.adapter);
     const before = structuredClone(state);
+
     try {
       state.harness ??= { id: this.options.adapter.id, label: this.options.adapter.label };
       state.submissions ??= [];
@@ -154,6 +155,7 @@ export class ThreadAgentManager {
           (total, message) => total + Buffer.byteLength(message.text),
           0,
         );
+
         if (used + Buffer.byteLength(input.prompt) > 2 * 1024 * 1024)
           throw new Error("Thread agent input exceeds transcript limit");
         const submission: AgentSubmission = {
@@ -183,6 +185,7 @@ export class ThreadAgentManager {
         submission.status = stepAgentSubmission(submission.status, "retry", true);
       } else {
         const accepted = new Set(submissions.map((entry) => entry.commentId));
+
         for (const annotation of thread.annotations) {
           if (!isPendingAgentInput(annotation, accepted)) continue;
           const root =
@@ -196,6 +199,7 @@ export class ThreadAgentManager {
           enqueue({ commentId: annotation.id, prompt: annotation.body, quote: root.anchor.quote });
           // The discussion snapshot is passed as context, while the mirror shows only the new comment.
           const submission = submissions.at(-1)!;
+
           submission.context = JSON.stringify({
             target: root.target,
             discussion: discussion.map((entry) => ({ id: entry.id, body: entry.body })),
@@ -209,6 +213,7 @@ export class ThreadAgentManager {
             messageId: comment.messageId,
           });
           const root = agentCommentRoot(state, comment.replyTo ?? comment.id) ?? comment;
+
           submissions.at(-1)!.context = JSON.stringify({
             discussion: [root, ...state.comments.filter((entry) => entry.replyTo === root.id)].map(
               (entry) => ({ id: entry.id, body: entry.body }),
@@ -256,8 +261,10 @@ export class ThreadAgentManager {
 
     if (params.configId === undefined || params.value === undefined) {
       const current = this.get(params.id);
+
       if (current.phase.kind !== "running" && current.phase.kind !== "permission")
         active.turn = stepAgentTurn(active.turn, "finished");
+
       return structuredClone(state);
     }
     if (!active.connection.configure)
@@ -343,8 +350,10 @@ Input: ${submission.prompt}`;
   reply(id: string, commentId: string, body: string): ThreadAgentState {
     const state = this.mutable(id);
     const comment = agentCommentRoot(state, commentId);
+
     if (!comment) throw new Error("Thread agent reply comment does not exist");
     const root = agentCommentRoot(state, comment.replyTo ?? comment.id) ?? comment;
+
     if (state.comments.length >= 128)
       throw new Error("Thread agent prototype reached its comment limit");
     state.comments.push({
@@ -509,6 +518,7 @@ Input: ${submission.prompt}`;
     revision: number,
   ): Promise<ActiveAgent> {
     const pending = this.initializing.get(state.threadId);
+
     if (pending) return pending;
     const promise = this.startConnection(state, thread, turnId, revision);
 
@@ -575,6 +585,7 @@ Input: ${submission.prompt}`;
     if (event.kind === "config") {
       state.configOptions = event.options;
       this.save(state);
+
       return;
     }
     const active = this.active.get(state.threadId);

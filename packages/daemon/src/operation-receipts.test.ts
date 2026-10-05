@@ -15,6 +15,7 @@ test("send message operation receipts survive restart and reject changed payload
     });
     const accepted = core.sessionSendMessage(thread.id, "comment", "First", undefined, "op-first");
     const message = structuredClone(accepted.message);
+
     core.sessionSendMessage(thread.id, "comment", "Second", undefined, "op-second");
     core.dispose();
     core = new DaemonCore(home);
@@ -46,6 +47,7 @@ test("receipt capacity never evicts accepted IDs and share blobs omit private re
     const first = structuredClone(
       core.sessionSendMessage(thread.id, "comment", "First", undefined, "first").message,
     );
+
     for (let index = 1; index < 128; index++)
       core.sessionSendMessage(
         thread.id,
@@ -82,6 +84,7 @@ test("failed receipt persistence never acknowledges an in-memory-only review mes
     });
     const bucket = readdirSync(threadsDir(home))[0]!;
     const tempPath = join(threadsDir(home), bucket, `${thread.id}.jsonl.tmp`);
+
     mkdirSync(tempPath);
     expect(() =>
       core.sessionSendMessage(thread.id, "comment", "Once", undefined, "persist-once"),
@@ -96,6 +99,7 @@ test("failed receipt persistence never acknowledges an in-memory-only review mes
       undefined,
       "persist-once",
     );
+
     expect(accepted.messageOperations).toHaveLength(1);
     expect(
       core.sessionSendMessage(thread.id, "comment", "Once", undefined, "persist-once").message,

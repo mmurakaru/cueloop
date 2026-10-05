@@ -34,6 +34,7 @@ beforeEach(() => {
       meta: { title: "Migration Plan", planPath: "plan.md" },
     },
   });
+
   sessionId = session.id;
 });
 afterEach(() => {

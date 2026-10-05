@@ -84,6 +84,7 @@ async function refreshDevSeed(client: DaemonClient, home: string): Promise<void>
   const versionFile = join(home, ".seed-version");
   const stored = existsSync(versionFile) ? Number(readFileSync(versionFile, "utf8").trim()) : 0;
   const existing = await client.sessionList();
+
   if (existing.length > 0 && stored === SEED_VERSION) return;
 
   await Promise.all(
@@ -104,6 +105,7 @@ export async function devCommand(): Promise<number> {
 
   let sessionId: string | undefined;
   const client = await DaemonClient.connect({ autostart: true });
+
   try {
     await refreshDevSeed(client, home);
     if (threadAgentEnabled(process.cwd()))

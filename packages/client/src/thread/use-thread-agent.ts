@@ -27,6 +27,7 @@ export function useThreadAgent(id: string, home?: string, injected?: ThreadAgent
     let cancelled = false;
     let connection: DaemonClient | undefined;
     let unsubscribe: (() => void) | undefined;
+
     revision.current++;
     const refresh = async (api: ThreadAgentClient) => {
       const requested = ++revision.current;

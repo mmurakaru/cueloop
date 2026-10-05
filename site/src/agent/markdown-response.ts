@@ -48,6 +48,7 @@ function addVaryAccept(headers: Headers): void {
 
 function documentResponse(response: Response, pathname: string): Response {
   const headers = new Headers(response.headers);
+
   addVaryAccept(headers);
   headers.set("Link", `<${publicMarkdownPath(pathname)}>; rel="alternate"; type="text/markdown"`);
 
@@ -111,6 +112,7 @@ export async function serveNegotiatedDocument(
   }
 
   const headers = new Headers(assetResponse.headers);
+
   headers.set("Content-Type", "text/markdown; charset=utf-8");
   headers.set("Content-Location", publicMarkdownPath(pathname));
   headers.set("Link", `<${pathname}>; rel="alternate"; type="text/html"`);

@@ -46,6 +46,7 @@ export function recordPromptOperation(
 
   if (!accepted.length) throw new DaemonError("invalid_params", "Agent operation requires input");
   const fingerprint = promptOperationFingerprint(input);
+
   (state.promptOperations ??= []).push({
     operationId: input.operationId,
     fingerprint,

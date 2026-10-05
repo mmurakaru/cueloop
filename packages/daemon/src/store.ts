@@ -94,6 +94,7 @@ export class ThreadStore implements ThreadRepository {
       for (const file of readdirSync(bucketPath)) {
         if (!file.endsWith(".jsonl")) continue;
         const filePath = join(bucketPath, file);
+
         try {
           const { session, lines, torn } = readThread(filePath);
 
@@ -296,9 +297,11 @@ export class MemoryThreadStore implements ThreadRepository {
 export type SessionRepository = ThreadRepository;
 /** @deprecated use ThreadStore */
 export const SessionStore = ThreadStore;
+
 /** @deprecated use ThreadStore */
 export type SessionStore = ThreadStore;
 /** @deprecated use MemoryThreadStore */
 export const MemorySessionStore = MemoryThreadStore;
+
 /** @deprecated use MemoryThreadStore */
 export type MemorySessionStore = MemoryThreadStore;

@@ -164,6 +164,7 @@ describe("durable harness delivery", () => {
       harnessSessionId: "fake_1",
     });
     const sent = first.sessionSendMessage(thread.id, "approved", "Ready.");
+
     first.store.upsert({
       ...first.sessionGet(thread.id),
       createdAt: "2020-01-01T00:00:00.000Z",

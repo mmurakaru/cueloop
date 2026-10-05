@@ -29,21 +29,26 @@ export function subscribeThreadState<Value>(options: ThreadSubscriptionOptions<V
     const epoch = ++generation;
     let request = 0;
     let api: DaemonClient | undefined;
+
     try {
       api = await options.connect();
       if (stopped || epoch !== generation) {
         api.close();
+
         return;
       }
       connection = api;
       const current = api;
       const refresh = async () => {
         const version = ++request;
+
         for (const read of reads) read.abort();
         const controller = new AbortController();
+
         reads.add(controller);
         try {
           const value = await options.read(current, controller.signal);
+
           if (!stopped && epoch === generation && version === request)
             options.onValue(value, current);
         } catch (error) {
@@ -76,6 +81,7 @@ export function subscribeThreadState<Value>(options: ThreadSubscriptionOptions<V
           options.onError(reason);
         } else schedule();
       });
+
       detach = () => {
         offEvent();
         offDisconnect();
@@ -94,6 +100,7 @@ export function subscribeThreadState<Value>(options: ThreadSubscriptionOptions<V
       if (!(error instanceof Error && isFatalSubscriptionError(error))) schedule();
     }
   };
+
   void connect();
 
   return () => {

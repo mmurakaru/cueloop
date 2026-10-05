@@ -26,6 +26,7 @@ if (values.script === undefined) {
 }
 
 const profileDir = values.out ?? join(import.meta.dir, "profiles");
+
 mkdirSync(profileDir, { recursive: true });
 
 const { metrics, artifacts } = await profileScript(

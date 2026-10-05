@@ -216,6 +216,7 @@ export function NoThreadShell(props: {
   // The bare-launch shell is the same four panes as a thread: the Thread pane waits in its empty state
   // and a disposable Welcome tab rides in the Changes editor until a thread or diff is opened.
   const workbench = useChangesWorkbench({ seed: "welcome", layout });
+
   // the vanilla shell remembers the composition the user leaves it in, for the next bare launch
   useRememberLayout(
     layout,

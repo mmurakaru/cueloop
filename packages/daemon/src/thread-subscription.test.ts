@@ -11,6 +11,7 @@ import { createTestSignal } from "../../../test/helpers/test-signal";
 test("subscription refresh discards stale reads and disposal suppresses late callbacks", async () => {
   const home = mkdtempSync(join(tmpdir(), "cueloop-subscription-"));
   const server = new DaemonServer({ home, idleExitMs: 0 });
+
   server.start();
   const client = await DaemonClient.connect({ home });
   const firstRead = createTestSignal<void>();
@@ -25,11 +26,13 @@ test("subscription refresh discards stale reads and disposal suppresses late cal
       { repoRoot: home, branch: "main" },
       { type: "plan", content: "Initial", meta: {} },
     );
+
     dispose = subscribeThreadState({
       connect: connectThreadObserver({ home }),
       matches: (event) => event.sessionId === thread.id,
       read: async (api) => {
         const state = await api.sessionGet(thread.id);
+
         if (++reads === 1) {
           firstRead.resolve();
           await releaseFirst.promise;
@@ -63,6 +66,7 @@ test("subscription refresh discards stale reads and disposal suppresses late cal
 test("reconnect subscribes again and refreshes authoritative state even without a notification", async () => {
   const home = mkdtempSync(join(tmpdir(), "cueloop-reconnect-"));
   let server = new DaemonServer({ home, idleExitMs: 0 });
+
   server.start();
   const client = await DaemonClient.connect({ home });
   const initial = createTestSignal<void>();
@@ -76,6 +80,7 @@ test("reconnect subscribes again and refreshes authoritative state even without 
       { repoRoot: home, branch: "main" },
       { type: "plan", content: "Initial", meta: {} },
     );
+
     dispose = subscribeThreadState({
       connect: connectThreadObserver({ home }),
       reconnectMs: 1,
@@ -126,6 +131,7 @@ test("a malformed protocol frame stops the observer instead of reconnecting", as
       data(socket, bytes) {
         reads.get(socket)!.push(bytes.toString(), (line) => {
           const request = parseRequestFrame(line);
+
           socket.write(
             JSON.stringify({
               id: request.id,

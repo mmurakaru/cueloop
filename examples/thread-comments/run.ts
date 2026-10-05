@@ -16,6 +16,7 @@ import { makeAnchor, parseBlocks } from "@cueloop/schema";
 
 const home = mkdtempSync(join(tmpdir(), "cueloop-example-"));
 const server = new DaemonServer({ home, idleExitMs: 0 });
+
 server.start();
 
 const PLAN = `# Project tree refresh
