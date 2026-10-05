@@ -43,6 +43,7 @@ export interface AgentPermission {
 export type AgentPhase =
   | { kind: "idle" }
   | { kind: "running" }
+  | { kind: "offline" }
   | { kind: "permission"; permission: AgentPermission }
   | { kind: "failed"; error: string };
 
@@ -67,6 +68,7 @@ export interface AgentSubmission {
   commentId?: string;
   messageId?: string;
   prompt: string;
+  harnessPrompt?: string;
   quote?: string;
   context?: string;
   status: "queued" | "running" | "completed" | "failed";
@@ -89,4 +91,7 @@ export interface AgentPromptRequest {
   context?: string;
   retry?: string;
   operationId?: string;
+  commentId?: string;
+  inputOnly?: boolean;
+  discussion?: string;
 }

@@ -827,3 +827,65 @@ test("a failed mutation flush restores the prompt alongside a newer visible draf
     setup.renderer.destroy();
   }
 });
+
+test("an offline shared agent shows its status at the continuation without model controls", async () => {
+  const { client } = createTestAgentClient({ ...empty, phase: { kind: "offline" } });
+  const setup = await testRender(
+    <AgentThreadPane
+      thread={thread}
+      client={client}
+      focused
+      theme={DARK}
+      onActiveChange={noop}
+      onOpenFile={noop}
+    >
+      {artifactView(thread)}
+    </AgentThreadPane>,
+    { width: 80, height: 15 },
+  );
+
+  try {
+    await waitForText(setup, "Owner offline");
+    expect(setup.captureCharFrame()).toContain("Original artifact");
+    expect(setup.captureCharFrame()).not.toContain("Thinking");
+  } finally {
+    setup.renderer.destroy();
+  }
+});
+
+test("shared viewers see pending activity without owner permission controls", async () => {
+  const { client } = createTestAgentClient({
+    ...empty,
+    phase: {
+      kind: "permission",
+      permission: {
+        id: "owner-permission",
+        title: "Owner approval required",
+        options: [{ optionId: "allow", name: "Allow once", kind: "allow_once" }],
+      },
+    },
+  });
+
+  client.canControlAgent = false;
+  const setup = await testRender(
+    <AgentThreadPane
+      thread={thread}
+      client={client}
+      focused
+      theme={DARK}
+      onActiveChange={noop}
+      onOpenFile={noop}
+    >
+      {artifactView(thread)}
+    </AgentThreadPane>,
+    { width: 80, height: 15 },
+  );
+
+  try {
+    await waitForText(setup, "Thinking");
+    expect(setup.captureCharFrame()).not.toContain("Allow once");
+    expect(setup.captureCharFrame()).not.toContain("Owner approval required");
+  } finally {
+    setup.renderer.destroy();
+  }
+});

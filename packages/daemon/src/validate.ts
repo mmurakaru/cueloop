@@ -188,6 +188,7 @@ export const ShareLinkSchema = v.object({
   name: v.optional(v.string()),
   requireAuth: v.boolean(),
   allowlist: v.array(NonEmpty),
+  agentEnabled: v.optional(v.boolean()),
   owner: v.optional(v.string()),
   shareBranch: v.optional(v.string()),
 } satisfies EntriesOf<ShareLink>);
@@ -222,6 +223,9 @@ export const Params = {
     text: v.pipe(v.string(), v.maxLength(65_536)),
     context: v.optional(v.pipe(v.string(), v.maxLength(32_768))),
     retry: v.optional(NonEmpty),
+    commentId: v.optional(NonEmpty),
+    inputOnly: v.optional(v.boolean()),
+    discussion: v.optional(v.pipe(v.string(), v.maxLength(320_000))),
     operationId: v.optional(v.pipe(NonEmpty, v.maxLength(128))),
   }),
   "agent.reply": v.object({

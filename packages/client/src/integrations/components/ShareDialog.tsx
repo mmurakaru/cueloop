@@ -68,6 +68,7 @@ function draftForLink(link: ShareLink, threadName: string): ShareWizardDraft {
     editingId: link.id,
     name: link.name ?? threadName,
     requireAuth: link.requireAuth,
+    agentEnabled: link.agentEnabled,
     allowlist: link.allowlist,
   };
 }
@@ -259,7 +260,7 @@ function LinksList({
 }
 
 /** The focus ring positions inside the wizard, in vertical order. */
-type WizardFocus = "name" | "auth" | "allowlist" | "actions";
+type WizardFocus = "name" | "auth" | "allowlist" | "agent" | "actions";
 
 function Wizard({
   draft,
@@ -267,6 +268,8 @@ function Wizard({
   saveDisabled,
   onName,
   onToggleAuth,
+  agentAvailable,
+  onToggleAgent,
   onAllowlist,
   onSave,
   onCancel,
@@ -278,6 +281,8 @@ function Wizard({
   saveDisabled: boolean;
   onName: (name: string) => void;
   onToggleAuth: () => void;
+  agentAvailable: boolean;
+  onToggleAgent: () => void;
   onAllowlist: (logins: string[]) => void;
   onSave: () => void;
   onCancel: () => void;
@@ -329,6 +334,13 @@ function Wizard({
           />
         </box>
       ) : null}
+      {agentAvailable ? (
+        <box style={{ flexDirection: "row", alignItems: "center", marginTop: 1 }}>
+          <text fg={focus === "agent" ? tokens.accent : tokens.textDim}>Allow agent messages</text>
+          <box style={{ flexGrow: 1 }} />
+          <Switch on={draft.agentEnabled ?? false} onToggle={onToggleAgent} theme={theme} />
+        </box>
+      ) : null}
       <box style={{ flexGrow: 1 }} />
       <DialogActions
         confirmLabel={draft.editingId ? "save" : "create"}
@@ -346,6 +358,7 @@ export interface ShareDialogProps {
   threadName: string;
   links: ShareLink[];
   isOwner: boolean;
+  agentAvailable?: boolean;
   onCreateLink: (input: NewShareLink) => void;
   onUpdateLink: (id: string, input: NewShareLink) => void;
   onDeleteLink: (id: string) => void;
@@ -359,6 +372,7 @@ export function ShareDialog({
   threadName,
   links,
   isOwner,
+  agentAvailable = false,
   onCreateLink,
   onUpdateLink,
   onDeleteLink,
@@ -384,8 +398,13 @@ export function ShareDialog({
     shareDialogStore.getState().openWizard(draft);
   };
 
-  const wizardRing = (): WizardFocus[] =>
-    wizard?.requireAuth ? ["name", "auth", "allowlist", "actions"] : ["name", "auth", "actions"];
+  const wizardRing = (): WizardFocus[] => [
+    "name",
+    "auth",
+    ...(wizard?.requireAuth ? ["allowlist" as const] : []),
+    ...(agentAvailable ? ["agent" as const] : []),
+    "actions",
+  ];
 
   const moveWizardFocus = (delta: number): void => {
     const ring = wizardRing();
@@ -405,6 +424,7 @@ export function ShareDialog({
       allowlist: wizard.allowlist,
     };
 
+    if (agentAvailable) input.agentEnabled = wizard.agentEnabled ?? false;
     if (wizard.editingId) onUpdateLink(wizard.editingId, input);
     else onCreateLink(input);
     backToList();
@@ -436,6 +456,8 @@ export function ShareDialog({
     const activated = name === "return" || name === "enter";
 
     if (wizardFocus === "auth" && (activated || name === "space")) return toggleAuth();
+    if (wizardFocus === "agent" && (activated || name === "space"))
+      return shareDialogStore.getState().setAgentEnabled(!wizard.agentEnabled);
     if (wizardFocus === "actions" && activated) saveWizard();
   };
 
@@ -494,6 +516,8 @@ export function ShareDialog({
     >
       {wizard ? (
         <Wizard
+          agentAvailable={agentAvailable}
+          onToggleAgent={() => shareDialogStore.getState().setAgentEnabled(!wizard.agentEnabled)}
           draft={wizard}
           focus={wizardFocus}
           saveDisabled={saveDisabled}

@@ -410,3 +410,310 @@ test("retrying accepted work after a failed running-state save starts the harnes
     rmSync(home, { recursive: true, force: true });
   }
 });
+
+test("a shared plain input does not consume the owner's pending comments", () => {
+  const home = mkdtempSync(join(tmpdir(), "cueloop-agent-input-only-"));
+  const thread = createTestThread(home);
+  const adapter: AgentHarnessAdapter = {
+    id: "pi",
+    label: "pi",
+    connect: () => ({
+      start: () => new Promise(() => {}),
+      prompt: () => new Promise(() => {}),
+      cancel() {},
+      permission() {},
+      close() {},
+    }),
+  };
+  const manager = new ThreadAgentManager({
+    home,
+    enabled: true,
+    adapter,
+    getThread: () => thread,
+    onChange() {},
+  });
+
+  thread.annotations = [
+    {
+      id: "owner-note",
+      author: "owner",
+      kind: "comment",
+      body: "Private draft",
+      anchor: { quote: "Review", prefix: "", suffix: " the retry" },
+      createdAt: "now",
+    },
+  ];
+  try {
+    const state = manager.prompt({
+      id: thread.id,
+      text: "Shared question",
+      operationId: "shared-input",
+      inputOnly: true,
+    });
+
+    expect(state.messages.map((entry) => entry.text)).toEqual(["Shared question"]);
+    expect(manager.isReadOnly(thread.id, "owner-note")).toBe(false);
+    expect(
+      manager.prompt({
+        id: thread.id,
+        text: "Shared question",
+        operationId: "shared-input",
+        inputOnly: true,
+      }).messages,
+    ).toHaveLength(1);
+  } finally {
+    manager.dispose();
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("Pi recovery keeps the frozen harness input and submission identity after interruption", async () => {
+  const home = mkdtempSync(join(tmpdir(), "cueloop-pi-recovery-"));
+  const thread = createTestThread(home);
+  const prompts: Array<{ text: string; id?: string }> = [];
+  let resumed = false;
+  const adapter: AgentHarnessAdapter = {
+    id: "pi",
+    label: "pi",
+    connect: ({ onEvent }) => ({
+      start: async () => "durable-session",
+      prompt: async (text, id) => {
+        prompts.push({ text, id });
+        if (!resumed) return new Promise(() => {});
+        onEvent({ kind: "message", id: "durable-answer", text: "Recovered answer", replace: true });
+
+        return { outcome: "completed" as const };
+      },
+      cancel() {},
+      permission() {},
+      close() {},
+    }),
+  };
+  const options = { home, enabled: true, adapter, getThread: () => thread, onChange() {} };
+  let manager = new ThreadAgentManager(options);
+
+  try {
+    manager.prompt({
+      id: thread.id,
+      text: "Recover",
+      operationId: "recover-input",
+      inputOnly: true,
+    });
+    for (let turn = 0; !prompts.length && turn < 100; turn++) await Bun.sleep(1);
+    await manager.dispose();
+    thread.artifact.content = "Changed artifact after admission";
+    resumed = true;
+    manager = new ThreadAgentManager(options);
+    expect(manager.get(thread.id).submissions?.[0]?.status).toBe("queued");
+    manager.prompt({
+      id: thread.id,
+      text: "Recover",
+      operationId: "recover-input",
+      inputOnly: true,
+    });
+    for (let turn = 0; manager.get(thread.id).phase.kind !== "idle" && turn < 100; turn++)
+      await Bun.sleep(1);
+    expect(prompts).toHaveLength(2);
+    expect(prompts[1]).toEqual(prompts[0]);
+    expect(manager.get(thread.id).messages.map((message) => message.text)).toEqual([
+      "Recover",
+      "Recovered answer",
+    ]);
+  } finally {
+    await manager.dispose();
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("explicit shared comments execute the frozen payload and retain the original discussion", async () => {
+  const home = mkdtempSync(join(tmpdir(), "cueloop-shared-frozen-"));
+  const thread = createTestThread(home);
+  const original = {
+    id: "root",
+    kind: "comment" as const,
+    body: "Original discussion",
+    anchor: { quote: "retry", prefix: "Review the ", suffix: "" },
+    createdAt: "now",
+  };
+
+  thread.annotations = [
+    original,
+    { ...original, id: "reply", replyTo: "root", body: "Later edited value" },
+  ];
+  const manager = new ThreadAgentManager({
+    home,
+    enabled: true,
+    adapter: {
+      id: "pi",
+      label: "pi",
+      connect: () => ({
+        start: async () => "session",
+        prompt: async () => ({ outcome: "completed" }),
+        cancel() {},
+        close() {},
+        permission() {},
+      }),
+    },
+    getThread: () => thread,
+    onChange() {},
+  });
+
+  try {
+    const state = manager.prompt({
+      id: thread.id,
+      commentId: "reply",
+      operationId: "shared-frozen",
+      text: "Accepted reply",
+      context: "retry",
+      discussion: JSON.stringify({
+        discussion: [{ body: "Original discussion" }, { body: "Accepted reply" }],
+      }),
+    });
+
+    expect(state.submissions?.[0]?.prompt).toBe("Accepted reply");
+    expect(state.submissions?.[0]?.context).toContain("Original discussion");
+    expect(state.submissions?.[0]?.context).not.toContain("Later edited value");
+  } finally {
+    await manager.dispose();
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("a failed connection finishes asynchronous close before the next queued turn opens storage", async () => {
+  const home = mkdtempSync(join(tmpdir(), "cueloop-agent-close-"));
+  const thread = createTestThread(home);
+  const closeStarted = Promise.withResolvers<void>();
+  const release = Promise.withResolvers<void>();
+  let connects = 0;
+  const manager = new ThreadAgentManager({
+    home,
+    enabled: true,
+    getThread: () => thread,
+    onChange() {},
+    adapter: {
+      id: "pi",
+      label: "pi",
+      connect: () => {
+        const first = ++connects === 1;
+
+        return {
+          start: async () => "session",
+          prompt: async () => {
+            if (first) throw new Error("Connection failed");
+
+            return { outcome: "completed" };
+          },
+          cancel() {},
+          permission() {},
+          close: async () => {
+            if (first) {
+              closeStarted.resolve();
+              await release.promise;
+            }
+          },
+        };
+      },
+    },
+  });
+
+  try {
+    manager.prompt({ id: thread.id, text: "First" });
+    manager.prompt({ id: thread.id, text: "Second" });
+    await closeStarted.promise;
+    expect(connects).toBe(1);
+    release.resolve();
+    for (
+      let attempt = 0;
+      manager.get(thread.id).submissions?.[1]?.status !== "completed" && attempt < 100;
+      attempt++
+    )
+      await Bun.sleep(1);
+    expect(connects).toBe(2);
+    expect(manager.get(thread.id).submissions?.[1]?.status).toBe("completed");
+  } finally {
+    release.resolve();
+    await manager.dispose();
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("shutdown joins a failed turn that is already retiring its durable writer", async () => {
+  const home = mkdtempSync(join(tmpdir(), "cueloop-agent-retiring-"));
+  const thread = createTestThread(home);
+  const closeStarted = Promise.withResolvers<void>();
+  const release = Promise.withResolvers<void>();
+  let closed = false;
+  const manager = new ThreadAgentManager({
+    home,
+    enabled: true,
+    getThread: () => thread,
+    onChange() {},
+    adapter: {
+      id: "pi",
+      label: "pi",
+      connect: () => ({
+        start: async () => "session",
+        prompt: async () => {
+          throw new Error("Failed turn");
+        },
+        cancel() {},
+        permission() {},
+        close: async () => {
+          closeStarted.resolve();
+          await release.promise;
+          closed = true;
+        },
+      }),
+    },
+  });
+
+  try {
+    manager.prompt({ id: thread.id, text: "First" });
+    await closeStarted.promise;
+    const shutdown = manager.dispose();
+    let finished = false;
+
+    void shutdown.then(() => {
+      finished = true;
+    });
+    await Promise.resolve();
+    expect(finished).toBe(false);
+    release.resolve();
+    await shutdown;
+    expect(closed).toBe(true);
+  } finally {
+    release.resolve();
+    await manager.dispose();
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("shutdown seals admission so a later configuration cannot open a new harness", async () => {
+  const home = mkdtempSync(join(tmpdir(), "cueloop-agent-sealed-"));
+  const thread = createTestThread(home);
+  let connects = 0;
+  const manager = new ThreadAgentManager({
+    home,
+    enabled: true,
+    getThread: () => thread,
+    onChange() {},
+    adapter: {
+      id: "pi",
+      label: "pi",
+      connect: () => {
+        connects++;
+
+        throw new Error("Must not connect after shutdown");
+      },
+    },
+  });
+
+  try {
+    await manager.dispose();
+    await expect(manager.configure({ id: thread.id })).rejects.toThrow("shutting down");
+    expect(() => manager.prompt({ id: thread.id, text: "Late input" })).toThrow("shutting down");
+    expect(connects).toBe(0);
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});

@@ -39,6 +39,7 @@ import {
   type Artifact,
   type DiffFileContents,
   type ShareLink,
+  type SharePolicy,
   type Thread,
   type SessionHistory,
   type MessageOutcome,
@@ -241,6 +242,7 @@ export interface NewShareLink {
   name?: string;
   requireAuth: boolean;
   allowlist: string[];
+  agentEnabled?: boolean;
 }
 
 export interface ReviewControllerOptions {
@@ -1697,15 +1699,16 @@ class Controller implements ReviewController {
     this.setStatus("sharing…");
     this.freezeForShare(session)
       .then((shared) => {
-        return this.shareTransport.publish(
-          shared,
-          {},
-          {
-            requireAuth: input.requireAuth,
-            allowlist: input.allowlist,
-            shareBranch,
-          },
-        );
+        const policy: ShareLink = {
+          id: session.id,
+          requireAuth: input.requireAuth,
+          allowlist: input.allowlist,
+          shareBranch,
+        };
+
+        if (input.agentEnabled !== undefined) policy.agentEnabled = input.agentEnabled;
+
+        return this.shareTransport.publish(shared, {}, policy);
       })
       .then(async ({ line, copied }) => {
         const id = this.shareTransport.parseShareId(line);
@@ -1719,6 +1722,7 @@ class Controller implements ReviewController {
           shareBranch,
         };
 
+        if (input.agentEnabled !== undefined) link.agentEnabled = input.agentEnabled;
         await client.sessionSetShares(session.id, [...this.linksFor(this.snapshot.session), link]);
         this.setStatus("");
         this.showToast(line, copied ? "link copied" : "link created");
@@ -1738,20 +1742,24 @@ class Controller implements ReviewController {
     if (!links.some((link) => link.id === id)) return;
     const allowlist = input.requireAuth ? input.allowlist : [];
 
+    const policy: SharePolicy = { requireAuth: input.requireAuth, allowlist };
+
+    if (input.agentEnabled !== undefined) policy.agentEnabled = input.agentEnabled;
     // Publish the same policy stored on the local link.
-    void this.shareTransport
-      .push(id, [], { requireAuth: input.requireAuth, allowlist })
-      .catch(() => {});
-    const next = links.map((link) =>
-      link.id === id
-        ? {
-            ...link,
-            name: input.name?.trim() || undefined,
-            requireAuth: input.requireAuth,
-            allowlist,
-          }
-        : link,
-    );
+    void this.shareTransport.push(id, [], policy).catch(() => {});
+    const next = links.map((link) => {
+      if (link.id !== id) return link;
+      const updated = {
+        ...link,
+        name: input.name?.trim() || undefined,
+        requireAuth: input.requireAuth,
+        allowlist,
+      };
+
+      if (input.agentEnabled !== undefined) updated.agentEnabled = input.agentEnabled;
+
+      return updated;
+    });
 
     this.applyOptimistic(
       { ...session, shares: next },

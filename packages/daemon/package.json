@@ -37,7 +37,8 @@
     "./curate": "./src/curate.ts",
     "./sdk": "./src/daemon-sdk.ts",
     "./sdk-effect": "./src/daemon-sdk-effect.ts",
-    "./thread-subscription": "./src/thread-subscription.ts"
+    "./thread-subscription": "./src/thread-subscription.ts",
+    "./shared-agent-protocol": "./src/shared-agent-protocol.ts"
   },
   "publishConfig": {
     "access": "public"

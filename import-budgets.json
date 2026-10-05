@@ -41,9 +41,10 @@
   "moduleImportBudget": 20,
   "moduleBudgets": {
     "packages/cli/src/main.ts": 23,
-    "packages/client/src/app/App.tsx": 51,
+    "packages/client/src/app/App.tsx": 52,
     "packages/client/src/app/app-screens.tsx": 36,
     "packages/client/src/diff/components/DiffContentView.tsx": 21,
-    "packages/schema/src/index.ts": 21
+    "packages/schema/src/index.ts": 21,
+    "packages/gateway/src/server.ts": 21
   }
 }

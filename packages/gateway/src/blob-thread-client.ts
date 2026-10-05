@@ -1,17 +1,7 @@
+import type { AgentPromptRequest, AgentComment, ThreadAgentState } from "@cueloop/schema";
+import type { SharedAgentRelay } from "./shared-agent";
 import { unpackGatewayShare } from "./gateway-share-blob";
-/**
- * A ThreadClient backed by one decrypted blob instead of the local daemon.
- * This is the swap that lets the gateway render the real <App> against a share:
- * the controller asks for a session, this hands back the one it holds.
- *
- * Two modes. An observer (no write-back) rejects every mutation - the read-only
- * viewer. A collaborator (with write-back) can annotate: each annotate is a
- * read-modify-write against the stored blob (get -> open -> union by id -> seal
- * -> put), so the planner's annotations are never lost and concurrent
- * collaborators converge (ADR 0003's id-stable union). Each collaborator note
- * is stamped with their SSH fingerprint; they can only edit or delete their own.
- * Plan edits and agent messages stay rejected - a share has neither.
- */
+/** Shared viewers mutate only their own annotations; agent execution stays with the owner. */
 
 import {
   appendEntry,
@@ -36,12 +26,15 @@ export interface ShareWriteBack {
   participantSource?: ParticipantSource;
   now?: () => string;
   changes?: ShareChangeFeed;
+  agent?: SharedAgentRelay;
 }
 
 export class BlobThreadClient implements ThreadClient {
+  readonly canControlAgent = false;
   private session: Thread;
   private readonly listeners = new Set<(event: EventFrame) => void>();
   private unsubscribe: (() => void) | null = null;
+  private unsubscribeAgent: (() => void) | null = null;
 
   constructor(
     session: Thread,
@@ -61,6 +54,11 @@ export class BlobThreadClient implements ThreadClient {
 
     if (!changes || this.unsubscribe) return;
     this.unsubscribe = changes.subscribe(this.writeBack!.shareId, () => void this.refresh());
+    this.unsubscribeAgent =
+      this.writeBack?.agent?.subscribe(this.writeBack.shareId, () => {
+        for (const listener of this.listeners)
+          listener({ event: "agent.updated", sessionId: this.session.id });
+      }) ?? null;
   }
 
   /** Re-read the stored blob after another writer changed it, then tell the controller. */
@@ -96,25 +94,36 @@ export class BlobThreadClient implements ThreadClient {
   async sessionComment(_id: string, annotation: Omit<Annotation, "createdAt">): Promise<Thread> {
     const writeBack = this.requireWriteBack();
 
-    return this.commit(writeBack, (session) => upsertAnnotation(session, annotation, writeBack));
+    return this.commit(
+      writeBack,
+      (session) => upsertAnnotation(session, annotation, writeBack),
+      annotation.id,
+    );
   }
 
   async sessionAnnotate(_id: string, annotation: Omit<Annotation, "createdAt">): Promise<Thread> {
     const writeBack = this.requireWriteBack();
 
-    return this.commit(writeBack, (session) => upsertAnnotation(session, annotation, writeBack));
+    return this.commit(
+      writeBack,
+      (session) => upsertAnnotation(session, annotation, writeBack),
+      annotation.id,
+    );
   }
 
   async sessionRemoveAnnotation(_id: string, annotationId: string): Promise<Thread> {
     const writeBack = this.requireWriteBack();
 
-    return this.commit(writeBack, (session) =>
-      removeOwnAnnotation(
-        session,
-        annotationId,
-        writeBack.author,
-        writeBack.now?.() ?? new Date().toISOString(),
-      ),
+    return this.commit(
+      writeBack,
+      (session) =>
+        removeOwnAnnotation(
+          session,
+          annotationId,
+          writeBack.author,
+          writeBack.now?.() ?? new Date().toISOString(),
+        ),
+      annotationId,
     );
   }
 
@@ -186,8 +195,43 @@ export class BlobThreadClient implements ThreadClient {
     return rejectReadOnly();
   }
 
+  private requireAgent(id: string) {
+    const writeBack = this.requireWriteBack();
+
+    if (id !== this.session.id || !writeBack.agent)
+      throw new Error("Shared agent access is unavailable");
+
+    return { relay: writeBack.agent, writeBack };
+  }
+
+  agentGet(id: string): Promise<ThreadAgentState> {
+    const { relay, writeBack } = this.requireAgent(id);
+
+    return relay.get(writeBack.shareId);
+  }
+
+  agentPrompt(params: AgentPromptRequest): Promise<ThreadAgentState> {
+    const { relay, writeBack } = this.requireAgent(params.id);
+
+    return relay.prompt(writeBack.shareId, writeBack.author, params);
+  }
+
+  agentComment(params: { id: string; comment: AgentComment }): Promise<ThreadAgentState> {
+    const { relay, writeBack } = this.requireAgent(params.id);
+
+    return relay.comment(writeBack.shareId, writeBack.author, params.comment);
+  }
+
+  agentCancel(): Promise<never> {
+    return rejectReadOnly();
+  }
+  agentPermission(): Promise<never> {
+    return rejectReadOnly();
+  }
+
   close(): void {
     this.unsubscribe?.();
+    this.unsubscribeAgent?.();
     this.unsubscribe = null;
     this.listeners.clear();
   }
@@ -198,16 +242,17 @@ export class BlobThreadClient implements ThreadClient {
     return this.writeBack;
   }
 
-  /**
-   * Read the current stored blob, apply `change`, and re-store it. Reading fresh
-   * each time (not from `this.session`) folds in notes other collaborators saved
-   * since this session loaded, so the common case unions rather than clobbers.
-   * There is no compare-and-swap: two writes that interleave inside one
-   * get/put window still last-write-wins, dropping the first note. Acceptable at
-   * single-owner scale; a conditional put (R2 ETag) is the fix if it ever bites.
-   * The updated session becomes the render source.
-   */
   private async commit(
+    writeBack: ShareWriteBack,
+    change: (session: Thread) => Thread,
+    commentId?: string,
+  ): Promise<Thread> {
+    const commit = () => this.commitStored(writeBack, change);
+
+    return writeBack.agent ? writeBack.agent.edit(writeBack.shareId, commentId, commit) : commit();
+  }
+
+  private async commitStored(
     writeBack: ShareWriteBack,
     change: (session: Thread) => Thread,
   ): Promise<Thread> {

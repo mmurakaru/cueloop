@@ -91,15 +91,14 @@ export function sharePublicationView(
 ): Thread {
   const shared = viewFollowing(session, publication.shareBranch ?? session.history?.branch);
 
-  return {
-    ...shared,
-    shares: [
-      {
-        id: session.id,
-        requireAuth: publication.requireAuth,
-        allowlist: publication.requireAuth ? publication.allowlist : [],
-        shareBranch: shared.history?.branch ?? publication.shareBranch ?? MAIN_BRANCH,
-      },
-    ],
+  const link: ShareLink = {
+    id: session.id,
+    requireAuth: publication.requireAuth,
+    allowlist: publication.requireAuth ? publication.allowlist : [],
+    shareBranch: shared.history?.branch ?? publication.shareBranch ?? MAIN_BRANCH,
   };
+
+  if (publication.agentEnabled) link.agentEnabled = true;
+
+  return { ...shared, shares: [link] };
 }

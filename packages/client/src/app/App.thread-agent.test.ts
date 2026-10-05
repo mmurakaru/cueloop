@@ -10,3 +10,11 @@ test("experimental agent UI requires a local owner and an enabled flag", () => {
   expect(canRunThreadAgent({ ...local, editing: true })).toBe(false);
   expect(canRunThreadAgent({ ...local, shared: true })).toBe(false);
 });
+
+test("a per-share agent capability enables collaborator chat without a gateway flag", () => {
+  const shared = { enabled: false, owner: false, editing: false, shared: true };
+
+  expect(canRunThreadAgent(shared)).toBe(false);
+  expect(canRunThreadAgent({ ...shared, sharedAgent: true })).toBe(true);
+  expect(canRunThreadAgent({ ...shared, sharedAgent: true, editing: true })).toBe(false);
+});

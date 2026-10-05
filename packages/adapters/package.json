@@ -33,7 +33,9 @@
     "./github-review-comment": "./src/github-review-comment.ts",
     "./wake-message": "./src/wake-message.ts",
     "./fx/harness": "./src/fx/harness.ts",
-    "./pi/harness-output": "./src/pi/harness-output.ts"
+    "./pi/harness-output": "./src/pi/harness-output.ts",
+    "./pi/durable-harness": "./src/pi/durable-harness.ts",
+    "./owner-agent-relay": "./src/owner-agent-relay.ts"
   },
   "publishConfig": {
     "access": "public"
@@ -41,6 +43,9 @@
   "dependencies": {
     "@cueloop/daemon": "0.1.0-alpha.100",
     "@cueloop/schema": "0.1.0-alpha.100",
+    "@earendil-works/chord": "1.0.4",
+    "@earendil-works/pi-ai": "1.0.4",
+    "@earendil-works/pi-durable": "1.0.4",
     "valibot": "^1.5.0"
   },
   "engines": {

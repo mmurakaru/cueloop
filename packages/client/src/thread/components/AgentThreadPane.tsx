@@ -86,18 +86,20 @@ export function AgentThreadPane(props: AgentThreadPaneProps): React.ReactNode {
   const notifyState = useEffectEvent(() => props.onStateChange?.(state));
   const notifyControls = useEffectEvent(() =>
     props.onControlsChange?.(
-      <AgentConfigControls
-        state={state}
-        theme={theme}
-        onConfigure={(configId, value) =>
-          void agent.act((client) => {
-            if (!client.agentConfigure)
-              return Promise.reject(new Error("Agent configuration is unavailable"));
+      props.client && !props.client.agentConfigure ? null : (
+        <AgentConfigControls
+          state={state}
+          theme={theme}
+          onConfigure={(configId, value) =>
+            void agent.act((client) => {
+              if (!client.agentConfigure)
+                return Promise.reject(new Error("Agent configuration is unavailable"));
 
-            return client.agentConfigure({ id: thread.id, configId, value });
-          })
-        }
-      />,
+              return client.agentConfigure({ id: thread.id, configId, value });
+            })
+          }
+        />
+      ),
     ),
   );
 
@@ -135,7 +137,7 @@ export function AgentThreadPane(props: AgentThreadPaneProps): React.ReactNode {
           }
           await props.flushMutations?.();
           const accepted = await agent.act((client) =>
-            client.agentPrompt({ id: thread.id, text: input.text }),
+            client.agentPrompt({ id: thread.id, text: input.text, operationId: newAnnotationId() }),
           );
 
           if (!accepted) rejected.push(input.text);
@@ -194,7 +196,7 @@ export function AgentThreadPane(props: AgentThreadPaneProps): React.ReactNode {
     );
 
     if (!submission) return undefined;
-    if (submission.status === "failed")
+    if (submission.status === "failed" && props.client?.canControlAgent !== false)
       return {
         label: "Retry",
         run: () =>
@@ -317,8 +319,11 @@ export function AgentThreadPane(props: AgentThreadPaneProps): React.ReactNode {
       renderBlock={(index) =>
         index === projection.activityIndex ? (
           <box style={{ flexDirection: "column", paddingLeft: 2 }}>
+            {state.phase.kind === "offline" ? (
+              <text fg={theme.textMuted}>Owner offline</text>
+            ) : null}
             {busy ? <text fg={pulse ? theme.textDim : theme.textMuted}>Thinking…</text> : null}
-            {state.phase.kind === "permission" ? (
+            {state.phase.kind === "permission" && props.client?.canControlAgent !== false ? (
               <>
                 <text fg={theme.text}>{state.phase.permission.title}</text>
                 <box style={{ flexDirection: "row", gap: 2 }}>

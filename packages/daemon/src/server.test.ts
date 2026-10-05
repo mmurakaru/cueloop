@@ -526,3 +526,49 @@ describe("large payloads survive socket backpressure", () => {
     expect(listed.some((session) => session.id === created.id)).toBe(true);
   }, 15_000);
 });
+
+test("explicit daemon shutdown waits for the harness to release durable storage before exit", async () => {
+  client.close();
+  server.stop();
+  const closeStarted = Promise.withResolvers<void>();
+  const release = Promise.withResolvers<void>();
+  const exited = Promise.withResolvers<void>();
+  let didExit = false;
+
+  server = new DaemonServer({
+    home,
+    idleExitMs: 0,
+    onIdleExit: () => {
+      didExit = true;
+      exited.resolve();
+    },
+    threadAgent: {
+      enabled: true,
+      adapter: {
+        id: "pi",
+        label: "pi",
+        connect: () => ({
+          start: async () => "session",
+          prompt: async () => ({ outcome: "completed" }),
+          cancel() {},
+          permission() {},
+          close: async () => {
+            closeStarted.resolve();
+            await release.promise;
+          },
+        }),
+      },
+    },
+  });
+  server.start();
+  client = await DaemonClient.connect({ home });
+  const thread = await client.sessionCreate(WS, PLAN);
+
+  await client.agentPrompt({ id: thread.id, text: "Persist this" });
+  await client.shutdown();
+  await closeStarted.promise;
+  expect(didExit).toBe(false);
+  release.resolve();
+  await exited.promise;
+  expect(didExit).toBe(true);
+});
