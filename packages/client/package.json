@@ -38,7 +38,7 @@
     "@pierre/diffs": "^1.5.1",
     "@tanstack/virtual-core": "^3.17.11",
     "diff": "^9",
-    "puppeteer-core": "^25.11.0",
+    "puppeteer-core": "^25.12.0",
     "react": "^19.3.0",
     "valibot": "^1.5.0",
     "zustand": "^5.0.15"
