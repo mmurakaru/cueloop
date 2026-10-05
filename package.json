@@ -43,7 +43,7 @@
     "cueloop": "workspace:*",
     "effect": "^4.0.0",
     "oxfmt": "^0.70.0",
-    "oxlint": "^1.80.0",
+    "oxlint": "^1.85.0",
     "react": "^19.3.0",
     "typescript": "^7.0.2",
     "valibot": "^1.5.0"
