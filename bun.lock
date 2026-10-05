@@ -26,7 +26,7 @@
     },
     "packages/adapters": {
       "name": "@cueloop/adapters",
-      "version": "0.1.0-alpha.96",
+      "version": "0.1.0-alpha.98",
       "dependencies": {
         "@cueloop/daemon": "0.1.0-alpha.96",
         "@cueloop/schema": "0.1.0-alpha.96",
@@ -35,7 +35,7 @@
     },
     "packages/cli": {
       "name": "cueloop",
-      "version": "0.1.0-alpha.96",
+      "version": "0.1.0-alpha.98",
       "bin": {
         "cueloop": "./src/main.ts",
       },
@@ -52,17 +52,17 @@
     },
     "packages/client": {
       "name": "@cueloop/client",
-      "version": "0.1.0-alpha.96",
+      "version": "0.1.0-alpha.98",
       "dependencies": {
-        "@cueloop/daemon": "0.1.0-alpha.96",
-        "@cueloop/extension-api": "0.1.0-alpha.96",
-        "@cueloop/integration-obsidian": "0.1.0-alpha.96",
-        "@cueloop/schema": "0.1.0-alpha.96",
+        "@cueloop/daemon": "0.1.0-alpha.98",
+        "@cueloop/extension-api": "0.1.0-alpha.98",
+        "@cueloop/integration-obsidian": "0.1.0-alpha.98",
+        "@cueloop/schema": "0.1.0-alpha.98",
         "@opentui/core": "^0.5.12",
         "@opentui/keymap": "0.5.12",
         "@opentui/react": "^0.5.12",
         "@opentui/ssh": "0.5.12",
-        "@pierre/diffs": "^1.4.1",
+        "@pierre/diffs": "^1.5.1",
         "@tanstack/virtual-core": "^3.17.11",
         "diff": "^9",
         "puppeteer-core": "^25.11.0",
@@ -78,11 +78,11 @@
     },
     "packages/daemon": {
       "name": "@cueloop/daemon",
-      "version": "0.1.0-alpha.96",
+      "version": "0.1.0-alpha.98",
       "dependencies": {
-        "@cueloop/extension-api": "0.1.0-alpha.96",
-        "@cueloop/schema": "0.1.0-alpha.96",
-        "@pierre/diffs": "^1.4.1",
+        "@cueloop/extension-api": "0.1.0-alpha.98",
+        "@cueloop/schema": "0.1.0-alpha.98",
+        "@pierre/diffs": "^1.5.1",
         "effect": "^4.0.0-rc.117",
         "smol-toml": "^1.8.0",
         "valibot": "^1.5.0",
@@ -90,9 +90,9 @@
     },
     "packages/extension-api": {
       "name": "@cueloop/extension-api",
-      "version": "0.1.0-alpha.96",
+      "version": "0.1.0-alpha.98",
       "dependencies": {
-        "@cueloop/schema": "0.1.0-alpha.96",
+        "@cueloop/schema": "0.1.0-alpha.98",
         "valibot": "^1.5.0",
       },
       "peerDependencies": {
@@ -102,7 +102,7 @@
     },
     "packages/gateway": {
       "name": "@cueloop/gateway",
-      "version": "0.1.0-alpha.96",
+      "version": "0.1.0-alpha.98",
       "bin": {
         "cueloop-gateway": "./src/main.ts",
       },
@@ -122,16 +122,16 @@
     },
     "packages/integrations/obsidian": {
       "name": "@cueloop/integration-obsidian",
-      "version": "0.1.0-alpha.96",
+      "version": "0.1.0-alpha.98",
       "dependencies": {
-        "@cueloop/extension-api": "0.1.0-alpha.96",
-        "@cueloop/schema": "0.1.0-alpha.96",
+        "@cueloop/extension-api": "0.1.0-alpha.98",
+        "@cueloop/schema": "0.1.0-alpha.98",
         "valibot": "^1.5.0",
       },
     },
     "packages/pi": {
       "name": "@cueloop/pi",
-      "version": "0.1.0-alpha.96",
+      "version": "0.1.0-alpha.98",
       "dependencies": {
         "@cueloop/adapters": "0.1.0-alpha.96",
       },
@@ -141,7 +141,7 @@
     },
     "packages/schema": {
       "name": "@cueloop/schema",
-      "version": "0.1.0-alpha.96",
+      "version": "0.1.0-alpha.98",
     },
   },
   "packages": {
@@ -419,7 +419,7 @@
 
     "@oxlint/plugins": ["@oxlint/plugins@1.83.0", "", {}, "sha512-qD64wr6SS1DL7YbJQ8WWjyUfFfrJsvAy9Vo0sG/PYUQy30w0uemN2h6j4xuvj4noyETDpzcGC20sv+FH7GrN5A=="],
 
-    "@pierre/diffs": ["@pierre/diffs@1.4.3", "", { "dependencies": { "@pierre/theme": "2.0.0", "@pierre/theming": "1.0.1", "@shikijs/transformers": "^3.0.0 || ^4.0.0", "diff": "9.0.0", "hast-util-to-html": "9.0.5", "lru_map": "0.4.1", "shiki": "^3.0.0 || ^4.0.0" }, "peerDependencies": { "react": "^18.3.1 || ^19.0.0", "react-dom": "^18.3.1 || ^19.0.0" }, "optionalPeers": ["react", "react-dom"] }, "sha512-zJD10amMxjQis5/SYz9AYMTyqdvg1Rbuu6nCYJm67C0phFGHbescoQcxNnxrV2SVQcNSyxtSRwjjf4ND5IJXnA=="],
+    "@pierre/diffs": ["@pierre/diffs@1.5.1", "", { "dependencies": { "@pierre/theme": "2.0.0", "@pierre/theming": "1.0.1", "@shikijs/transformers": "^3.0.0 || ^4.0.0", "diff": "9.0.0", "hast-util-to-html": "9.0.5", "lru_map": "0.4.1", "shiki": "^3.0.0 || ^4.0.0" }, "peerDependencies": { "react": "^18.3.1 || ^19.0.0", "react-dom": "^18.3.1 || ^19.0.0" }, "optionalPeers": ["react", "react-dom"] }, "sha512-+EXNfz4ZXI6FHr7P6ToWEORwyYiPVfAmzhA70xF+0y/oNvj7gbNTLJJ6jNzkBjuMbRlu564TAmgYZLc5OyHURA=="],
 
     "@pierre/theme": ["@pierre/theme@2.0.0", "", {}, "sha512-yNDd9GYLQl1mEUJR8AneJ5e4ohLIHQd/wZLWr4fagt78vS2RwwZNW530vVgHqXFAyFVcFlRmGUD5ramXH46OXw=="],
 
