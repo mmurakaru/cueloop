@@ -14,6 +14,7 @@ import { join, resolve } from "node:path";
 import {
   loadGhosttyTerminals,
   type GhosttyCell,
+  type GhosttyCursor,
   type GhosttyTerminal,
 } from "../../packages/client/src/terminal/ghostty-terminal";
 import {
@@ -145,6 +146,8 @@ export interface LaunchTuiSessionOptions {
   home: string;
   /** CLI arguments, typically the session id to open. */
   args: string[];
+  /** Override Bun arguments to exercise source-only development scripts. */
+  sourceArgs?: string[];
   /** Working directory for commands that inspect the current checkout. */
   cwd?: string;
   cols?: number;
@@ -191,7 +194,9 @@ export function launchTuiSession(options: LaunchTuiSessionOptions): PtyTuiSessio
       ? resolve(executable)
       : executable
     : process.execPath;
-  const args = executable ? options.args : ["run", CLI_ENTRY, ...options.args];
+  const args = executable
+    ? options.args
+    : (options.sourceArgs ?? ["run", CLI_ENTRY, ...options.args]);
   const pty = spawn(command, args, {
     name: environment.TERM,
     cols,
@@ -300,6 +305,11 @@ export class PtyTuiSession implements PtyScreenReader {
     for (let x = 0; x < this.pty.cols; x++) cells.push(this.terminal.readCell(x, row));
 
     return cells;
+  }
+
+  /** The terminal cursor position and visibility, for input-focus assertions. */
+  cursor(): GhosttyCursor {
+    return this.terminal.readCursor();
   }
 
   /** Write bytes straight to the child's tty; for sequences the key table cannot express. */

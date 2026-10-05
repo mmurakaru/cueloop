@@ -659,3 +659,18 @@ describe("the /lgtm default quick action", () => {
     expect(quickActionBody(lgtm!)).toBe("LGTM\n\nThis looks good to me.");
   });
 });
+
+test("Thread agents default off and require a boolean experimental TOML flag", () => {
+  const dir = mkdtempSync(join(tmpdir(), "cueloop-agent-config-"));
+  const path = join(dir, "config.toml");
+
+  try {
+    expect(loadConfig({ userConfigPath: path }).experimental.threadAgent).toBe(false);
+    writeFileSync(path, "[experimental]\nthread_agent = true\n");
+    expect(loadConfig({ userConfigPath: path }).experimental.threadAgent).toBe(true);
+    writeFileSync(path, '[experimental]\nthread_agent = "true"\n');
+    expect(loadConfig({ userConfigPath: path }).experimental.threadAgent).toBe(false);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

@@ -58,6 +58,8 @@ import {
 } from "./validate";
 import type { WorkingTreeDiff } from "./working-tree";
 import { DAEMON_VERSION } from "./version";
+import { ThreadAgentSchema } from "./thread-agent-validation";
+import type { AgentComment, ThreadAgentState } from "@cueloop/schema";
 
 export type { EventFrame } from "./protocol";
 
@@ -101,6 +103,8 @@ export interface ThreadClient {
   onEvent(listener: (event: EventFrame) => void): () => void;
   subscribe(): Promise<void>;
   sessionGet(id: string): Promise<Thread>;
+  /** Create a local owner Thread; shared clients omit this capability. */
+  sessionCreate?(workspace: WorkspaceKey, artifact: Artifact): Promise<Thread>;
   sessionList(filter?: { status?: "pending" | "resolved" }): Promise<Thread[]>;
   /** Add a comment; the primary annotate method. `sessionAnnotate` is the retained alias. */
   sessionComment(
@@ -458,6 +462,44 @@ export class DaemonClient implements ThreadClient {
   }
 
   // ── typed primitives ─────────────────────────────
+  /** Read the agent transcript without starting a model request. */
+  agentGet(id: string): Promise<ThreadAgentState> {
+    return this.request("agent.get", { id }, ThreadAgentSchema);
+  }
+  /** Submit a question and optional selected passage to the daemon-owned agent. */
+  agentPrompt(params: {
+    id: string;
+    text: string;
+    context?: string;
+    retry?: string;
+  }): Promise<ThreadAgentState> {
+    return this.request("agent.prompt", params, ThreadAgentSchema);
+  }
+  /** Cancel the active turn; the daemon retains partial output. */
+  agentCancel(id: string): Promise<ThreadAgentState> {
+    return this.request("agent.cancel", { id }, ThreadAgentSchema);
+  }
+  /** Save quote-primary feedback on a finalized agent answer. */
+  agentComment(params: { id: string; comment: AgentComment }): Promise<ThreadAgentState> {
+    return this.request("agent.comment", params, ThreadAgentSchema);
+  }
+  /** Configure only an option advertised by the current harness. */
+  agentConfigure(params: {
+    id: string;
+    configId?: string;
+    value?: string;
+  }): Promise<ThreadAgentState> {
+    return this.request("agent.configure", params, ThreadAgentSchema);
+  }
+
+  /** Select an option from the active agent permission card. */
+  agentPermission(params: {
+    id: string;
+    requestId: string;
+    optionId: string;
+  }): Promise<ThreadAgentState> {
+    return this.request("agent.permission", params, ThreadAgentSchema);
+  }
   ping(): Promise<{ pid: number }> {
     return this.request("daemon.ping", {}, PingResultSchema);
   }
@@ -731,7 +773,7 @@ export class DaemonClientError extends Error {
 }
 
 // A compiled binary re-execs `cueloop daemon --autostart` (idle-exits like main.ts,
-// unlike the never-exiting foreground daemon); from source, bun runs main.ts. In
+// unlike the never-exiting foreground daemon); source also uses the CLI composition root. In
 // dev (CUELOOP_DEV_WATCH=1, source only) it runs under --watch so daemon-code edits
 // reload the daemon without a manual restart - the version handshake only catches
 // release upgrades, not same-version source changes.
@@ -739,14 +781,19 @@ export function daemonSpawnCommand(
   execPath: string,
   moduleUrl: string,
   devWatch = process.env.CUELOOP_DEV_WATCH === "1",
+  entry = process.env.CUELOOP_DAEMON_ENTRY,
 ): string[] {
   const compiled =
     moduleUrl.includes("$bunfs") || moduleUrl.includes("~BUN") || moduleUrl.includes("%7EBUN");
 
   if (compiled) return [execPath, "daemon", "--autostart"];
-  const mainPath = new URL("./main.ts", moduleUrl).pathname;
+  const mainPath = entry ?? new URL("./main.ts", moduleUrl).pathname;
 
-  return devWatch ? [execPath, "--watch", "run", mainPath] : [execPath, "run", mainPath];
+  const args = entry ? ["daemon", "--autostart"] : [];
+
+  return devWatch
+    ? [execPath, "--watch", "run", mainPath, ...args]
+    : [execPath, "run", mainPath, ...args];
 }
 
 function spawnDaemon(home: string): string {

@@ -17,6 +17,7 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs";
+import type { AgentHarnessTools } from "@cueloop/schema";
 import { DaemonCore, type DaemonEvent } from "./api";
 import { DaemonError } from "./errors";
 import { DEFAULT_ROLE, roleAllowsMethod, type DaemonRole } from "./capabilities";
@@ -30,7 +31,9 @@ import {
 } from "./protocol";
 import { cueloopHome, lockPath, ownerTokenPath, pidPath, socketPath } from "./paths";
 import { DAEMON_VERSION } from "./version";
-import { randomBytes } from "node:crypto";
+import { randomUUID, randomBytes } from "node:crypto";
+import { parseAgentToolInput, assertAgentToolScope } from "./agent-tools";
+import { ThreadAgentManager, type ThreadAgentOptions } from "./thread-agent";
 
 interface Connection {
   /** The author a non-owner connection acts as, bound in the handshake. */
@@ -44,6 +47,8 @@ interface Connection {
 type MethodHandler = (connection: Connection, request: Request) => Response["result"];
 
 export interface DaemonOptions {
+  /** Explicit prototype configuration; commands cannot arrive from socket callers. */
+  threadAgent?: Pick<ThreadAgentOptions, "enabled" | "enabledForThread" | "adapter">;
   home?: string;
   /** Idle-exit delay; 0 disables (tests, foreground runs). */
   idleExitMs?: number;
@@ -61,6 +66,7 @@ const HELD_HOMES = new Set<string>();
 const LOCK_WAIT = new Int32Array(new SharedArrayBuffer(4));
 
 export class DaemonServer {
+  private readonly threadAgent: ThreadAgentManager;
   readonly core: DaemonCore;
   readonly home: string;
   private connections = new Set<Connection>();
@@ -80,6 +86,62 @@ export class DaemonServer {
     this.version = options.version ?? DAEMON_VERSION;
     mkdirSync(this.home, { recursive: true, mode: 0o700 });
     this.core = new DaemonCore(this.home);
+    this.threadAgent = new ThreadAgentManager({
+      home: this.home,
+      enabled: options.threadAgent?.enabled ?? false,
+      enabledForThread: options.threadAgent?.enabledForThread,
+      adapter: options.threadAgent?.adapter,
+      getThread: (id) => this.core.sessionGet(id),
+      tools: (thread): AgentHarnessTools => ({
+        definitions: [
+          {
+            name: "send_message",
+            description:
+              "Return the Thread and its comments to the main session using the existing Send message action.",
+            inputSchema: {
+              type: "object",
+              properties: {
+                id: { type: "string" },
+                outcome: { type: "string", enum: ["comment", "approved", "changes_requested"] },
+                summary: { type: "string" },
+              },
+              required: ["id", "outcome"],
+            },
+          },
+          {
+            name: "reply_to_comment",
+            description:
+              "Append a reply to an existing comment discussion, preserving its quote and Changes origin.",
+            inputSchema: {
+              type: "object",
+              properties: {
+                id: { type: "string" },
+                commentId: { type: "string" },
+                body: { type: "string" },
+              },
+              required: ["id", "commentId", "body"],
+            },
+          },
+          {
+            name: "cueloop_api",
+            description:
+              "Call a cueloop API operation on this Thread or its repository. Use session.get to inspect this Thread. Global harness, sharing, deletion and Thread creation operations are unavailable. Parameters follow the cueloop socket API.",
+            inputSchema: {
+              type: "object",
+              properties: { method: { type: "string" }, params: { type: "object" } },
+              required: ["method", "params"],
+            },
+          },
+        ],
+        call: async (name, input) => this.callAgentTool(thread.id, name, input),
+      }),
+      onChange: (id) => {
+        for (const connection of this.connections) {
+          if (connection.subscribed && connection.role === "owner")
+            connection.write(JSON.stringify({ event: "agent.updated", sessionId: id }) + "\n");
+        }
+      },
+    });
     this.core.onEvent((event) => this.broadcast(event));
   }
 
@@ -230,6 +292,7 @@ export class DaemonServer {
   }
 
   stop(): void {
+    this.threadAgent.dispose();
     this.core.dispose();
     if (this.lockFd === null) return;
     this.server?.stop(true);
@@ -287,7 +350,81 @@ export class DaemonServer {
     }
   }
 
+  private async callAgentTool(threadId: string, name: string, input: string): Promise<string> {
+    const args = parseAgentToolInput(name, input);
+    const origin = this.core.sessionGet(threadId);
+    assertAgentToolScope(origin, args);
+    if (args.kind === "api" && args.method === "session.list") {
+      const { filter } = parseParams("session.list", args.params);
+
+      return JSON.stringify(!filter?.status || origin.status === filter.status ? [origin] : []);
+    }
+    if (args.kind === "reply") {
+      const thread = origin;
+      const comment = thread.annotations.find((entry) => entry.id === args.commentId);
+      if (!comment)
+        return JSON.stringify(this.threadAgent.reply(args.id, args.commentId, args.body));
+      const root =
+        thread.annotations.find((entry) => entry.id === (comment.replyTo ?? comment.id)) ?? comment;
+
+      return JSON.stringify(
+        this.core.sessionAnnotate(
+          args.id,
+          {
+            id: randomUUID(),
+            kind: "comment",
+            anchor: root.anchor,
+            target: root.target,
+            replyTo: root.id,
+            body: args.body,
+            author: "embedded-agent",
+          },
+          "Agent",
+        ),
+      );
+    }
+    const method = args.method;
+    if (!isKnownMethod(method)) throw new Error("Thread agent tool API method is unavailable");
+
+    return JSON.stringify(
+      await this.handlers[method](
+        { role: "owner", subscribed: false, write: () => {} },
+        { id: 0, method, params: args.params },
+      ),
+    );
+  }
+
   private readonly handlers: Record<MethodName, MethodHandler> = {
+    "agent.configure": (_connection, request) => {
+      const params = parseParams("agent.configure", request.params);
+      this.threadAgent.assertEnabled(params.id);
+      return this.threadAgent.configure(params);
+    },
+    "agent.get": (_connection, request) => {
+      const { id } = parseParams("agent.get", request.params);
+      this.threadAgent.assertEnabled(id);
+      return this.threadAgent.get(id);
+    },
+    "agent.prompt": (_connection, request) => {
+      const params = parseParams("agent.prompt", request.params);
+      this.threadAgent.assertEnabled(params.id);
+      return this.threadAgent.prompt(params);
+    },
+    "agent.cancel": (_connection, request) => {
+      const { id } = parseParams("agent.cancel", request.params);
+      this.threadAgent.assertEnabled(id);
+      return this.threadAgent.cancel(id);
+    },
+    "agent.comment": (_connection, request) => {
+      const params = parseParams("agent.comment", request.params);
+      this.threadAgent.assertEnabled(params.id);
+      return this.threadAgent.comment(params);
+    },
+    "agent.permission": (_connection, request) => {
+      const params = parseParams("agent.permission", request.params);
+      this.threadAgent.assertEnabled(params.id);
+      return this.threadAgent.permission(params);
+    },
     "daemon.ping": () => ({ pid: process.pid, version: this.version }),
     "daemon.hello": (connection, request) => {
       const params = parseParams("daemon.hello", request.params);
@@ -340,10 +477,16 @@ export class DaemonServer {
     "session.annotate": (_connection, request) => {
       const params = parseParams("session.annotate", request.params);
 
+      if (this.threadAgent.isReadOnly(params.id, params.annotation.id))
+        throw new Error("Thread agent submitted comments are read-only");
+
       return this.core.sessionAnnotate(params.id, params.annotation, params.authorName);
     },
     "session.comment": (_connection, request) => {
       const params = parseParams("session.comment", request.params);
+
+      if (this.threadAgent.isReadOnly(params.id, params.annotation.id))
+        throw new Error("Thread agent submitted comments are read-only");
 
       return this.core.sessionAnnotate(params.id, params.annotation, params.authorName);
     },
@@ -357,6 +500,9 @@ export class DaemonServer {
           "a non-owner connection removes comments as its bound author",
         );
       }
+
+      if (this.threadAgent.isReadOnly(params.id, params.annotationId))
+        throw new Error("Thread agent submitted comments are read-only");
 
       return this.core.sessionRemoveAnnotation(
         params.id,
@@ -475,7 +621,10 @@ export class DaemonServer {
       return this.core.sessionSetShares(params.id, params.shares);
     },
     "session.delete": (_connection, request) => {
-      this.core.sessionDelete(parseParams("session.delete", request.params).id);
+      const { id } = parseParams("session.delete", request.params);
+
+      this.core.sessionDelete(id);
+      this.threadAgent.remove(id);
 
       return {};
     },
