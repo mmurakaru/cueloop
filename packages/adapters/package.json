@@ -1,6 +1,6 @@
 {
   "name": "@cueloop/adapters",
-  "version": "0.1.0-alpha.97",
+  "version": "0.1.0-alpha.98",
   "description": "cueloop adapters for coding agents: Claude Code, pi, and Codex",
   "homepage": "https://github.com/mmurakaru/cueloop#readme",
   "bugs": {
@@ -31,14 +31,16 @@
     "./delivered-message-store": "./src/delivered-message-store.ts",
     "./forge-review": "./src/forge-review.ts",
     "./github-review-comment": "./src/github-review-comment.ts",
-    "./wake-message": "./src/wake-message.ts"
+    "./wake-message": "./src/wake-message.ts",
+    "./fx/harness": "./src/fx/harness.ts",
+    "./pi/harness-output": "./src/pi/harness-output.ts"
   },
   "publishConfig": {
     "access": "public"
   },
   "dependencies": {
-    "@cueloop/daemon": "0.1.0-alpha.97",
-    "@cueloop/schema": "0.1.0-alpha.97",
+    "@cueloop/daemon": "0.1.0-alpha.98",
+    "@cueloop/schema": "0.1.0-alpha.98",
     "valibot": "^1.5.0"
   },
   "engines": {
