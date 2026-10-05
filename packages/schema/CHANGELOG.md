@@ -1,5 +1,13 @@
 # @cueloop/schema
 
+## 0.1.0-alpha.99
+
+### Minor Changes
+
+- [#557](https://github.com/mmurakaru/cueloop/pull/557) [`34353cf`](https://github.com/mmurakaru/cueloop/commit/34353cfc947bc49ef5e250abe921960c326f73c6) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Expose a reusable daemon SDK with a scoped Effect service, typed transport failures,
+  receipt-backed review messages and agent prompts, and reconnecting subscriptions.
+  Preserve accepted operation identities after lost responses and daemon restarts.
+
 ## 0.1.0-alpha.98
 
 ### Minor Changes

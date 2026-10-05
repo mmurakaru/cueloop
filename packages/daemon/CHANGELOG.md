@@ -1,5 +1,24 @@
 # @cueloop/daemon
 
+## 0.1.0-alpha.99
+
+### Minor Changes
+
+- [#557](https://github.com/mmurakaru/cueloop/pull/557) [`34353cf`](https://github.com/mmurakaru/cueloop/commit/34353cfc947bc49ef5e250abe921960c326f73c6) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Expose a reusable daemon SDK with a scoped Effect service, typed transport failures,
+  receipt-backed review messages and agent prompts, and reconnecting subscriptions.
+  Preserve accepted operation identities after lost responses and daemon restarts.
+
+### Patch Changes
+
+- [#548](https://github.com/mmurakaru/cueloop/pull/548) [`e71db8a`](https://github.com/mmurakaru/cueloop/commit/e71db8ac67d47b2e1285803509ba527e695b3576) Thanks [@dependabot](https://github.com/apps/dependabot)! - Update TOML parsing to smol-toml 1.9.0.
+
+- [#552](https://github.com/mmurakaru/cueloop/pull/552) [`2a0db3f`](https://github.com/mmurakaru/cueloop/commit/2a0db3f1b66dbc268f8cc12cdb06184fa4fea036) Thanks [@dependabot](https://github.com/apps/dependabot)! - Update diff parsing to @pierre/diffs 1.5.1.
+
+- [#553](https://github.com/mmurakaru/cueloop/pull/553) [`8907de4`](https://github.com/mmurakaru/cueloop/commit/8907de49d1aa4ffa8d0adb8fe6ae3f92b33aec90) Thanks [@dependabot](https://github.com/apps/dependabot)! - Update the Effect runtime from the release candidate to 4.0.0.
+- Updated dependencies [[`34353cf`](https://github.com/mmurakaru/cueloop/commit/34353cfc947bc49ef5e250abe921960c326f73c6)]:
+  - @cueloop/schema@0.1.0-alpha.99
+  - @cueloop/extension-api@0.1.0-alpha.99
+
 ## 0.1.0-alpha.98
 
 ### Minor Changes
