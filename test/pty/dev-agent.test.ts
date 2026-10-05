@@ -31,7 +31,7 @@ ptyTest.skipIf(Boolean(process.env.CUELOOP_TEST_EXECUTABLE))(
       sourceArgs: ["run", "dev:watch"],
       cols: 120,
       rows: 30,
-      env: { CUELOOP_FX_EXECUTABLE: fixtureBin },
+      env: { CUELOOP_AGENT_HARNESS: "fx", CUELOOP_FX_EXECUTABLE: fixtureBin },
     });
     let client: DaemonClient | undefined;
 
