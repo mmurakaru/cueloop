@@ -692,13 +692,13 @@ test("clicking the first blank row after a reply opens continuation without losi
     await waitForText(setup, "The final reply.");
     await waitForState(
       setup,
-      () => setup.renderer.getCursorState().visible,
+      () => setup.renderer.currentFocusedEditor !== null,
       "initial continuation focus ready",
     );
     await pressKey(setup, "ESCAPE");
     await waitForState(
       setup,
-      () => !setup.renderer.getCursorState().visible,
+      () => setup.renderer.currentFocusedEditor === null,
       "continuation dismissed",
     );
     const reply = locateText(setup, "The final reply.");
@@ -709,7 +709,7 @@ test("clicking the first blank row after a reply opens continuation without losi
       () => {
         const cursor = setup.renderer.getCursorState();
 
-        return cursor.visible && cursor.blinking;
+        return setup.renderer.currentFocusedEditor !== null && cursor.visible && cursor.blinking;
       },
       "continuation cursor focused",
     );
@@ -721,7 +721,7 @@ test("clicking the first blank row after a reply opens continuation without losi
       () => {
         const cursor = setup.renderer.getCursorState();
 
-        return cursor.visible && cursor.blinking;
+        return setup.renderer.currentFocusedEditor !== null && cursor.visible && cursor.blinking;
       },
       "continuation cursor focused",
     );
