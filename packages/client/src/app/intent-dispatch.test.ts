@@ -116,7 +116,6 @@ function baseController(): ReviewController {
     submit: mock(),
     share: mock(),
     unshare: mock(),
-    setShareAccess: mock(),
     shareLinks: mock(() => []),
     createShareLink: mock(),
     updateShareLink: mock(),

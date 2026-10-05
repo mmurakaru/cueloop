@@ -326,7 +326,6 @@ describe("wire pins", () => {
     curation: [{ path: "src/a.ts", hunkIndex: 0, changeIndex: 1 }],
     shelvedAnnotations: [fullAnnotation],
     parentSessionId: "ses_0",
-    shareBranch: "main",
     workingCopy: "# ",
     textCuts: [{ start: 2, end: 3, quote: "P" }],
     viewedPaths: ["src/a.ts"],
@@ -344,9 +343,6 @@ describe("wire pins", () => {
         shareBranch: "main",
       },
     ],
-    shareId: "p_abc123xy",
-    owner: "SHA256:owner",
-    access: { githubLogins: ["octocat"] },
     participants: [fullIdentity],
   };
 

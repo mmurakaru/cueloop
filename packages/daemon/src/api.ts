@@ -100,6 +100,7 @@ function annotationDeliveryFingerprint(annotation: Annotation | undefined): stri
 
 /** What a share hands back: the notes and names it collected, and the removals it recorded. */
 export interface SharedMerge {
+  shareId?: string;
   annotations: Annotation[];
   participants?: Identity[];
   removals?: Array<{ id: string; annotationId: string; createdAt: string }>;
@@ -699,36 +700,11 @@ export class DaemonCore {
     }
   }
 
-  sessionSetShareId(id: string, shareId: string): Thread {
-    const session = this.mutable(id);
-
-    session.shareId = shareId;
-    this.store.upsert(session);
-    this.emit("session.updated", id);
-
-    return session;
-  }
-
-  /** Replace the thread's share links; the legacy single-share fields are dropped once shares[] is authoritative. */
+  /** Replace the thread's share links. */
   sessionSetShares(id: string, shares: ShareLink[]): Thread {
     const session = this.mutable(id);
 
     session.shares = shares;
-    delete session.shareId;
-    delete session.access;
-    delete session.owner;
-    delete session.shareBranch;
-    this.store.upsert(session);
-    this.emit("session.updated", id);
-
-    return session;
-  }
-
-  /** Set the private-share allowlist of GitHub logins; presence marks the share private. */
-  sessionSetAccess(id: string, githubLogins: string[]): Thread {
-    const session = this.mutable(id);
-
-    session.access = { githubLogins };
     this.store.upsert(session);
     this.emit("session.updated", id);
 
@@ -842,7 +818,7 @@ export class DaemonCore {
    */
   sessionMergeShared(id: string, incoming: SharedMerge): Thread {
     const session = this.mutable(id);
-    const branch = this.shareBranchOf(session);
+    const branch = this.shareBranchOf(session, incoming.shareId);
     const known = new Set(
       [...session.annotations, ...(session.shelvedAnnotations ?? [])].map(
         (annotation) => annotation.id,
@@ -1482,9 +1458,13 @@ export class DaemonCore {
     return appended.entry.id;
   }
 
-  /** The branch a share follows; a share made before branches existed follows main. */
-  private shareBranchOf(session: Thread): string {
-    const branch = session.shareBranch ?? MAIN_BRANCH;
+  /** Resolve the selected share link's branch; a missing branch falls back to main. */
+  private shareBranchOf(session: Thread, shareId?: string): string {
+    const link = session.shares?.find((candidate) => candidate.id === shareId);
+
+    if (shareId !== undefined && !link)
+      throw new DaemonError("not_found", `no share link ${shareId}`);
+    const branch = link?.shareBranch ?? MAIN_BRANCH;
 
     return session.history?.tips[branch] === undefined ? MAIN_BRANCH : branch;
   }

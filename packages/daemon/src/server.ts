@@ -589,11 +589,6 @@ export class DaemonServer {
 
       return this.core.sessionCurate(params.id, params.rejections);
     },
-    "session.setAccess": (_connection, request) => {
-      const params = parseParams("session.setAccess", request.params);
-
-      return this.core.sessionSetAccess(params.id, params.githubLogins);
-    },
     "session.setViewed": (_connection, request) => {
       const params = parseParams("session.setViewed", request.params);
 
@@ -634,11 +629,6 @@ export class DaemonServer {
 
       return this.core.sessionRefreshDiff(params.id);
     },
-    "session.setShareId": (_connection, request) => {
-      const params = parseParams("session.setShareId", request.params);
-
-      return this.core.sessionSetShareId(params.id, params.shareId);
-    },
     "session.setShares": (_connection, request) => {
       const params = parseParams("session.setShares", request.params);
 
@@ -656,6 +646,7 @@ export class DaemonServer {
       const params = parseParams("session.mergeShared", request.params);
 
       return this.core.sessionMergeShared(params.id, {
+        shareId: params.shareId,
         annotations: params.annotations,
         participants: params.participants,
         removals: params.removals,

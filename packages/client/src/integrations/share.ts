@@ -14,9 +14,10 @@ import {
 } from "@cueloop/daemon/share-blob";
 import {
   removalEntries,
-  viewFollowing,
+  sharePublicationView,
   type Annotation,
-  type ShareAccess,
+  type SharePolicy,
+  type ShareLink,
   type Thread,
 } from "@cueloop/schema";
 import { ThreadRecordSchema } from "@cueloop/daemon/validate";
@@ -48,11 +49,14 @@ export function formatShareLine(shareId: string, target: ShareTarget = {}): stri
 export async function publishShare(
   session: Thread,
   target: ShareTarget = {},
+  publication: SharePolicy & Pick<ShareLink, "shareBranch"> = {
+    requireAuth: false,
+    allowlist: [],
+  },
 ): Promise<ShareResult> {
   const { stdout, stderr, code } = await runShareSsh(
     "cueloop-share",
-    // the share follows one branch: collaborators see its path wherever the owner stands
-    packSessionBlob(viewFollowing(session)),
+    packSessionBlob(sharePublicationView(session, publication)),
     target,
   );
 
@@ -91,6 +95,8 @@ export function collaboratorAnnotations(session: Thread): Annotation[] {
 export function mergeFromShare(remote: Thread): SharedMerge {
   const merge: SharedMerge = { annotations: collaboratorAnnotations(remote) };
 
+  if (remote.shares?.length === 1) merge.shareId = remote.shares[0]!.id;
+
   if (remote.participants) merge.participants = remote.participants;
   if (remote.history) {
     merge.removals = removalEntries(remote.history).map((entry) => ({
@@ -111,11 +117,10 @@ export function mergeFromShare(remote: Thread): SharedMerge {
 export async function pushShare(
   shareId: string,
   annotations: Array<Omit<Annotation, "createdAt">>,
-  // ShareAccess sets a private allowlist; "public" clears it (makes the link public); undefined leaves it
-  access?: ShareAccess | "public",
+  policy?: SharePolicy,
   target: ShareTarget = {},
 ): Promise<void> {
-  const payload = access ? { shareId, annotations, access } : { shareId, annotations };
+  const payload = policy ? { shareId, annotations, policy } : { shareId, annotations };
   const { stderr, code } = await runShareSsh(
     "cueloop-push",
     Buffer.from(JSON.stringify(payload)),

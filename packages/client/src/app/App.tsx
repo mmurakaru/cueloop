@@ -79,7 +79,7 @@ import {
 } from "../keyboard/thread-chords";
 import { type DiffFoldControls } from "../diff/components/DiffContentView";
 import { commentCountsByFile, readsFrozenDiff } from "../diff/view-diff";
-import { annotationTarget, isAddressed, isAgentNote, threadShareLinks } from "@cueloop/schema";
+import { annotationTarget, isAddressed, isAgentNote } from "@cueloop/schema";
 import type {
   Annotation,
   Artifact,
@@ -157,12 +157,12 @@ function menuChromeOpen(menuDialog: "keybinds" | "settings" | null): boolean {
 
 /** Whether a thread already has at least one live share link. */
 function isSharedThread(session: Thread | null): boolean {
-  return session !== null && (threadShareLinks(session)?.length ?? 0) > 0;
+  return session !== null && (session.shares?.length ?? 0) > 0;
 }
 
 /** A thread's live share links for the share dialog, or an empty list with no session. */
 function shareLinksFor(session: Thread | null): ShareLink[] {
-  return session ? (threadShareLinks(session) ?? []) : [];
+  return session ? (session.shares ?? []) : [];
 }
 
 /** The title the share dialog shows and prefills a new link with, or empty with no session. */

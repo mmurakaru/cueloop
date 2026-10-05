@@ -273,10 +273,8 @@ export interface Identity {
   handle?: string;
 }
 
-/** Owner-set access control for a private share: only these GitHub logins may open it. Absent = a public share. */
-export interface ShareAccess {
-  githubLogins: string[];
-}
+/** A share link's public or private policy; a private link with an empty allowlist admits no viewers. */
+export type SharePolicy = Pick<ShareLink, "requireAuth" | "allowlist">;
 
 /**
  * One published share link for a thread. A thread can have several, each an
@@ -300,7 +298,7 @@ export interface TextCut {
   quote: string;
 }
 
-/** Local links use shares; scalar share fields remain for CLI sharing, gateway authorization, and stored-record migration. */
+/** A Thread carries share policy and ownership on each entry in shares. */
 export interface Thread {
   schemaVersion: string;
   id: string;
@@ -320,10 +318,6 @@ export interface Thread {
   shelvedAnnotations?: Annotation[];
   parentSessionId?: string;
   shares?: ShareLink[];
-  shareId?: string;
-  shareBranch?: string;
-  owner?: string;
-  access?: ShareAccess;
   participants?: Identity[];
 }
 

@@ -123,7 +123,6 @@ export interface ThreadClient {
   sessionCutBlock(id: string, blockIndex: number): Promise<Thread>;
   sessionRestoreBlock(id: string, baseBlockIndex: number, line?: number): Promise<Thread>;
   sessionCurate(id: string, rejections: HunkRejection[]): Promise<Thread>;
-  sessionSetAccess(id: string, githubLogins: string[]): Promise<Thread>;
   sessionSetViewed(id: string, viewedPaths: string[]): Promise<Thread>;
   sessionSetTitle(id: string, title: string): Promise<Thread>;
   projectFiles?(sessionId: string): Promise<string[]>;
@@ -139,7 +138,6 @@ export interface ThreadClient {
   sessionSwitch(id: string, branch: string): Promise<Thread>;
   sessionLabel(id: string, label: string): Promise<Thread>;
   sessionFork(id: string): Promise<Thread>;
-  sessionSetShareId(id: string, shareId: string): Promise<Thread>;
   sessionSetShares(id: string, shares: ShareLink[]): Promise<Thread>;
   sessionMergeShared(id: string, incoming: SharedMerge): Promise<Thread>;
   sessionDelete(id: string): Promise<void>;
@@ -670,9 +668,6 @@ export class DaemonClient implements ThreadClient {
   sessionCurate(id: string, rejections: HunkRejection[]): Promise<Thread> {
     return this.request("session.curate", { id, rejections }, ThreadRecordSchema);
   }
-  sessionSetAccess(id: string, githubLogins: string[]): Promise<Thread> {
-    return this.request("session.setAccess", { id, githubLogins }, ThreadRecordSchema);
-  }
   sessionSetViewed(id: string, viewedPaths: string[]): Promise<Thread> {
     return this.request("session.setViewed", { id, viewedPaths }, ThreadRecordSchema);
   }
@@ -739,9 +734,6 @@ export class DaemonClient implements ThreadClient {
   /** Re-capture a diff session's working tree; changed=true when the patch moved and an event fired. */
   sessionRefreshDiff(id: string): Promise<{ changed: boolean }> {
     return this.request("session.refreshDiff", { id }, RefreshDiffResultSchema);
-  }
-  sessionSetShareId(id: string, shareId: string): Promise<Thread> {
-    return this.request("session.setShareId", { id, shareId }, ThreadRecordSchema);
   }
 
   sessionSetShares(id: string, shares: ShareLink[]): Promise<Thread> {

@@ -1,3 +1,4 @@
+import { unpackGatewayShare } from "./gateway-share-blob";
 /**
  * A ThreadClient backed by one decrypted blob instead of the local daemon.
  * This is the swap that lets the gateway render the real <App> against a share:
@@ -21,7 +22,7 @@ import {
   type Thread,
 } from "@cueloop/schema";
 import type { EventFrame, ThreadClient } from "@cueloop/daemon/client";
-import { packSessionBlob, unpackSessionBlob } from "@cueloop/daemon/share-blob";
+import { packSessionBlob } from "@cueloop/daemon/share-blob";
 import { openBlob, sealBlob } from "./crypto";
 import type { ShareChangeFeed, ShareStore } from "./store";
 
@@ -71,7 +72,10 @@ export class BlobThreadClient implements ThreadClient {
       const stored = await writeBack.store.get(writeBack.shareId);
 
       if (!stored) return;
-      this.session = unpackSessionBlob(openBlob(writeBack.masterKey, writeBack.shareId, stored));
+      this.session = unpackGatewayShare(
+        openBlob(writeBack.masterKey, writeBack.shareId, stored),
+        writeBack.shareId,
+      );
     } catch {
       // a torn read is retried by the next change; the current session stays
       return;
@@ -130,10 +134,6 @@ export class BlobThreadClient implements ThreadClient {
     return rejectReadOnly();
   }
 
-  sessionSetAccess(): Promise<Thread> {
-    return rejectReadOnly();
-  }
-
   sessionSetViewed(): Promise<Thread> {
     return rejectReadOnly();
   }
@@ -159,10 +159,6 @@ export class BlobThreadClient implements ThreadClient {
   }
 
   sessionFork(): Promise<Thread> {
-    return rejectReadOnly();
-  }
-
-  sessionSetShareId(): Promise<Thread> {
     return rejectReadOnly();
   }
 
@@ -217,7 +213,10 @@ export class BlobThreadClient implements ThreadClient {
   ): Promise<Thread> {
     const stored = await writeBack.store.get(writeBack.shareId);
     const current = stored
-      ? unpackSessionBlob(openBlob(writeBack.masterKey, writeBack.shareId, stored))
+      ? unpackGatewayShare(
+          openBlob(writeBack.masterKey, writeBack.shareId, stored),
+          writeBack.shareId,
+        )
       : this.session;
     const next = change(current);
 

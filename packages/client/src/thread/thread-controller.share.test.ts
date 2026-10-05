@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, mock, test, type Mock } from "bun:test";
 import { ManualClock } from "@opentui/core/testing";
-import { SCHEMA_VERSION, type Annotation, type ShareAccess, type Thread } from "@cueloop/schema";
+import { SCHEMA_VERSION, type Annotation, type SharePolicy, type Thread } from "@cueloop/schema";
 import type { ThreadClient } from "@cueloop/daemon/client";
 import {
   createReviewController,
@@ -17,7 +17,7 @@ const pushShare = mock(
   async (
     _shareId: string,
     _annotations: Array<Omit<Annotation, "createdAt">>,
-    _access?: ShareAccess | "public",
+    _policy?: SharePolicy,
   ) => {},
 );
 
@@ -81,7 +81,6 @@ function fakeClient(session: Thread): FakeThreadClient {
     sessionCutBlock: unimplemented("sessionCutBlock"),
     sessionRestoreBlock: unimplemented("sessionRestoreBlock"),
     sessionCurate: unimplemented("sessionCurate"),
-    sessionSetAccess: mock(async () => session),
     sessionNavigate: unimplemented("sessionNavigate"),
     sessionBranch: unimplemented("sessionBranch"),
     sessionSwitch: unimplemented("sessionSwitch"),
@@ -89,9 +88,6 @@ function fakeClient(session: Thread): FakeThreadClient {
     sessionFork: unimplemented("sessionFork"),
     sessionSetViewed: unimplemented("sessionSetViewed"),
     sessionSetTitle: unimplemented("sessionSetTitle"),
-    sessionSetShareId: mock(
-      async (_id: string, shareId: string) => ((session.shareId = shareId), session),
-    ),
     sessionSetShares: mock(
       async (_id: string, shares: import("@cueloop/schema").ShareLink[]) => (
         (session.shares = shares),
@@ -166,19 +162,21 @@ describe("share", () => {
   });
 });
 
-describe("setShareAccess", () => {
+describe("updateShareLink policy", () => {
   test("pushes the allowlist up to the gateway when the plan is already shared", async () => {
     // Arrange
     pushShare.mockClear();
-    const { controller } = await connectedController(sessionFixture({ shareId: "p_abc123xy" }));
+    const { controller } = await connectedController(
+      sessionFixture({ shares: [{ id: "p_abc123xy", requireAuth: false, allowlist: [] }] }),
+    );
 
     // Act
-    controller.setShareAccess(["octocat"]);
+    controller.updateShareLink("p_abc123xy", { requireAuth: true, allowlist: ["octocat"] });
     await tick();
 
     // Assert - the existing link must enforce the new access, so it rides the push
     expect(pushShare.mock.calls[0]?.[0]).toBe("p_abc123xy");
-    expect(pushShare.mock.calls[0]?.[2]).toEqual({ githubLogins: ["octocat"] });
+    expect(pushShare.mock.calls[0]?.[2]).toEqual({ requireAuth: true, allowlist: ["octocat"] });
   });
 
   test("does not push when the plan was never shared", async () => {
@@ -187,7 +185,7 @@ describe("setShareAccess", () => {
     const { controller } = await connectedController(sessionFixture());
 
     // Act
-    controller.setShareAccess(["octocat"]);
+    controller.updateShareLink("p_abc123xy", { requireAuth: true, allowlist: ["octocat"] });
     await tick();
 
     // Assert
@@ -203,7 +201,7 @@ describe("pullShared", () => {
       participants: [{ id: "SHA256:mate", provider: "ssh", name: "Sam" }],
     });
     const { controller, client } = await connectedController(
-      sessionFixture({ shareId: "p_abc123xy" }),
+      sessionFixture({ shares: [{ id: "p_abc123xy", requireAuth: false, allowlist: [] }] }),
     );
 
     // Act
@@ -238,7 +236,10 @@ describe("mirror on annotate", () => {
     // Arrange
     pushShare.mockClear();
     const { controller } = await connectedController(
-      sessionFixture({ shareId: "p_abc123xy", annotations: [annotation("a1", "SHA256:me")] }),
+      sessionFixture({
+        shares: [{ id: "p_abc123xy", requireAuth: false, allowlist: [] }],
+        annotations: [annotation("a1", "SHA256:me")],
+      }),
     );
 
     // Act
@@ -277,7 +278,10 @@ describe("mirror on annotate", () => {
     // Arrange - the daemon write fails (e.g. a resolved session)
     pushShare.mockClear();
     const { controller, client } = await connectedController(
-      sessionFixture({ shareId: "p_abc123xy", annotations: [annotation("a1", "SHA256:me")] }),
+      sessionFixture({
+        shares: [{ id: "p_abc123xy", requireAuth: false, allowlist: [] }],
+        annotations: [annotation("a1", "SHA256:me")],
+      }),
     );
 
     client.sessionComment.mockImplementationOnce(async () => {
@@ -298,7 +302,10 @@ describe("reply", () => {
     // Arrange
     pushShare.mockClear();
     const { controller, client } = await connectedController(
-      sessionFixture({ shareId: "p_abc123xy", annotations: [annotation("a1", "SHA256:ana")] }),
+      sessionFixture({
+        shares: [{ id: "p_abc123xy", requireAuth: false, allowlist: [] }],
+        annotations: [annotation("a1", "SHA256:ana")],
+      }),
     );
 
     // Act
@@ -396,7 +403,7 @@ describe("startShareSync", () => {
     // Arrange
     const clock = new ManualClock();
     const { controller, client } = await connectedController(
-      sessionFixture({ shareId: "p_abc123xy" }),
+      sessionFixture({ shares: [{ id: "p_abc123xy", requireAuth: false, allowlist: [] }] }),
       clock,
       liveTransport,
     );
@@ -430,7 +437,7 @@ describe("startShareSync", () => {
     // Arrange
     const clock = new ManualClock();
     const { controller } = await connectedController(
-      sessionFixture({ shareId: "p_abc123xy" }),
+      sessionFixture({ shares: [{ id: "p_abc123xy", requireAuth: false, allowlist: [] }] }),
       clock,
       liveTransport,
     );
@@ -473,7 +480,7 @@ describe("startShareSync", () => {
     // Arrange
     const clock = new ManualClock();
     const { controller } = await connectedController(
-      sessionFixture({ shareId: "p_abc123xy" }),
+      sessionFixture({ shares: [{ id: "p_abc123xy", requireAuth: false, allowlist: [] }] }),
       clock,
       liveTransport,
     );
@@ -496,7 +503,7 @@ describe("startShareSync", () => {
     // Arrange
     const clock = new ManualClock();
     const { controller } = await connectedController(
-      sessionFixture({ shareId: "p_abc123xy" }),
+      sessionFixture({ shares: [{ id: "p_abc123xy", requireAuth: false, allowlist: [] }] }),
       clock,
       liveTransport,
     );
@@ -521,7 +528,9 @@ describe("startShareSync", () => {
 describe("revoke", () => {
   test("unshare revokes the gateway blob for the shared thread", async () => {
     revokeShare.mockClear();
-    const { controller } = await connectedController(sessionFixture({ shareId: "p_abc123xy" }));
+    const { controller } = await connectedController(
+      sessionFixture({ shares: [{ id: "p_abc123xy", requireAuth: false, allowlist: [] }] }),
+    );
 
     controller.unshare();
     await tick();
@@ -541,7 +550,9 @@ describe("revoke", () => {
 
   test("deleting a shared thread revokes its share first", async () => {
     revokeShare.mockClear();
-    const session = sessionFixture({ shareId: "p_abc123xy" });
+    const session = sessionFixture({
+      shares: [{ id: "p_abc123xy", requireAuth: false, allowlist: [] }],
+    });
     const client = fakeClient(session);
 
     client.sessionDelete = mock(async () => {});

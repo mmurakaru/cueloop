@@ -246,17 +246,20 @@ describe("socket round-trip", () => {
     expect(got.artifact.meta.agent).toBe("claude-code");
   });
 
-  test("share-sync primitives round-trip: setShareId persists, mergeShared unions notes and identities by id", async () => {
+  test("share-sync primitives round-trip: setShares persists, mergeShared unions notes and identities by id", async () => {
     // Given a shared session with one local note
     const session = await client.sessionCreate(WS, PLAN);
     const anchor = { quote: "Body text", prefix: "", suffix: "." };
 
-    await client.sessionSetShareId(session.id, "p_abc123xy");
+    await client.sessionSetShares(session.id, [
+      { id: "p_abc123xy", requireAuth: false, allowlist: [] },
+    ]);
     await client.sessionAnnotate(session.id, { id: "a1", kind: "comment", anchor, body: "mine" });
-    expect((await client.sessionGet(session.id)).shareId).toBe("p_abc123xy");
+    expect((await client.sessionGet(session.id)).shares?.[0]?.id).toBe("p_abc123xy");
 
     // When a pull merges an update to the known id, a new collaborator note, and the collaborator's identity
     const merged = await client.sessionMergeShared(session.id, {
+      shareId: "p_abc123xy",
       annotations: [
         {
           id: "a1",

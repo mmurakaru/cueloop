@@ -21,7 +21,7 @@ describe("roleAllowsMethod", () => {
       "session.submitRevision",
       "session.setWorkingCopy",
       "session.delete",
-      "session.setShareId",
+      "session.setShares",
       "session.refreshDiff",
       "session.create",
       "session.navigate",

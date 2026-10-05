@@ -32,7 +32,6 @@ import {
   sourceOffsetAt,
   returnPaneFor,
   switchBranch,
-  threadShareLinks,
   viewOfPath,
   type Anchor,
   type Annotation,
@@ -330,7 +329,6 @@ export interface ReviewController {
   submit(message: MessageOutcome, summary: string): void;
   share(): void;
   unshare(): void;
-  setShareAccess(githubLogins: string[]): void;
   shareLinks(): ShareLink[];
   createShareLink(input: NewShareLink): void;
   updateShareLink(id: string, input: NewShareLink): void;
@@ -945,9 +943,9 @@ class Controller implements ReviewController {
     return this.snapshot.inbox?.find((candidate) => candidate.id === id);
   }
 
-  /** A thread's share links, migrating a legacy single share; empty when never shared. */
+  /** A thread's share links; empty when never shared. */
   private linksFor(session: Thread | null | undefined): ShareLink[] {
-    return session ? (threadShareLinks(session) ?? []) : [];
+    return session ? (session.shares ?? []) : [];
   }
 
   renameSession(id: string, title: string): void {
@@ -1213,19 +1211,6 @@ class Controller implements ReviewController {
 
     if (!rejections.length) delete expected.curation;
     this.applyOptimistic(expected, this.client!.sessionCurate(session.id, rejections));
-  }
-
-  setShareAccess(githubLogins: string[]): void {
-    if (this.readOnly) return this.setStatus("observer - read-only");
-    // legacy single-allowlist entry point: apply it to the thread's primary link
-    const primary = this.linksFor(this.snapshot.session)[0];
-
-    if (!primary) return;
-    this.updateShareLink(primary.id, {
-      name: primary.name,
-      requireAuth: true,
-      allowlist: githubLogins,
-    });
   }
 
   rejectedRows(): Set<number> {
@@ -1712,10 +1697,15 @@ class Controller implements ReviewController {
     this.setStatus("sharing…");
     this.freezeForShare(session)
       .then((shared) => {
-        // bake this link's access into its own blob: an allowlist gates it, absent = public
-        const access = input.requireAuth ? { githubLogins: input.allowlist } : undefined;
-
-        return this.shareTransport.publish({ ...shared, access, shareBranch });
+        return this.shareTransport.publish(
+          shared,
+          {},
+          {
+            requireAuth: input.requireAuth,
+            allowlist: input.allowlist,
+            shareBranch,
+          },
+        );
       })
       .then(async ({ line, copied }) => {
         const id = this.shareTransport.parseShareId(line);
@@ -1748,9 +1738,9 @@ class Controller implements ReviewController {
     if (!links.some((link) => link.id === id)) return;
     const allowlist = input.requireAuth ? input.allowlist : [];
 
-    // re-push the link's access to its blob: an allowlist for private, "public" clears it
+    // Publish the same policy stored on the local link.
     void this.shareTransport
-      .push(id, [], input.requireAuth ? { githubLogins: allowlist } : "public")
+      .push(id, [], { requireAuth: input.requireAuth, allowlist })
       .catch(() => {});
     const next = links.map((link) =>
       link.id === id
@@ -1879,7 +1869,11 @@ class Controller implements ReviewController {
       .then(async (fork) => {
         const shareBranch = fork.history?.branch ?? MAIN_BRANCH;
         const shared = await this.freezeForShare(fork);
-        const { line, copied } = await this.shareTransport.publish({ ...shared, shareBranch });
+        const { line, copied } = await this.shareTransport.publish(
+          shared,
+          {},
+          { requireAuth: false, allowlist: [], shareBranch },
+        );
         const id = this.shareTransport.parseShareId(line);
 
         if (id)
