@@ -690,7 +690,17 @@ test("clicking the first blank row after a reply opens continuation without losi
 
   try {
     await waitForText(setup, "The final reply.");
+    await waitForState(
+      setup,
+      () => setup.renderer.getCursorState().visible,
+      "initial continuation focus ready",
+    );
     await pressKey(setup, "ESCAPE");
+    await waitForState(
+      setup,
+      () => !setup.renderer.getCursorState().visible,
+      "continuation dismissed",
+    );
     const reply = locateText(setup, "The final reply.");
 
     await setup.mockMouse.click(reply.column + 5, reply.row + 1);
