@@ -1,5 +1,15 @@
 # @cueloop/gateway
 
+## 0.1.0-alpha.100
+
+### Patch Changes
+
+- [#559](https://github.com/mmurakaru/cueloop/pull/559) [`d8fb343`](https://github.com/mmurakaru/cueloop/commit/d8fb343060e60eae362b8363a6566b8bc079be12) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Keep interface bodies free of comments and consolidate sharing on per-link metadata. Remove scalar sharing fields, obsolete socket methods, and compatibility helpers; use link policy and ownership consistently in CLI, TUI, and gateway flows.
+- Updated dependencies [[`d8fb343`](https://github.com/mmurakaru/cueloop/commit/d8fb343060e60eae362b8363a6566b8bc079be12)]:
+  - @cueloop/schema@0.1.0-alpha.100
+  - @cueloop/daemon@0.1.0-alpha.100
+  - @cueloop/client@0.1.0-alpha.100
+
 ## 0.1.0-alpha.99
 
 ### Patch Changes
