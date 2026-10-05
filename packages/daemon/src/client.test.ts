@@ -22,3 +22,16 @@ describe("daemonSpawnCommand", () => {
     ).toEqual(["/path/to/bun", "run", "/repo/packages/daemon/src/main.ts"]);
   });
 });
+
+test("published daemon starts itself unless the CLI supplies its real entry path", () => {
+  const published = "file:///project/node_modules/@cueloop/daemon/src/client.ts";
+
+  expect(daemonSpawnCommand("bun", published, false)).toEqual([
+    "bun",
+    "run",
+    "/project/node_modules/@cueloop/daemon/src/main.ts",
+  ]);
+  expect(
+    daemonSpawnCommand("bun", published, false, "/project/node_modules/cueloop/src/main.ts"),
+  ).toEqual(["bun", "run", "/project/node_modules/cueloop/src/main.ts", "daemon", "--autostart"]);
+});

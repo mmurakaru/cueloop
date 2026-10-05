@@ -10,6 +10,7 @@ import { truncateTitle } from "../../ui/components/truncate-title";
 import { NERD } from "../../ui/components/primitives/icons";
 
 export interface ThreadFooterProps {
+  controls?: React.ReactNode;
   repo: string;
   branch: string;
   onSubmit?: () => void;
@@ -27,6 +28,7 @@ const SEPARATOR = " / ";
 export const THREAD_FOOTER_HEIGHT = 2;
 
 export function ThreadFooter({
+  controls,
   repo,
   branch,
   onSubmit,
@@ -66,6 +68,7 @@ export function ThreadFooter({
         </text>
       </box>
       <box style={{ flexGrow: 1 }} />
+      {controls}
       <box onMouseUp={canSubmit ? onSubmit : undefined} style={{ flexShrink: 0 }}>
         <text fg={canSubmit ? tokens.accent : tokens.textDim}>
           {`Send message (${pendingAnnotations})`}

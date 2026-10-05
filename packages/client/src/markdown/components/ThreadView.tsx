@@ -36,7 +36,12 @@ import { wrapLines, type MarkRange, type VisualLine } from "../mark-runs";
 import { MarkdownGridBlock } from "./MarkdownGridBlock";
 import { useFrameMeasure } from "../../ui/use-frame-measure";
 import { scrollBoxDragViewport, useTerminalVirtualizer } from "../../ui/use-terminal-virtualizer";
-import { useAnnotationSurface, type LineSource } from "../../annotations/use-annotation-surface";
+import {
+  useAnnotationSurface,
+  type LineSource,
+  type PromptFocusRequest,
+  type PromptRestoreRequest,
+} from "../../annotations/use-annotation-surface";
 import { NavModeHint } from "../../keyboard/components/NavModeHint";
 import { DiscussionMarkerRail } from "../../annotations/components/DiscussionMarkerRail";
 import { useComponentTheme } from "../../appearance/components/theme-context";
@@ -150,6 +155,17 @@ export const THREAD_VIEW_CHEATSHEET: CheatsheetSection[] = [
 ];
 
 export interface ThreadViewProps {
+  /** Agent transcripts permit feedback only on finalized answer blocks. */
+  canAnnotateBlock?: (blockIndex: number) => boolean;
+  isAnnotationReadOnly?: (id: string) => boolean;
+  annotationAction?: (id: string) => { label: string; run: () => void } | undefined;
+  requestedBlock?: { blockIndex: number };
+  onInvoke?: () => void;
+  /** The final prompt line uses a plain composer instead of a comment card. */
+  isPromptBlock?: (blockIndex: number) => boolean;
+  promptFocusRequest?: PromptFocusRequest;
+  promptRestoreRequest?: PromptRestoreRequest;
+  renderBlock?: (index: number) => React.ReactNode | undefined;
   session: Thread;
   display: DisplayBlock[];
   marks: Map<number, Mark[]>;
@@ -202,13 +218,22 @@ export function ThreadView({
   onNavCommand,
   onExit,
   theme,
+  canAnnotateBlock,
+  isAnnotationReadOnly,
+  annotationAction,
+  requestedBlock,
+  onInvoke,
+  isPromptBlock,
+  promptFocusRequest,
+  promptRestoreRequest,
+  renderBlock,
 }: ThreadViewProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
   const source: LineSource = {
     count: display.length,
     // the surface hit-tests and paints in rendered text (inline markers concealed); a grid anchors on its raw source
     textAt: (blockIndex) => renderedText(display[blockIndex]!),
-    annotatable: () => true,
+    annotatable: canAnnotateBlock ?? (() => true),
   };
   const scrollRef = useRef<ScrollBoxRenderable | null>(null);
   const surface = useAnnotationSurface({
@@ -228,6 +253,13 @@ export function ThreadView({
     onAnnotate,
     onReply,
     onUpdateAnnotation,
+    isAnnotationReadOnly,
+    annotationAction,
+    requestedBlock,
+    onInvoke,
+    isPromptBlock,
+    promptFocusRequest,
+    promptRestoreRequest,
     dragViewport: () => scrollBoxDragViewport(scrollRef.current),
     resolveAuthorLabel,
     onNavCommand,
@@ -316,7 +348,7 @@ export function ThreadView({
     </span>
   );
 
-  const lineRowFor = (context: LineContext): React.ReactNode => {
+  const lineRowFor = (context: LineContext, hasComposer = false): React.ReactNode => {
     const {
       blockIndex,
       roleRuns,
@@ -328,6 +360,9 @@ export function ThreadView({
       baseAttributes,
       syntaxSpans,
     } = context;
+
+    // The prompt composer occupies its blank line instead of adding a row below it.
+    if (isPromptBlock?.(blockIndex) && hasComposer) return null;
 
     return (
       <box key={`line-${lineIndex}`} style={{ flexDirection: "row" }}>
@@ -366,6 +401,13 @@ export function ThreadView({
   };
 
   const blockNodeFor = (blockIndex: number): React.ReactNode => {
+    const custom = renderBlock?.(blockIndex);
+    if (custom !== undefined)
+      return (
+        <box key={`custom-${blockIndex}`} ref={virtual.measureRef(blockIndex)}>
+          {custom}
+        </box>
+      );
     const block = display[blockIndex]!;
     const { baseFg, baseAttributes, marker } = blockStyle(block, tokens);
     // list items of one list stay tight; every other block sits a blank row below its neighbour
@@ -422,22 +464,24 @@ export function ThreadView({
       const line = lines[lineIndex]!;
       const isLastLine = lineIndex === lines.length - 1;
 
+      const cards = surface.cardsAfterLine(blockIndex, line, isLastLine);
       lineRows.push(
-        lineRowFor({
-          blockIndex,
-          roleRuns,
-          line,
-          lineIndex,
-          ranges,
-          marker,
-          baseFg,
-          baseAttributes,
-          syntaxSpans,
-        }),
+        lineRowFor(
+          {
+            blockIndex,
+            roleRuns,
+            line,
+            lineIndex,
+            ranges,
+            marker,
+            baseFg,
+            baseAttributes,
+            syntaxSpans,
+          },
+          cards.length > 0,
+        ),
       );
       if (isLastLine) lineRows.push(headingRule(block));
-      const cards = surface.cardsAfterLine(blockIndex, line, isLastLine);
-
       lineRows.push(...cards);
       if (cards.length > 0 && !isLastLine) {
         lineRows.push(<box key={`gap-${lineIndex}`} style={{ height: 1 }} />);

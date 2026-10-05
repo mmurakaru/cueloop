@@ -324,6 +324,8 @@ export interface ReviewController {
   refreshDiff(): Promise<void>;
   /** Open a session from the inbox. */
   open(id: string): void;
+  /** Create and open an empty local Thread for a new conversation. */
+  createEmptyThread(): Promise<void>;
   /** Delete a session for good (inbox delete); the inbox refreshes on the event. */
   deleteSession(id: string): void;
   /** Rename a session's title; the inbox refreshes on the event. */
@@ -386,6 +388,7 @@ export interface ReviewController {
   annotatePrototype(selector: string, quote: string, body: string): string | undefined;
   /** Rewrite a stored annotation's body in place (the rail-card edit). */
   updateAnnotation(id: string, body: string): void;
+  flushMutations?(): Promise<void>;
   removeAnnotation(id: string): void;
   setWorkingCopy(content: string | undefined): void;
   /** Enter the guided walk at the first unviewed file (diff sessions). */
@@ -472,6 +475,7 @@ const DERIVED_CACHE_LIMIT = 8;
 class Controller implements ReviewController {
   readonly readOnly: boolean;
   private client: ThreadClient | null = null;
+  private pendingMutations = new Set<Promise<Thread>>();
   private closed = false;
   /** The controller's state lives in a zustand store; internal reads go through the snapshot getter. */
   private readonly store: StoreApi<ControllerSnapshot> = createStore<ControllerSnapshot>(() => ({
@@ -956,7 +960,14 @@ class Controller implements ReviewController {
    * builds on the first instead of on the stale snapshot. Answers arrive in
    * request order over the socket and replace the guess with the daemon's copy.
    */
+  /** Agent invocation waits until the preceding comments reach the daemon. */
+  async flushMutations(): Promise<void> {
+    await Promise.all(this.pendingMutations);
+  }
+
   private applyOptimistic(expected: Thread, mutation: Promise<Thread>): void {
+    this.pendingMutations.add(mutation);
+    void mutation.finally(() => this.pendingMutations.delete(mutation)).catch(() => {});
     this.update({ session: expected });
     mutation
       .then((session) => this.update({ session }))
@@ -978,6 +989,29 @@ class Controller implements ReviewController {
     // thread but not the list, so a returned-to diff would otherwise show stale content
     if (cached) this.update({ session: cached });
     void this.refreshSession(id);
+  }
+
+  async createEmptyThread(): Promise<void> {
+    if (this.readOnly || !this.client?.sessionCreate) return;
+    const workspace = this.snapshot.session?.workspace ?? {
+      repoRoot: this.options.cwd ?? process.cwd(),
+      branch: "detached",
+    };
+
+    try {
+      const thread = await this.client.sessionCreate(workspace, {
+        type: "plan",
+        content: "",
+        meta: { title: "New Thread" },
+      });
+      this.locallyViewed.clear();
+      this.viewingId = thread.id;
+      this.update({ session: thread });
+    } catch (cause) {
+      this.setStatus(
+        `New Thread failed: ${cause instanceof Error ? cause.message : String(cause)}`,
+      );
+    }
   }
 
   deleteSession(id: string): void {

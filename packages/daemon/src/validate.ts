@@ -41,6 +41,7 @@ import {
 } from "@cueloop/schema";
 import { DaemonError } from "./errors";
 import type { Request } from "./protocol";
+import { AgentCommentSchema } from "./thread-agent-validation";
 
 /**
  * Drift guard for every hand-mirrored shape below. v.object strips keys it
@@ -211,6 +212,21 @@ export const DeliverySchema = v.object({
 } satisfies EntriesOf<Delivery>);
 
 export const Params = {
+  "agent.configure": v.object({
+    id: SessionId,
+    configId: v.optional(NonEmpty),
+    value: v.optional(NonEmpty),
+  }),
+  "agent.get": v.object({ id: SessionId }),
+  "agent.prompt": v.object({
+    id: SessionId,
+    text: v.pipe(v.string(), v.maxLength(65_536)),
+    context: v.optional(v.pipe(v.string(), v.maxLength(32_768))),
+    retry: v.optional(NonEmpty),
+  }),
+  "agent.cancel": v.object({ id: SessionId }),
+  "agent.comment": v.object({ id: SessionId, comment: AgentCommentSchema }),
+  "agent.permission": v.object({ id: SessionId, requestId: NonEmpty, optionId: NonEmpty }),
   "session.create": v.object({ workspace: WorkspaceSchema, artifact: ArtifactSchema }),
   "session.get": v.object({ id: SessionId }),
   "session.list": v.object({

@@ -61,8 +61,14 @@ test("a Codex reply is delivered without an MCP transport", async () => {
 
   try {
     await client.sessionSendMessage(opened.threadId, "approved", "Continue after MCP exit.");
-    while (!existsSync(join(home, "delivered.txt")) && Date.now() < deadline) await Bun.sleep(20);
-    expect(readFileSync(join(home, "delivered.txt"), "utf8")).toContain("Continue after MCP exit.");
+    const deliveryPath = join(home, "delivered.txt");
+    const delivered = () =>
+      existsSync(deliveryPath) &&
+      readFileSync(deliveryPath, "utf8").includes("Continue after MCP exit.");
+
+    // Shell redirection creates the file before printf writes the delivered message.
+    while (!delivered() && Date.now() < deadline) await Bun.sleep(20);
+    expect(delivered()).toBe(true);
   } finally {
     client.close();
   }
