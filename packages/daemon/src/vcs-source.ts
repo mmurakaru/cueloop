@@ -114,6 +114,7 @@ export class VcsSourceManager {
 
     for (const path of paths) {
       const absolute = isAbsolute(path) ? path : resolve(dirname(this.userConfigPath), path);
+
       await this.loadAdapterExtension(absolute);
     }
     const discovery = discoverInstalledExtensionPackages(this.installRoot);

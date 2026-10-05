@@ -34,12 +34,14 @@ export function FileContentsView({
   // instance; a state-backed ref rebinds the target once the code renderable exists.
   const [codeTarget, setCodeTarget] = useState<CodeRenderable | null>(null);
   const loadRef = useRef(loadContents);
+
   useEffect(() => {
     loadRef.current = loadContents;
   });
 
   useEffect(() => {
     let alive = true;
+
     void loadRef.current(path).then(
       (contents) => {
         if (alive) setLoaded({ path, lines: contents === null ? null : contents.split("\n") });

@@ -4,6 +4,7 @@ import { groupInbox, projectName } from "./thread-tree";
 
 function session(id: string, title: string, rootCommit?: string, remote?: string): Thread {
   const workspace: WorkspaceKey = { repoRoot: `/home/dev/${id}-checkout`, branch: "main" };
+
   if (rootCommit !== undefined) workspace.rootCommit = rootCommit;
   if (remote !== undefined) workspace.remote = remote;
 
@@ -61,6 +62,7 @@ describe("groupInbox", () => {
 
     // Assert
     const labels = rows.map((row) => `${row.kind}:${"label" in row ? row.label : row.id}`);
+
     expect(labels).toEqual([
       "section:Projects",
       "project:widget",
@@ -83,6 +85,7 @@ describe("groupInbox", () => {
 
     // Assert
     const projectRows = rows.filter((row) => row.kind === "project");
+
     expect(projectRows).toHaveLength(1);
     expect(ordered).toHaveLength(2);
   });

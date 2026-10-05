@@ -80,6 +80,17 @@ const StoredAgentSchema = v.object({
         quote: v.optional(v.string()),
         context: v.optional(v.string()),
         status: v.picklist(["queued", "running", "completed", "failed"]),
+        cancelled: v.optional(v.boolean()),
+      }),
+    ),
+  ),
+  promptOperations: v.optional(
+    v.array(
+      v.object({
+        operationId: v.string(),
+        fingerprint: v.string(),
+        result: v.array(v.string()),
+        outcome: v.optional(v.picklist(["completed", "failed", "cancelled"])),
       }),
     ),
   ),

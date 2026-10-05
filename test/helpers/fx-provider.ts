@@ -26,6 +26,7 @@ export function createTestFxProvider(
   const workspace = join(home, "workspace");
   const requests: unknown[] = [];
   let toolIndex = 0;
+
   mkdirSync(workspace);
   writeFileSync(join(workspace, "retry.ts"), "export const retryDelay = 1000;\n");
   mkdirSync(join(home, ".fx"), { mode: 0o700 });
@@ -37,6 +38,7 @@ export function createTestFxProvider(
         return new Response("Unexpected endpoint", { status: 500 });
       const body: unknown = await request.json();
       const modelRequest = v.parse(ModelRequestSchema, body);
+
       requests.push(body);
       const requestedTool = options.toolCalls?.[toolIndex];
       const harnessTool = requestedTool
@@ -149,6 +151,7 @@ export function createTestFxProvider(
       );
     },
   });
+
   writeFileSync(
     join(home, ".fx/settings.json"),
     JSON.stringify({

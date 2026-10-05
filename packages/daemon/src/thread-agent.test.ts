@@ -72,10 +72,13 @@ test("a non-ACP harness streams and resumes through the same Thread manager", as
     });
     expect(manager.get(thread.id).messages[1]?.text).toBe("Native answer");
     const promptDiscussion = { id: manager.get(thread.id).submissions![0]!.id };
+
     expect(manager.isReadOnly(thread.id, promptDiscussion.id)).toBe(true);
     const promptReply = manager.reply(thread.id, promptDiscussion.id, "The prompt is clear");
+
     expect(promptReply.comments.at(-1)?.replyTo).toBe(promptDiscussion.id);
     const answer = manager.get(thread.id).messages[1]!;
+
     manager.comment({
       id: thread.id,
       comment: {
@@ -87,6 +90,7 @@ test("a non-ACP harness streams and resumes through the same Thread manager", as
       },
     });
     const replied = manager.reply(thread.id, "answer-question", "This is the explanation");
+
     expect(replied.comments.at(-1)).toMatchObject({
       replyTo: "answer-question",
       messageId: answer.id,
@@ -300,6 +304,107 @@ test("rejected first batches leave originals editable and create no queued turn"
     expect(manager.get(thread.id).messages).toEqual([]);
     expect(manager.get(thread.id).submissions).toBeUndefined();
     expect(manager.isReadOnly(thread.id, "valid")).toBe(false);
+  } finally {
+    manager.dispose();
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("prompt operation receipts survive restart without requeueing accepted inputs", () => {
+  const home = mkdtempSync(join(tmpdir(), "cueloop-agent-receipt-"));
+  const thread = createTestThread(home);
+  const adapter: AgentHarnessAdapter = {
+    id: "receipt-test",
+    label: "Receipt test",
+    connect: () => ({
+      start: async () => "session",
+      prompt: () => new Promise(() => {}),
+      cancel() {},
+      permission() {},
+      close() {},
+    }),
+  };
+  const options = { home, enabled: true, adapter, getThread: () => thread, onChange() {} };
+  let manager = new ThreadAgentManager(options);
+
+  try {
+    const input = { id: thread.id, text: "Once", operationId: "once" };
+    const accepted = manager.prompt(input);
+
+    manager.dispose();
+    manager = new ThreadAgentManager(options);
+    const replay = manager.prompt(input);
+
+    expect(replay.promptOperations?.[0]?.result).toEqual(accepted.promptOperations?.[0]?.result);
+    expect(replay.submissions).toHaveLength(1);
+    expect(replay.promptOperations?.[0]?.outcome).toBe("failed");
+    expect(() => manager.prompt({ ...input, text: "Different" })).toThrow(
+      "Operation payload conflict",
+    );
+    manager.prompt({
+      id: thread.id,
+      text: "",
+      retry: replay.submissions![0]!.id,
+      operationId: "retry",
+    });
+    expect(manager.get(thread.id).promptOperations?.[0]?.outcome).toBe("failed");
+  } finally {
+    manager.dispose();
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("retrying accepted work after a failed running-state save starts the harness once", async () => {
+  const home = mkdtempSync(join(tmpdir(), "cueloop-agent-start-save-"));
+  const thread = createTestThread(home);
+  const blockedPath = join(home, "thread-agents", `${thread.id}.json.tmp`);
+  let saves = 0;
+  let prompts = 0;
+  const started = Promise.withResolvers<void>();
+  const adapter: AgentHarnessAdapter = {
+    id: "start-save-test",
+    label: "Start save test",
+    connect: () => ({
+      start: async () => "session",
+      prompt: () => {
+        prompts++;
+        started.resolve();
+
+        return new Promise(() => {});
+      },
+      cancel() {},
+      permission() {},
+      close() {},
+    }),
+  };
+  const manager = new ThreadAgentManager({
+    home,
+    enabled: true,
+    adapter,
+    getThread: () => thread,
+    onChange() {
+      if (++saves === 1) mkdirSync(blockedPath);
+    },
+  });
+
+  try {
+    const input = { id: thread.id, text: "Start once", operationId: "start-once" };
+
+    expect(() => manager.prompt(input)).toThrow();
+    expect(manager.get(thread.id).phase.kind).toBe("idle");
+    expect(manager.get(thread.id).submissions?.[0]?.status).toBe("queued");
+    expect(prompts).toBe(0);
+    const acceptedIds = manager.get(thread.id).promptOperations?.[0]?.result;
+
+    rmSync(blockedPath, { recursive: true });
+    const replay = manager.prompt(input);
+
+    expect(replay.promptOperations?.[0]?.result).toEqual(acceptedIds);
+    expect(replay.submissions).toHaveLength(1);
+    await started.promise;
+    expect(prompts).toBe(1);
+    manager.prompt(input);
+    expect(prompts).toBe(1);
   } finally {
     manager.dispose();
     rmSync(home, { recursive: true, force: true });

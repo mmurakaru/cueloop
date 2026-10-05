@@ -255,6 +255,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     return { head: start, anchor: start };
   });
   const focusRequested = useEffectEvent(() => onFocusAnnotation?.(undefined));
+
   useEffect(() => {
     if (requestedBlock === undefined) return;
     const next = { blockIndex: requestedBlock.blockIndex, char: 0 };
@@ -327,6 +328,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
   const [caretOffset, setCaretOffset] = useState(0);
   const [slashIndex, setSlashIndex] = useState(0);
   const composerReady = useRef(false);
+  const readComposerText = useRef<(() => string) | null>(null);
   const composeRef = useRef<ComposeState | null>(null);
   const promptDraft = useRef("");
   // every visual line registers its renderable so a drag can hit-test any
@@ -461,6 +463,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     if (observer) return onObserverBlocked?.("observer");
     if (resolved) return onObserverBlocked?.("resolved");
     composerReady.current = false;
+    readComposerText.current = null;
     composeRef.current = state;
     setCompose(state);
     setDraft(state.seed);
@@ -469,6 +472,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
   };
   const closeCompose = (): void => {
     composeRef.current = null;
+    readComposerText.current = null;
     setCompose(null);
     setDraft("");
     setCaretOffset(0);
@@ -698,7 +702,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     if (isAgentInvokeKey(key, onInvoke)) {
       key.preventDefault();
 
-      return saveComment(composerReady.current ? composeTextRef.current : activeCompose.seed, true);
+      return saveComment(readComposerText.current?.() ?? activeCompose.seed, true);
     }
     // the textarea owns every key while open; the view takes dismiss (which
     // also releases the discussion focus), the slash palette, and pre-mount input
@@ -886,6 +890,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     if (activeCompose) return handleComposeKey(key, activeCompose);
     if (isAgentInvokeKey(key, onInvoke)) {
       key.preventDefault();
+
       return onInvoke?.();
     }
     if (key.name === "escape") {
@@ -928,7 +933,10 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
       tokens={tokens}
       onSave={saveComment}
       agentEnabled={Boolean(onInvoke)}
-      onReady={() => (composerReady.current = true)}
+      onReady={(readText) => {
+        readComposerText.current = readText;
+        composerReady.current = true;
+      }}
       onInput={(text, caret) => {
         setDraft(text);
         setCaretOffset(caret);
@@ -1134,6 +1142,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     setCursor(blockIndex);
     setCaret({ head: position, anchor: position });
   });
+
   useEffect(() => {
     movePromptDraft();
   }, [source.count]);
@@ -1149,6 +1158,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     promptDraft.current = [promptRestoreRequest.text, newerDraft].filter(Boolean).join("\n");
     focusPrompt(source.count - 1);
   });
+
   useEffect(() => {
     restorePrompt();
   }, [promptRestoreRequest?.id, suspended]);
@@ -1161,6 +1171,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     if (composeRef.current || heldSpan || dragging.current || promptDraft.current) return;
     focusPrompt(promptFocusRequest.blockIndex);
   });
+
   useEffect(() => {
     continueConversation();
   }, [promptFocusRequest?.replyId, promptFocusRequest?.blockIndex, suspended]);
