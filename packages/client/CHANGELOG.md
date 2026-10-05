@@ -1,5 +1,24 @@
 # @cueloop/client
 
+## 0.1.0-alpha.99
+
+### Patch Changes
+
+- [#557](https://github.com/mmurakaru/cueloop/pull/557) [`34353cf`](https://github.com/mmurakaru/cueloop/commit/34353cfc947bc49ef5e250abe921960c326f73c6) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Expose a reusable daemon SDK with a scoped Effect service, typed transport failures,
+  receipt-backed review messages and agent prompts, and reconnecting subscriptions.
+  Preserve accepted operation identities after lost responses and daemon restarts.
+
+- [#546](https://github.com/mmurakaru/cueloop/pull/546) [`0d6ed8a`](https://github.com/mmurakaru/cueloop/commit/0d6ed8a00df0d9e406e3bb11d98e01b22d04cc41) Thanks [@dependabot](https://github.com/apps/dependabot)! - Update the terminal rendering dependencies to 0.5.14.
+
+- [#549](https://github.com/mmurakaru/cueloop/pull/549) [`27c58ae`](https://github.com/mmurakaru/cueloop/commit/27c58aec050a75febbe8b7725a091952789def9a) Thanks [@dependabot](https://github.com/apps/dependabot)! - Update browser integration to puppeteer-core 25.12.0.
+
+- [#552](https://github.com/mmurakaru/cueloop/pull/552) [`2a0db3f`](https://github.com/mmurakaru/cueloop/commit/2a0db3f1b66dbc268f8cc12cdb06184fa4fea036) Thanks [@dependabot](https://github.com/apps/dependabot)! - Update diff parsing to @pierre/diffs 1.5.1.
+- Updated dependencies [[`34353cf`](https://github.com/mmurakaru/cueloop/commit/34353cfc947bc49ef5e250abe921960c326f73c6), [`e71db8a`](https://github.com/mmurakaru/cueloop/commit/e71db8ac67d47b2e1285803509ba527e695b3576), [`2a0db3f`](https://github.com/mmurakaru/cueloop/commit/2a0db3f1b66dbc268f8cc12cdb06184fa4fea036), [`8907de4`](https://github.com/mmurakaru/cueloop/commit/8907de49d1aa4ffa8d0adb8fe6ae3f92b33aec90)]:
+  - @cueloop/daemon@0.1.0-alpha.99
+  - @cueloop/schema@0.1.0-alpha.99
+  - @cueloop/extension-api@0.1.0-alpha.99
+  - @cueloop/integration-obsidian@0.1.0-alpha.99
+
 ## 0.1.0-alpha.98
 
 ### Minor Changes
