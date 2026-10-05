@@ -223,6 +223,12 @@ export const Params = {
     text: v.pipe(v.string(), v.maxLength(65_536)),
     context: v.optional(v.pipe(v.string(), v.maxLength(32_768))),
     retry: v.optional(NonEmpty),
+    operationId: v.optional(v.pipe(NonEmpty, v.maxLength(128))),
+  }),
+  "agent.reply": v.object({
+    id: SessionId,
+    commentId: NonEmpty,
+    body: v.pipe(NonEmpty, v.maxLength(32_768)),
   }),
   "agent.cancel": v.object({ id: SessionId }),
   "agent.comment": v.object({ id: SessionId, comment: AgentCommentSchema }),
@@ -322,6 +328,7 @@ export const Params = {
     outcome: v.picklist(MESSAGE_OUTCOMES),
     summary: v.optional(v.string(), ""),
     actionBodies: v.optional(v.record(v.string(), v.string())),
+    operationId: v.optional(v.pipe(NonEmpty, v.maxLength(128))),
   }),
   "harness.bind": v.object({
     threadId: SessionId,
@@ -497,6 +504,9 @@ export const ThreadRecordSchema = v.pipe(
     workingCopy: v.optional(v.string()),
     textCuts: v.optional(TextCutsSchema),
     viewedPaths: v.optional(v.array(v.string())),
+    messageOperations: v.optional(
+      v.array(v.object({ operationId: NonEmpty, fingerprint: NonEmpty, result: MessageSchema })),
+    ),
     message: v.nullable(MessageSchema),
     status: v.picklist(["pending", "resolved"]),
     createdAt: v.string(),

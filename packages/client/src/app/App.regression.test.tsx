@@ -48,6 +48,7 @@ function accentTitle(setup: Awaited<ReturnType<typeof renderReadyApp>>): string 
   for (const line of setup.captureSpans().lines) {
     for (const span of line.spans) {
       const rgb = span.fg?.toInts();
+
       if (
         rgb &&
         rgb[0] === ACCENT_DARK[0] &&
@@ -55,6 +56,7 @@ function accentTitle(setup: Awaited<ReturnType<typeof renderReadyApp>>): string 
         rgb[2] === ACCENT_DARK[2]
       ) {
         const text = span.text.trim();
+
         if (text.includes("review")) return text;
       }
     }
@@ -69,6 +71,7 @@ test("ctrl+q quits even when a menu holds the keyboard", async () => {
     width: 120,
     height: 32,
   });
+
   await waitForText(setup, "review");
 
   // open the settings dialog from the top-left gear - it takes the keyboard
@@ -83,10 +86,12 @@ test("ctrl+q quits even when a menu holds the keyboard", async () => {
 
 test("clicking a sidebar thread gives it the selected accent at once", async () => {
   const setup = await renderReadyApp(<App home={home} />, { width: 120, height: 32 });
+
   await waitForText(setup, "Second review");
 
   // click whichever thread is not already the selected (accent) one
   const target = accentTitle(setup)?.includes("Second") ? "First review" : "Second review";
+
   await clickText(setup, target);
 
   expect(accentTitle(setup)).toContain(target.split(" ")[0]!);

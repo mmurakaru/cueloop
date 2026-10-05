@@ -126,6 +126,7 @@ export async function verifyCueloopDeployment(origin: string): Promise<void> {
 
 if (import.meta.main) {
   const origin = Bun.argv[2];
+
   invariant(origin !== undefined, "usage: bun run verify:deployment -- <origin>");
   await verifyCueloopDeployment(origin);
   console.log(`Verified ${checks.length} public responses at ${origin}`);

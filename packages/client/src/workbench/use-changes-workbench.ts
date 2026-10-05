@@ -141,24 +141,29 @@ export function useChangesWorkbench(options?: ChangesWorkbenchOptions): ChangesW
   const close = (groupId: string, tabId: string): void => {
     setGrid((tree) => {
       const pruned = closeTab(tree, groupId, tabId);
+
       if (pruned === null) {
         setChangesOpen(false);
         setProjectMode("tree");
         // leaving zoom on would hide the Thread pane with no editor to fill the gap
         setZoomed(false);
+
         return makeGroup([changesTab()]);
       }
       // re-home focus when the closed group was pruned away, so the next open has a live target
       setFocusedGroup((current) =>
         current !== null && containsGroup(pruned, current) ? current : firstGroupId(pruned),
       );
+
       return pruned;
     });
   };
   const split = (groupId: string, direction: SplitDirection): void => {
     setGrid((tree) => {
       const result = splitGroup(tree, groupId, direction);
+
       setFocusedGroup(result.focusGroupId);
+
       return result.tree;
     });
   };

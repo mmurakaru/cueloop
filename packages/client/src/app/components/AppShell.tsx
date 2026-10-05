@@ -162,6 +162,7 @@ export function AppShell({
 }: AppShellProps): React.ReactNode {
   const { registry, context } = extensionInputs(extensionRegistry, extensionContext);
   const extensionSnapshot = useClientExtensionSnapshot(registry);
+
   useEffect(() => {
     if (extensionSnapshot.lastError) onExtensionError?.(extensionSnapshot.lastError);
   }, [extensionSnapshot.lastError, onExtensionError]);

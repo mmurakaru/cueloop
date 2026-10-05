@@ -64,6 +64,7 @@ test("phaseMarksToSpans builds a scope root with one child span per phase under 
 
   expect(spans).toHaveLength(3);
   const [root, first, second] = spans;
+
   expect(root!.name).toBe("cueloop.startup");
   expect(root!.parentSpanId).toBeUndefined();
   expect(first!.name).toBe("cueloop.startup.renderer");
@@ -82,6 +83,7 @@ test("postOtlpTrace sends no request when the endpoint is unset", async () => {
       return new Response("{}");
     },
   });
+
   try {
     await postOtlpTrace("cueloop-client", [span]);
   } finally {
@@ -101,6 +103,7 @@ test("postOtlpTrace POSTs OTLP JSON to /v1/traces when the endpoint is set", asy
       return new Response("{}");
     },
   });
+
   // a trailing slash must not double up into "//v1/traces"
   process.env.OTEL_EXPORTER_OTLP_ENDPOINT = `http://127.0.0.1:${server.port}/`;
   try {

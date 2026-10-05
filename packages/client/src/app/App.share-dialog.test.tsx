@@ -67,6 +67,7 @@ describe("share dialog", () => {
       <App home={home} sessionId={session.id} shareTransport={shareTransport} />,
       { width: 120, height: 32 },
     );
+
     await waitForText(setup, "cueloop");
 
     // Act
@@ -84,6 +85,7 @@ describe("share dialog", () => {
       <App home={home} sessionId={session.id} shareTransport={shareTransport} />,
       { width: 120, height: 32 },
     );
+
     await waitForText(setup, "cueloop");
 
     // Act: open the dialog, step into the body, activate "+ new link"
@@ -116,6 +118,7 @@ describe("share dialog", () => {
       <App home={home} sessionId={session.id} shareTransport={shareTransport} />,
       { width: 120, height: 32 },
     );
+
     await waitForText(setup, "cueloop");
 
     // Act: open the wizard, turn auth on but add no handles, then try to create
@@ -140,6 +143,7 @@ describe("share dialog", () => {
       <App home={home} sessionId={session.id} shareTransport={shareTransport} />,
       { width: 120, height: 32 },
     );
+
     await waitForText(setup, "cueloop");
 
     // Act + Assert: right arrow crosses into the body (its hint appears)
@@ -159,6 +163,7 @@ describe("share dialog", () => {
       <App home={home} sessionId={session.id} shareTransport={shareTransport} />,
       { width: 120, height: 32 },
     );
+
     await waitForText(setup, "cueloop");
 
     // Act
