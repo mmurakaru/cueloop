@@ -31,9 +31,9 @@ export interface AnnotatableFileViewProps {
   onCursorChange?: (rowIndex: number) => void;
   onObserverBlocked?: (reason: "observer" | "resolved") => void;
   onAddComment: (anchor: Anchor, body: string) => void;
-  onReply: (rootAnnotationId: string, body: string) => void;
+  onReply: (rootAnnotationId: string, body: string) => string | void;
   onUpdateAnnotation: (id: string, body: string) => void;
-  onInvoke?: () => void;
+  onInvoke?: (commentId?: string) => void;
   annotationAction?: (id: string) => { label: string; run: () => void } | undefined;
   isAnnotationReadOnly?: (id: string) => boolean;
   resolveAuthorLabel?: (annotation: Annotation) => string | undefined;
