@@ -1,0 +1,41 @@
+services:
+  s3:
+    image: chrislusf/seaweedfs:4.37@sha256:f898c91e42d7da5f4bb13f1efd424ff03ba85b420312eb929708a384e8a8b03d
+    command: mini -dir=/data
+    mem_limit: 512m
+    environment:
+      AWS_ACCESS_KEY_ID: mirror-local-access
+      AWS_SECRET_ACCESS_KEY: mirror-local-secret-only
+      S3_BUCKET: cueloop-mirror
+    volumes:
+      - blobs:/data
+    ports:
+      - "127.0.0.1::8333"
+  gateway:
+    platform: linux/amd64
+    build:
+      context: ../../..
+      dockerfile: test/gateway/mirror/Dockerfile
+    cpus: 1
+    mem_limit: 1g
+    restart: on-failure
+    depends_on:
+      s3:
+        condition: service_started
+    environment:
+      CUELOOP_GATEWAY_PORT: 22
+      CUELOOP_GATEWAY_HOST: 0.0.0.0
+      CUELOOP_PUBLIC_HOST: 127.0.0.1
+      CUELOOP_HOST_KEY_PATH: /state/host_key
+      CUELOOP_MASTER_KEY_PATH: /state/master.key
+      CUELOOP_R2_ENDPOINT: http://s3:8333
+      CUELOOP_R2_BUCKET: cueloop-mirror
+      CUELOOP_R2_ACCESS_KEY_ID: mirror-local-access
+      CUELOOP_R2_SECRET_ACCESS_KEY: mirror-local-secret-only
+    ports:
+      - "127.0.0.1::22"
+    volumes:
+      - keys:/state
+volumes:
+  blobs:
+  keys:

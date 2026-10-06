@@ -119,6 +119,7 @@ export interface AppProps {
   sessionId?: string;
   initialReview?: { session: Thread; diff: { patch: string; files: DiffFileContents[] } };
   initialClient?: ThreadClient;
+  agentClient?: import("../thread/use-thread-agent").ThreadAgentClient;
   cwd?: string;
   readOnly?: boolean;
   onExit?: (code: number) => void;
@@ -531,6 +532,7 @@ export function App({
   sessionId,
   initialReview,
   initialClient,
+  agentClient,
   cwd,
   readOnly = false,
   onExit,
@@ -1315,11 +1317,13 @@ export function App({
                   <box style={{ flexGrow: 1, flexDirection: "row" }}>
                     <AgentThreadPrototype
                       key={activeSession.id}
+                      client={agentClient}
                       enabled={canRunThreadAgent({
                         enabled: threadAgentEnabled,
                         owner: isOwner,
                         editing: bodyEditing.editing,
                         shared: isSharedThreadConnection(openClient, shareTransport),
+                        sharedAgent: sharedAgentAvailable(agentClient, activeSession),
                       })}
                       observer={observer}
                       pixelPrototype={isPixelPrototype}
@@ -1592,6 +1596,12 @@ export function App({
                 threadName={shareThreadName(session)}
                 links={shareLinksFor(session)}
                 isOwner={isOwner}
+                agentAvailable={canRunThreadAgent({
+                  enabled: threadAgentEnabled,
+                  owner: isOwner,
+                  editing: false,
+                  shared: isSharedThreadConnection(openClient, shareTransport),
+                })}
                 onCreateLink={(input) => controller.createShareLink(input)}
                 onUpdateLink={(id, input) => controller.updateShareLink(id, input)}
                 onDeleteLink={(id) => controller.deleteShareLink(id)}
@@ -1618,8 +1628,15 @@ export function canRunThreadAgent(options: {
   owner: boolean;
   editing: boolean;
   shared: boolean;
+  sharedAgent?: boolean;
 }): boolean {
-  return options.enabled && options.owner && !options.editing && !options.shared;
+  if (options.editing) return false;
+
+  return Boolean(options.sharedAgent || (options.enabled && options.owner && !options.shared));
+}
+
+function sharedAgentAvailable(client: AppProps["agentClient"], thread: Thread): boolean {
+  return Boolean(client && thread.shares?.[0]?.agentEnabled);
 }
 
 function isSubmittedComment(

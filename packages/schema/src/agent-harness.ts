@@ -2,7 +2,7 @@ import type { AgentPermission, AgentTool, AgentConfigOption } from "./thread-age
 
 /** Harness events carry transcript data without exposing a provider's wire protocol. */
 export type AgentHarnessEvent =
-  | { kind: "message"; id?: string; text: string }
+  | { kind: "message"; id?: string; text: string; replace?: boolean }
   | AgentHarnessDiagnostic
   | {
       kind: "tool";
@@ -24,10 +24,10 @@ export interface AgentHarnessResult {
 /** One harness connection owns initialization, session restore, and its subprocess. */
 export interface AgentHarnessConnection {
   start(): Promise<string>;
-  prompt(text: string): Promise<AgentHarnessResult>;
+  prompt(text: string, requestId?: string): Promise<AgentHarnessResult>;
   cancel(): void;
   permission(requestId: string, optionId?: string): void;
-  close(): void;
+  close(): void | Promise<void>;
   configure?(id: string, value: string): Promise<void>;
 }
 
@@ -45,6 +45,7 @@ export interface AgentHarnessAdapter {
   id: string;
   label: string;
   connect(options: AgentHarnessOptions): AgentHarnessConnection;
+  remove?(sessionId: string): void | Promise<void>;
 }
 
 /** Tools use the daemon API; call arguments and results are serialized JSON validated at the boundary. */

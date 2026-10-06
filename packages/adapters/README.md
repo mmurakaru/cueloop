@@ -103,3 +103,31 @@ extension errors, and distinguishes cancellation, failure, activity, and
 `agent_settled`. Callers assign message identities and track turn outcomes across
 retries; neither a prompt acknowledgement nor `agent_end` means the turn settled.
 This provides the output normalization seam, not a new pi subprocess harness.
+
+### Owner-hosted durable conversations
+
+New Thread agents use the Pi Durable adapter. One Harness owns each Thread's
+conversation in `<cueloop-home>/pi-conversations/<session-id>`. Models,
+credentials, durable Storage, and ExecutionEnv are separate host dependencies.
+The supplied environment runs on the owner machine; it is not a sandbox.
+Existing fx conversations retain their adapter and session identity. Set
+`CUELOOP_AGENT_HARNESS=fx` to select fx for new conversations.
+
+The Pi adapter reads the owner's `~/.pi/agent/auth.json` credentials and the
+provider's supported environment credentials. Refreshes are persisted in
+cueloop's private `model-credentials.json`, leaving the imported source unchanged.
+Credentials are never included in share blobs or relay frames. Provider login remains a local operation.
+
+With `[experimental] thread_agent = true`, the share wizard offers **Allow agent
+messages**, off by default. Enabled collaborators use the owner's conversation
+and model account. Ctrl+Enter submits agent input; Option+Enter keeps comments
+inline and editable. A disabled link still supports ordinary comment threads.
+
+The gateway persists input before showing it queued and keeps the request until
+the owner daemon acknowledges a persisted operation receipt. If the owner is
+disconnected, the artifact stays readable and the Thread shows **Owner offline**.
+An authenticated owner connection receives requests over `cueloop-agent` SSH,
+merges their annotations into the local Thread, and streams agent state back.
+Reconnect reuses operation IDs; changed payloads cannot reuse an accepted ID.
+The gateway runs no model or workspace tools. Hosting execution elsewhere would
+require supplying Storage, Models and an isolated ExecutionEnv on that host.

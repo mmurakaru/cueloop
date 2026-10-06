@@ -8,7 +8,7 @@ export type ThreadAgentClient = Pick<
   DaemonClient,
   "agentGet" | "agentPrompt" | "agentCancel" | "agentComment" | "agentPermission"
 > &
-  Partial<Pick<DaemonClient, "agentConfigure">>;
+  Partial<Pick<DaemonClient, "agentConfigure" | "onEvent">> & { canControlAgent?: boolean };
 
 /** Subscribe to durable agent state; unmount closes only this client connection. */
 export function useThreadAgent(id: string, home?: string, injected?: ThreadAgentClient) {
@@ -48,6 +48,12 @@ export function useThreadAgent(id: string, home?: string, injected?: ThreadAgent
     void (async () => {
       try {
         if (injected) {
+          unsubscribe = injected.onEvent?.((event) => {
+            if (event.event === "agent.updated" && event.sessionId === id)
+              void refresh(injected).catch((error) => {
+                if (!cancelled) setError(String(error));
+              });
+          });
           await refresh(injected);
           await configure(injected);
 

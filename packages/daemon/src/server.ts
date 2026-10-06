@@ -45,8 +45,9 @@ interface Connection {
 type MethodHandler = (connection: Connection, request: Request) => Response["result"];
 
 export interface DaemonOptions {
-  threadAgent?: Pick<ThreadAgentOptions, "enabled" | "enabledForThread" | "adapter">;
+  threadAgent?: Pick<ThreadAgentOptions, "enabled" | "enabledForThread" | "adapter" | "adapters">;
   home?: string;
+  onEvent?: (event: import("./client").EventFrame) => void;
   idleExitMs?: number;
   onIdleExit?: () => void;
   version?: string;
@@ -73,8 +74,10 @@ export class DaemonServer {
   private readonly idleExitMs: number;
   private readonly onIdleExit: () => void;
   private readonly version: string;
+  private readonly onEvent?: (event: import("./client").EventFrame) => void;
 
   constructor(options: DaemonOptions = {}) {
+    this.onEvent = options.onEvent;
     this.home = options.home ?? cueloopHome();
     this.idleExitMs = options.idleExitMs ?? 15 * 60 * 1000;
     this.onIdleExit = options.onIdleExit ?? (() => process.exit(0));
@@ -86,6 +89,7 @@ export class DaemonServer {
       enabled: options.threadAgent?.enabled ?? false,
       enabledForThread: options.threadAgent?.enabledForThread,
       adapter: options.threadAgent?.adapter,
+      adapters: options.threadAgent?.adapters,
       getThread: (id) => this.core.sessionGet(id),
       tools: (thread): AgentHarnessTools => ({
         definitions: [
@@ -131,6 +135,7 @@ export class DaemonServer {
         call: async (name, input) => this.callAgentTool(thread.id, name, input),
       }),
       onChange: (id) => {
+        this.onEvent?.({ event: "agent.updated", sessionId: id });
         for (const connection of this.connections) {
           if (connection.subscribed && connection.role === "owner")
             connection.write(JSON.stringify({ event: "agent.updated", sessionId: id }) + "\n");
@@ -286,8 +291,28 @@ export class DaemonServer {
     return path;
   }
 
+  resumeAgents(): void {
+    for (const thread of this.core.sessionList({ status: "pending" })) {
+      if (!this.threadAgent.isEnabled(thread.id)) continue;
+      const state = this.threadAgent.get(thread.id);
+
+      if (
+        state.harness?.id === "pi" &&
+        state.submissions?.some((submission) => submission.status === "queued")
+      )
+        void this.threadAgent
+          .configure({ id: thread.id })
+          .catch((error) => console.error("[agent recovery]", error));
+    }
+  }
+
+  async shutdown(): Promise<void> {
+    await this.threadAgent.dispose();
+    this.stop();
+  }
+
   stop(): void {
-    this.threadAgent.dispose();
+    void this.threadAgent.dispose().catch((error) => console.error("[agent shutdown]", error));
     this.core.dispose();
     if (this.lockFd === null) return;
     this.server?.stop(true);
@@ -300,6 +325,7 @@ export class DaemonServer {
   }
 
   private broadcast(event: DaemonEvent): void {
+    this.onEvent?.(event);
     const frame = JSON.stringify(event) + "\n";
 
     for (const connection of this.connections) if (connection.subscribed) connection.write(frame);
@@ -473,8 +499,9 @@ export class DaemonServer {
     },
     "daemon.shutdown": () => {
       setTimeout(() => {
-        this.stop();
-        this.onIdleExit();
+        void this.shutdown()
+          .then(() => this.onIdleExit())
+          .catch((error) => console.error("[agent shutdown]", error));
       }, 10);
 
       return {};
@@ -632,13 +659,16 @@ export class DaemonServer {
     "session.setShares": (_connection, request) => {
       const params = parseParams("session.setShares", request.params);
 
+      if (params.shares.some((link) => link.agentEnabled))
+        this.threadAgent.assertEnabled(params.id);
+
       return this.core.sessionSetShares(params.id, params.shares);
     },
-    "session.delete": (_connection, request) => {
+    "session.delete": async (_connection, request) => {
       const { id } = parseParams("session.delete", request.params);
 
+      await this.threadAgent.remove(id);
       this.core.sessionDelete(id);
-      this.threadAgent.remove(id);
 
       return {};
     },

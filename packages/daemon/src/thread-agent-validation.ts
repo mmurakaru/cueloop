@@ -32,6 +32,7 @@ const StoredAgentSchema = v.object({
   phase: v.variant("kind", [
     v.object({ kind: v.literal("idle") }),
     v.object({ kind: v.literal("running") }),
+    v.object({ kind: v.literal("offline") }),
     v.object({ kind: v.literal("failed"), error: v.string() }),
     v.object({
       kind: v.literal("permission"),
@@ -77,6 +78,7 @@ const StoredAgentSchema = v.object({
         commentId: v.optional(v.string()),
         messageId: v.optional(v.string()),
         prompt: v.string(),
+        harnessPrompt: v.optional(v.string()),
         quote: v.optional(v.string()),
         context: v.optional(v.string()),
         status: v.picklist(["queued", "running", "completed", "failed"]),

@@ -16,6 +16,7 @@ export interface ShareWizardDraft {
   name: string;
   requireAuth: boolean;
   allowlist: string[];
+  agentEnabled?: boolean;
 }
 
 export interface ShareDialogState {
@@ -27,6 +28,7 @@ export interface ShareDialogState {
   setName: (name: string) => void;
   setRequireAuth: (requireAuth: boolean) => void;
   setAllowlist: (allowlist: string[]) => void;
+  setAgentEnabled: (agentEnabled: boolean) => void;
   reset: () => void;
 }
 
@@ -46,6 +48,8 @@ export const shareDialogStore = createStore<ShareDialogState>((set) => ({
     set((state) => (state.wizard ? { wizard: { ...state.wizard, requireAuth } } : {})),
   setAllowlist: (allowlist) =>
     set((state) => (state.wizard ? { wizard: { ...state.wizard, allowlist } } : {})),
+  setAgentEnabled: (agentEnabled) =>
+    set((state) => (state.wizard ? { wizard: { ...state.wizard, agentEnabled } } : {})),
   reset: () => set({ category: "external", wizard: null }),
 }));
 

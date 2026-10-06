@@ -19,7 +19,7 @@ import { generateMasterKey, openBlob } from "./crypto";
 import { unpackSessionBlob } from "@cueloop/daemon/share-blob";
 import { generateEd25519Key } from "./host-key";
 import { startGateway, type GatewayHandle } from "./server";
-import { MemoryShareStore } from "./store";
+import { WatchedShareStore, MemoryShareStore } from "./store";
 
 const MASTER = generateMasterKey();
 
@@ -825,4 +825,163 @@ describe("viewing an unknown id", () => {
     // Assert
     expect(frames).toContain("not found or has expired");
   });
+});
+
+test("the owner agent channel accepts duplex state and rejects another fingerprint", async () => {
+  const id = idFrom(
+    await shareUpload(
+      handle.port,
+      packSessionBlob({
+        ...SESSION,
+        shares: [{ id: "upload", requireAuth: false, allowlist: [], agentEnabled: true }],
+      }),
+    ),
+  );
+  const owner = new Client();
+  const state = {
+    threadId: SESSION.id,
+    phase: { kind: "idle" as const },
+    messages: [
+      { id: "utf8-answer", role: "agent", text: "日本語 🦊", complete: true, revision: 1 },
+    ],
+    tools: [],
+    comments: [],
+  };
+  let stream: import("ssh2").ClientChannel | undefined;
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error("Agent handshake timed out")), 8000);
+
+      owner
+        .on("error", reject)
+        .on("ready", () =>
+          owner.exec("cueloop-agent", (error, channel) => {
+            if (error) {
+              clearTimeout(timer);
+              reject(error);
+
+              return;
+            }
+            stream = channel;
+            let buffer = "";
+
+            channel.on("data", (chunk: Buffer) => {
+              buffer += chunk.toString("utf8");
+              if (!buffer.includes("\n")) return;
+              const frame = JSON.parse(buffer.slice(0, buffer.indexOf("\n")));
+
+              expect(frame.type).toBe("requests");
+              expect(frame.thread.id).toBe(SESSION.id);
+              const bytes = Buffer.from(JSON.stringify({ type: "state", state }) + "\n");
+              const split = bytes.indexOf(Buffer.from("日本語")) + 1;
+
+              channel.write(bytes.subarray(0, split));
+              channel.write(bytes.subarray(split));
+              clearTimeout(timer);
+              resolve();
+            });
+            channel.write(JSON.stringify({ type: "hello", shareId: id }) + "\n");
+          }),
+        )
+        .connect({
+          host: "127.0.0.1",
+          port: handle.port,
+          username: "share",
+          privateKey: CLIENT_KEY,
+        });
+    });
+    const { SharedAgentRelay } = await import("./shared-agent");
+    const relay = new SharedAgentRelay(new WatchedShareStore(store), MASTER);
+
+    for (let attempt = 0; attempt < 100; attempt++) {
+      const current = await relay.get(id);
+
+      if (current.messages.length) break;
+      await Bun.sleep(1);
+    }
+    expect((await relay.get(id)).messages[0]?.text).toBe("日本語 🦊");
+    const result = await new Promise<number | undefined>((resolve, reject) => {
+      const viewer = new Client();
+      const timer = setTimeout(() => {
+        viewer.end();
+        reject(new Error("Agent rejection timed out"));
+      }, 8000);
+
+      viewer
+        .on("error", reject)
+        .on("ready", () =>
+          viewer.exec("cueloop-agent", (error, channel) => {
+            if (error) {
+              clearTimeout(timer);
+              viewer.end();
+              reject(error);
+
+              return;
+            }
+            channel.resume();
+            channel.stderr.resume();
+            channel.on("close", (code: number) => {
+              clearTimeout(timer);
+              viewer.end();
+              resolve(code);
+            });
+            channel.write(JSON.stringify({ type: "hello", shareId: id }) + "\n");
+          }),
+        )
+        .connect({
+          host: "127.0.0.1",
+          port: handle.port,
+          username: "share",
+          privateKey: OTHER_KEY,
+        });
+    });
+
+    expect(result).toBe(1);
+  } finally {
+    stream?.end();
+    owner.end();
+  }
+});
+
+test("an agent channel rejects a flood of queued frames from a signed SSH client", async () => {
+  const client = new Client();
+  const result = await new Promise<{ code: number; stderr: string }>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      client.end();
+      reject(new Error("Agent flood rejection timed out"));
+    }, 8000);
+
+    client
+      .on("error", reject)
+      .on("ready", () => {
+        client.exec("cueloop-agent", (error, channel) => {
+          if (error) {
+            clearTimeout(timer);
+            client.end();
+            reject(error);
+
+            return;
+          }
+          let stderr = "";
+
+          channel.resume();
+          channel.stderr.on("data", (chunk: Buffer) => {
+            stderr += chunk.toString("utf8");
+          });
+          channel.on("close", (code: number) => {
+            clearTimeout(timer);
+            client.end();
+            resolve({ code, stderr });
+          });
+          channel.write(
+            (JSON.stringify({ type: "hello", shareId: "p_abcdefgh" }) + "\n").repeat(1000),
+          );
+        });
+      })
+      .connect({ host: "127.0.0.1", port: handle.port, username: "share", privateKey: OTHER_KEY });
+  });
+
+  expect(result.code).toBe(1);
+  expect(result.stderr).toContain("queue capacity exceeded");
 });

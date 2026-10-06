@@ -290,6 +290,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
   };
   const [folded, setFolded] = useState<Set<string>>(new Set());
   const [composeText, setComposeText] = useState("");
+  const [composerFocusRequest, setComposerFocusRequest] = useState(0);
   const composeTextRef = useRef("");
   const setDraft = (text: string): void => {
     composeTextRef.current = text;
@@ -436,6 +437,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     readComposerText.current = null;
     composeRef.current = state;
     setCompose(state);
+    setComposerFocusRequest((request) => request + 1);
     setDraft(state.seed);
     setCaretOffset(state.seed.length);
     setSlashIndex(0);
@@ -903,6 +905,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
       tokens={tokens}
       onSave={saveComment}
       agentEnabled={Boolean(onInvoke)}
+      focusRequest={composerFocusRequest}
       onReady={(readText) => {
         readComposerText.current = readText;
         composerReady.current = true;
@@ -996,6 +999,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     return ranges;
   };
 
+  const composeBlockIndex = compose?.kind === "prompt" ? source.count - 1 : compose?.blockIndex;
   const cardsAfterLine = (
     blockIndex: number,
     line: VisualLine,
@@ -1004,7 +1008,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     const endsInLine = (end: number): boolean =>
       (end === 0 && line.start === 0) || (end - 1 >= line.start && end - 1 < line.end);
     const nodes: React.ReactNode[] = [];
-    const composeHere = compose && compose.blockIndex === blockIndex;
+    const composeHere = compose && composeBlockIndex === blockIndex;
     const newComposeHere = Boolean(composeHere && compose.discussionKey === null && composerNode);
     const composeAnchoredHere =
       newComposeHere && (compose!.span ? endsInLine(compose!.span.end.char) : isLastLine);
@@ -1151,7 +1155,8 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     const geometry = allGeometry();
     const promptLine = geometry.find((entry) => isPromptBlock?.(entry.blockIndex));
     const lastReplyLine = geometry
-      .filter((entry) => entry.blockIndex === blockIndex - 1)
+      // Activity blocks render outside the text geometry, so use the last measured line.
+      .filter((entry) => entry.blockIndex < blockIndex)
       .sort((left, right) => right.y - left.y)[0];
     const promptStart = promptLine ? promptLine.y - 1 : lastReplyLine && lastReplyLine.y + 1;
     const viewport = dragViewport?.();

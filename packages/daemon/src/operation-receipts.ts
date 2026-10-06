@@ -87,5 +87,12 @@ export function findPromptOperationReceipt(
 }
 
 function promptOperationFingerprint(input: AgentPromptRequest): string {
-  return operationFingerprint([input.text, input.context ?? null, input.retry ?? null]);
+  return operationFingerprint([
+    input.text,
+    input.context ?? null,
+    input.retry ?? null,
+    input.commentId ?? null,
+    input.inputOnly ? "input" : null,
+    input.discussion ?? null,
+  ]);
 }

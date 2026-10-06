@@ -57,6 +57,7 @@ export function Composer({
   onInput,
   placeholder,
   agentEnabled = false,
+  focusRequest,
 }: {
   seed: string;
   glyph: string | null;
@@ -66,6 +67,7 @@ export function Composer({
   onInput: (text: string, caret: number) => void;
   placeholder?: string;
   agentEnabled?: boolean;
+  focusRequest?: number;
 }): React.ReactNode {
   const editorRef = useRef<TextareaRenderable | null>(null);
   const pastedImageCount = useRef(0);
@@ -105,6 +107,9 @@ export function Composer({
     onReady(() => editorRef.current?.plainText ?? "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  useLayoutEffect(() => {
+    editorRef.current?.focus();
+  }, [focusRequest]);
 
   return (
     <box style={{ flexDirection: "row" }}>

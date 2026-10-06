@@ -35,6 +35,7 @@ export interface ThreadAgentOptions {
   enabled: boolean;
   enabledForThread?: (thread: Thread) => boolean;
   adapter?: AgentHarnessAdapter;
+  adapters?: Record<string, AgentHarnessAdapter>;
   getThread: (id: string) => Thread;
   onChange: (id: string) => void;
   tools?: (thread: Thread) => AgentHarnessTools;
@@ -49,10 +50,13 @@ interface ActiveAgent {
 
 /** Own harness processes and durable agent transcripts without mutating reviewed artifacts. */
 export class ThreadAgentManager {
+  private readonly deleting = new Set<string>();
+  private readonly retiring = new Map<string, Promise<void>>();
   private states = new Map<string, ThreadAgentState>();
   private active = new Map<string, ActiveAgent>();
   private readonly directory: string;
   private disposed = false;
+  private closing?: Promise<void>;
   private initializing = new Map<string, Promise<ActiveAgent>>();
 
   constructor(private readonly options: ThreadAgentOptions) {
@@ -68,6 +72,7 @@ export class ThreadAgentManager {
 
   /** Refuse agent API calls while its experimental flag is disabled. */
   assertEnabled(id: string): void {
+    if (this.disposed) throw new Error("Thread agent is shutting down");
     if (!this.isEnabled(id))
       throw new Error(
         "Thread agent is disabled; enable [experimental] thread_agent in config.toml",
@@ -76,7 +81,7 @@ export class ThreadAgentManager {
 
   /** Read a transcript without starting an agent or contacting a model. */
   get(id: string): ThreadAgentState {
-    this.options.getThread(id);
+    this.assertReadable(id);
     const cached = this.states.get(id);
 
     if (cached) return structuredClone(cached);
@@ -100,13 +105,16 @@ export class ThreadAgentManager {
       state.phase.kind === "permission" ||
       state.submissions?.some((entry) => entry.status === "queued" || entry.status === "running")
     ) {
-      state.phase = {
-        kind: "failed",
-        error: "Agent was interrupted by a daemon restart. Send a message to resume.",
-      };
+      state.phase =
+        state.harness?.id === "pi"
+          ? { kind: "idle" }
+          : {
+              kind: "failed",
+              error: "Agent was interrupted by a daemon restart. Send a message to resume.",
+            };
       for (const submission of state.submissions ?? []) {
         if (submission.status === "running" || submission.status === "queued")
-          submission.status = "failed";
+          submission.status = state.harness?.id === "pi" ? "queued" : "failed";
       }
       for (const tool of state.tools) {
         if (tool.status === "pending" || tool.status === "in_progress") tool.status = "cancelled";
@@ -132,7 +140,7 @@ export class ThreadAgentManager {
     }
     if (!this.options.adapter) throw new Error("Thread agent harness is not configured");
     if (thread.status !== "pending") throw new Error("Thread agent review is already resolved");
-    assertHarnessIdentity(state, this.options.adapter);
+    assertHarnessIdentity(state, this.adapter(state));
     const before = structuredClone(state);
 
     try {
@@ -140,46 +148,12 @@ export class ThreadAgentManager {
       state.submissions ??= [];
       const submissions = state.submissions;
       const revision = thread.revisions.at(-1)?.revision ?? 1;
-      const enqueue = (input: Omit<AgentSubmission, "id" | "status">): void => {
-        if (
-          state.messages.length +
-            submissions.filter((entry) => entry.status === "queued" || entry.status === "running")
-              .length +
-            2 >
-          128
-        )
-          throw new Error("Thread agent prototype reached its 128-message limit");
-        if (
-          Buffer.byteLength(input.prompt) > 320_000 ||
-          Buffer.byteLength(input.quote ?? "") > 320_000
-        )
-          throw new Error("Thread agent input exceeds 320 KiB");
-        const used = state.messages.reduce(
-          (total, message) => total + Buffer.byteLength(message.text),
-          0,
-        );
+      const enqueue = (input: Omit<AgentSubmission, "id" | "status">): void =>
+        this.enqueue(state, revision, input, promptMirrorIdentity(params));
 
-        if (used + Buffer.byteLength(input.prompt) > 2 * 1024 * 1024)
-          throw new Error("Thread agent input exceeds transcript limit");
-        const submission: AgentSubmission = {
-          ...input,
-          id: randomUUID(),
-          status: stepAgentSubmission("draft", "submit", true),
-        };
-
-        submission.commentId ??= submission.id;
-        submissions.push(submission);
-        state.messages.push({
-          id: submission.id,
-          submissionId: submission.id,
-          role: "user",
-          text: submission.prompt,
-          complete: true,
-          revision,
-        });
-      };
-
-      if (params.retry) {
+      if (params.commentId) {
+        this.enqueueComment(state, thread, params.commentId, enqueue, params);
+      } else if (params.retry) {
         const submission = submissions.find((entry) => entry.id === params.retry);
 
         if (!submission || submission.status !== "failed")
@@ -189,41 +163,10 @@ export class ThreadAgentManager {
       } else {
         const accepted = new Set(submissions.map((entry) => entry.commentId));
 
-        for (const annotation of thread.annotations) {
-          if (!isPendingAgentInput(annotation, accepted)) continue;
-          const root =
-            thread.annotations.find(
-              (entry) => entry.id === (annotation.replyTo ?? annotation.id),
-            ) ?? annotation;
-          const discussion = thread.annotations.filter(
-            (entry) => entry.id === root.id || entry.replyTo === root.id,
-          );
-
-          enqueue({ commentId: annotation.id, prompt: annotation.body, quote: root.anchor.quote });
-          // The discussion snapshot is passed as context, while the mirror shows only the new comment.
-          const submission = submissions.at(-1)!;
-
-          submission.context = JSON.stringify({
-            target: root.target,
-            discussion: discussion.map((entry) => ({ id: entry.id, body: entry.body })),
-          });
-        }
-        for (const comment of state.comments.filter((entry) => !entry.sent)) {
-          enqueue({
-            commentId: comment.id,
-            prompt: comment.body,
-            quote: comment.anchor.quote,
-            messageId: comment.messageId,
-          });
-          const root = agentCommentRoot(state, comment.replyTo ?? comment.id) ?? comment;
-
-          submissions.at(-1)!.context = JSON.stringify({
-            discussion: [root, ...state.comments.filter((entry) => entry.replyTo === root.id)].map(
-              (entry) => ({ id: entry.id, body: entry.body }),
-            ),
-          });
-          comment.sent = true;
-        }
+        for (const annotation of pendingAgentAnnotations(thread, accepted, params.inputOnly))
+          this.enqueueComment(state, thread, annotation.id, enqueue);
+        for (const comment of state.comments.filter((entry) => !params.inputOnly && !entry.sent))
+          this.enqueueComment(state, thread, comment.id, enqueue);
         if (params.text.trim()) enqueue({ prompt: params.text.trim(), quote: params.context });
       }
       recordPromptOperation(state, before, params);
@@ -267,6 +210,7 @@ export class ThreadAgentManager {
 
       if (current.phase.kind !== "running" && current.phase.kind !== "permission")
         active.turn = stepAgentTurn(active.turn, "finished");
+      this.drain(state);
 
       return structuredClone(state);
     }
@@ -278,12 +222,79 @@ export class ThreadAgentManager {
     return structuredClone(state);
   }
 
+  private enqueueComment(
+    state: ThreadAgentState,
+    thread: Thread,
+    commentId: string,
+    enqueue: (input: Omit<AgentSubmission, "id" | "status">) => void,
+    frozen?: AgentPromptRequest,
+  ): void {
+    const annotation = thread.annotations.find((entry) => entry.id === commentId);
+    const comment = state.comments.find((entry) => entry.id === commentId);
+    const input = annotation ?? comment;
+
+    if (!input || state.submissions?.some((submission) => submission.commentId === commentId))
+      throw new Error("Shared agent comment is unavailable or already sent");
+    enqueue({
+      commentId,
+      prompt: frozen?.text ?? input.body,
+      quote: frozen?.context ?? input.anchor.quote,
+      messageId: comment?.messageId,
+      context: frozen?.discussion ?? commentDiscussion(state, thread, commentId),
+    });
+    if (comment) comment.sent = true;
+  }
+
+  private enqueue(
+    state: ThreadAgentState,
+    revision: number,
+    input: Omit<AgentSubmission, "id" | "status">,
+    operationId?: string,
+  ): void {
+    const submissions = state.submissions!;
+
+    if (
+      state.messages.length +
+        submissions.filter((entry) => entry.status === "queued" || entry.status === "running")
+          .length +
+        2 >
+      128
+    )
+      throw new Error("Thread agent prototype reached its 128-message limit");
+    if (Buffer.byteLength(input.prompt) > 320_000 || Buffer.byteLength(input.quote ?? "") > 320_000)
+      throw new Error("Thread agent input exceeds 320 KiB");
+    const used = state.messages.reduce(
+      (total, message) => total + Buffer.byteLength(message.text),
+      0,
+    );
+
+    if (used + Buffer.byteLength(input.prompt) > 2 * 1024 * 1024)
+      throw new Error("Thread agent input exceeds transcript limit");
+    const submission: AgentSubmission = {
+      ...input,
+      id: operationId ?? randomUUID(),
+      status: stepAgentSubmission("draft", "submit", true),
+    };
+
+    submission.commentId ??= submission.id;
+    submissions.push(submission);
+    state.messages.push({
+      id: submission.id,
+      submissionId: submission.id,
+      role: "user",
+      text: submission.prompt,
+      complete: true,
+      revision,
+    });
+  }
+
   private drain(state: ThreadAgentState): void {
     if (
       this.states.get(state.threadId) !== state ||
       state.phase.kind === "running" ||
       state.phase.kind === "permission" ||
-      this.disposed
+      this.disposed ||
+      this.retiring.has(state.threadId)
     )
       return;
     const submission = state.submissions?.find((entry) => entry.status === "queued");
@@ -295,21 +306,28 @@ export class ThreadAgentManager {
     state.phase = { kind: "running" };
     const thread = this.options.getThread(state.threadId);
     const revision = thread.revisions.at(-1)?.revision ?? 1;
-    const prompt = `You are assisting cueloop Thread ${thread.id}. Answer this input individually. Use cueloop tools when the user asks to reply to a comment or return feedback to the main session. A reply to a Changes comment must use its original annotation ID.
+    const prompt =
+      submission.harnessPrompt ??
+      `You are assisting cueloop Thread ${thread.id}. Answer this input individually. Use cueloop tools when the user asks to reply to a comment or return feedback to the main session. A reply to a Changes comment must use its original annotation ID.
 Reviewed artifact:
 ${thread.artifact.content.slice(0, 32768)}
 Conversation:
-${state.messages
-  .filter((entry) => entry.submissionId !== submission.id)
-  .map((entry) => `${entry.role}: ${entry.text}`)
-  .join("\n")
-  .slice(-65536)}
+${
+  this.adapter(state).id === "pi"
+    ? "Continued in the durable conversation."
+    : state.messages
+        .filter((entry) => entry.submissionId !== submission.id)
+        .map((entry) => `${entry.role}: ${entry.text}`)
+        .join("\n")
+        .slice(-65536)
+}
 Comment ID: ${submission.commentId ?? "none"}
 Quote: ${submission.quote ?? ""}
 Discussion context: ${submission.context ?? submission.messageId ?? ""}
 Input: ${submission.prompt}`;
 
     try {
+      submission.harnessPrompt = prompt;
       this.save(state);
     } catch (error) {
       // Acceptance is already durable; a retry can resume the queue before any harness request.
@@ -423,22 +441,53 @@ Input: ${submission.prompt}`;
   }
 
   /** Daemon shutdown owns process cleanup; closing a client does not stop a turn. */
-  dispose(): void {
+  dispose(): Promise<void> {
     this.disposed = true;
-    for (const active of this.active.values()) active.connection.close();
-    this.active.clear();
+    this.closing ??= Promise.all(
+      [...this.active.values()]
+        .map((active) => active.connection.close())
+        .concat([...this.retiring.values()]),
+    ).then(() => {
+      this.active.clear();
+    });
+
+    return this.closing;
   }
 
   /** Deleting a Thread also stops its process and removes its private transcript. */
-  remove(id: string): void {
-    const active = this.active.get(id);
+  async remove(id: string): Promise<void> {
+    const state = this.mutable(id);
 
-    this.active.delete(id);
+    this.deleting.add(id);
     this.states.delete(id);
-    active?.connection.close();
-    rmSync(this.path(id), { force: true });
-    rmSync(this.path(id) + ".tmp", { force: true });
-    rmSync(join(this.directory, `${encodeURIComponent(id)}.diagnostics.ndjson`), { force: true });
+    try {
+      await this.retiring.get(id);
+      const active = this.active.get(id);
+
+      this.active.delete(id);
+      active?.connection.cancel();
+      await active?.connection.close();
+      if (state.harness?.sessionId) await this.adapter(state).remove?.(state.harness.sessionId);
+      rmSync(this.path(id), { force: true });
+      rmSync(this.path(id) + ".tmp", { force: true });
+      rmSync(join(this.directory, `${encodeURIComponent(id)}.diagnostics.ndjson`), { force: true });
+    } finally {
+      this.deleting.delete(id);
+    }
+  }
+
+  private adapter(state: ThreadAgentState): AgentHarnessAdapter {
+    const adapter =
+      (state.harness && this.options.adapters?.[state.harness.id]) ?? this.options.adapter;
+
+    if (!adapter) throw new Error("Thread agent harness is not configured");
+
+    return adapter;
+  }
+
+  private assertReadable(id: string): void {
+    if (this.deleting.has(id)) throw new Error("Thread agent is being deleted");
+    this.options.getThread(id);
   }
 
   private mutable(id: string): ThreadAgentState {
@@ -478,6 +527,7 @@ Input: ${submission.prompt}`;
 
     try {
       active = await this.connect(state, thread, turnId, revision);
+      if (this.states.get(state.threadId) !== state) return;
       active.turnId = turnId;
       active.revision = revision;
       // Cancellation during initialization must not submit a new model request.
@@ -489,8 +539,9 @@ Input: ${submission.prompt}`;
 
         return;
       }
-      const result = await active.connection.prompt(prompt);
+      const result = await active.connection.prompt(prompt, turnId);
 
+      if (this.states.get(state.threadId) !== state) return;
       finalizeAgentMessages(state, messageStart, result.outcome);
       if (submission && result.outcome === "cancelled") submission.cancelled = true;
       if (submission)
@@ -513,13 +564,29 @@ Input: ${submission.prompt}`;
         kind: "failed",
         error: error instanceof Error ? error.message : "Thread agent request failed",
       };
-      this.active.delete(state.threadId);
-      active?.connection.close();
-      if (!this.disposed) {
+      await this.retire(state.threadId, active);
+      if (!this.disposed && this.states.get(state.threadId) === state) {
         this.save(state);
         this.drain(state);
       }
     }
+  }
+
+  private retire(id: string, active = this.active.get(id)): Promise<void> {
+    const existing = this.retiring.get(id);
+
+    if (existing) return existing;
+    this.active.delete(id);
+    const closing = Promise.resolve()
+      .then(() => active?.connection.close())
+      .catch((error) => console.error("[agent cleanup]", error))
+      .finally(() => {
+        this.retiring.delete(id);
+      });
+
+    this.retiring.set(id, closing);
+
+    return closing;
   }
 
   private async connect(
@@ -528,6 +595,10 @@ Input: ${submission.prompt}`;
     turnId: string,
     revision: number,
   ): Promise<ActiveAgent> {
+    const retiring = this.retiring.get(state.threadId);
+
+    if (retiring) await retiring;
+    if (this.disposed) throw new Error("Thread agent is shutting down");
     const pending = this.initializing.get(state.threadId);
 
     if (pending) return pending;
@@ -550,7 +621,8 @@ Input: ${submission.prompt}`;
     let active = this.active.get(state.threadId);
 
     if (!active) {
-      const connection = this.options.adapter!.connect({
+      const adapter = this.adapter(state);
+      const connection = adapter.connect({
         cwd: thread.artifact.meta.cwd ?? thread.workspace.repoRoot,
         sessionId: state.harness?.sessionId,
         tools: this.options.tools?.(thread),
@@ -569,9 +641,10 @@ Input: ${submission.prompt}`;
       this.active.set(state.threadId, active);
       const sessionId = await connection.start();
 
+      if (this.states.get(state.threadId) !== state) throw new Error("Thread agent was removed");
       state.harness = {
-        id: this.options.adapter!.id,
-        label: this.options.adapter!.label,
+        id: adapter.id,
+        label: adapter.label,
         sessionId,
       };
       active.turn = stepAgentTurn(active.turn, "ready");
@@ -646,7 +719,17 @@ Input: ${submission.prompt}`;
         Math.min(320_000 - Buffer.byteLength(message.text), 2 * 1024 * 1024 - used),
       );
 
-      message.text += Buffer.from(update.text).subarray(0, budget).toString("utf8");
+      message.text = update.replace
+        ? Buffer.from(update.text)
+            .subarray(
+              0,
+              Math.max(
+                0,
+                Math.min(320_000, 2 * 1024 * 1024 - used + Buffer.byteLength(message.text)),
+              ),
+            )
+            .toString("utf8")
+        : message.text + Buffer.from(update.text).subarray(0, budget).toString("utf8");
     } else {
       let tool = state.tools.find((tool) => tool.id === update.id && tool.turnId === active.turnId);
 
@@ -710,4 +793,43 @@ function restoreAgentState(state: ThreadAgentState, before: ThreadAgentState): v
 function assertHarnessIdentity(state: ThreadAgentState, adapter: AgentHarnessAdapter): void {
   if (state.harness && state.harness.id !== adapter.id)
     throw new Error("Thread agent belongs to a different harness; create a new Thread");
+}
+
+function promptMirrorIdentity(params: AgentPromptRequest): string | undefined {
+  return params.inputOnly ? params.operationId : undefined;
+}
+
+function pendingAgentAnnotations(
+  thread: Thread,
+  accepted: Set<string | undefined>,
+  inputOnly?: boolean,
+) {
+  return inputOnly
+    ? []
+    : thread.annotations.filter((annotation) => isPendingAgentInput(annotation, accepted));
+}
+
+function commentDiscussion(state: ThreadAgentState, thread: Thread, commentId: string): string {
+  const annotation = thread.annotations.find((entry) => entry.id === commentId);
+
+  if (annotation) {
+    const root =
+      thread.annotations.find((entry) => entry.id === (annotation.replyTo ?? annotation.id)) ??
+      annotation;
+
+    return JSON.stringify({
+      target: root.target,
+      discussion: thread.annotations
+        .filter((entry) => entry.id === root.id || entry.replyTo === root.id)
+        .map((entry) => ({ id: entry.id, body: entry.body })),
+    });
+  }
+  const comment = agentCommentRoot(state, commentId)!;
+  const root = agentCommentRoot(state, comment.replyTo ?? comment.id) ?? comment;
+
+  return JSON.stringify({
+    discussion: [root, ...state.comments.filter((entry) => entry.replyTo === root.id)].map(
+      (entry) => ({ id: entry.id, body: entry.body }),
+    ),
+  });
 }

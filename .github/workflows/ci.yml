@@ -44,6 +44,33 @@ jobs:
           CUELOOP_BEND_VERDICT: '0'
           BEND_NO_TELEMETRY: '1'
 
+  gateway-mirror:
+    name: Local gateway mirror
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - run: bun install --frozen-lockfile
+      - uses: actions/cache@v6
+        with:
+          path: |
+            /tmp/cueloop-libghostty-build/ghostty
+            /tmp/cueloop-libghostty-build/zig-*.tar.xz
+            /tmp/cueloop-libghostty-build/zig-gcache
+            /tmp/cueloop-libghostty-build/zig-lcache
+          key: gateway-vt-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('packages/client/native/build.sh') }}
+      - name: Build terminal screen reader
+        run: sh packages/client/native/build.sh
+      - run: bun run test:gateway-mirror
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: gateway-mirror-report
+          path: /tmp/cueloop-gateway-report-*
+
   harness-hosts:
     name: Harness host installation
     runs-on: macos-latest

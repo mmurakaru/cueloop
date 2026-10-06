@@ -274,7 +274,7 @@ export interface Identity {
 }
 
 /** A share link's public or private policy; a private link with an empty allowlist admits no viewers. */
-export type SharePolicy = Pick<ShareLink, "requireAuth" | "allowlist">;
+export type SharePolicy = Pick<ShareLink, "requireAuth" | "allowlist" | "agentEnabled">;
 
 /**
  * One published share link for a thread. A thread can have several, each an
@@ -287,6 +287,7 @@ export interface ShareLink {
   name?: string;
   requireAuth: boolean;
   allowlist: string[];
+  agentEnabled?: boolean;
   owner?: string;
   shareBranch?: string;
 }

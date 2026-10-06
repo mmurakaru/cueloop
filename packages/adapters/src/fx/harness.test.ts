@@ -162,7 +162,7 @@ test("deleting a Thread stops a pending permission and removes its transcript", 
   const path = join(options.home, "thread-agents", `${thread.id}.json`);
 
   expect(existsSync(path)).toBe(true);
-  manager.remove(thread.id);
+  await manager.remove(thread.id);
   await new Promise<void>((resolve) => setImmediate(resolve));
   expect(existsSync(path)).toBe(false);
   expect(manager.get(thread.id).messages).toEqual([]);
@@ -233,7 +233,7 @@ test("legacy startup notices cannot hide subsequent HTTP errors sharing their ID
   const path = join(options.home, "thread-agents", `${thread.id}.diagnostics.ndjson`);
 
   expect(readFileSync(path, "utf8")).toContain('"source":"legacy-text"');
-  manager.remove(thread.id);
+  await manager.remove(thread.id);
   expect(existsSync(path)).toBe(false);
 });
 

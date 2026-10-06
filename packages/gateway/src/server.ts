@@ -1,3 +1,5 @@
+import { SharedAgentRelay } from "./shared-agent";
+import { SharedAgentFrameSchema } from "@cueloop/daemon/shared-agent-protocol";
 import { unpackGatewayShare } from "./gateway-share-blob";
 /**
  * The sharing gateway: one raw ssh2 front door, one session handler that
@@ -55,7 +57,13 @@ import { runCollaboratorJoin, type CollaboratorJoinOutcome } from "./collaborato
 const PushPayloadSchema = v.strictObject({
   shareId: v.optional(v.unknown()),
   annotations: v.optional(v.unknown()),
-  policy: v.optional(v.object({ requireAuth: v.boolean(), allowlist: v.array(v.string()) })),
+  policy: v.optional(
+    v.object({
+      requireAuth: v.boolean(),
+      allowlist: v.array(v.string()),
+      agentEnabled: v.optional(v.boolean()),
+    }),
+  ),
 });
 
 const TransportErrorSchema = v.object({
@@ -109,6 +117,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
   // port is configured, so production is unaffected until an operator opts in.
   const metrics = new GatewayMetrics();
   const store = new WatchedShareStore(meterStore(options.store, metrics));
+  const agents = new SharedAgentRelay(store, options.masterKey);
   const metricsServer =
     options.metricsPort !== undefined
       ? startMetricsServer(metrics, { host: options.metricsHost, port: options.metricsPort })
@@ -183,7 +192,8 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
       if (identity.username !== SHARE_UPLOAD_USER) return reject();
       const channel = accept();
 
-      if (info.command === "cueloop-pull") void handlePull(channel, identity);
+      if (info.command === "cueloop-agent") handleAgent(channel, identity);
+      else if (info.command === "cueloop-pull") void handlePull(channel, identity);
       else if (info.command === "cueloop-push") void handlePush(channel, identity);
       else if (info.command === "cueloop-watch") void handleWatch(channel, identity);
       else if (info.command === "cueloop-revoke") void handleRevoke(channel, identity);
@@ -281,6 +291,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
         participantName,
         participantSource,
         changes: store,
+        agent: agents,
       });
       let handle: ChannelRender | null = null;
 
@@ -290,6 +301,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
         React.createElement(App, {
           sessionId: session.id,
           role: "collaborator",
+          agentClient: client,
           selfAuthor: identity.fingerprint,
           openClient: () => Promise.resolve(client),
           // quitting is the graceful path: stop the renderer and restore the
@@ -353,6 +365,86 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
   }
 
   // The owner (the fingerprint that uploaded) pulls the current session back.
+  function handleAgent(channel: ServerChannel, identity: Identity): void {
+    let buffer = "";
+    const decoder = new TextDecoder();
+    let shareId: string | undefined;
+    let detach: (() => Promise<void>) | undefined;
+    let closed = false;
+    let queuedBytes = 0;
+    let queuedFrames = 0;
+    let pending = Promise.resolve();
+    const send = (frame: import("@cueloop/schema").SharedAgentFrame): void => {
+      if (!closed) channel.write(`${JSON.stringify(frame)}\n`);
+    };
+    const close = (): void => {
+      closed = true;
+      void detach?.().catch(onError);
+    };
+
+    channel.on("close", close);
+    channel.on("error", close);
+    channel.on("end", () => {
+      close();
+      end(channel, 0);
+    });
+    channel.on("data", (chunk: Buffer) => {
+      buffer += decoder.decode(chunk, { stream: true });
+      if (Buffer.byteLength(buffer) > 8 * 1024 * 1024) {
+        close();
+        fail(channel, "agent frame exceeds 8 MiB");
+        channel.close();
+
+        return;
+      }
+      let newline: number;
+
+      while ((newline = buffer.indexOf("\n")) >= 0) {
+        const line = buffer.slice(0, newline);
+        const bytes = Buffer.byteLength(line);
+
+        buffer = buffer.slice(newline + 1);
+        queuedBytes += bytes;
+        queuedFrames++;
+        if (queuedFrames > 32 || queuedBytes + Buffer.byteLength(buffer) > 8 * 1024 * 1024) {
+          buffer = "";
+          close();
+          fail(channel, "agent frame queue capacity exceeded");
+          channel.close();
+
+          return;
+        }
+        pending = pending
+          .then(async () => {
+            if (closed) return;
+            const frame = v.parse(SharedAgentFrameSchema, JSON.parse(line));
+
+            if (!shareId) {
+              if (frame.type !== "hello" || !isShareId(frame.shareId))
+                throw new Error("Agent relay requires a share handshake");
+              shareId = frame.shareId;
+              detach = await agents.attach(shareId, identity.fingerprint, send);
+              if (closed) await detach();
+            } else {
+              if (frame.type !== "state")
+                throw new Error("Only owner state is accepted on this channel");
+              await agents.accept(shareId, identity.fingerprint, frame.state, frame.accepted, send);
+            }
+          })
+          .catch((error) => {
+            close();
+            onError(error);
+            fail(channel, "agent relay rejected the frame");
+            channel.close();
+          })
+          .finally(() => {
+            queuedBytes -= bytes;
+            queuedFrames--;
+          });
+      }
+    });
+  }
+
   async function handlePull(channel: ServerChannel, identity: Identity): Promise<void> {
     const startedAt = Date.now();
 
@@ -497,6 +589,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
         if (session.shares?.[0]?.owner !== identity.fingerprint)
           return void fail(channel, "only the planner who shared this can revoke it");
         await store.delete(shareId);
+        await store.delete(shareId + ".agent");
       }
       metrics.recordShare("revoke", "ok", elapsed(startedAt));
       end(channel, 0);

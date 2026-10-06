@@ -22,3 +22,4 @@ export { agentCommentRoot } from "./agent-comment";
 export * from "./agent-input";
 
 export * from "./harness-output-routing";
+export type { SharedAgentRequest, SharedAgentFrame } from "./shared-agent";

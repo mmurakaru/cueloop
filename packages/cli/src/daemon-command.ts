@@ -1,3 +1,4 @@
+import { OwnerAgentRelay } from "@cueloop/adapters/owner-agent-relay";
 /** Compose the local daemon with its installed harness adapters at the CLI boundary. */
 export async function daemonCommand(argv: string[]): Promise<number> {
   const { DaemonServer } = await import("@cueloop/daemon");
@@ -7,13 +8,20 @@ export async function daemonCommand(argv: string[]): Promise<number> {
   let idleExitMs: number | undefined = 0;
 
   if (argv.includes("--autostart")) idleExitMs = envIdle ? Number(envIdle) : undefined;
-  const { configuredAgentHarness, threadAgentEnabled } = await import("./agent-harness");
+  const { configuredAgentHarness, installedAgentHarnesses, threadAgentEnabled } =
+    await import("./agent-harness");
+  let relay: OwnerAgentRelay | undefined;
   const server = new DaemonServer({
+    onEvent: (event) => {
+      relay?.notify(event);
+      if (event.event !== "agent.updated") relay?.update(server.core.sessionList());
+    },
     idleExitMs,
     threadAgent: {
       enabled: true,
       enabledForThread: (thread) => threadAgentEnabled(thread.workspace.repoRoot),
       adapter: configuredAgentHarness(),
+      adapters: installedAgentHarnesses(),
     },
   });
   const path = server.start();
@@ -23,15 +31,26 @@ export async function daemonCommand(argv: string[]): Promise<number> {
 
     return 1;
   }
+  server.resumeAgents();
+  relay = new OwnerAgentRelay({
+    home: server.home,
+    enabled: (thread) => threadAgentEnabled(thread.workspace.repoRoot),
+    onError: (error) => console.error("[agent relay]", error),
+  });
+  relay.update(server.core.sessionList());
   console.log(`cueloop daemon (foreground) on ${path}`);
-  const stop = () => {
-    server.stop();
+  const stop = async () => {
+    relay?.stop();
+    await server.shutdown();
     process.exit(0);
   };
 
   process.once("SIGINT", stop);
   process.once("SIGTERM", stop);
-  process.once("exit", () => server.stop());
+  process.once("exit", () => {
+    relay?.stop();
+    server.stop();
+  });
   await new Promise(() => {}); // run until signalled
 
   return 0;
