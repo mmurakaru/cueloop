@@ -1,5 +1,18 @@
 # @cueloop/gateway
 
+## 0.1.0-alpha.101
+
+### Minor Changes
+
+- [#561](https://github.com/mmurakaru/cueloop/pull/561) [`5498727`](https://github.com/mmurakaru/cueloop/commit/54987277ce52b78aaae7f9f4130a9edb1fd8a730) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Add owner-hosted durable Thread conversations and opt-in agent messages for shared Threads. Persist collaborator requests at the gateway, reconnect to the owner's daemon without duplicate acceptance, and show Owner offline while execution is unavailable. Keep model credentials and workspace execution on the owner machine.
+
+### Patch Changes
+
+- Updated dependencies [[`5498727`](https://github.com/mmurakaru/cueloop/commit/54987277ce52b78aaae7f9f4130a9edb1fd8a730), [`5498727`](https://github.com/mmurakaru/cueloop/commit/54987277ce52b78aaae7f9f4130a9edb1fd8a730)]:
+  - @cueloop/client@0.1.0-alpha.101
+  - @cueloop/daemon@0.1.0-alpha.101
+  - @cueloop/schema@0.1.0-alpha.101
+
 ## 0.1.0-alpha.100
 
 ### Patch Changes
