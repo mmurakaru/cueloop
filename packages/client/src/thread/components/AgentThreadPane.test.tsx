@@ -443,6 +443,9 @@ for (const editingReply of [false, true]) {
       await typeText(setup, " Why?");
       await pressKey(setup, "RETURN", { meta: true });
       expect(submitted).toEqual([]);
+      const saved = locateText(setup, editingReply ? "Editable followup Why?" : "Why?");
+
+      await setup.mockMouse.click(saved.column, saved.row);
       await pressKey(setup, "RETURN", { ctrl: true });
       expect(submitted).toEqual(["reply"]);
     } finally {
@@ -450,6 +453,87 @@ for (const editingReply of [false, true]) {
     }
   });
 }
+
+test("Option-saved Changes mirror replies send their stored ID with Ctrl+Enter", async () => {
+  const root = {
+    id: "changes-note",
+    kind: "comment" as const,
+    body: "Question on Changes",
+    createdAt: thread.createdAt,
+    anchor: { quote: "Changed code", prefix: "", suffix: "" },
+  };
+  const { client, prompts } = createTestAgentClient({
+    ...empty,
+    submissions: [
+      {
+        id: "accepted",
+        commentId: root.id,
+        prompt: root.body,
+        quote: root.anchor.quote,
+        status: "completed",
+      },
+    ],
+  });
+
+  function ChangesDiscussion(): React.ReactNode {
+    const [value, setValue] = React.useState<Thread>({ ...thread, annotations: [root] });
+    const [focused, setFocused] = React.useState<string>();
+    const display = buildDisplay(value.artifact.content);
+    const saveReply = (id: string, body: string): string => {
+      setValue((current) => ({
+        ...current,
+        annotations: [...current.annotations, { ...root, id: "followup", replyTo: id, body }],
+      }));
+
+      return "followup";
+    };
+
+    return (
+      <AgentThreadPane
+        thread={value}
+        client={client}
+        focused
+        theme={DARK}
+        onActiveChange={noop}
+        onOpenFile={noop}
+      >
+        <ThreadView
+          session={value}
+          display={display}
+          marks={marksByDisplay(value.annotations, display)}
+          quickActions={[]}
+          observer={false}
+          focusedAnnotationId={focused}
+          onFocusAnnotation={setFocused}
+          onAnnotate={noop}
+          onReply={saveReply}
+          onUpdateAnnotation={noop}
+          onExit={noop}
+        />
+      </AgentThreadPane>
+    );
+  }
+  const setup = await testRender(<ChangesDiscussion />, {
+    width: 100,
+    height: 24,
+    kittyKeyboard: true,
+  });
+
+  try {
+    await waitForText(setup, root.body);
+    const mirror = locateText(setup, root.body);
+
+    await setup.mockMouse.click(mirror.column, mirror.row);
+    await typeText(setup, "Follow up on this change");
+    await pressKey(setup, "RETURN", { meta: true });
+    await waitForText(setup, "Follow up on this change");
+    expect(prompts).toHaveLength(0);
+    await pressKey(setup, "RETURN", { ctrl: true });
+    expect(prompts.map((prompt) => prompt.commentId)).toEqual(["followup"]);
+  } finally {
+    setup.renderer.destroy();
+  }
+});
 
 test("Ctrl+Enter submits only the comment just saved, leaving older notes editable", async () => {
   const value: Thread = {

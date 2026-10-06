@@ -122,7 +122,9 @@ export function AgentThreadPane(props: AgentThreadPaneProps): React.ReactNode {
     if (!commentId && !draft.current.trim()) return;
     invocations.current.push({
       text: draft.current,
-      commentId,
+      commentId: commentId
+        ? (projection.mirrors.get(commentId)?.commentId ?? commentId)
+        : undefined,
       writes: pendingWrites.current.splice(0),
     });
     draft.current = "";
@@ -183,6 +185,8 @@ export function AgentThreadPane(props: AgentThreadPaneProps): React.ReactNode {
   const reply = (id: string, body: string): string | void => {
     const origin = projection.mirrors.get(id)?.commentId ?? id;
     const root = agentCommentRoot(state, origin);
+    const replyFocusId = (commentId: string | void): string | void =>
+      commentId && projection.mirrors.has(id) ? `${id}:${commentId}` : commentId;
 
     if (root) {
       const commentId = newAnnotationId();
@@ -203,10 +207,10 @@ export function AgentThreadPane(props: AgentThreadPaneProps): React.ReactNode {
         ),
       );
 
-      return commentId;
+      return replyFocusId(commentId);
     }
 
-    return child?.onReply(origin, body);
+    return replyFocusId(child?.onReply(origin, body));
   };
   const actionFor = (id: string) => {
     const mirror = projection.mirrors.get(id);
@@ -290,7 +294,9 @@ export function AgentThreadPane(props: AgentThreadPaneProps): React.ReactNode {
           return;
         }
         if (source?.kind === "mirror") {
-          if (source.commentId) return reply(source.commentId, body);
+          const mirrorId = projection.marks.get(span.start.blockIndex)?.[0]?.annotationId;
+
+          if (mirrorId) return reply(mirrorId, body);
 
           return;
         }

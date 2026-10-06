@@ -984,6 +984,11 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
             tokens={tokens}
             authorLabel={resolveAuthorLabel?.(annotation)}
             action={annotationAction?.(annotation.id)}
+            onFocus={() => {
+              blurSaveCompose();
+              focusSavedComment(annotation.id, discussion.key);
+              setCursor(discussion.blockIndex);
+            }}
           />
         ),
       };

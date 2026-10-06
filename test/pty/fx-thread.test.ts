@@ -224,6 +224,32 @@ ptyTest(
         anchor: { quote: "const count = 1;", prefix: "", suffix: "" },
         body: "The older note is still editable",
       });
+      await session.waitForText("The older note is still editable");
+      const mirrorRows = session.text().split("\n");
+      const mirrorRow = mirrorRows.findLastIndex((line) =>
+        line.includes("Explain this change please"),
+      );
+      const mirrorColumn = mirrorRows[mirrorRow]!.indexOf("Explain this change please");
+
+      await session.clickAt(mirrorColumn, mirrorRow);
+      await session.type("Follow up on Changes");
+      await session.press(["alt", "enter"]);
+      await session.waitForText("Follow up on Changes");
+      expect((await client.agentGet(thread.id)).submissions).toHaveLength(1);
+      await session.click("Follow up on Changes");
+      await session.press(["ctrl", "enter"]);
+      await session.waitForScreen(
+        (screen) => (screen.match(/The timer survives cancellation\./g) ?? []).length === 2,
+        { what: "agent answered the selected Changes mirror reply" },
+      );
+      const followup = (await client.sessionGet(thread.id)).annotations.find(
+        (annotation) => annotation.body === "Follow up on Changes",
+      );
+      const replied = await client.agentGet(thread.id);
+
+      expect(followup?.replyTo).toBe(state.submissions?.[0]?.commentId);
+      expect(replied.submissions).toHaveLength(2);
+      expect(replied.submissions?.[1]?.commentId).toBe(followup?.id);
       await session.close();
       session = launchTuiSession({ home, args: [], cols: 160, rows: 40 });
       await session.waitForReady();

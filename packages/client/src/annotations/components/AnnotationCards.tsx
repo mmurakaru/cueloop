@@ -317,12 +317,14 @@ export function CommentRow({
   tokens,
   authorLabel,
   action,
+  onFocus,
 }: {
   annotation: Annotation;
   tokens: Theme;
   /** The author's resolved display name, shown as a tooltip when the dot is hovered. */
   authorLabel?: string;
   action?: { label: string; run: () => void };
+  onFocus?: () => void;
 }): React.ReactNode {
   // own comments (no author) wear the filled dot, collaborators the outline
   const own = annotation.author === undefined;
@@ -337,7 +339,14 @@ export function CommentRow({
     : {};
 
   return (
-    <box style={{ flexDirection: "column" }}>
+    <box
+      style={{ flexDirection: "column" }}
+      onMouseDown={(event) => {
+        if (!onFocus) return;
+        event.stopPropagation();
+        onFocus();
+      }}
+    >
       {annotation.body.split("\n").map((line, lineIndex) => (
         <box key={lineIndex} style={{ flexDirection: "row" }}>
           <box style={{ flexShrink: 0 }} {...(lineIndex === 0 ? dotHover : {})}>
