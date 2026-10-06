@@ -374,6 +374,227 @@ test("typing on an accepted plain prompt cannot edit it or create an unmarked co
   }
 });
 
+for (const editingReply of [false, true]) {
+  test(`Option+Enter preserves the exact ${editingReply ? "edited" : "new"} reply for Ctrl+Enter`, async () => {
+    const submitted: string[] = [];
+    const root = {
+      id: "root",
+      kind: "comment" as const,
+      body: "Submitted question",
+      createdAt: "2026-10-04",
+      anchor: { quote: "Original", prefix: "", suffix: " artifact" },
+    };
+    const display = buildDisplay(thread.artifact.content);
+
+    function ControlledDiscussion(): React.ReactNode {
+      const [value, setValue] = React.useState<Thread>({
+        ...thread,
+        annotations: editingReply
+          ? [root, { ...root, id: "reply", replyTo: "root", body: "Editable followup" }]
+          : [root],
+      });
+      const [focused, setFocused] = React.useState<string>();
+
+      return (
+        <ThreadView
+          session={value}
+          display={display}
+          marks={marksByDisplay(value.annotations, display)}
+          quickActions={[]}
+          observer={false}
+          focusedAnnotationId={focused}
+          onFocusAnnotation={setFocused}
+          isAnnotationReadOnly={(id) => id === "root"}
+          onAnnotate={noop}
+          onReply={(id, body) => {
+            setValue((current) => ({
+              ...current,
+              annotations: [...current.annotations, { ...root, id: "reply", replyTo: id, body }],
+            }));
+
+            return "reply";
+          }}
+          onUpdateAnnotation={(id, body) =>
+            setValue((current) => ({
+              ...current,
+              annotations: current.annotations.map((note) =>
+                note.id === id ? { ...note, body } : note,
+              ),
+            }))
+          }
+          onInvoke={(id) => {
+            if (id) submitted.push(id);
+          }}
+          onExit={noop}
+        />
+      );
+    }
+    const setup = await testRender(<ControlledDiscussion />, {
+      width: 100,
+      height: 24,
+      kittyKeyboard: true,
+    });
+
+    try {
+      await waitForText(setup, editingReply ? "Editable followup" : "Submitted question");
+      const comment = locateText(setup, editingReply ? "Editable followup" : "Submitted question");
+
+      await setup.mockMouse.click(comment.column, comment.row);
+      await typeText(setup, " Why?");
+      await pressKey(setup, "RETURN", { meta: true });
+      expect(submitted).toEqual([]);
+      const saved = locateText(setup, editingReply ? "Editable followup Why?" : "Why?");
+
+      await setup.mockMouse.click(saved.column, saved.row);
+      await pressKey(setup, "RETURN", { ctrl: true });
+      expect(submitted).toEqual(["reply"]);
+    } finally {
+      setup.renderer.destroy();
+    }
+  });
+}
+
+test("Option-saved Changes mirror replies send their stored ID with Ctrl+Enter", async () => {
+  const root = {
+    id: "changes-note",
+    kind: "comment" as const,
+    body: "Question on Changes",
+    createdAt: thread.createdAt,
+    anchor: { quote: "Changed code", prefix: "", suffix: "" },
+  };
+  const { client, prompts } = createTestAgentClient({
+    ...empty,
+    submissions: [
+      {
+        id: "accepted",
+        commentId: root.id,
+        prompt: root.body,
+        quote: root.anchor.quote,
+        status: "completed",
+      },
+    ],
+  });
+
+  function ChangesDiscussion(): React.ReactNode {
+    const [value, setValue] = React.useState<Thread>({ ...thread, annotations: [root] });
+    const [focused, setFocused] = React.useState<string>();
+    const display = buildDisplay(value.artifact.content);
+    const saveReply = (id: string, body: string): string => {
+      setValue((current) => ({
+        ...current,
+        annotations: [...current.annotations, { ...root, id: "followup", replyTo: id, body }],
+      }));
+
+      return "followup";
+    };
+
+    return (
+      <AgentThreadPane
+        thread={value}
+        client={client}
+        focused
+        theme={DARK}
+        onActiveChange={noop}
+        onOpenFile={noop}
+      >
+        <ThreadView
+          session={value}
+          display={display}
+          marks={marksByDisplay(value.annotations, display)}
+          quickActions={[]}
+          observer={false}
+          focusedAnnotationId={focused}
+          onFocusAnnotation={setFocused}
+          onAnnotate={noop}
+          onReply={saveReply}
+          onUpdateAnnotation={noop}
+          onExit={noop}
+        />
+      </AgentThreadPane>
+    );
+  }
+  const setup = await testRender(<ChangesDiscussion />, {
+    width: 100,
+    height: 24,
+    kittyKeyboard: true,
+  });
+
+  try {
+    await waitForText(setup, root.body);
+    const mirror = locateText(setup, root.body);
+
+    await setup.mockMouse.click(mirror.column, mirror.row);
+    await typeText(setup, "Follow up on this change");
+    await pressKey(setup, "RETURN", { meta: true });
+    await waitForText(setup, "Follow up on this change");
+    expect(prompts).toHaveLength(0);
+    await pressKey(setup, "RETURN", { ctrl: true });
+    expect(prompts.map((prompt) => prompt.commentId)).toEqual(["followup"]);
+  } finally {
+    setup.renderer.destroy();
+  }
+});
+
+test("Ctrl+Enter submits only the comment just saved, leaving older notes editable", async () => {
+  const value: Thread = {
+    ...thread,
+    annotations: [
+      {
+        id: "older",
+        kind: "comment",
+        body: "Older unsent note",
+        createdAt: "2026-10-04",
+        anchor: { quote: "Original", prefix: "", suffix: " artifact" },
+      },
+    ],
+  };
+  const { client, prompts } = createTestAgentClient(empty);
+  const display = buildDisplay(value.artifact.content);
+  const setup = await testRender(
+    <AgentThreadPane
+      thread={value}
+      theme={DARK}
+      focused
+      onActiveChange={noop}
+      onOpenFile={noop}
+      client={client}
+    >
+      <ThreadView
+        session={value}
+        display={display}
+        marks={marksByDisplay(value.annotations, display)}
+        quickActions={[]}
+        observer={false}
+        onAnnotate={() => "selected"}
+        onReply={noop}
+        onUpdateAnnotation={noop}
+        onExit={noop}
+      />
+    </AgentThreadPane>,
+    { width: 100, height: 24, kittyKeyboard: true },
+  );
+
+  try {
+    await waitForText(setup, "Original artifact");
+    const artifact = locateText(setup, "Original artifact");
+
+    await setup.mockMouse.drag(
+      artifact.column + 9,
+      artifact.row,
+      artifact.column + 17,
+      artifact.row,
+    );
+    await typeText(setup, "Only this question");
+    await pressKey(setup, "RETURN", { ctrl: true });
+    await waitForState(setup, () => prompts.length === 1, "selected comment invocation");
+    expect(prompts[0]?.commentId).toBe("selected");
+    expect(prompts[0]?.id).toBe(value.id);
+    expect(value.annotations[0]?.body).toBe("Older unsent note");
+  } finally {
+    setup.renderer.destroy();
+  }
+});
+
 test("Option+Enter saves a comment, Command+Enter leaves its draft, and Ctrl+Enter invokes", async () => {
   const saved: string[] = [];
   let invocations = 0;
@@ -385,7 +606,11 @@ test("Option+Enter saves a comment, Command+Enter leaves its draft, and Ctrl+Ent
       marks={marksByDisplay([], display)}
       quickActions={[]}
       observer={false}
-      onAnnotate={(_span, body) => saved.push(body)}
+      onAnnotate={(_span, body) => {
+        saved.push(body);
+
+        return `saved-${saved.length}`;
+      }}
       onReply={noop}
       onUpdateAnnotation={noop}
       onExit={noop}

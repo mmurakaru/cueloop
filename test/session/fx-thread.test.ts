@@ -79,6 +79,75 @@ test("agent socket methods enforce owner access and preserve the original review
   }
 });
 
+test("an explicit comment submission leaves other notes and Threads untouched", async () => {
+  const home = mkdtempSync(join(tmpdir(), "cueloop-comment-scope-"));
+  const server = new DaemonServer({
+    home,
+    idleExitMs: 0,
+    threadAgent: {
+      enabled: true,
+      adapter: createFxHarness({
+        command: [
+          process.execPath,
+          join(import.meta.dirname, "../../packages/adapters/src/fx/testing/fake-acp.ts"),
+        ],
+      }),
+    },
+  });
+
+  server.start();
+  const client = await DaemonClient.connect({ home });
+
+  try {
+    const thread = await client.sessionCreate(
+      { repoRoot: home, branch: "main" },
+      { type: "plan", content: "Review the retry and timeout", meta: {} },
+    );
+    const other = await client.sessionCreate(
+      { repoRoot: home, branch: "other" },
+      { type: "plan", content: "Separate document", meta: {} },
+    );
+    const note = {
+      kind: "comment" as const,
+      anchor: { quote: "retry", prefix: "Review the ", suffix: " and timeout" },
+      body: "An older unsent note",
+    };
+
+    await client.sessionAnnotate(thread.id, { ...note, id: "older" });
+    await client.sessionAnnotate(thread.id, {
+      ...note,
+      id: "selected",
+      anchor: { quote: "timeout", prefix: "Review the retry and ", suffix: "" },
+      body: "Explain only the timeout",
+    });
+    await client.sessionAnnotate(other.id, {
+      ...note,
+      id: "other-note",
+      anchor: { quote: "Separate", prefix: "", suffix: " document" },
+    });
+    const otherBefore = await client.sessionGet(other.id);
+    const state = await client.agentPrompt({ id: thread.id, text: "", commentId: "selected" });
+
+    expect(state.submissions).toHaveLength(1);
+    expect(state.submissions?.[0]?.commentId).toBe("selected");
+    expect(state.submissions?.[0]?.prompt).toBe("Explain only the timeout");
+    expect(state.submissions?.[0]?.context).not.toContain(note.body);
+    expect((await client.agentGet(other.id)).submissions ?? []).toHaveLength(0);
+    expect(await client.sessionGet(other.id)).toEqual(otherBefore);
+    await client.sessionAnnotate(thread.id, { ...note, id: "older", body: "Still editable" });
+    expect(
+      (await client.sessionGet(thread.id)).annotations.find((entry) => entry.id === "older")?.body,
+    ).toBe("Still editable");
+    await expect(
+      client.agentPrompt({ id: thread.id, text: "", commentId: "other-note" }),
+    ).rejects.toThrow();
+  } finally {
+    client.close();
+    server.stop();
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
 test.skipIf(!process.env.CUELOOP_TEST_FX)(
   "real fx ACP streams Markdown through the daemon, resumes, and receives anchored feedback",
   async () => {

@@ -159,7 +159,7 @@ export interface ThreadViewProps {
   isAnnotationReadOnly?: (id: string) => boolean;
   annotationAction?: (id: string) => { label: string; run: () => void } | undefined;
   requestedBlock?: { blockIndex: number };
-  onInvoke?: () => void;
+  onInvoke?: (commentId?: string) => void;
   isPromptBlock?: (blockIndex: number) => boolean;
   promptFocusRequest?: PromptFocusRequest;
   promptRestoreRequest?: PromptRestoreRequest;
@@ -177,8 +177,8 @@ export interface ThreadViewProps {
   onCursorChange?: (blockIndex: number) => void;
   focusedAnnotationId?: string;
   onFocusAnnotation?: (annotationId: string | undefined) => void;
-  onAnnotate: (span: TextSpan, body: string) => void;
-  onReply: (rootAnnotationId: string, body: string) => void;
+  onAnnotate: (span: TextSpan, body: string) => string | void;
+  onReply: (rootAnnotationId: string, body: string) => string | void;
   onUpdateAnnotation: (id: string, body: string) => void;
   resolveAuthorLabel?: (annotation: Annotation) => string | undefined;
   onNavCommand?: (key: KeyEvent, selection: TextSpan | null) => boolean;

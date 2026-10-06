@@ -152,7 +152,14 @@ export class ThreadAgentManager {
         this.enqueue(state, revision, input, promptMirrorIdentity(params));
 
       if (params.commentId) {
-        this.enqueueComment(state, thread, params.commentId, enqueue, params);
+        // Shared requests carry an accepted discussion snapshot; local requests read the saved note.
+        this.enqueueComment(
+          state,
+          thread,
+          params.commentId,
+          enqueue,
+          params.discussion === undefined ? undefined : params,
+        );
       } else if (params.retry) {
         const submission = submissions.find((entry) => entry.id === params.retry);
 

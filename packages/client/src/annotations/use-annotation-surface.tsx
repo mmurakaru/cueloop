@@ -47,7 +47,7 @@ import {
   slashItemsFrom,
 } from "../keyboard/slash-palette";
 import { SlashSkillsContext } from "../keyboard/skills";
-import { discussionsFrom, type Discussion } from "./discussions";
+import { discussionsFrom, spanKey, type Discussion } from "./discussions";
 import {
   CommentRow,
   Composer,
@@ -107,13 +107,13 @@ export interface AnnotationSurfaceOptions {
   ) => boolean;
   focusedAnnotationId?: string;
   onFocusAnnotation?: (annotationId: string | undefined) => void;
-  onAnnotate: (span: TextSpan, body: string) => void;
-  onReply: (rootAnnotationId: string, body: string) => void;
+  onAnnotate: (span: TextSpan, body: string) => string | void;
+  onReply: (rootAnnotationId: string, body: string) => string | void;
   onUpdateAnnotation: (id: string, body: string) => void;
   isAnnotationReadOnly?: (id: string) => boolean;
   annotationAction?: (id: string) => { label: string; run: () => void } | undefined;
   requestedBlock?: { blockIndex: number };
-  onInvoke?: () => void;
+  onInvoke?: (commentId?: string) => void;
   isPromptBlock?: (blockIndex: number) => boolean;
   promptFocusRequest?: PromptFocusRequest;
   promptRestoreRequest?: PromptRestoreRequest;
@@ -277,16 +277,24 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
   // app owns it (onFocusAnnotation), the focused discussion is the one holding
   // the focused card and focusing here names the root comment; standalone, it
   // is local state
-  const [localFocus, setLocalFocus] = useState<string | null>(null);
-  const focusedDiscussion =
-    onFocusAnnotation === undefined
-      ? localFocus
-      : (discussions.find((discussion) =>
-          discussion.annotations.some((annotation) => annotation.id === focusedAnnotationId),
-        )?.key ?? null);
+  const [localFocus, setLocalFocus] = useState<{ key: string; annotationId?: string } | null>(null);
+  const getFocusedDiscussion = (): string | null => {
+    if (onFocusAnnotation === undefined) return localFocus?.key ?? null;
+
+    return (
+      discussions.find((discussion) =>
+        discussion.annotations.some((annotation) => annotation.id === focusedAnnotationId),
+      )?.key ?? null
+    );
+  };
+  const focusedDiscussion = getFocusedDiscussion();
   const setFocusedDiscussion = (key: string | null): void => {
-    if (onFocusAnnotation === undefined) return setLocalFocus(key);
+    if (onFocusAnnotation === undefined) return setLocalFocus(key === null ? null : { key });
     onFocusAnnotation(discussions.find((discussion) => discussion.key === key)?.rootId);
+  };
+  const focusSavedComment = (annotationId: string, key: string): void => {
+    if (onFocusAnnotation) onFocusAnnotation(annotationId);
+    else setLocalFocus({ key, annotationId });
   };
   const [folded, setFolded] = useState<Set<string>>(new Set());
   const [composeText, setComposeText] = useState("");
@@ -473,7 +481,8 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     if (!target || body.trim().length === 0) return;
     if (target.editAnnotationId !== null) {
       onUpdateAnnotation(target.editAnnotationId, body);
-      if (invoke) onInvoke?.();
+      if (target.discussionKey) focusSavedComment(target.editAnnotationId, target.discussionKey);
+      if (invoke) onInvoke?.(target.editAnnotationId);
 
       return;
     }
@@ -481,8 +490,10 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
       const discussion = discussions.find((candidate) => candidate.key === target.discussionKey);
 
       if (discussion) {
-        onReply(discussion.rootId, body);
-        if (invoke) onInvoke?.();
+        const commentId = onReply(discussion.rootId, body);
+
+        if (commentId) focusSavedComment(commentId, discussion.key);
+        if (invoke && commentId) onInvoke?.(commentId);
 
         return;
       }
@@ -490,9 +501,21 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     const span = target.span ?? caretSpan();
 
     if (span) {
-      onAnnotate(span, body);
-      if (invoke) onInvoke?.();
+      const commentId = onAnnotate(span, body);
+
+      completeSavedComment(span, commentId, prompt, invoke);
     }
+  };
+  const completeSavedComment = (
+    span: TextSpan,
+    commentId: string | void,
+    prompt: boolean,
+    invoke: boolean,
+  ): void => {
+    if (!prompt && commentId) {
+      focusSavedComment(commentId, spanKey(span));
+    }
+    if (invoke && (prompt || commentId)) onInvoke?.(commentId || undefined);
   };
   /** A new discussion on the typing anchor; the card renders under the span's last block. */
   const openNewCompose = (seed: string): void => {
@@ -854,6 +877,16 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     openNewCompose(sequence);
   };
 
+  const invokeFocusedComment = (): void => {
+    const discussion = discussions.find((candidate) => candidate.key === focusedDiscussion);
+    const focusedCommentId = focusedAnnotationId ?? localFocus?.annotationId;
+    const commentId =
+      discussion?.annotations.find((annotation) => annotation.id === focusedCommentId)?.id ??
+      discussion?.annotations.at(-1)?.id;
+
+    onInvoke?.(commentId);
+  };
+
   useSharedKeyboard((key) => {
     if (suspended) return;
     if (key.ctrl && key.name === "q") return onExit();
@@ -863,7 +896,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     if (isAgentInvokeKey(key, onInvoke)) {
       key.preventDefault();
 
-      return onInvoke?.();
+      return invokeFocusedComment();
     }
     if (key.name === "escape") {
       // from type mode esc only enters nav, so a held mark survives for `c`
@@ -951,6 +984,11 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
             tokens={tokens}
             authorLabel={resolveAuthorLabel?.(annotation)}
             action={annotationAction?.(annotation.id)}
+            onFocus={() => {
+              blurSaveCompose();
+              focusSavedComment(annotation.id, discussion.key);
+              setCursor(discussion.blockIndex);
+            }}
           />
         ),
       };
@@ -1231,7 +1269,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
 
 function isAgentInvokeKey(
   key: { name: string; ctrl?: boolean; meta?: boolean; super?: boolean },
-  onInvoke?: () => void,
+  onInvoke?: (commentId?: string) => void,
 ): boolean {
   return Boolean(
     onInvoke &&

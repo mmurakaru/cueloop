@@ -195,6 +195,8 @@ export function projectThreadConversation(
     display.push(...blocks);
     sources.push(...blocks.map(() => ({ kind: "mirror" as const, commentId })));
     annotations.push(annotation);
+    const mirrorAnnotations = [annotation];
+
     if (commentId) {
       const replies = [...thread.annotations, ...state.comments].filter(
         (entry) => entry.replyTo === commentId,
@@ -210,23 +212,22 @@ export function projectThreadConversation(
         };
 
         annotations.push(replica);
+        mirrorAnnotations.push(replica);
         mirrors.set(replica.id, { commentId: reply.id });
       }
     }
     const localMarks = quote.trim()
-      ? marksByDisplay([annotation], blocks)
+      ? marksByDisplay(mirrorAnnotations, blocks)
       : new Map<number, Mark[]>([
           [
             0,
-            [
-              {
-                start: 0,
-                end: 0,
-                role: "mark-comment",
-                annotationId: annotation.id,
-                span: { start: { blockIndex: 0, char: 0 }, end: { blockIndex: 0, char: 0 } },
-              },
-            ],
+            mirrorAnnotations.map((entry) => ({
+              start: 0,
+              end: 0,
+              role: "mark-comment",
+              annotationId: entry.id,
+              span: { start: { blockIndex: 0, char: 0 }, end: { blockIndex: 0, char: 0 } },
+            })),
           ],
         ]);
 

@@ -29,7 +29,7 @@ export interface AgentThreadPaneProps {
     action: (id: string) => { label: string; run: () => void } | undefined,
   ) => void;
   onRevealReply?: () => void;
-  onInvokeChange?: (invoke: (() => void) | undefined) => void;
+  onInvokeChange?: (invoke: ((commentId?: string) => void) | undefined) => void;
   onStateChange?: (state: ThreadAgentState) => void;
   flushMutations?: () => Promise<void>;
   client?: ThreadAgentClient;
@@ -68,7 +68,9 @@ export function AgentThreadPane(props: AgentThreadPaneProps): React.ReactNode {
     useState<ThreadViewProps["promptRestoreRequest"]>();
   const restoreSequence = useRef(0);
   const invoking = useRef(false);
-  const invocations = useRef<{ text: string; writes: Promise<boolean>[] }[]>([]);
+  const invocations = useRef<{ text: string; commentId?: string; writes: Promise<boolean>[] }[]>(
+    [],
+  );
   const pendingWrites = useRef<Promise<boolean>[]>([]);
   const state = agent.state;
   const continuation = agentContinuation(state);
@@ -115,9 +117,16 @@ export function AgentThreadPane(props: AgentThreadPaneProps): React.ReactNode {
     notifyControls();
   }, [state, theme]);
 
-  const invoke = async (): Promise<void> => {
+  const invoke = async (commentId?: string): Promise<void> => {
     if (thread.status !== "pending") return;
-    invocations.current.push({ text: draft.current, writes: pendingWrites.current.splice(0) });
+    if (!commentId && !draft.current.trim()) return;
+    invocations.current.push({
+      text: draft.current,
+      commentId: commentId
+        ? (projection.mirrors.get(commentId)?.commentId ?? commentId)
+        : undefined,
+      writes: pendingWrites.current.splice(0),
+    });
     draft.current = "";
     if (invoking.current) return;
     invoking.current = true;
@@ -140,6 +149,7 @@ export function AgentThreadPane(props: AgentThreadPaneProps): React.ReactNode {
             client.agentPrompt({
               id: thread.id,
               text: input.text,
+              commentId: input.commentId,
               inputOnly: Boolean(input.text.trim()),
               operationId: newAnnotationId(),
             }),
@@ -158,32 +168,36 @@ export function AgentThreadPane(props: AgentThreadPaneProps): React.ReactNode {
       if (text) setPromptRestoreRequest({ id: ++restoreSequence.current, text });
     }
   };
-  const invokeRef = useRef<() => Promise<void>>(async () => {});
+  const invokeRef = useRef<(commentId?: string) => Promise<void>>(async () => {});
 
   useEffect(() => {
     invokeRef.current = invoke;
   });
-  const notifyInvoke = useEffectEvent((invoke: (() => void) | undefined) =>
+  const notifyInvoke = useEffectEvent((invoke: ((commentId?: string) => void) | undefined) =>
     props.onInvokeChange?.(invoke),
   );
 
   useEffect(() => {
-    notifyInvoke(() => void invokeRef.current());
+    notifyInvoke((commentId) => void invokeRef.current(commentId));
 
     return () => notifyInvoke(undefined);
   }, []);
-  const reply = (id: string, body: string): void => {
+  const reply = (id: string, body: string): string | void => {
     const origin = projection.mirrors.get(id)?.commentId ?? id;
     const root = agentCommentRoot(state, origin);
+    const replyFocusId = (commentId: string | void): string | void =>
+      commentId && projection.mirrors.has(id) ? `${id}:${commentId}` : commentId;
 
-    if (root)
+    if (root) {
+      const commentId = newAnnotationId();
+
       pendingWrites.current.push(
         agent.act((client) =>
           client.agentComment({
             id: thread.id,
             comment: {
               ...root,
-              id: newAnnotationId(),
+              id: commentId,
               body,
               sent: false,
               author: undefined,
@@ -192,7 +206,11 @@ export function AgentThreadPane(props: AgentThreadPaneProps): React.ReactNode {
           }),
         ),
       );
-    else child?.onReply(origin, body);
+
+      return replyFocusId(commentId);
+    }
+
+    return replyFocusId(child?.onReply(origin, body));
   };
   const actionFor = (id: string) => {
     const mirror = projection.mirrors.get(id);
@@ -245,7 +263,7 @@ export function AgentThreadPane(props: AgentThreadPaneProps): React.ReactNode {
         Boolean(state.comments.find((entry) => entry.id === id)?.sent)
       }
       annotationAction={actionFor}
-      onInvoke={() => void invoke()}
+      onInvoke={(commentId) => void invoke(commentId)}
       isPromptBlock={(index) => index === projection.tailIndex}
       promptRestoreRequest={promptRestoreRequest}
       promptFocusRequest={
@@ -276,14 +294,14 @@ export function AgentThreadPane(props: AgentThreadPaneProps): React.ReactNode {
           return;
         }
         if (source?.kind === "mirror") {
-          if (source.commentId) reply(source.commentId, body);
+          const mirrorId = projection.marks.get(span.start.blockIndex)?.[0]?.annotationId;
+
+          if (mirrorId) return reply(mirrorId, body);
 
           return;
         }
         if (source?.kind === "artifact" && end?.kind === "artifact") {
-          child?.onAnnotate(span, body);
-
-          return;
+          return child?.onAnnotate(span, body);
         }
         if (
           source?.kind !== "message" ||
@@ -307,6 +325,8 @@ export function AgentThreadPane(props: AgentThreadPaneProps): React.ReactNode {
         pendingWrites.current.push(
           agent.act((client) => client.agentComment({ id: thread.id, comment })),
         );
+
+        return comment.id;
       }}
       onReply={reply}
       onUpdateAnnotation={(id, body) => {

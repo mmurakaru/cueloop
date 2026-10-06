@@ -174,6 +174,12 @@ ptyTest(
       join(home, "no-config.toml"),
       '[experimental]\nthread_agent = true\n[ui]\nlayout = { threads = true, right_sidebar = "off", zoom_changes = false }\n',
     );
+    await client.sessionAnnotate(thread.id, {
+      id: "older-unsent",
+      kind: "comment",
+      anchor: { quote: "const count = 1;", prefix: "", suffix: "" },
+      body: "Leave this older note editable",
+    });
     let session = launchTuiSession({ home, args: [thread.id], cols: 160, rows: 40 });
 
     try {
@@ -184,14 +190,14 @@ ptyTest(
       await session.dragAt(selection.column, selection.row, selection.column + 9, selection.row);
       await session.type("Explain this change");
       await session.press(["alt", "enter"]);
-      await session.waitForText("Send message (1)");
+      await session.waitForText("Send message (2)");
       expect((session.text().match(/Explain this change/g) ?? []).length).toBe(1);
       expect((await client.agentGet(thread.id)).submissions ?? []).toHaveLength(0);
       await session.click("Explain this change");
       await session.type(" please");
       await session.press(["alt", "enter"]);
       await session.waitForText("Explain this change please");
-      expect((await client.sessionGet(thread.id)).annotations[0]?.body).toBe(
+      expect((await client.sessionGet(thread.id)).annotations.at(-1)?.body).toBe(
         "Explain this change please",
       );
       await session.press(["ctrl", "enter"]);
@@ -206,9 +212,44 @@ ptyTest(
 
       expect(state.submissions).toHaveLength(1);
       expect(state.submissions?.[0]?.commentId).toBe(
-        (await client.sessionGet(thread.id)).annotations[0]?.id,
+        (await client.sessionGet(thread.id)).annotations.at(-1)?.id,
+      );
+      expect(state.submissions?.some((submission) => submission.commentId === "older-unsent")).toBe(
+        false,
       );
       expect((session.text().match(/Explain this change please/g) ?? []).length).toBe(2);
+      await client.sessionAnnotate(thread.id, {
+        id: "older-unsent",
+        kind: "comment",
+        anchor: { quote: "const count = 1;", prefix: "", suffix: "" },
+        body: "The older note is still editable",
+      });
+      await session.waitForText("The older note is still editable");
+      const mirrorRows = session.text().split("\n");
+      const mirrorRow = mirrorRows.findLastIndex((line) =>
+        line.includes("Explain this change please"),
+      );
+      const mirrorColumn = mirrorRows[mirrorRow]!.indexOf("Explain this change please");
+
+      await session.clickAt(mirrorColumn, mirrorRow);
+      await session.type("Follow up on Changes");
+      await session.press(["alt", "enter"]);
+      await session.waitForText("Follow up on Changes");
+      expect((await client.agentGet(thread.id)).submissions).toHaveLength(1);
+      await session.click("Follow up on Changes");
+      await session.press(["ctrl", "enter"]);
+      await session.waitForScreen(
+        (screen) => (screen.match(/The timer survives cancellation\./g) ?? []).length === 2,
+        { what: "agent answered the selected Changes mirror reply" },
+      );
+      const followup = (await client.sessionGet(thread.id)).annotations.find(
+        (annotation) => annotation.body === "Follow up on Changes",
+      );
+      const replied = await client.agentGet(thread.id);
+
+      expect(followup?.replyTo).toBe(state.submissions?.[0]?.commentId);
+      expect(replied.submissions).toHaveLength(2);
+      expect(replied.submissions?.[1]?.commentId).toBe(followup?.id);
       await session.close();
       session = launchTuiSession({ home, args: [], cols: 160, rows: 40 });
       await session.waitForReady();

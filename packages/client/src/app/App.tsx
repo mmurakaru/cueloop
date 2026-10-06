@@ -842,7 +842,7 @@ export function App({
   const agentActions = useRef<(id: string) => { label: string; run: () => void } | undefined>(
     () => undefined,
   );
-  const agentInvoke = useRef<(() => void) | undefined>(undefined);
+  const agentInvoke = useRef<((commentId?: string) => void) | undefined>(undefined);
   const [agentState, setAgentState] = useState<import("@cueloop/schema").ThreadAgentState>();
   const [prototypeComposing, setPrototypeComposing] = useState(false);
   const [welcomeComposing, setWelcomeComposing] = useState(false);
@@ -1484,7 +1484,7 @@ export function App({
                         // a diff thread's Changes view is the artifact itself; any other thread's is the
                         // live working-tree diff, so its notes carry a file target and anchor there
                         onAnnotate: (span, body) =>
-                          void controller.annotate(
+                          controller.annotate(
                             "comment",
                             span.start.blockIndex,
                             span.start.char,
@@ -1496,11 +1496,11 @@ export function App({
                               : { kind: "file", path: "", rev: "worktree" },
                           ),
                         onReply: (rootAnnotationId, body) =>
-                          void controller.reply(rootAnnotationId, body),
+                          controller.reply(rootAnnotationId, body),
                         onUpdateAnnotation: (id, body) => controller.updateAnnotation(id, body),
                         onInvoke: agentActive
-                          ? () => {
-                              agentInvoke.current?.();
+                          ? (commentId) => {
+                              agentInvoke.current?.(commentId);
                               setFocusedPane("thread");
                             }
                           : undefined,

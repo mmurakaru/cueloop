@@ -86,10 +86,10 @@ export interface DiffContentViewProps {
   onCursorChange?: (rowIndex: number) => void;
   focusedAnnotationId?: string;
   onFocusAnnotation?: (annotationId: string | undefined) => void;
-  onAnnotate: (span: TextSpan, body: string) => void;
-  onReply: (rootAnnotationId: string, body: string) => void;
+  onAnnotate: (span: TextSpan, body: string) => string | void;
+  onReply: (rootAnnotationId: string, body: string) => string | void;
   onUpdateAnnotation: (id: string, body: string) => void;
-  onInvoke?: () => void;
+  onInvoke?: (commentId?: string) => void;
   annotationAction?: (id: string) => { label: string; run: () => void } | undefined;
   isAnnotationReadOnly?: (id: string) => boolean;
   resolveAuthorLabel?: (annotation: Annotation) => string | undefined;
