@@ -412,7 +412,7 @@ export function ThreadView({
       blockIndex === 0 || tight ? null : <box key="lead-gap" style={{ height: 1 }} />;
     const measuredBox = (children: React.ReactNode): React.ReactNode => (
       <box
-        key={`discussion-block-${blockIndex}`}
+        key={isPromptBlock?.(blockIndex) ? "prompt-block" : `discussion-block-${blockIndex}`}
         id={`discussion-block-${blockIndex}`}
         ref={virtual.measureRef(blockIndex)}
         style={{ flexDirection: "column" }}

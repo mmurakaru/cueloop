@@ -14,6 +14,7 @@
     "test": "bun test --timeout 60000 ./packages ./test ./hooks",
     "test:pty": "CUELOOP_RUN_PTY=1 bun test --timeout 60000 ./test/pty",
     "test:install-vm": "bun run test/install/vm/runner.ts",
+    "test:gateway-mirror": "bun run test/gateway/mirror/runner.ts",
     "bench": "bun run benchmarks/run.ts",
     "profile": "bun run benchmarks/profile.ts",
     "typecheck": "bunx tsc --noEmit",

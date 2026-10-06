@@ -21,6 +21,7 @@ import {
   waitForState,
 } from "../../testing/test-support";
 import type { ThreadAgentClient } from "../use-thread-agent";
+import type { EventFrame } from "@cueloop/daemon/client";
 
 const thread: Thread = {
   schemaVersion: SCHEMA_VERSION,
@@ -45,7 +46,13 @@ const empty: ThreadAgentState = {
 function createTestAgentClient(initial: ThreadAgentState) {
   let state = initial;
   const prompts: AgentPromptRequest[] = [];
+  const listeners = new Set<(event: EventFrame) => void>();
   const client: ThreadAgentClient = {
+    onEvent: (listener) => {
+      listeners.add(listener);
+
+      return () => listeners.delete(listener);
+    },
     agentGet: async () => state,
     agentPrompt: async (params) => {
       prompts.push(params);
@@ -71,7 +78,12 @@ function createTestAgentClient(initial: ThreadAgentState) {
     agentPermission: async () => ({ ...state, phase: { kind: "idle" } }),
   };
 
-  return { client, prompts };
+  const publishTestAgentState = (next: ThreadAgentState): void => {
+    state = next;
+    for (const listener of listeners) listener({ event: "agent.updated", sessionId: thread.id });
+  };
+
+  return { client, prompts, publishTestAgentState };
 }
 
 function artifactView(
@@ -834,8 +846,14 @@ test("a failed mutation flush restores the prompt alongside a newer visible draf
   }
 });
 
-test("an offline shared agent shows its status at the continuation without model controls", async () => {
-  const { client } = createTestAgentClient({ ...empty, phase: { kind: "offline" } });
+test("an offline shared agent accepts continuation below its status without model controls", async () => {
+  const state: ThreadAgentState = {
+    ...empty,
+    messages: [
+      { id: "online-answer", role: "agent", text: "An online answer", complete: true, revision: 1 },
+    ],
+  };
+  const { client, prompts, publishTestAgentState } = createTestAgentClient(state);
   const setup = await testRender(
     <AgentThreadPane
       thread={thread}
@@ -847,13 +865,33 @@ test("an offline shared agent shows its status at the continuation without model
     >
       {artifactView(thread)}
     </AgentThreadPane>,
-    { width: 80, height: 15 },
+    { width: 80, height: 15, kittyKeyboard: true },
   );
 
   try {
+    await waitForText(setup, "An online answer");
+    await waitForState(
+      setup,
+      () => setup.renderer.currentFocusedEditor !== null,
+      "online continuation editor",
+    );
+    publishTestAgentState({ ...state, phase: { kind: "offline" } });
     await waitForText(setup, "Owner offline");
     expect(setup.captureCharFrame()).toContain("Original artifact");
     expect(setup.captureCharFrame()).not.toContain("Thinking");
+    const status = locateText(setup, "Owner offline");
+
+    await setup.mockMouse.click(status.column + 5, status.row + 3);
+    await waitForState(
+      setup,
+      () => setup.renderer.currentFocusedEditor !== null,
+      "offline continuation editor",
+    );
+    await typeText(setup, "Queue until the owner reconnects");
+    await waitForText(setup, "Queue until the owner reconnects");
+    await pressKey(setup, "RETURN", { ctrl: true });
+    expect(prompts[0]?.text).toBe("Queue until the owner reconnects");
+    expect(prompts[0]?.inputOnly).toBe(true);
   } finally {
     setup.renderer.destroy();
   }
