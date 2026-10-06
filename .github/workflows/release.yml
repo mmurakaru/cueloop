@@ -165,6 +165,10 @@ jobs:
           mv dist/cueloop "dist/cueloop-${{ matrix.target }}"
       - name: Smoke-test the binary
         run: packages/cli/dist/cueloop-${{ matrix.target }} --version
+      - name: Check compiled CLI commands and daemon startup
+        env:
+          CUELOOP_TEST_EXECUTABLE: ${{ github.workspace }}/packages/cli/dist/cueloop-${{ matrix.target }}
+        run: bun test test/cli/version.test.ts test/cli/help.test.ts test/cli/daemon-startup.test.ts
       # The PTY tier against the shipped artifact; the harness needs the
       # darwin-arm64 native shims, so only that target can run it today.
       - name: PTY tier against the binary
