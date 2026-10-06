@@ -1,6 +1,6 @@
 /** Shared test helpers: run the real CLI as a black box in an isolated home. */
 
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { hermeticCueloopEnvironment } from "./env";
 
 const CLI_ENTRY = join(import.meta.dir, "..", "..", "packages", "cli", "src", "main.ts");
@@ -23,7 +23,10 @@ export async function runCli(
   cwd = process.cwd(),
 ): Promise<CliResult> {
   const binary = env?.CUELOOP_TEST_EXECUTABLE ?? process.env.CUELOOP_TEST_EXECUTABLE;
-  const command = binary ? [binary, ...args] : [process.execPath, "run", CLI_ENTRY, ...args];
+  const executable = binary?.includes("/") ? resolve(binary) : binary;
+  const command = executable
+    ? [executable, ...args]
+    : [process.execPath, "run", CLI_ENTRY, ...args];
   const proc = Bun.spawn(command, {
     cwd,
     env: hermeticCueloopEnvironment(home, env),
