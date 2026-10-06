@@ -1,5 +1,19 @@
 # cueloop
 
+## 0.1.0-alpha.102
+
+### Patch Changes
+
+- [#563](https://github.com/mmurakaru/cueloop/pull/563) [`cc0895b`](https://github.com/mmurakaru/cueloop/commit/cc0895b67e0fc0adbfa2b9c646865a5950c846ba) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Compile standalone binaries to ESM bytecode to avoid parsing the expanded agent dependencies on every startup. Verify version and help command routing against the compiled binary on every release platform.
+
+- [#564](https://github.com/mmurakaru/cueloop/pull/564) [`e465c0f`](https://github.com/mmurakaru/cueloop/commit/e465c0f7ed28370b0e6dbc19f97be2c05f23676d) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Send only the selected inline comment with Ctrl+Enter, leaving other unsent notes editable.
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.102
+  - @cueloop/client@0.1.0-alpha.102
+  - @cueloop/daemon@0.1.0-alpha.102
+  - @cueloop/extension-api@0.1.0-alpha.102
+  - @cueloop/schema@0.1.0-alpha.102
+
 ## 0.1.0-alpha.101
 
 ### Minor Changes
