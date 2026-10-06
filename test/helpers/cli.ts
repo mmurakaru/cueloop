@@ -22,7 +22,9 @@ export async function runCli(
   env?: Record<string, string>,
   cwd = process.cwd(),
 ): Promise<CliResult> {
-  const proc = Bun.spawn([process.execPath, "run", CLI_ENTRY, ...args], {
+  const binary = env?.CUELOOP_TEST_EXECUTABLE ?? process.env.CUELOOP_TEST_EXECUTABLE;
+  const command = binary ? [binary, ...args] : [process.execPath, "run", CLI_ENTRY, ...args];
+  const proc = Bun.spawn(command, {
     cwd,
     env: hermeticCueloopEnvironment(home, env),
     stdin: stdin !== undefined ? new TextEncoder().encode(stdin) : "ignore",
