@@ -347,6 +347,7 @@ export function AgentThreadPane(props: AgentThreadPaneProps): React.ReactNode {
             {state.phase.kind === "offline" ? (
               <text fg={theme.textMuted}>Owner offline</text>
             ) : null}
+            {state.phase.kind === "failed" ? <text fg={theme.red}>{state.phase.error}</text> : null}
             {busy ? <text fg={pulse ? theme.textDim : theme.textMuted}>Thinking…</text> : null}
             {state.phase.kind === "permission" && props.client?.canControlAgent !== false ? (
               <>

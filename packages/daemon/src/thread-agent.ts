@@ -25,6 +25,7 @@ import {
   recordPromptOperation,
   settlePromptOperations,
 } from "./operation-receipts";
+import { harnessHandoffPrompt, harnessContinuationPrompt } from "./harness-handoff";
 import { writeHarnessDiagnostic } from "./harness-diagnostics";
 import { stepAgentTurn, agentTurnCancelled, type AgentTurn } from "./agent-turn";
 import { ThreadAgentSchema } from "./thread-agent-validation";
@@ -39,6 +40,7 @@ export interface ThreadAgentOptions {
   getThread: (id: string) => Thread;
   onChange: (id: string) => void;
   tools?: (thread: Thread) => AgentHarnessTools;
+  defaultHarnessForThread?: (thread: Thread) => AgentHarnessAdapter;
 }
 
 interface ActiveAgent {
@@ -46,6 +48,7 @@ interface ActiveAgent {
   turn: AgentTurn;
   turnId: string;
   revision: number;
+  handoffText?: Map<string, string>;
 }
 
 /** Own harness processes and durable agent transcripts without mutating reviewed artifacts. */
@@ -86,12 +89,14 @@ export class ThreadAgentManager {
 
     if (cached) return structuredClone(cached);
     const path = this.path(id);
+    const initialAdapter =
+      this.options.defaultHarnessForThread?.(this.options.getThread(id)) ?? this.options.adapter;
     const state = existsSync(path)
       ? v.parse(ThreadAgentSchema, JSON.parse(readFileSync(path, "utf8")))
       : {
           threadId: id,
-          harness: this.options.adapter
-            ? { id: this.options.adapter.id, label: this.options.adapter.label }
+          harness: initialAdapter
+            ? { id: initialAdapter.id, label: initialAdapter.label }
             : undefined,
           phase: { kind: "idle" as const },
           messages: [],
@@ -100,21 +105,22 @@ export class ThreadAgentManager {
         };
 
     if (state.threadId !== id) throw new Error("Thread agent record has the wrong thread identity");
+    const recoverable = this.canRecover(state);
+
     if (
       state.phase.kind === "running" ||
       state.phase.kind === "permission" ||
       state.submissions?.some((entry) => entry.status === "queued" || entry.status === "running")
     ) {
-      state.phase =
-        state.harness?.id === "pi"
-          ? { kind: "idle" }
-          : {
-              kind: "failed",
-              error: "Agent was interrupted by a daemon restart. Send a message to resume.",
-            };
+      state.phase = recoverable
+        ? { kind: "idle" }
+        : {
+            kind: "failed",
+            error: "Agent was interrupted by a daemon restart. Send a message to resume.",
+          };
       for (const submission of state.submissions ?? []) {
         if (submission.status === "running" || submission.status === "queued")
-          submission.status = state.harness?.id === "pi" ? "queued" : "failed";
+          submission.status = recoverable ? "queued" : "failed";
       }
       for (const tool of state.tools) {
         if (tool.status === "pending" || tool.status === "in_progress") tool.status = "cancelled";
@@ -204,6 +210,13 @@ export class ThreadAgentManager {
     if (!this.options.adapter) throw new Error("Thread agent harness is not configured");
     const state = this.mutable(params.id);
 
+    if (params.configId === "harness" && params.value !== undefined)
+      return this.switchHarness(state, params.value);
+    if (state.handoff && params.configId === undefined) {
+      this.drain(state);
+
+      return structuredClone(state);
+    }
     if (state.phase.kind === "running" || state.phase.kind === "permission") {
       // Discovery can read existing choices without reconfiguring an active turn.
       if (params.configId === undefined || params.value === undefined)
@@ -227,6 +240,110 @@ export class ThreadAgentManager {
     this.save(state);
 
     return structuredClone(state);
+  }
+
+  private switchHarness(state: ThreadAgentState, target: string): ThreadAgentState {
+    const adapter = this.options.adapters?.[target];
+
+    if (!adapter || adapter.recovery !== "durable")
+      throw new Error("Thread harness is unavailable for durable handoff");
+    if (state.handoff?.status === "summarizing" || state.handoff?.status === "prepared")
+      throw new Error("Thread harness handoff is already in progress");
+    if (this.adapter(state).id === target) state.handoff = undefined;
+    else
+      state.handoff = {
+        target,
+        operationId: randomUUID(),
+        status: "queued",
+        source: state.harness ? { ...state.harness } : undefined,
+      };
+    this.save(state);
+    this.drain(state);
+
+    return structuredClone(state);
+  }
+
+  private handoffCurrent(state: ThreadAgentState): boolean {
+    return !this.disposed && this.states.get(state.threadId) === state;
+  }
+
+  private async performHandoff(state: ThreadAgentState): Promise<void> {
+    const handoff = state.handoff;
+
+    if (!this.handoffCurrent(state)) return;
+    if (!handoff || state.phase.kind === "running" || state.phase.kind === "permission") return;
+    state.phase = { kind: "running" };
+    this.save(state);
+    let active: ActiveAgent | undefined;
+    const original = handoff.status === "queued" ? state.harness : handoff.source;
+    const intent = { ...handoff, source: original ? { ...original } : undefined };
+
+    try {
+      const thread = this.options.getThread(state.threadId);
+      const text = await this.prepareHandoff(state, thread, intent);
+
+      if (!this.handoffCurrent(state)) return;
+      const sessionId = state.harness?.sessionId;
+
+      state.handoff = { ...intent, status: "prepared", text };
+      this.save(state);
+      await this.retire(state.threadId);
+      if (!this.handoffCurrent(state)) return;
+      const target = this.options.adapters![handoff.target]!;
+
+      state.harness = { id: target.id, label: target.label, sessionId };
+      state.configOptions = [];
+      active = await this.connect(state, thread, "", 1);
+      if (!this.handoffCurrent(state)) return;
+      active.turn = stepAgentTurn(active.turn, "finished");
+      state.continuation = text || undefined;
+      state.handoff = undefined;
+      state.phase = { kind: "idle" };
+      this.save(state);
+      this.drain(state);
+    } catch (error) {
+      await this.retire(state.threadId, active);
+      if (!this.handoffCurrent(state)) return;
+      state.harness = original;
+      state.handoff = undefined;
+      state.phase = {
+        kind: "failed",
+        error: error instanceof Error ? error.message : "Thread harness handoff failed",
+      };
+      this.save(state);
+    }
+  }
+
+  private async prepareHandoff(
+    state: ThreadAgentState,
+    thread: Thread,
+    handoff: NonNullable<ThreadAgentState["handoff"]>,
+  ): Promise<string> {
+    if (handoff.status === "prepared") return handoff.text;
+    if (!state.messages.length) return "";
+    const active = await this.connect(
+      state,
+      thread,
+      handoff.operationId,
+      thread.revisions.at(-1)?.revision ?? 1,
+    );
+
+    if (!this.handoffCurrent(state)) throw new Error("Thread handoff was closed");
+    active.handoffText = new Map();
+    state.handoff = {
+      ...handoff,
+      status: "summarizing",
+      prompt: handoff.prompt ?? harnessHandoffPrompt(thread, state),
+    };
+    this.save(state);
+    const result = await active.connection.prompt(state.handoff.prompt!, handoff.operationId);
+
+    if (result.outcome !== "completed") throw new Error("Thread harness handoff did not complete");
+    const text = [...active.handoffText.values()].join("\n").trim();
+
+    if (!text) throw new Error("Thread harness handoff returned no continuation context");
+
+    return text;
   }
 
   private enqueueComment(
@@ -304,6 +421,11 @@ export class ThreadAgentManager {
       this.retiring.has(state.threadId)
     )
       return;
+    if (state.handoff) {
+      void this.performHandoff(state);
+
+      return;
+    }
     const submission = state.submissions?.find((entry) => entry.status === "queued");
 
     if (!submission) return;
@@ -334,14 +456,25 @@ Discussion context: ${submission.context ?? submission.messageId ?? ""}
 Input: ${submission.prompt}`;
 
     try {
-      submission.harnessPrompt = prompt;
+      submission.harnessPrompt = state.continuation
+        ? harnessContinuationPrompt(state.continuation, prompt)
+        : prompt;
+      state.continuation = undefined;
       this.save(state);
     } catch (error) {
       // Acceptance is already durable; a retry can resume the queue before any harness request.
       restoreAgentState(state, before);
       throw error;
     }
-    void this.run(state, thread, submission.id, revision, prompt, [], submission);
+    void this.run(
+      state,
+      thread,
+      submission.id,
+      revision,
+      submission.harnessPrompt!,
+      [],
+      submission,
+    );
   }
 
   /** Attach quote-primary feedback only to a finalized agent message. */
@@ -483,11 +616,32 @@ Input: ${submission.prompt}`;
     }
   }
 
-  private adapter(state: ThreadAgentState): AgentHarnessAdapter {
-    const adapter =
-      (state.harness && this.options.adapters?.[state.harness.id]) ?? this.options.adapter;
+  private canRecover(state: ThreadAgentState): boolean {
+    return this.availableAdapter(state)?.recovery === "durable";
+  }
 
-    if (!adapter) throw new Error("Thread agent harness is not configured");
+  private availableAdapter(state: ThreadAgentState): AgentHarnessAdapter | undefined {
+    const preferred =
+      this.options.defaultHarnessForThread?.(this.options.getThread(state.threadId)) ??
+      this.options.adapter;
+
+    if (!state.harness) return preferred;
+
+    return (
+      this.options.adapters?.[state.harness.id] ??
+      (preferred?.id === state.harness.id ? preferred : undefined)
+    );
+  }
+
+  private adapter(state: ThreadAgentState): AgentHarnessAdapter {
+    const adapter = this.availableAdapter(state);
+
+    if (!adapter)
+      throw new Error(
+        state.harness && this.options.adapter
+          ? "Thread is bound to a different harness"
+          : "Thread agent harness is not configured",
+      );
 
     return adapter;
   }
@@ -619,6 +773,22 @@ Input: ${submission.prompt}`;
     }
   }
 
+  private handoffTools(state: ThreadAgentState, thread: Thread): AgentHarnessTools | undefined {
+    const tools = this.options.tools?.(thread);
+
+    if (!tools) return undefined;
+
+    return {
+      ...tools,
+      call: (name, input) => {
+        if (state.handoff?.status === "summarizing")
+          throw new Error("Thread tools are unavailable while preparing a harness handoff");
+
+        return tools.call(name, input);
+      },
+    };
+  }
+
   private async startConnection(
     state: ThreadAgentState,
     thread: Thread,
@@ -632,7 +802,7 @@ Input: ${submission.prompt}`;
       const connection = adapter.connect({
         cwd: thread.artifact.meta.cwd ?? thread.workspace.repoRoot,
         sessionId: state.harness?.sessionId,
-        tools: this.options.tools?.(thread),
+        tools: this.handoffTools(state, thread),
         onEvent: (event) => this.receive(state, event),
         onExit: (error) => {
           if (this.active.get(state.threadId)?.connection !== connection) return;
@@ -664,6 +834,15 @@ Input: ${submission.prompt}`;
   }
 
   private receive(state: ThreadAgentState, event: AgentHarnessEvent): void {
+    const handoff = this.active.get(state.threadId)?.handoffText;
+
+    if (handoff && event.kind === "message") {
+      const id = event.id ?? "summary";
+
+      handoff.set(id, event.replace ? event.text : (handoff.get(id) ?? "") + event.text);
+
+      return;
+    }
     if (this.states.get(state.threadId) !== state) return;
     const routed = routeHarnessOutput(event);
 

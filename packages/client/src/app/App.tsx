@@ -1,3 +1,4 @@
+import { useThreadHarnessSetting } from "../settings/use-thread-harness-setting";
 import React, {
   useCallback,
   useEffect,
@@ -688,6 +689,7 @@ export function App({
 
     setPrototypePixels(config.experimental.prototypePixels);
     setThreadAgentEnabled(config.experimental.threadAgent);
+    setThreadHarness(config.thread.harness);
     keysRef.current = config.keys;
     keyBindings.setKeys(config.keys);
     setTheme(composeTheme(config.ui.theme, config.themeOverrides, appearance));
@@ -754,6 +756,22 @@ export function App({
     });
   };
 
+  const [agentState, setAgentState] = useState<import("@cueloop/schema").ThreadAgentState>();
+  const [threadHarness, setThreadHarness] = useState<"pi" | "fx">("pi");
+
+  const harnessSetting = useThreadHarnessSetting({
+    home,
+    thread: session,
+    enabled: threadAgentEnabled,
+    owner: isOwner,
+    state: agentState,
+    preferred: threadHarness,
+    client: agentClient,
+    onState: setAgentState,
+    onPreferred: setThreadHarness,
+    onError: controller.setStatus,
+  });
+
   // ── settings dialog: config-backed model, navigation, persistence ──
   const {
     settingsNav,
@@ -787,6 +805,9 @@ export function App({
     reviewSkill,
     reviewWorkspace,
     setReviewWorkspace,
+    canSwitchHarness: harnessSetting.enabled,
+    threadHarness: harnessSetting.harness,
+    onSwitchHarness: harnessSetting.switchHarness,
   });
 
   // ── derived view model ──────────────────────
@@ -843,7 +864,6 @@ export function App({
     () => undefined,
   );
   const agentInvoke = useRef<((commentId?: string) => void) | undefined>(undefined);
-  const [agentState, setAgentState] = useState<import("@cueloop/schema").ThreadAgentState>();
   const [prototypeComposing, setPrototypeComposing] = useState(false);
   const [welcomeComposing, setWelcomeComposing] = useState(false);
   // inline body edit: the markdown editor owns the thread pane and all keys while open

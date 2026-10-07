@@ -60,6 +60,13 @@ export interface ThreadAgentState {
     outcome?: "completed" | "failed" | "cancelled";
   })[];
   configOptions?: AgentConfigOption[];
+  handoff?: {
+    target: string;
+    operationId: string;
+    prompt?: string;
+    source?: { id: string; label: string; sessionId?: string };
+  } & ({ status: "queued" } | { status: "summarizing" } | { status: "prepared"; text: string });
+  continuation?: string;
 }
 
 /** A submission freezes its input; retry keeps the same mirror and discussion origin. */

@@ -94,6 +94,9 @@ export function useSettingsDialog(params: {
   reviewSkill: string;
   reviewWorkspace: ReviewWorkspaceMode;
   setReviewWorkspace: Dispatch<SetStateAction<ReviewWorkspaceMode>>;
+  threadHarness?: "pi" | "fx";
+  canSwitchHarness?: boolean;
+  onSwitchHarness?: (harness: "pi" | "fx") => void;
 }): SettingsDialogModel {
   const {
     theme,
@@ -116,6 +119,9 @@ export function useSettingsDialog(params: {
     reviewSkill,
     reviewWorkspace,
     setReviewWorkspace,
+    threadHarness,
+    canSwitchHarness,
+    onSwitchHarness,
   } = params;
 
   // open focused on the left nav, so up/down browses categories until l/tab/enter enters the body
@@ -214,6 +220,22 @@ export function useSettingsDialog(params: {
         },
       ],
     },
+    ...(canSwitchHarness
+      ? [
+          {
+            id: "thread",
+            name: "Thread",
+            rows: [
+              {
+                key: "threadHarness",
+                label: "Harness",
+                kind: "cycle" as const,
+                options: ["pi", "fx"],
+              },
+            ],
+          },
+        ]
+      : []),
     {
       id: "actions",
       name: "Actions",
@@ -252,9 +274,12 @@ export function useSettingsDialog(params: {
     syncGithub: "enter to sync",
     reviewSkill,
     reviewWorkspace,
+    threadHarness: threadHarness ?? "pi",
   };
   const cycleSetting = (rowKey: string): void => {
-    if (rowKey === "autoClose") {
+    if (rowKey === "threadHarness") {
+      onSwitchHarness?.(threadHarness === "fx" ? "pi" : "fx");
+    } else if (rowKey === "autoClose") {
       const next: AutoClose = autoClose === "off" ? 3 : autoClose === 3 ? 10 : "off";
 
       setAutoClose(next);

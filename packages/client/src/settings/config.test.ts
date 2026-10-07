@@ -674,3 +674,23 @@ test("Thread agents default off and require a boolean experimental TOML flag", (
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("Thread harness preference persists without changing experimental or other settings", async () => {
+  const { persistThreadHarness } = await import("./config");
+  const dir = mkdtempSync(join(tmpdir(), "cueloop-thread-config-"));
+  const path = join(dir, "config.toml");
+
+  try {
+    writeFileSync(path, '[experimental]\nthread_agent = true\n[ui]\ntheme = "cueloop"\n');
+    persistThreadHarness("fx", path);
+    const config = loadConfig({ userConfigPath: path });
+
+    expect(config.thread.harness).toBe("fx");
+    expect(config.experimental.threadAgent).toBe(true);
+    expect(config.ui.theme).toBe("cueloop");
+    persistThreadHarness("pi", path);
+    expect(loadConfig({ userConfigPath: path }).thread.harness).toBe("pi");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

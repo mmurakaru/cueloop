@@ -8,8 +8,9 @@ export async function daemonCommand(argv: string[]): Promise<number> {
   let idleExitMs: number | undefined = 0;
 
   if (argv.includes("--autostart")) idleExitMs = envIdle ? Number(envIdle) : undefined;
-  const { configuredAgentHarness, installedAgentHarnesses, threadAgentEnabled } =
+  const { configuredAgentHarnessId, installedAgentHarnesses, threadAgentEnabled } =
     await import("./agent-harness");
+  const adapters = installedAgentHarnesses();
   let relay: OwnerAgentRelay | undefined;
   const server = new DaemonServer({
     onEvent: (event) => {
@@ -17,11 +18,14 @@ export async function daemonCommand(argv: string[]): Promise<number> {
       if (event.event !== "agent.updated") relay?.update(server.core.sessionList());
     },
     idleExitMs,
+    agentHarnessDefault: () => configuredAgentHarnessId(),
     threadAgent: {
       enabled: true,
       enabledForThread: (thread) => threadAgentEnabled(thread.workspace.repoRoot),
-      adapter: configuredAgentHarness(),
-      adapters: installedAgentHarnesses(),
+      adapter: adapters[configuredAgentHarnessId()],
+      adapters,
+      defaultHarnessForThread: (thread) =>
+        adapters[configuredAgentHarnessId(thread.workspace.repoRoot)],
     },
   });
   const path = server.start();

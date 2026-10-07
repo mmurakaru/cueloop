@@ -8,6 +8,7 @@
  * observers), `cueloop daemon` runs the daemon in the foreground.
  */
 
+import { parseHarnessSelection, assertDaemonHarness } from "./harness-selection";
 import { basename, resolve } from "node:path";
 import { parseArgs, stringFlag, type ParsedArgs } from "./args";
 import {
@@ -29,7 +30,10 @@ import { openReview } from "@cueloop/daemon/thread-review";
 // The CLI owns adapter composition; the daemon package still starts independently.
 process.env.CUELOOP_DAEMON_ENTRY = import.meta.path;
 
-const argv = process.argv.slice(2);
+const harnessSelection = parseHarnessSelection(process.argv.slice(2));
+const argv = harnessSelection.args;
+
+if (harnessSelection.harness) process.env.CUELOOP_AGENT_HARNESS = harnessSelection.harness;
 const cmd = argv[0];
 
 async function serveEntry(rest: string[]): Promise<number> {
@@ -405,13 +409,24 @@ function printHelp(): void {
       "  cueloop review-comment <id>      add or update an agent PR finding (see --help)",
       "  cueloop daemon                   run the daemon in the foreground",
       "  cueloop stop                     stop the local daemon",
-      "  cueloop restart                  stop the local daemon and start a fresh one",
+      "  cueloop restart [--harness pi|fx] restart with the preferred Thread harness",
       "  cueloop dev                      open the TUI on an isolated home seeded with example threads",
       "",
+      "  cueloop --harness pi|fx         select the default for new Threads",
       "  cueloop -v, --version            print the installed version",
       "  cueloop -h, --help               print this help",
     ].join("\n"),
   );
 }
 
+if (
+  harnessSelection.harness &&
+  cmd !== "restart" &&
+  cmd !== "daemon" &&
+  cmd !== "--help" &&
+  cmd !== "-h" &&
+  cmd !== "--version" &&
+  cmd !== "-v"
+)
+  await assertDaemonHarness(harnessSelection.harness);
 process.exit(await main());

@@ -80,7 +80,11 @@ type PendingRequest = {
 const EmptyResultSchema = v.object({});
 // version is optional: a daemon from before the handshake carried one reads as
 // undefined, which never equals this build.
-const PingResultSchema = v.object({ pid: v.number(), version: v.optional(v.string()) });
+const PingResultSchema = v.object({
+  pid: v.number(),
+  version: v.optional(v.string()),
+  agentHarness: v.optional(v.string()),
+});
 const RefreshDiffResultSchema = v.object({ changed: v.boolean() });
 const HerdrThreadSurfaceResultSchema = v.nullable(
   v.object({
@@ -579,7 +583,7 @@ export class DaemonClient implements ThreadClient {
   }): Promise<ThreadAgentState> {
     return this.request("agent.permission", params, ThreadAgentSchema);
   }
-  ping(): Promise<{ pid: number }> {
+  ping(): Promise<{ pid: number; agentHarness?: string }> {
     return this.request("daemon.ping", {}, PingResultSchema);
   }
   subscribe(): Promise<void> {

@@ -43,6 +43,33 @@ const empty: ThreadAgentState = {
   comments: [],
 };
 
+test("a failed harness turn displays its error below the conversation", async () => {
+  const failure = "OAuth auth derivation failed: missing provider module";
+  const { client } = createTestAgentClient({ ...empty, phase: { kind: "failed", error: failure } });
+  const setup = await testRender(
+    <AgentThreadPane
+      thread={thread}
+      client={client}
+      focused
+      theme={DARK}
+      onActiveChange={noop}
+      onOpenFile={noop}
+    >
+      {artifactView(thread)}
+    </AgentThreadPane>,
+    { width: 100, height: 24 },
+  );
+
+  try {
+    await waitForText(setup, "Original artifact");
+    await settle(setup);
+    expect(setup.captureCharFrame()).toContain(failure);
+    expect(setup.captureCharFrame()).not.toContain("Thinking");
+  } finally {
+    setup.renderer.destroy();
+  }
+});
+
 function createTestAgentClient(initial: ThreadAgentState) {
   let state = initial;
   const prompts: AgentPromptRequest[] = [];

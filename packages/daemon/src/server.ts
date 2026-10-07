@@ -45,7 +45,11 @@ interface Connection {
 type MethodHandler = (connection: Connection, request: Request) => Response["result"];
 
 export interface DaemonOptions {
-  threadAgent?: Pick<ThreadAgentOptions, "enabled" | "enabledForThread" | "adapter" | "adapters">;
+  agentHarnessDefault?: () => string;
+  threadAgent?: Pick<
+    ThreadAgentOptions,
+    "enabled" | "enabledForThread" | "adapter" | "adapters" | "defaultHarnessForThread"
+  >;
   home?: string;
   onEvent?: (event: import("./client").EventFrame) => void;
   idleExitMs?: number;
@@ -76,7 +80,7 @@ export class DaemonServer {
   private readonly version: string;
   private readonly onEvent?: (event: import("./client").EventFrame) => void;
 
-  constructor(options: DaemonOptions = {}) {
+  constructor(private readonly options: DaemonOptions = {}) {
     this.onEvent = options.onEvent;
     this.home = options.home ?? cueloopHome();
     this.idleExitMs = options.idleExitMs ?? 15 * 60 * 1000;
@@ -296,10 +300,7 @@ export class DaemonServer {
       if (!this.threadAgent.isEnabled(thread.id)) continue;
       const state = this.threadAgent.get(thread.id);
 
-      if (
-        state.harness?.id === "pi" &&
-        state.submissions?.some((submission) => submission.status === "queued")
-      )
+      if (state.handoff || state.submissions?.some((submission) => submission.status === "queued"))
         void this.threadAgent
           .configure({ id: thread.id })
           .catch((error) => console.error("[agent recovery]", error));
@@ -475,7 +476,11 @@ export class DaemonServer {
 
       return this.threadAgent.permission(params);
     },
-    "daemon.ping": () => ({ pid: process.pid, version: this.version }),
+    "daemon.ping": () => ({
+      pid: process.pid,
+      version: this.version,
+      agentHarness: this.options.agentHarnessDefault?.() ?? this.options.threadAgent?.adapter?.id,
+    }),
     "daemon.hello": (connection, request) => {
       const params = parseParams("daemon.hello", request.params);
 

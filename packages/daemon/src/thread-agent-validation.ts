@@ -96,6 +96,24 @@ const StoredAgentSchema = v.object({
       }),
     ),
   ),
+  continuation: v.optional(v.string()),
+  handoff: v.optional(
+    v.intersect([
+      v.object({
+        target: v.string(),
+        operationId: v.string(),
+        prompt: v.optional(v.string()),
+        source: v.optional(
+          v.object({ id: v.string(), label: v.string(), sessionId: v.optional(v.string()) }),
+        ),
+      }),
+      v.variant("status", [
+        v.object({ status: v.literal("queued") }),
+        v.object({ status: v.literal("summarizing") }),
+        v.object({ status: v.literal("prepared"), text: v.string() }),
+      ]),
+    ]),
+  ),
   configOptions: v.optional(
     v.array(
       v.object({

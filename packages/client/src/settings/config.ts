@@ -127,6 +127,7 @@ export interface CueloopConfig {
   actions: QuickAction[];
   skillsPath: string;
   review: ReviewConfig;
+  thread: { harness: "pi" | "fx" };
   integrations: IntegrationsConfig;
   experimental: ExperimentalConfig;
 }
@@ -189,6 +190,9 @@ const ConfigDocumentSchema = v.object({
   experimental: v.optional(v.unknown()),
   skills: v.fallback(v.optional(SkillsSectionSchema), undefined),
   review: v.optional(v.unknown()),
+  thread: v.optional(
+    v.object({ harness: v.fallback(v.optional(v.picklist(["pi", "fx"])), undefined) }),
+  ),
 });
 
 const IdentitySchema = v.object({
@@ -321,6 +325,7 @@ function layer(
     actions: [...base.actions],
     skillsPath: base.skillsPath,
     review: { ...base.review },
+    thread: { ...base.thread },
     integrations: { obsidian: { ...base.integrations.obsidian } },
     experimental: { ...base.experimental },
   };
@@ -361,6 +366,7 @@ function layer(
   }
   if (experimental.success) applyExperimental(out.experimental, experimental.output);
   if (review.success) applyReview(out.review, review.output);
+  if (raw.thread?.harness) out.thread.harness = raw.thread.harness;
 
   return out;
 }
@@ -384,6 +390,7 @@ export function loadConfig(
     actions: [...DEFAULT_QUICK_ACTIONS],
     skillsPath: join(homedir(), ".agents", "skills"),
     review: { skill: "code-review", workspace: "worktree" },
+    thread: { harness: "pi" },
     integrations: { obsidian: { ...OBSIDIAN_DEFAULTS } },
     experimental: { prototypePixels: false, threadAgent: false },
   };
@@ -625,4 +632,9 @@ function applyExperimental(
 ): void {
   if (raw.prototype_pixels !== undefined) config.prototypePixels = raw.prototype_pixels;
   if (raw.thread_agent !== undefined) config.threadAgent = raw.thread_agent;
+}
+
+/** The preferred harness affects new Threads; existing Threads require a handoff. */
+export function persistThreadHarness(harness: "pi" | "fx", userConfigPath?: string): void {
+  persistTableSetting("thread", "harness", tomlString(harness), userConfigPath);
 }
