@@ -200,7 +200,7 @@ Choose the preferred harness for new owner-hosted Threads:
 harness = "pi" # pi or fx
 ```
 
-With `thread_agent` enabled, open **Settings → Thread → Harness** and click to switch the current Thread. The active turn finishes first. The outgoing harness prepares continuation context, and the next request uses the incoming harness. The transcript and comments stay in the same Thread. A failed handoff keeps the outgoing harness and displays the error.
+With `thread_agent` enabled, open **Settings → Thread → Harness** and click to switch the current Thread. Rapid clicks keep the latest requested harness; an in-progress handoff finishes before another begins. The active turn finishes first. The outgoing harness prepares continuation context, and the next request uses the incoming harness. The transcript and comments stay in the same Thread. A failed handoff keeps the outgoing harness and displays the error.
 
 Both harnesses use the durable execution runtime. Pi uses the owner's model credentials; fx uses its own authenticated ACP process. Switching does not transfer credentials or provider settings. An fx request interrupted after dispatch is reported as interrupted and is not sent again automatically.
 

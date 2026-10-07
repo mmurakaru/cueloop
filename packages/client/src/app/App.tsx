@@ -785,7 +785,7 @@ export function App({
     client: agentClient,
     onState: setAgentState,
     onPreferred: setThreadHarness,
-    onError: controller.setStatus,
+    onError: (message) => controller.setStatus(message),
   });
 
   // ── settings dialog: config-backed model, navigation, persistence ──

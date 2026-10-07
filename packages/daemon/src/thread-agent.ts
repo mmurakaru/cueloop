@@ -269,8 +269,12 @@ export class ThreadAgentManager {
     if (!adapter || adapter.recovery !== "durable")
       throw new Error("Thread harness is unavailable for durable handoff");
 
-    if (state.handoff?.status === "summarizing" || state.handoff?.status === "prepared")
-      throw new Error("Thread harness handoff is already in progress");
+    if (state.handoff && (state.handoff.status !== "queued" || state.phase.kind === "running")) {
+      state.handoff.requestedTarget = target;
+      this.save(state);
+
+      return structuredClone(state);
+    }
 
     if (this.adapter(state).id === target) state.handoff = undefined;
     else
@@ -291,12 +295,37 @@ export class ThreadAgentManager {
     return !this.disposed && this.states.get(state.threadId) === state;
   }
 
+  private coalesceQueuedHandoff(
+    state: ThreadAgentState,
+    handoff: NonNullable<ThreadAgentState["handoff"]>,
+  ): ThreadAgentState["handoff"] {
+    if (handoff.status !== "queued" || !handoff.requestedTarget) return handoff;
+
+    const latest = { ...handoff, target: handoff.requestedTarget, requestedTarget: undefined };
+
+    if (this.adapter(state).id === latest.target) {
+      state.handoff = undefined;
+      this.save(state);
+      this.drain(state);
+
+      return undefined;
+    }
+
+    state.handoff = latest;
+
+    return latest;
+  }
+
   private async performHandoff(state: ThreadAgentState): Promise<void> {
-    const handoff = state.handoff;
+    let handoff = state.handoff;
 
     if (!this.handoffCurrent(state)) return;
 
     if (!handoff || state.phase.kind === "running" || state.phase.kind === "permission") return;
+
+    handoff = this.coalesceQueuedHandoff(state, handoff);
+
+    if (!handoff) return;
 
     state.phase = { kind: "running" };
     this.save(state);
@@ -312,7 +341,12 @@ export class ThreadAgentManager {
 
       const sessionId = state.harness?.sessionId;
 
-      state.handoff = { ...intent, status: "prepared", text };
+      state.handoff = {
+        ...intent,
+        requestedTarget: state.handoff?.requestedTarget,
+        status: "prepared",
+        text,
+      };
       this.save(state);
       await this.retire(state.threadId);
 
@@ -328,7 +362,17 @@ export class ThreadAgentManager {
 
       active.turn = stepAgentTurn(active.turn, "finished");
       state.continuation = text || undefined;
-      state.handoff = undefined;
+      const requestedTarget = state.handoff?.requestedTarget;
+
+      state.handoff =
+        requestedTarget && requestedTarget !== target.id
+          ? {
+              target: requestedTarget,
+              operationId: randomUUID(),
+              status: "queued",
+              source: { ...state.harness },
+            }
+          : undefined;
       state.phase = { kind: "idle" };
       this.save(state);
       this.drain(state);
@@ -370,6 +414,7 @@ export class ThreadAgentManager {
     active.handoffText = new Map();
     state.handoff = {
       ...handoff,
+      requestedTarget: state.handoff?.requestedTarget,
       status: "summarizing",
       prompt: handoff.prompt ?? harnessHandoffPrompt(thread, state),
     };

@@ -20,13 +20,19 @@ interface ThreadHarnessSettingOptions {
 /** Preferences apply to new Threads; a bound Thread switches through the owner's daemon. */
 export function useThreadHarnessSetting(options: ThreadHarnessSettingOptions) {
   const latest = useRef(options);
+  const generation = useRef(0);
+  const pending = useRef(Promise.resolve());
 
   useEffect(() => {
     latest.current = options;
   });
   const threadId = options.thread?.id;
   const current = options.state?.threadId === threadId ? options.state : undefined;
-  const selected = current?.handoff?.target ?? current?.harness?.id ?? options.preferred;
+  const selected =
+    current?.handoff?.requestedTarget ??
+    current?.handoff?.target ??
+    current?.harness?.id ??
+    options.preferred;
 
   return {
     enabled: options.enabled && options.owner,
@@ -37,7 +43,11 @@ export function useThreadHarnessSetting(options: ThreadHarnessSettingOptions) {
 
       if (!request.enabled || !request.owner) return;
 
-      void (async () => {
+      const requestedGeneration = ++generation.current;
+
+      pending.current = pending.current.then(async () => {
+        if (generation.current !== requestedGeneration) return;
+
         let connection: DaemonClient | undefined;
 
         try {
@@ -45,6 +55,8 @@ export function useThreadHarnessSetting(options: ThreadHarnessSettingOptions) {
             const api =
               request.client ??
               (connection = await DaemonClient.connect({ home: request.home, autostart: true }));
+
+            if (generation.current !== requestedGeneration) return;
 
             if (!api.agentConfigure) throw new Error("Thread harness switching is unavailable");
 
@@ -54,17 +66,21 @@ export function useThreadHarnessSetting(options: ThreadHarnessSettingOptions) {
               value: harness,
             });
 
+            if (generation.current !== requestedGeneration) return;
+
             if (latest.current.thread?.id === requestedId) latest.current.onState(state);
           }
 
           persistThreadHarness(harness);
           latest.current.onPreferred(harness);
         } catch (failure) {
+          if (generation.current !== requestedGeneration) return;
+
           latest.current.onError(failure instanceof Error ? failure.message : String(failure));
         } finally {
           connection?.close();
         }
-      })();
+      });
     },
   };
 }

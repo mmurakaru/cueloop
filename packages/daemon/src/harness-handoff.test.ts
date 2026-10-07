@@ -604,3 +604,122 @@ test("explicit retry starts a fresh attempt while preserving submission and mirr
     rmSync(home, { recursive: true, force: true });
   }
 });
+
+for (const pauseAt of ["summary", "target"] as const) {
+  for (const finalTarget of ["pi", "fx"] as const) {
+    test(`rapid harness toggles during ${pauseAt} finish before settling on ${finalTarget}`, async () => {
+      const home = mkdtempSync(join(tmpdir(), "cueloop-rapid-handoff-"));
+      const thread: Thread = {
+        schemaVersion: SCHEMA_VERSION,
+        id: "rapid-switch",
+        workspace: { repoRoot: home, branch: "main" },
+        artifact: { type: "plan", content: "Continue the work", meta: {} },
+        revisions: [],
+        annotations: [],
+        message: null,
+        status: "pending",
+        createdAt: "2026-10-07",
+      };
+      const started = Promise.withResolvers<void>();
+      const release = Promise.withResolvers<void>();
+      const connections: string[] = [];
+      const summaries: string[] = [];
+      let activeSummaries = 0;
+      let maximumSummaries = 0;
+      const adapter = (id: string): AgentHarnessAdapter => ({
+        id,
+        label: id,
+        recovery: "durable",
+        connect(options) {
+          connections.push(id);
+
+          return {
+            async start() {
+              if (id === "fx" && pauseAt === "target") {
+                started.resolve();
+                await release.promise;
+              }
+
+              return options.sessionId ?? "rapid-runtime";
+            },
+            async prompt(text) {
+              const summary = text.startsWith("Prepare a continuation");
+
+              if (summary) {
+                summaries.push(id);
+                maximumSummaries = Math.max(maximumSummaries, ++activeSummaries);
+
+                if (summaries.length === 1 && pauseAt === "summary") {
+                  started.resolve();
+                  await release.promise;
+                }
+
+                activeSummaries--;
+              }
+
+              options.onEvent({
+                kind: "message",
+                text: summary
+                  ? id === "pi"
+                    ? "Continue safely: preserve private decision 42"
+                    : text.includes("preserve private decision 42")
+                      ? "Carried context: preserve private decision 42"
+                      : "Missing prior context"
+                  : "Initial reply",
+              });
+
+              return { outcome: "completed" };
+            },
+            cancel() {},
+            permission() {},
+            close() {},
+          };
+        },
+      });
+      const adapters = { pi: adapter("pi"), fx: adapter("fx") };
+      const manager = new ThreadAgentManager({
+        home,
+        enabled: true,
+        adapter: adapters.pi,
+        adapters,
+        getThread: () => thread,
+        onChange() {},
+      });
+
+      try {
+        manager.prompt({ id: thread.id, text: "Start" });
+        await waitForTestIdle(manager, thread.id);
+        const transcript = manager.get(thread.id).messages;
+
+        await manager.configure({ id: thread.id, configId: "harness", value: "fx" });
+        await started.promise;
+        const operation = manager.get(thread.id).handoff?.operationId;
+
+        for (const target of ["pi", "fx", finalTarget]) {
+          const state = await manager.configure({
+            id: thread.id,
+            configId: "harness",
+            value: target,
+          });
+
+          expect(state.handoff?.operationId).toBe(operation);
+          expect(state.handoff?.requestedTarget).toBe(target);
+        }
+        release.resolve();
+        const settled = await waitForTestIdle(manager, thread.id);
+
+        expect(settled.harness?.id).toBe(finalTarget);
+        expect(settled.handoff).toBeUndefined();
+        expect(settled.continuation).toContain("preserve private decision 42");
+        expect(settled.messages).toEqual(transcript);
+        expect(maximumSummaries).toBe(1);
+        expect(connections).toEqual(finalTarget === "pi" ? ["pi", "fx", "pi"] : ["pi", "fx"]);
+        expect(summaries).toEqual(finalTarget === "pi" ? ["pi", "fx"] : ["pi"]);
+      } finally {
+        release.resolve();
+        await manager.dispose();
+        rmSync(home, { recursive: true, force: true });
+      }
+    });
+  }
+}

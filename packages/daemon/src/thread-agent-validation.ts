@@ -102,6 +102,7 @@ const StoredAgentSchema = v.object({
     v.intersect([
       v.object({
         target: v.string(),
+        requestedTarget: v.optional(v.string()),
         operationId: v.string(),
         prompt: v.optional(v.string()),
         source: v.optional(

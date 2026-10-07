@@ -62,6 +62,7 @@ export interface ThreadAgentState {
   configOptions?: AgentConfigOption[];
   handoff?: {
     target: string;
+    requestedTarget?: string;
     operationId: string;
     prompt?: string;
     source?: { id: string; label: string; sessionId?: string };

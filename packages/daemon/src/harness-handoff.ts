@@ -11,6 +11,8 @@ Thread: ${thread.id}
 Workspace: ${thread.workspace.repoRoot}
 Reviewed artifact:
 ${thread.artifact.content.slice(0, 32768)}
+Pending continuation context:
+${state.continuation ?? ""}
 Recent conversation:
 ${state.messages
   .filter((message) => message.complete)
