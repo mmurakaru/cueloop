@@ -76,6 +76,7 @@ export interface AgentSubmission {
   messageId?: string;
   prompt: string;
   harnessPrompt?: string;
+  attemptId?: string;
   quote?: string;
   context?: string;
   status: "queued" | "running" | "completed" | "failed";

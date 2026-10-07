@@ -17,6 +17,8 @@ import type {
 
 type AcpReceipt = AgentHarnessResult;
 
+type AcpPendingOperation = { cancelled: boolean; taskId?: TaskId<AcpReceipt> };
+
 type AcpCheckpoint = { phase: "queued" } | { phase: "dispatched" };
 
 const AcpProgressDoc = defineDocFamily<{ events: string[]; bytes: number }, null>({
@@ -77,6 +79,7 @@ function replayAcpProgress(
       publish(event);
       continue;
     }
+
     const key = event.id ?? "answer";
     const previous = messages.get(key);
 
@@ -95,6 +98,7 @@ export function createDurableAcpTask(
   publish: (event: AgentHarnessEvent) => void,
 ) {
   let commitEvent: ((event: AgentHarnessEvent) => void) | undefined;
+  let pending: AcpPendingOperation | undefined;
   const task = defineTask<{ text: string }, AcpCheckpoint, AcpReceipt>({
     name: "cueloop.acp.prompt",
     version: 1,
@@ -103,10 +107,23 @@ export function createDurableAcpTask(
       queued: async (current, runtime, context) => {
         const backend = await connection();
 
+        runtime.signal.throwIfAborted();
+
         await runtime.commit(
           () => ({ status: "running", checkpoint: { phase: "dispatched" } }),
           context,
         );
+        runtime.signal.throwIfAborted();
+
+        if (pending?.taskId === current.id && pending.cancelled) {
+          await runtime.commit(
+            () => ({ status: "terminal", outcome: { status: "aborted" } }),
+            context,
+          );
+
+          return;
+        }
+
         let progress = Promise.resolve();
         let progressError: unknown;
 
@@ -127,6 +144,7 @@ export function createDurableAcpTask(
 
                 if (progress.bytes + bytes > 8 * 1024 * 1024)
                   throw new Error("ACP progress exceeds 8 MiB");
+
                 progress.events.push(serialized);
                 progress.bytes += bytes;
 
@@ -142,10 +160,13 @@ export function createDurableAcpTask(
 
         runtime.signal.addEventListener("abort", cancel, { once: true });
         try {
+          runtime.signal.throwIfAborted();
           const result = await backend.prompt(current.input.text, String(current.id));
 
           await progress;
+
           if (progressError) throw progressError;
+
           await runtime.commit(
             () => ({
               status: "terminal",
@@ -185,6 +206,9 @@ export function createDurableAcpTask(
 
   return {
     task,
+    cancel() {
+      if (pending) pending.cancelled = true;
+    },
     onEvent(event: AgentHarnessEvent) {
       if (commitEvent) commitEvent(event);
       else publish(event);
@@ -196,56 +220,78 @@ export function createDurableAcpTask(
       requestId: string,
       context: Context,
     ) {
-      let replay = false;
-      const id = await conversation.commit(async (tx) => {
-        const document = await tx.doc(AcpSessionDoc, conversation.id);
+      if (pending) throw new Error("ACP conversation already has an active prompt");
 
-        validateAcpSession(document);
-        const existing = document.operations[requestId];
+      const operation: AcpPendingOperation = { cancelled: false };
 
-        if (existing) {
-          replay = true;
-          if (existing.text !== text)
-            throw new Error("ACP operation ID was reused with different input");
+      pending = operation;
+      try {
+        let replay = false;
+        const id = await conversation.commit(async (tx) => {
+          const document = await tx.doc(AcpSessionDoc, conversation.id);
 
-          return existing.taskId;
+          validateAcpSession(document);
+          const existing = document.operations[requestId];
+
+          if (existing) {
+            replay = true;
+
+            if (existing.text !== text)
+              throw new Error("ACP operation ID was reused with different input");
+
+            return existing.taskId;
+          }
+
+          if (document.activeTask) {
+            const active = await tx.task(document.activeTask);
+
+            if (active && active.state.status !== "terminal")
+              throw new Error("ACP conversation already has an active prompt");
+          }
+
+          const taskId = await tx.createTask(
+            task,
+            { text },
+            { ownership: { kind: "conversation" } },
+          );
+
+          document.operations[requestId] = { text, taskId };
+          document.activeTask = taskId;
+
+          return taskId;
+        }, context);
+
+        operation.taskId = id;
+
+        if (operation.cancelled) await harness.abortTask(id, context);
+
+        const settled = await harness.waitForTask(id, context);
+        const outcome = settled.state.outcome;
+
+        if (replay) {
+          const progress = await harness.snapshot(
+            AcpProgressDoc,
+            conversation.id,
+            String(id),
+            context,
+          );
+
+          if (progress) {
+            v.parse(AcpProgressSchema, progress);
+            replayAcpProgress(progress.events, publish);
+          }
         }
-        if (document.activeTask) {
-          const active = await tx.task(document.activeTask);
 
-          if (active && active.state.status !== "terminal")
-            throw new Error("ACP conversation already has an active prompt");
+        if (outcome.status === "completed") {
+          return { outcome: outcome.result.outcome };
         }
-        const taskId = await tx.createTask(task, { text }, { ownership: { kind: "conversation" } });
 
-        document.operations[requestId] = { text, taskId };
-        document.activeTask = taskId;
+        if (outcome.status === "aborted") return { outcome: "cancelled" as const };
 
-        return taskId;
-      }, context);
-      const settled = await harness.waitForTask(id, context);
-      const outcome = settled.state.outcome;
-
-      if (replay) {
-        const progress = await harness.snapshot(
-          AcpProgressDoc,
-          conversation.id,
-          String(id),
-          context,
-        );
-
-        if (progress) {
-          v.parse(AcpProgressSchema, progress);
-          replayAcpProgress(progress.events, publish);
-        }
+        throw new Error(outcome.error?.message ?? "ACP execution failed");
+      } finally {
+        pending = undefined;
       }
-
-      if (outcome.status === "completed") {
-        return { outcome: outcome.result.outcome };
-      }
-      if (outcome.status === "aborted") return { outcome: "cancelled" as const };
-
-      throw new Error(outcome.error?.message ?? "ACP execution failed");
     },
   };
 }

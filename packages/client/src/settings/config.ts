@@ -104,6 +104,7 @@ export function resolveQuickAction(
   const index = Number(actionRef);
 
   if (Number.isInteger(index) && index >= 1 && index <= actions.length) return actions[index - 1];
+
   const wanted = actionRef.trim().toLowerCase();
 
   return actions.find((action) => action.prompt.toLowerCase() === wanted);
@@ -190,8 +191,9 @@ const ConfigDocumentSchema = v.object({
   experimental: v.optional(v.unknown()),
   skills: v.fallback(v.optional(SkillsSectionSchema), undefined),
   review: v.optional(v.unknown()),
-  thread: v.optional(
-    v.object({ harness: v.fallback(v.optional(v.picklist(["pi", "fx"])), undefined) }),
+  thread: v.fallback(
+    v.optional(v.object({ harness: v.fallback(v.optional(v.picklist(["pi", "fx"])), undefined) })),
+    undefined,
   ),
 });
 
@@ -262,12 +264,14 @@ function parseToml(text: string) {
 
 function parseActions(entries: readonly unknown[] | undefined): QuickAction[] | undefined {
   if (!entries) return undefined;
+
   const actions: QuickAction[] = [];
 
   for (const entry of entries) {
     const result = v.safeParse(QuickActionSchema, entry);
 
     if (!result.success) continue;
+
     const { prompt, metadata } = result.output;
 
     actions.push(metadata?.trim() ? { prompt, metadata } : { prompt });
@@ -281,21 +285,30 @@ function mergeObsidian(
   obsidian: v.InferOutput<typeof ObsidianSchema>,
 ): void {
   if (obsidian.vault !== undefined) target.vault = obsidian.vault;
+
   if (obsidian.folder !== undefined) target.folder = obsidian.folder;
+
   if (obsidian.filenameFormat !== undefined) target.filenameFormat = obsidian.filenameFormat;
+
   if (obsidian.separator !== undefined) target.separator = obsidian.separator;
+
   if (obsidian.exportOn !== undefined) target.exportOn = obsidian.exportOn;
 }
 
 /** Fold a parsed `[ui]` table onto the accumulated ui config, field by present field. */
 function applyUi(ui: CueloopConfig["ui"], parsed: v.InferOutput<typeof UiSchema>): void {
   if (parsed.auto_close !== undefined) ui.autoClose = parsed.auto_close;
+
   if (parsed.editor?.trim()) ui.editor = parsed.editor.trim();
+
   // "unified" is the pre-rename spelling of "stacked"; keep loading it so an upgrade never flips the layout
   if (parsed.diff_view !== undefined)
     ui.diffView = parsed.diff_view === "unified" ? "stacked" : parsed.diff_view;
+
   if (parsed.default_message !== undefined) ui.defaultMessage = parsed.default_message;
+
   if (parsed.pins !== undefined) ui.pins = parsed.pins;
+
   if (parsed.layout !== undefined) {
     ui.layout = {
       threads: parsed.layout.threads ?? true,
@@ -307,6 +320,7 @@ function applyUi(ui: CueloopConfig["ui"], parsed: v.InferOutput<typeof UiSchema>
 
 function applyReview(review: ReviewConfig, parsed: v.InferOutput<typeof ReviewSchema>): void {
   if (parsed.skill?.trim()) review.skill = parsed.skill.trim();
+
   if (parsed.workspace !== undefined) review.workspace = parsed.workspace;
 }
 
@@ -339,7 +353,9 @@ function layer(
   const review = v.safeParse(ReviewSchema, raw.review);
 
   if (actions) out.actions = actions;
+
   out.skillsPath = skillsPathFrom(raw.skills, base.skillsPath);
+
   if (authors.success) {
     for (const [id, value] of Object.entries(authors.output)) {
       const name = v.safeParse(v.string(), value);
@@ -347,6 +363,7 @@ function layer(
       if (name.success) out.authors[id] = name.output;
     }
   }
+
   if (keys.success) {
     for (const [action, value] of Object.entries(keys.output)) {
       const combo = v.safeParse(KeyComboSchema, value);
@@ -355,17 +372,24 @@ function layer(
         out.keys[action] = Array.isArray(combo.output) ? combo.output : [combo.output];
     }
   }
+
   // The reviewer identity is a personal credential; a repo must never forge a verified name.
   if (allowIdentity && identity.success) {
     if (identity.output.name !== undefined) out.identity.name = identity.output.name;
+
     if (identity.output.provider !== undefined) out.identity.provider = identity.output.provider;
   }
+
   if (ui.success) applyUi(out.ui, ui.output);
+
   if (integrations.success && integrations.output.obsidian) {
     mergeObsidian(out.integrations.obsidian, integrations.output.obsidian);
   }
+
   if (experimental.success) applyExperimental(out.experimental, experimental.output);
+
   if (review.success) applyReview(out.review, review.output);
+
   if (raw.thread?.harness) out.thread.harness = raw.thread.harness;
 
   return out;
@@ -407,6 +431,7 @@ export function loadConfig(
     options.repoRoot ? join(options.repoRoot, ".cueloop", "config.toml") : undefined,
   ]) {
     if (!path || !existsSync(path)) continue;
+
     try {
       const raw = parseToml(readFileSync(path, "utf8"));
 
@@ -416,6 +441,7 @@ export function loadConfig(
       const parsedThemeOverrides = v.safeParse(ThemeOverridesSchema, raw.theme);
 
       if (rawTheme && isThemeName(rawTheme)) themeName = rawTheme;
+
       if (parsedThemeOverrides.success) {
         for (const [token, value] of Object.entries(parsedThemeOverrides.output)) {
           const override = v.safeParse(v.string(), value);
@@ -468,6 +494,7 @@ function persistUiSetting(key: string, rendered: string, userConfigPath?: string
   let text = "";
 
   if (existsSync(path)) text = readFileSync(path, "utf8");
+
   const assignment = new RegExp(`^(\\s*)${key}\\s*=.*$`, "m");
 
   if (assignment.test(text)) {
@@ -477,6 +504,7 @@ function persistUiSetting(key: string, rendered: string, userConfigPath?: string
   } else {
     text = text.trimEnd() + (text.trim() ? "\n\n" : "") + `[ui]\n${key} = ${rendered}\n`;
   }
+
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, text);
 }
@@ -507,6 +535,7 @@ function persistTableSetting(
   } else {
     text = `${text.trimEnd()}${text.trim() ? "\n\n" : ""}[${table}]\n${key} = ${rendered}\n`;
   }
+
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, text);
 }
@@ -555,6 +584,7 @@ export function persistIdentity(identity: IdentityConfig, userConfigPath?: strin
   } else {
     text = text.trimEnd() + (text.trim() ? "\n\n" : "") + block;
   }
+
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, text);
 }
@@ -621,6 +651,7 @@ export function persistAuthorName(id: string, name: string, userConfigPath?: str
   } else {
     text = text.trimEnd() + (text.trim() ? "\n\n" : "") + `[authors]\n${key} = ${value}\n`;
   }
+
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, text);
 }
@@ -631,6 +662,7 @@ function applyExperimental(
   raw: v.InferOutput<typeof ExperimentalSchema>,
 ): void {
   if (raw.prototype_pixels !== undefined) config.prototypePixels = raw.prototype_pixels;
+
   if (raw.thread_agent !== undefined) config.threadAgent = raw.thread_agent;
 }
 

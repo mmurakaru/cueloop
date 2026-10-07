@@ -17,7 +17,7 @@ ptyTest.skipIf(Boolean(process.env.CUELOOP_TEST_EXECUTABLE))(
     );
     // The fixture speaks ACP directly and ignores the extra acp argument.
     const fixtureBin = join(home, "fx");
-    const { writeFileSync, chmodSync } = await import("node:fs");
+    const { writeFileSync, chmodSync, existsSync } = await import("node:fs");
 
     writeFileSync(
       fixtureBin,
@@ -51,7 +51,8 @@ ptyTest.skipIf(Boolean(process.env.CUELOOP_TEST_EXECUTABLE))(
       const state = await client.agentGet(thread.id);
 
       expect(state.harness?.id).toBe("fx");
-      expect(state.harness?.sessionId).toBe("fx-test-session");
+      expect(state.harness?.sessionId).toMatch(/^[0-9a-f]{8}-[0-9a-f-]{27}$/);
+      expect(existsSync(join(home, "pi-conversations", state.harness!.sessionId!))).toBe(true);
     } finally {
       client?.close();
       await session.close();
@@ -63,6 +64,60 @@ ptyTest.skipIf(Boolean(process.env.CUELOOP_TEST_EXECUTABLE))(
           "stop",
         ],
         { env: hermeticCueloopEnvironment(home), stdout: "pipe", stderr: "pipe" },
+      );
+
+      await stop.exited;
+      rmSync(home, { recursive: true, force: true });
+    }
+  },
+);
+
+ptyTest.skipIf(Boolean(process.env.CUELOOP_TEST_EXECUTABLE))(
+  "dev harness preflight selects the isolated home before starting a daemon",
+  async () => {
+    const home = mkdtempSync(join(tmpdir(), "cueloop-dev-preflight-"));
+    const devHome = join(home, ".cueloop-dev");
+    const { writeFileSync, existsSync } = await import("node:fs");
+    const preload = join(home, "preload.ts");
+
+    writeFileSync(preload, "delete process.env.CUELOOP_HOME;\n");
+    writeFileSync(join(home, "no-config.toml"), "[experimental]\nthread_agent = true\n");
+    const session = launchTuiSession({
+      home,
+      cwd: home,
+      args: [],
+      sourceArgs: [
+        "run",
+        "--preload",
+        preload,
+        join(import.meta.dirname, "../../packages/cli/src/main.ts"),
+        "--harness",
+        "fx",
+        "dev",
+      ],
+      cols: 120,
+      rows: 30,
+      env: { HOME: home },
+    });
+    let client: DaemonClient | undefined;
+
+    try {
+      await session.waitForReady();
+      client = await DaemonClient.connect({ home: devHome });
+      expect((await client.ping()).agentHarness).toBe("fx");
+      expect(existsSync(join(home, ".cueloop"))).toBe(false);
+      expect((await client.sessionList()).length).toBeGreaterThan(0);
+    } finally {
+      client?.close();
+      await session.close();
+      const stop = Bun.spawn(
+        [
+          process.execPath,
+          "run",
+          join(import.meta.dirname, "../../packages/cli/src/main.ts"),
+          "stop",
+        ],
+        { env: hermeticCueloopEnvironment(devHome), stdout: "pipe", stderr: "pipe" },
       );
 
       await stop.exited;

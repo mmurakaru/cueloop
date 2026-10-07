@@ -109,6 +109,7 @@ class ThreadHarnessConnection implements AgentHarnessConnection {
 
   start(): Promise<string> {
     if (this.closing) return Promise.reject(new Error("Pi conversation is closed"));
+
     this.starting ??= this.initialize().catch((error) => {
       this.backendReady.reject(error);
       throw error;
@@ -148,10 +149,12 @@ class ThreadHarnessConnection implements AgentHarnessConnection {
     this.storage = await (this.config.storage
       ? this.config.storage(this.sessionId, context)
       : openNodeJsonlStorage(conversationDirectory(this.config.home, this.sessionId), context));
+
     if (this.closing) {
       await this.storage.close(context);
       throw new Error("Pi conversation is closed");
     }
+
     this.harness = await Harness.open(
       this.storage,
       {
@@ -173,12 +176,16 @@ class ThreadHarnessConnection implements AgentHarnessConnection {
       },
       context,
     );
+
     if (this.closing) throw new Error("Pi conversation is closed");
+
     this.conversation = await this.harness.root(context, { agent: { cwd: this.options.cwd } });
+
     if (this.config.backend) {
       const saved = await this.harness.snapshot(AcpSessionDoc, this.conversation.id, context);
 
       if (saved) validateAcpSession(saved);
+
       this.backend = this.config.backend.connect({
         ...this.options,
         sessionId: saved?.sessionId ?? (!existed ? this.options.sessionId : undefined),
@@ -194,6 +201,7 @@ class ThreadHarnessConnection implements AgentHarnessConnection {
 
       return this.sessionId;
     }
+
     const available = await this.models.getAvailable();
     const current = (await this.conversation.agent(context)).model;
     const selected =
@@ -201,7 +209,9 @@ class ThreadHarnessConnection implements AgentHarnessConnection {
       (available[0] ? { provider: available[0].provider, modelId: available[0].id } : undefined);
 
     if (selected && !current) await this.conversation.configure({ model: selected }, context);
+
     if (this.closing) throw new Error("Pi conversation is closed");
+
     this.options.onEvent({
       kind: "config",
       options: [
@@ -223,12 +233,15 @@ class ThreadHarnessConnection implements AgentHarnessConnection {
 
   async configure(id: string, value: string): Promise<void> {
     if (this.backend?.configure) return this.backend.configure(id, value);
+
     if (!this.conversation || id !== "model")
       throw new Error("Pi configuration option is unavailable");
+
     const available = await this.models.getAvailable();
     const model = available.find((model) => `${model.provider}/${model.id}` === value);
 
     if (!model) throw new Error("Pi model is not available to the owner account");
+
     await this.conversation.configure(
       { model: { provider: model.provider, modelId: model.id } },
       context,
@@ -255,7 +268,9 @@ class ThreadHarnessConnection implements AgentHarnessConnection {
     const harness = this.harness;
 
     if (!conversation || !harness || this.closing) throw new Error("Pi conversation is not ready");
+
     if (this.backend) return this.acp.prompt(harness, conversation, text, requestId, context);
+
     const input = await conversation.submit(
       { type: "input", content: text, requestId, whenBusy: "followUp" },
       context,
@@ -280,7 +295,9 @@ class ThreadHarnessConnection implements AgentHarnessConnection {
       stream.snapshot,
       record.entry,
     );
+
     if (projection.text()) publish();
+
     stream.start(async (events) => {
       for (const event of events) {
         if (event.type === "snapshot") {
@@ -294,12 +311,14 @@ class ThreadHarnessConnection implements AgentHarnessConnection {
             current.entry,
           );
         } else projection.apply(event);
+
         if (
           event.type === "message_update" ||
           event.type === "message_end" ||
           event.type === "snapshot"
         )
           publish();
+
         if (event.type === "tool_execution_start")
           this.options.onEvent({
             kind: "tool",
@@ -307,6 +326,7 @@ class ThreadHarnessConnection implements AgentHarnessConnection {
             title: event.toolName,
             status: "in_progress",
           });
+
         if (event.type === "tool_execution_end")
           this.options.onEvent({
             kind: "tool",
@@ -320,15 +340,19 @@ class ThreadHarnessConnection implements AgentHarnessConnection {
       const result = await input.wait(context);
 
       await stream.stop();
+
       if (result.entry)
         projection.restore(
           await this.answerEntries(result.entry, result.answer),
           undefined,
           result.entry,
         );
+
       if (projection.text()) publish();
+
       if (result.status === "unanswered") {
         if (result.reason === "aborted") return { outcome: "cancelled" };
+
         const parsed = v.safeParse(v.string(), result.detail);
         const detail = parsed.success ? parsed.output : JSON.stringify(result.detail);
 
@@ -343,11 +367,13 @@ class ThreadHarnessConnection implements AgentHarnessConnection {
   }
 
   cancel(): void {
-    if (this.backend) this.backend.cancel();
-    else void this.conversation?.abort(context).catch(this.options.onExit);
+    this.acp.cancel();
+    this.backend?.cancel();
+    void this.conversation?.abort(context).catch(this.options.onExit);
   }
   permission(requestId: string, optionId?: string): void {
     if (this.backend) return this.backend.permission(requestId, optionId);
+
     throw new Error("Pi conversation has no pending permission");
   }
   close(): Promise<void> {

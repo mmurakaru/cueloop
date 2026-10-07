@@ -481,7 +481,13 @@ test("Pi recovery keeps the frozen harness input and submission identity after i
       start: async () => "durable-session",
       prompt: async (text, id) => {
         prompts.push({ text, id });
-        if (!resumed) return new Promise(() => {});
+
+        if (!resumed) {
+          onEvent({ kind: "message", id: "durable-answer", text: "Partial reply", replace: true });
+
+          return new Promise(() => {});
+        }
+
         onEvent({ kind: "message", id: "durable-answer", text: "Recovered answer", replace: true });
 
         return { outcome: "completed" as const };
@@ -517,6 +523,7 @@ test("Pi recovery keeps the frozen harness input and submission identity after i
       await Bun.sleep(1);
     expect(prompts).toHaveLength(2);
     expect(prompts[1]).toEqual(prompts[0]);
+    expect(manager.get(thread.id).messages.at(-1)?.complete).toBe(true);
     expect(manager.get(thread.id).messages.map((message) => message.text)).toEqual([
       "Recover",
       "Recovered answer",

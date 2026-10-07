@@ -10,6 +10,7 @@ async function waitForTestIdle(manager: ThreadAgentManager, id: string) {
     const state = manager.get(id);
 
     if (state.phase.kind === "idle" || state.phase.kind === "failed") return state;
+
     await Bun.sleep(1);
   }
 
@@ -40,6 +41,22 @@ for (const first of ["pi", "fx"] as const) {
           start: async () => options.sessionId ?? "shared-runtime",
           async prompt(text) {
             prompts.push({ backend: id, text, session: options.sessionId });
+
+            if (text.startsWith("Prepare a continuation")) {
+              options.onEvent({
+                kind: "tool",
+                id: "summary-read",
+                title: "read",
+                status: "pending",
+              });
+              options.onEvent({
+                kind: "tool",
+                id: "summary-read",
+                title: "read",
+                status: "completed",
+              });
+            }
+
             options.onEvent({
               kind: "message",
               id: crypto.randomUUID(),
@@ -71,12 +88,14 @@ for (const first of ["pi", "fx"] as const) {
       manager.prompt({ id: thread.id, text: "Fix retries" });
       await waitForTestIdle(manager, thread.id);
       const before = manager.get(thread.id).messages;
+      const tools = manager.get(thread.id).tools;
 
       await manager.configure({ id: thread.id, configId: "harness", value: target });
       const switched = await waitForTestIdle(manager, thread.id);
 
       expect(switched.harness).toMatchObject({ id: target, sessionId: "shared-runtime" });
       expect(switched.messages).toEqual(before);
+      expect(switched.tools).toEqual(tools);
       expect(switched.continuation).toContain("Next: test cancellation");
       manager.prompt({ id: thread.id, text: "Continue with cancellation" });
       await waitForTestIdle(manager, thread.id);
@@ -125,10 +144,12 @@ test("an active turn finishes before handoff and queued input runs on the new ha
         start: async () => options.sessionId ?? "runtime-busy",
         async prompt(text) {
           calls.push(id);
+
           if (calls.length === 1) {
             started();
             await paused;
           }
+
           options.onEvent({
             kind: "message",
             id: crypto.randomUUID(),
@@ -507,6 +528,77 @@ test("a resumed summary reuses its frozen prompt despite later queued messages",
     expect(state.harness?.id).toBe("fx");
     expect(prompts).toEqual(["Frozen handoff instruction"]);
     expect(state.continuation).toBe("Continue");
+  } finally {
+    await manager.dispose();
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("explicit retry starts a fresh attempt while preserving submission and mirror identity", async () => {
+  const home = mkdtempSync(join(tmpdir(), "cueloop-attempt-"));
+  const thread: Thread = {
+    schemaVersion: SCHEMA_VERSION,
+    id: "retry",
+    workspace: { repoRoot: home, branch: "main" },
+    artifact: { type: "plan", content: "Review retries", meta: {} },
+    revisions: [],
+    annotations: [],
+    message: null,
+    status: "pending",
+    createdAt: "2026-10-07",
+  };
+  const attempts: (string | undefined)[] = [];
+  const adapter: AgentHarnessAdapter = {
+    id: "fx",
+    label: "fx",
+    recovery: "durable",
+    connect(options) {
+      return {
+        start: async () => "retry-runtime",
+        async prompt(_text, requestId) {
+          attempts.push(requestId);
+
+          if (attempts.length === 1) {
+            options.onEvent({ kind: "message", text: "Interrupted partial" });
+            throw new Error("Interrupted dispatch");
+          }
+
+          options.onEvent({ kind: "message", text: "Retry completed" });
+
+          return { outcome: "completed" };
+        },
+        cancel() {},
+        permission() {},
+        close() {},
+      };
+    },
+  };
+  const manager = new ThreadAgentManager({
+    home,
+    enabled: true,
+    adapter,
+    getThread: () => thread,
+    onChange() {},
+  });
+
+  try {
+    manager.prompt({ id: thread.id, text: "Review" });
+    const first = await waitForTestIdle(manager, thread.id);
+    const submissionId = first.submissions![0]!.id;
+
+    manager.prompt({ id: thread.id, text: "", retry: submissionId });
+    const retried = await waitForTestIdle(manager, thread.id);
+
+    expect(attempts[0]).toBe(submissionId);
+    expect(attempts[1]).not.toBe(submissionId);
+    expect(attempts[1]).toBe(retried.submissions![0]!.attemptId);
+    expect(retried.messages.filter((message) => message.role === "agent")).toMatchObject([
+      { text: "Interrupted partial", complete: false },
+      { text: "Retry completed", complete: true },
+    ]);
+    expect(retried.submissions).toHaveLength(1);
+    expect(retried.submissions![0]!.status).toBe("completed");
+    expect(retried.messages.filter((message) => message.role === "user")).toHaveLength(1);
   } finally {
     await manager.dispose();
     rmSync(home, { recursive: true, force: true });

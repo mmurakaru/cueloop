@@ -694,3 +694,24 @@ test("Thread harness preference persists without changing experimental or other 
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("a malformed Thread section does not discard other preferences", () => {
+  const dir = mkdtempSync(join(tmpdir(), "cueloop-invalid-thread-config-"));
+  const path = join(dir, "config.toml");
+
+  try {
+    for (const section of ['thread = "fx"\n', '[thread]\nharness = "typo"\n']) {
+      writeFileSync(
+        path,
+        `${section}[experimental]\nthread_agent = true\n[ui]\ntheme = "cueloop"\n`,
+      );
+      const config = loadConfig({ userConfigPath: path });
+
+      expect(config.thread.harness).toBe("pi");
+      expect(config.experimental.threadAgent).toBe(true);
+      expect(config.ui.theme).toBe("cueloop");
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

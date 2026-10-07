@@ -79,6 +79,7 @@ const StoredAgentSchema = v.object({
         messageId: v.optional(v.string()),
         prompt: v.string(),
         harnessPrompt: v.optional(v.string()),
+        attemptId: v.optional(v.string()),
         quote: v.optional(v.string()),
         context: v.optional(v.string()),
         status: v.picklist(["queued", "running", "completed", "failed"]),

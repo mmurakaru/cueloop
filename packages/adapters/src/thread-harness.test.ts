@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createModels, fauxProvider, fauxAssistantMessage } from "@earendil-works/pi-ai";
 import type { AgentHarnessAdapter, AgentHarnessEvent } from "@cueloop/schema";
+import { openNodeJsonlStorage } from "@earendil-works/pi-durable/storage/jsonl/node";
 import { createThreadHarness } from "./thread-harness";
 
 function createTestBackend(onPrompt: (text: string) => void): AgentHarnessAdapter {
@@ -88,6 +89,7 @@ test("a crashed fx dispatch is never automatically replayed by the shared runtim
   writeFileSync(
     workerPath,
     `
+import { openNodeJsonlStorage } from "@earendil-works/pi-durable/storage/jsonl/node";
 import { createThreadHarness } from ${JSON.stringify(import.meta.dir + "/thread-harness.ts")};
 import { writeFileSync } from "node:fs";
 const connection = createThreadHarness({home:${JSON.stringify(home)},backend:{id:"fx",label:"fx",connect(options){return {
@@ -182,3 +184,101 @@ test("closing an unresponsive fx prompt closes its backend before joining durabl
     rmSync(home, { recursive: true, force: true });
   }
 }, 5000);
+
+test("a failed fx attempt remains settled until an explicit new attempt is admitted", async () => {
+  const home = mkdtempSync(join(tmpdir(), "cueloop-acp-retry-"));
+  let calls = 0;
+  const backend = createTestBackend(() => {
+    calls++;
+
+    if (calls === 1) throw new Error("Dispatch failed");
+  });
+  const connection = createThreadHarness({ home, backend }).connect({
+    cwd: home,
+    onEvent() {},
+    onExit() {},
+  });
+
+  try {
+    await connection.start();
+    await expect(connection.prompt("Review", "attempt-one")).rejects.toThrow("Dispatch failed");
+    await expect(connection.prompt("Review", "attempt-one")).rejects.toThrow("Dispatch failed");
+    expect(calls).toBe(1);
+    expect(await connection.prompt("Review", "attempt-two")).toEqual({ outcome: "completed" });
+    expect(calls).toBe(2);
+  } finally {
+    await connection.close();
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("cancelling during durable admission prevents ACP dispatch", async () => {
+  const home = mkdtempSync(join(tmpdir(), "cueloop-cancel-admission-"));
+  const calls: string[] = [];
+  const connection = createThreadHarness({
+    home,
+    backend: createTestBackend((text) => calls.push(text)),
+  }).connect({ cwd: home, onEvent() {}, onExit() {} });
+
+  try {
+    await connection.start();
+    const pending = connection.prompt("Do not dispatch", "cancel-admission");
+
+    connection.cancel();
+    expect(await pending).toEqual({ outcome: "cancelled" });
+    expect(calls).toEqual([]);
+    expect(await connection.prompt("Continue", "after-cancel")).toEqual({ outcome: "completed" });
+    expect(calls).toEqual(["Continue"]);
+  } finally {
+    await connection.close();
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("cancelling while the dispatch checkpoint is committing prevents native execution", async () => {
+  const home = mkdtempSync(join(tmpdir(), "cueloop-cancel-dispatch-"));
+  const calls: string[] = [];
+  const checkpoint = Promise.withResolvers<void>();
+  const release = Promise.withResolvers<void>();
+  const connection = createThreadHarness({
+    home,
+    backend: createTestBackend((text) => calls.push(text)),
+    async storage(sessionId, context) {
+      const storage = await openNodeJsonlStorage(join(home, sessionId), context);
+      const commit = storage.commit.bind(storage);
+
+      storage.commit = async (writes, context) => {
+        if (
+          writes.some(
+            (write) =>
+              write.type === "task" &&
+              write.value.state.status === "running" &&
+              JSON.stringify(write.value.state.checkpoint) === '{"phase":"dispatched"}',
+          )
+        ) {
+          checkpoint.resolve();
+          await release.promise;
+        }
+
+        return commit(writes, context);
+      };
+
+      return storage;
+    },
+  }).connect({ cwd: home, onEvent() {}, onExit() {} });
+
+  try {
+    await connection.start();
+    const pending = connection.prompt("Do not dispatch", "cancel-checkpoint");
+
+    await checkpoint.promise;
+    connection.cancel();
+    release.resolve();
+    expect(await pending).toEqual({ outcome: "cancelled" });
+    expect(calls).toEqual([]);
+  } finally {
+    release.resolve();
+    await connection.close();
+    rmSync(home, { recursive: true, force: true });
+  }
+});
