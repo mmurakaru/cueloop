@@ -1,5 +1,19 @@
 # @cueloop/client
 
+## 0.1.0-alpha.103
+
+### Minor Changes
+
+- [#567](https://github.com/mmurakaru/cueloop/pull/567) [`371d2b9`](https://github.com/mmurakaru/cueloop/commit/371d2b96e4c272b378fbac04d694db377a0b0f2b) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Add owner-controlled pi/fx switching with durable execution and continuation handoffs in Thread settings and CLI selection. Bundle subscription OAuth flows into native binaries and display failed model requests in Threads. Preserve fx dispatch receipts and progress across restarts without repeating uncertain external effects.
+
+### Patch Changes
+
+- Updated dependencies [[`371d2b9`](https://github.com/mmurakaru/cueloop/commit/371d2b96e4c272b378fbac04d694db377a0b0f2b)]:
+  - @cueloop/daemon@0.1.0-alpha.103
+  - @cueloop/schema@0.1.0-alpha.103
+  - @cueloop/extension-api@0.1.0-alpha.103
+  - @cueloop/integration-obsidian@0.1.0-alpha.103
+
 ## 0.1.0-alpha.102
 
 ### Patch Changes
