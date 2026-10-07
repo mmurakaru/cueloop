@@ -85,6 +85,7 @@ export default function ThemeToggle() {
   // While on "system", follow OS changes live.
   useEffect(() => {
     if (pref !== "system" || typeof matchMedia === "undefined") return;
+
     const query = matchMedia("(prefers-color-scheme: dark)");
     const onChange = () => {
       document.documentElement.dataset.theme = query.matches ? "dark" : "light";

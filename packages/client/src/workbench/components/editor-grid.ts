@@ -221,9 +221,11 @@ export function keepFileTab(node: EditorNode, groupId: string, tabId: string): E
 /** Drop empty groups and collapse a branch that ends up with one child; null when nothing remains. */
 export function pruneEmpty(node: EditorNode): EditorNode | null {
   if (node.type === "group") return node.tabs.length > 0 ? node : null;
+
   const kept = node.children.map(pruneEmpty).filter((child): child is EditorNode => child !== null);
 
   if (kept.length === 0) return null;
+
   if (kept.length === 1) return kept[0]!;
 
   return { ...node, children: kept };
@@ -254,6 +256,7 @@ export function splitGroup(
     const active = group.tabs.find((tab) => tab.id === group.activeTabId) ?? group.tabs[0];
 
     if (active === undefined) return group;
+
     const movedTab: EditorTab =
       active.kind === "welcome" ? { ...active, id: freshId() } : { ...active, preview: false };
     const newGroup = makeGroup([movedTab]);

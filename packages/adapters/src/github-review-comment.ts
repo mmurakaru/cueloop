@@ -25,6 +25,7 @@ export function renderGitHubReviewComment(annotation: Annotation): string {
   if (!isAgentReviewComment(annotation)) {
     throw new Error(`GitHub review comment ${annotation.id} is not an agent finding`);
   }
+
   const finding = annotation.reviewComment;
   const badge = finding.severity.toUpperCase();
   const lines = [
@@ -36,6 +37,7 @@ export function renderGitHubReviewComment(annotation: Annotation): string {
   if (finding.suggestion?.trim()) {
     lines.push("", "```suggestion", finding.suggestion.trimEnd(), "```");
   }
+
   if (finding.prompt?.trim()) {
     lines.push(
       "",

@@ -81,6 +81,7 @@ export class ReviewDaemonSdk {
 
       return () => {};
     }
+
     const dispose = subscribeThreadState({
       connect: connectThreadObserver(this.connectionOptions),
       matches: (event) => event.sessionId === input.threadId,
@@ -128,6 +129,7 @@ export class ReviewDaemonSdk {
 
       if (!comment)
         throw new DaemonClientError("not_found", "SDK comment reply target does not exist");
+
       const rootId = comment.replyTo ?? comment.id;
       const root = thread.annotations.find((entry) => entry.id === rootId);
 
@@ -277,6 +279,7 @@ export class OwnerDaemonSdk extends ReviewDaemonSdk {
       return Promise.reject(
         new DaemonTransportError("connection", "SDK connection is closed", "not_sent"),
       );
+
     if (!accepted.submissionIds.length)
       return Promise.reject(
         new DaemonClientError("invalid_params", "SDK wait requires accepted submissions"),
@@ -294,11 +297,13 @@ export class OwnerDaemonSdk extends ReviewDaemonSdk {
       let detach: (() => void) | undefined;
       const finish = (result?: AgentCompletion, error?: DaemonSdkError) => {
         if (done) return;
+
         done = true;
         clearTimeout(timer);
         signal.removeEventListener("abort", abort);
         this.waits.delete(controller);
         detach?.();
+
         if (result) resolve(result);
         else reject(error);
       };
@@ -321,11 +326,13 @@ export class OwnerDaemonSdk extends ReviewDaemonSdk {
       );
 
       signal.addEventListener("abort", abort, { once: true });
+
       if (signal.aborted) {
         abort();
 
         return;
       }
+
       detach = subscribeThreadState({
         connect: connectThreadObserver(this.connectionOptions),
         matches: (event) =>
@@ -347,6 +354,7 @@ export class OwnerDaemonSdk extends ReviewDaemonSdk {
 
             return;
           }
+
           if (receipt.outcome) finish({ ...accepted, outcome: receipt.outcome, state });
         },
         onError: (error) => {

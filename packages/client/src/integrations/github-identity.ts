@@ -30,6 +30,7 @@ export async function resolveGithubIdentity(): Promise<GithubIdentity | null> {
     ]);
 
     if (exitCode !== 0) return null;
+
     const parsed = v.safeParse(GithubUserSchema, JSON.parse(output));
 
     if (!parsed.success) return null;

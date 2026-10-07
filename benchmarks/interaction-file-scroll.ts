@@ -82,6 +82,7 @@ await waitForText(setup, "line0");
 const scrollbox = findScrollbox(setup.renderer.root);
 
 if (!scrollbox) throw new Error("file scrollbox missing");
+
 const pressMs: number[] = [];
 const scrollSteps: number[] = [];
 

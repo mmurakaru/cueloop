@@ -135,6 +135,7 @@ function parseBridgeResponse(
 
   if (raw.operation !== operation)
     throw new Error("Claude Mod cueloop harness bridge returned the wrong operation");
+
   if (operation === "open") {
     const manualOpenCommand =
       raw.manualOpenCommand === undefined ? undefined : bridgeString(raw.manualOpenCommand);
@@ -146,9 +147,11 @@ function parseBridgeResponse(
       manualOpenCommand,
     };
   }
+
   if (operation === "pending") {
     if (!Array.isArray(raw.pendingThreadIds) || !Array.isArray(raw.deliveries))
       throw new Error("Claude Mod cueloop bridge returned malformed pending deliveries");
+
     const pendingThreadIds = raw.pendingThreadIds.map(bridgeString);
     const deliveries = raw.deliveries.map((rawDelivery: unknown) => {
       const delivery = bridgeObject(rawDelivery);
@@ -165,6 +168,7 @@ function parseBridgeResponse(
 
     return { operation, deliveries, pendingThreadIds };
   }
+
   if (operation === "ack") {
     return { operation, deliveryId: bridgeString(raw.deliveryId) };
   }
@@ -218,6 +222,7 @@ async function pollMessages(engine: Engine, state: ModState): Promise<void> {
 
     if (response.operation !== "pending")
       throw new Error("Claude Mod cueloop bridge returned no pending deliveries");
+
     state.pendingThreadIds = response.pendingThreadIds;
     for (const delivery of response.deliveries) {
       const storeKey = `cueloop-message-${delivery.message.id}`;
@@ -226,6 +231,7 @@ async function pollMessages(engine: Engine, state: ModState): Promise<void> {
         await engine.prompt.submit({ text: delivery.wakeText });
         await engine.store.set(storeKey, true);
       }
+
       await callBridge(engine, {
         operation: "ack",
         bindingId: delivery.bindingId,
@@ -253,15 +259,18 @@ async function openThread(
   if (!input.workflow) {
     return { output: { deny: "Claude Mod cueloop workflow is missing" }, approvedRetry: false };
   }
+
   if (input.workflow === "review" && !input.pullRequestReference) {
     return {
       output: { deny: "Claude Mod cueloop review needs pullRequestReference" },
       approvedRetry: false,
     };
   }
+
   if (input.workflow === "refine" && !input.proposal) {
     return { output: { deny: "Claude Mod cueloop refine needs proposal" }, approvedRetry: false };
   }
+
   if (input.workflow !== "review" && input.workflow !== "refine" && !input.content) {
     return {
       output: { deny: `Claude Mod cueloop ${input.workflow} needs content` },
@@ -286,6 +295,7 @@ async function openThread(
     if (response.operation !== "open") {
       throw new Error("Claude Mod cueloop bridge did not open");
     }
+
     if (response.approvedRetry) {
       state.pendingThreadIds = state.pendingThreadIds.filter((id) => id !== response.threadId);
     } else if (!state.pendingThreadIds.includes(response.threadId)) {
@@ -381,6 +391,7 @@ export function register(on: On): void {
       if (!input.plan) {
         return { deny: "Claude Mod could not read the plan; cueloop gate stayed closed." };
       }
+
       const result = await openThread(engine, state, {
         ...input,
         workflow: "plan",
@@ -395,11 +406,13 @@ export function register(on: On): void {
 
       return { deny: result.output.result };
     }
+
     if (input.tool === OPEN_THREAD_TOOL) {
       const opened = await openThread(engine, state, input);
 
       return opened.output;
     }
+
     if (input.tool === REFINE_CORPUS_TOOL) {
       try {
         const response = await callBridge(engine, { operation: "refine" });
@@ -411,6 +424,7 @@ export function register(on: On): void {
         return { deny: `Claude Mod cueloop refine unavailable: ${String(error)}` };
       }
     }
+
     if (state.available && state.pendingThreadIds.length > 0 && !READ_ONLY_TOOLS.has(input.tool)) {
       return { deny: `cueloop Threads pending: ${state.pendingThreadIds.join(", ")}` };
     }

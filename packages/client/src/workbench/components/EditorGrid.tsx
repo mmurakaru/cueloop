@@ -91,6 +91,7 @@ function EditorTabButton({
 
         lastClick.current = stamp;
         onSelect();
+
         if (doubleClick && tab.preview) onKeep?.();
       }}
       onMouseOver={() => setHovered(true)}
@@ -152,6 +153,7 @@ export function visibleTabWindow(
 ): TabWindow {
   // unmeasured strip: show everything, the header clips until the width is known
   if (stripWidth <= 0) return { first: 0, end: tabs.length };
+
   const width = (index: number): number => tabCellWidth(tabs[index]!, commentCount(tabs[index]!));
   const fitEnd = (first: number): number => {
     let used = first > 0 ? 1 : 0;
@@ -161,6 +163,7 @@ export function visibleTabWindow(
       const remaining = end + 1 < tabs.length ? 1 : 0;
 
       if (used + width(end) + remaining > stripWidth) break;
+
       used += width(end);
       end++;
     }
@@ -255,7 +258,9 @@ function EditorGroupPane({
 
   useSharedKeyboard((key) => {
     if (!menuOpen) return;
+
     if (key.name === "escape") return menuControl.closeMenu();
+
     const direction = splitDirectionForKey(key.name);
 
     if (direction && canSplit(direction)) {
@@ -266,6 +271,7 @@ function EditorGroupPane({
 
   useEffect(() => {
     if (!menuOpen) return;
+
     setOverlay(
       "split-menu",
       <box
@@ -282,6 +288,7 @@ function EditorGroupPane({
           <SplitMenu
             onPick={(direction) => {
               if (!canSplit(direction)) return;
+
               props.onSplit(group.id, direction);
               menuControl.closeMenu();
             }}
@@ -313,6 +320,7 @@ function EditorGroupPane({
     setWasZoomed(props.zoomed);
     setFirstVisible(0);
   }
+
   const activeIndex = Math.max(
     0,
     group.tabs.findIndex((tab) => tab.id === active?.id),

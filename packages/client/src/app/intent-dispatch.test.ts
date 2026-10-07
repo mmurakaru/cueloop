@@ -194,6 +194,7 @@ describe("move", () => {
     const advance = setCursor.mock.calls[0]![0];
 
     if (!isUpdater(advance)) throw new Error("expected setCursor to receive an updater");
+
     expect(advance(2)).toBe(2); // already at the end, stays
     expect(advance(0)).toBe(1);
   });

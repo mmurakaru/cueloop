@@ -73,9 +73,11 @@ test("deleted file caret scrolls one row and stays at the file boundaries", asyn
     const box = findScrollbox(setup.renderer.root);
 
     if (!box) throw new Error("file diff scrollbox missing");
+
     for (let offset = 0; offset < 1000; offset += 20) {
       box.scrollTo({ x: 0, y: offset });
       await settle(setup);
+
       if (setup.captureCharFrame().includes("row 130")) break;
     }
     const target = locateText(setup, "row 130");
@@ -127,6 +129,7 @@ test("deleted file caret scrolls one row and stays at the file boundaries", asyn
         .findIndex((line) => line.includes("▎"));
 
       if (marker === box.viewport.screenY) anchored = true;
+
       if (anchored && box.scrollTop > 0) expect(marker).toBe(box.viewport.screenY);
     }
     expect(anchored).toBe(true);

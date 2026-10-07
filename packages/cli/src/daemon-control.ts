@@ -21,6 +21,7 @@ function signalDaemonByProcessId(home: string): boolean {
   const path = pidPath(home);
 
   if (!existsSync(path)) return false;
+
   let raw: string;
 
   try {
@@ -31,6 +32,7 @@ function signalDaemonByProcessId(home: string): boolean {
   const parsed = v.safeParse(ProcessIdSchema, raw);
 
   if (!parsed.success) return false;
+
   try {
     process.kill(parsed.output);
 
@@ -47,6 +49,7 @@ async function waitForSocketGone(home: string): Promise<boolean> {
 
   while (Date.now() < deadline) {
     if (!existsSync(path)) return true;
+
     await Bun.sleep(50);
   }
 
@@ -62,6 +65,7 @@ async function waitForSocketGone(home: string): Promise<boolean> {
  */
 export async function stopDaemon(home = cueloopHome()): Promise<boolean> {
   if (!existsSync(socketPath(home))) return false;
+
   try {
     const client = await DaemonClient.connect({ home, autostart: false });
 
@@ -83,6 +87,7 @@ export async function stopCommand(): Promise<number> {
 
     return 0;
   }
+
   const stopped = await stopDaemon(home);
 
   console.log(stopped ? "cueloop daemon stopped" : "cueloop daemon did not stop in time");

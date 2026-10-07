@@ -66,11 +66,15 @@ export function flattenTree(nodes: readonly TreeNode[], options: FlattenOptions)
         };
 
         if (node.status !== undefined) leaf.status = node.status;
+
         if (node.badge !== undefined) leaf.badge = node.badge;
+
         if (node.icon !== undefined) leaf.icon = node.icon;
+
         rows.push(leaf);
         continue;
       }
+
       const collapsed = options.flattenEmptyDirectories
         ? collapseChain(node)
         : { label: node.label, tail: node, chainIds: [node.id] };
@@ -85,8 +89,11 @@ export function flattenTree(nodes: readonly TreeNode[], options: FlattenOptions)
       };
 
       if (node.badge !== undefined) row.badge = node.badge;
+
       if (node.icon !== undefined) row.icon = node.icon;
+
       rows.push(row);
+
       if (expanded) walk(collapsed.tail.children ?? [], depth + 1);
     }
   };

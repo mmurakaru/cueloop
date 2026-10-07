@@ -51,6 +51,7 @@ export function useRepoChanges({
 
     const refreshChanges = async (): Promise<void> => {
       if (requestInFlight) return;
+
       requestInFlight = true;
 
       try {
@@ -83,6 +84,7 @@ export function useRepoChanges({
 
     return () => {
       cancelled = true;
+
       if (timer !== null) clearInterval(timer);
     };
   }, [visible, diffSourceKey, refreshAutomatically]);

@@ -18,12 +18,14 @@ let session: PtyTuiSession;
 
 beforeAll(async () => {
   if (!PTY_TIER_ENABLED) return;
+
   reviewHome = createTestReviewHome();
   session = (await launchPlanReview(reviewHome)).session;
 });
 
 afterAll(async () => {
   if (!PTY_TIER_ENABLED) return;
+
   await session.close();
   reviewHome.cleanup();
 });

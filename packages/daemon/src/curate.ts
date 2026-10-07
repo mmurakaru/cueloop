@@ -64,6 +64,7 @@ function curateFilePatch(file: DiffFileContents, rejections: HunkRejection[]): s
   const curatedNew = model.additionLines.join("");
 
   if (curatedNew === file.oldContents) return null;
+
   const patch = unifiedDiffText(file.oldContents, curatedNew, file.path);
 
   if (patch === null) return null;
@@ -84,6 +85,7 @@ function withFileStateHeaders(
   curatedNew: string,
 ): string {
   if (status === "added") return patch.replace(`--- a/${path}`, "--- /dev/null");
+
   if (status === "deleted" && curatedNew === "") {
     return patch.replace(`+++ b/${path}`, "+++ /dev/null");
   }

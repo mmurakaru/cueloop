@@ -34,6 +34,7 @@ export function discussionsFrom(session: Thread, marks: Map<number, Mark[]>): Di
   for (const [displayIndex, blockMarks] of marks) {
     for (const mark of blockMarks) {
       if (!mark.annotationId || spanOf.has(mark.annotationId)) continue;
+
       spanOf.set(
         mark.annotationId,
         mark.span ?? {

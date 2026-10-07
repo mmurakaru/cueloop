@@ -27,6 +27,7 @@ export class TokenBucket {
 
       return false;
     }
+
     this.buckets.set(key, { tokens: refilled - 1, updatedAt: at });
 
     return true;

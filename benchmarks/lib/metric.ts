@@ -22,9 +22,11 @@ export function emitMetric(name: string, value: number): void {
 /** Parse one stdout line; null when it is not a metric line. */
 export function parseMetricLine(line: string): { name: string; value: number } | null {
   if (!line.startsWith(METRIC_LINE_PREFIX)) return null;
+
   const separator = line.indexOf("=", METRIC_LINE_PREFIX.length);
 
   if (separator === -1) return null;
+
   const name = line.slice(METRIC_LINE_PREFIX.length, separator).trim();
   const value = Number(line.slice(separator + 1).trim());
 

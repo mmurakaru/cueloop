@@ -70,6 +70,7 @@ try {
       );
       continue;
     }
+
     const tarball = packed.stdout
       .toString()
       .trim()
@@ -84,12 +85,14 @@ try {
       );
       continue;
     }
+
     const listed = Bun.spawnSync(["tar", "-tzf", join(work, tarball)]);
 
     if (listed.exitCode !== 0) {
       problems.push(`${pkg.name}: could not read ${tarball}`);
       continue;
     }
+
     const shipped = new Set(
       listed.stdout
         .toString()
@@ -103,17 +106,21 @@ try {
       if (isSinglePath(pkg.exports)) targets.push(pkg.exports);
       else targets.push(...Object.values(pkg.exports));
     }
+
     if (pkg.bin !== undefined) {
       if (isSinglePath(pkg.bin)) targets.push(pkg.bin);
       else targets.push(...Object.values(pkg.bin));
     }
+
     if (pkg.main) targets.push(pkg.main);
+
     for (const target of targets) {
       const rel = target.replace(/^\.\//, "");
 
       if (!shipped.has(rel))
         problems.push(`${pkg.name}: ships no ${rel}, but the manifest points at it`);
     }
+
     if (pkg.name === "@cueloop/pi") {
       for (const workflow of WORKFLOW_SKILL_KINDS) {
         const path = `skills/${workflow}/SKILL.md`;
@@ -131,6 +138,7 @@ if (problems.length) {
   for (const problem of problems) console.error(`  - ${problem}`);
   process.exit(1);
 }
+
 console.log(
   `publish integrity ok (${paths.length} packages packed and inspected${devMode ? ", dependency protocols deferred to the release lane" : ""})`,
 );

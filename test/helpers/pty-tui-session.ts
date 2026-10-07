@@ -78,6 +78,7 @@ async function pollUntil(
 
   while (!condition()) {
     if (Date.now() >= deadline) return false;
+
     await Bun.sleep(pollMs);
   }
 
@@ -99,13 +100,16 @@ export async function waitForPtyScreen(
   let screen = reader.text();
   const settled = await pollUntil(() => {
     if (predicate(screen)) return true;
+
     if (reader.exit() !== null) return true;
+
     screen = reader.text();
 
     return predicate(screen);
   }, timeoutMs);
 
   if (predicate(screen)) return screen;
+
   const exit = reader.exit();
 
   if (settled && exit !== null) {
@@ -164,6 +168,7 @@ export function launchTuiSession(options: LaunchTuiSessionOptions): PtyTuiSessio
   if (factory === null) {
     throw new Error("PTY session launch failed: no Ghostty VT shim for this platform");
   }
+
   const cols = options.cols ?? DEFAULT_COLS;
   const rows = options.rows ?? DEFAULT_ROWS;
   const terminal = factory.create(cols, rows);
@@ -171,6 +176,7 @@ export function launchTuiSession(options: LaunchTuiSessionOptions): PtyTuiSessio
   if (terminal === null) {
     throw new Error("PTY session launch failed: Ghostty terminal allocation failed");
   }
+
   const readyFile = join(options.home, `ready-${++launchCount}`);
   const environment = hermeticCueloopEnvironment(options.home, {
     TERM: "xterm-256color",
@@ -248,12 +254,14 @@ export class PtyTuiSession implements PtyScreenReader {
     pty.onData((chunk) => {
       this.generation += 1;
       this.lastDataAt = Date.now();
+
       if (!this.captureTerminalFrames) {
         this.terminal.write(this.encoder.encode(chunk));
         this.textCache = null;
 
         return;
       }
+
       const completedFrameMarker = "\x1b[?2026l";
 
       for (const [index, segment] of chunk.split(completedFrameMarker).entries()) {
@@ -266,6 +274,7 @@ export class PtyTuiSession implements PtyScreenReader {
           this.terminalFrameTimes.push(performance.now());
           this.onTerminalFrame?.(frame, (column, row) => this.terminal.readCell(column, row));
         }
+
         this.terminal.write(this.encoder.encode(segment));
         this.textCache = null;
       }
@@ -282,6 +291,7 @@ export class PtyTuiSession implements PtyScreenReader {
   /** The screen as text: one right-trimmed string per row. */
   text(): string {
     if (this.textCache?.generation === this.generation) return this.textCache.text;
+
     const lines: string[] = [];
 
     for (let y = 0; y < this.pty.rows; y++) lines.push(this.terminal.rowText(y, this.pty.cols));
@@ -429,6 +439,7 @@ export class PtyTuiSession implements PtyScreenReader {
       const quietFor = Date.now() - this.lastDataAt;
 
       if (quietFor >= quietMs) return;
+
       await Bun.sleep(Math.min(quietMs - quietFor, deadline - Date.now()));
     }
   }
@@ -461,6 +472,7 @@ export class PtyTuiSession implements PtyScreenReader {
   /** Wait for the child to exit; throws with the screen when it is still alive at the deadline. */
   async waitForExit(timeoutMs = SCREEN_WAIT_TIMEOUT_MS): Promise<ExitEvent> {
     await pollUntil(() => this.exitRecord !== null, timeoutMs);
+
     if (this.exitRecord === null) {
       throw new Error(`PTY child still running after ${timeoutMs}ms. Last screen:\n${this.text()}`);
     }
@@ -482,6 +494,7 @@ export class PtyTuiSession implements PtyScreenReader {
     );
 
     if (existsSync(this.readyFile)) return;
+
     const exit = this.exitRecord;
 
     if (exit !== null) {
@@ -489,6 +502,7 @@ export class PtyTuiSession implements PtyScreenReader {
         `PTY child exited with code ${exit.exitCode} before the ready signal. Last screen:\n${this.text()}`,
       );
     }
+
     if (!ready) {
       throw new Error(
         `PTY ready signal did not arrive within ${timeoutMs}ms. Last screen:\n${this.text()}`,
@@ -507,11 +521,14 @@ export class PtyTuiSession implements PtyScreenReader {
       this.signalProcessGroup("SIGTERM");
       await pollUntil(() => this.exitRecord !== null, TERMINATE_GRACE_MS);
     }
+
     if (this.exitRecord === null) {
       this.signalProcessGroup("SIGKILL");
       await pollUntil(() => this.exitRecord !== null, TERMINATE_GRACE_MS);
     }
+
     if (this.exitRecord === null) this.pty.kill();
+
     this.terminal.free();
 
     return this.exitRecord ?? { exitCode: 0 };

@@ -27,6 +27,7 @@ export class PrReviewPoller {
   /** Start polling a PR review. Idempotent per session; the persisted reviewed head is the baseline. */
   trackPr(sessionId: string, pr: string, reviewedRefs: PullRequestRefs | null = null): void {
     if (this.polls.has(sessionId)) return;
+
     const timer = setInterval(() => void this.refreshHead(sessionId), this.intervalMs);
 
     // the poll timer must not by itself keep the daemon alive against idle-exit
@@ -40,20 +41,25 @@ export class PrReviewPoller {
     const poll = this.polls.get(sessionId);
 
     if (!poll) return;
+
     const refs = await this.refs(poll.pr).catch(() => null);
 
     if (refs === null) return;
+
     // the await yields; re-read so an untrack during the call is honoured
     const current = this.polls.get(sessionId);
 
     if (!current) return;
+
     if (current.lastRefs === null) {
       current.lastRefs = refs;
 
       return;
     }
+
     if (refs.baseSha === current.lastRefs.baseSha && refs.headSha === current.lastRefs.headSha)
       return;
+
     current.lastRefs = refs;
     this.onPrAdvance(sessionId, refs);
   }
@@ -62,6 +68,7 @@ export class PrReviewPoller {
     const poll = this.polls.get(sessionId);
 
     if (!poll) return;
+
     clearInterval(poll.timer);
     this.polls.delete(sessionId);
   }

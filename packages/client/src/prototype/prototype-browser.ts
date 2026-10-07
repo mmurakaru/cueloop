@@ -114,6 +114,7 @@ async function warmBrowser(executablePath: string | undefined): Promise<Puppetee
   const cached = sharedBrowser ? await sharedBrowser.catch(() => null) : null;
 
   if (cached && cached.connected) return cached;
+
   const puppeteer = (await import("puppeteer-core")).default;
   const launched = puppeteer.launch({
     executablePath: executablePath ?? chromeExecutable(),
@@ -124,6 +125,7 @@ async function warmBrowser(executablePath: string | undefined): Promise<Puppetee
   sharedBrowser = launched;
   const browser = await launched.catch((error) => {
     if (sharedBrowser === launched) sharedBrowser = null;
+
     throw error;
   });
 
@@ -143,7 +145,9 @@ export async function closePrototypeBrowser(): Promise<void> {
   const pending = sharedBrowser;
 
   sharedBrowser = null;
+
   if (!pending) return;
+
   const browser = await pending.catch(() => null);
 
   await browser?.close().catch(() => undefined);
@@ -233,8 +237,10 @@ function elementAtScript(x: number, y: number) {
     while (current && current !== document.body) {
       if (isNamed(current)) {
         if (current.childElementCount > 1) return current;
+
         namedFallback = namedFallback ?? current;
       }
+
       current = current.parentElement;
     }
 
@@ -251,6 +257,7 @@ function elementAtScript(x: number, y: number) {
         parts.unshift(part + "#" + CSS.escape(current.id));
         break;
       }
+
       const parent: Element | null = current.parentElement;
 
       if (parent) {
@@ -259,6 +266,7 @@ function elementAtScript(x: number, y: number) {
 
         if (twins.length > 1) part += ":nth-of-type(" + (twins.indexOf(current) + 1) + ")";
       }
+
       parts.unshift(part);
       current = current.parentElement;
     }
@@ -282,10 +290,12 @@ function elementAtScript(x: number, y: number) {
   const hit = document.elementFromPoint(x, y);
 
   if (!(hit instanceof Element)) return null;
+
   const node = focusableTarget(hit) ?? componentRoot(hit);
   const selector = selectorFor(node);
 
   if (!selector) return null;
+
   const text = (node.textContent || "").replace(/\s+/g, " ").trim();
   const tag = node.tagName.toLowerCase();
   const quote = text
@@ -313,6 +323,7 @@ function chromeExecutable(): string {
   if (process.platform === "darwin") {
     return "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
   }
+
   if (process.platform === "win32") {
     return "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
   }

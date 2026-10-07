@@ -38,10 +38,12 @@ export function useThreadAgent(id: string, home?: string, injected?: ThreadAgent
 
     const configure = async (api: ThreadAgentClient): Promise<void> => {
       if (!api.agentConfigure) return;
+
       const requested = ++revision.current;
       const configured = await api.agentConfigure({ id });
 
       if (!cancelled && requested === revision.current) setState(configured);
+
       await refresh(api);
     };
 
@@ -59,6 +61,7 @@ export function useThreadAgent(id: string, home?: string, injected?: ThreadAgent
 
           return;
         }
+
         unsubscribe = subscribeThreadState({
           connect: connectThreadObserver({ home, autostart: true }),
           matches: (event) => event.event === "agent.updated" && event.sessionId === id,
@@ -98,11 +101,13 @@ export function useThreadAgent(id: string, home?: string, injected?: ThreadAgent
     request: (client: ThreadAgentClient) => Promise<ThreadAgentState>,
   ): Promise<boolean> => {
     if (!client) return false;
+
     try {
       const requested = ++revision.current;
       const result = await request(client);
 
       if (requested === revision.current) setState(result);
+
       setError("");
 
       return true;

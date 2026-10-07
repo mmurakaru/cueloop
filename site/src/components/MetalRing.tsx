@@ -203,8 +203,10 @@ function compileShader(gl: WebGLRenderingContext, type: number, source: string):
   const shader = gl.createShader(type);
 
   if (!shader) throw new Error("MetalRing: createShader failed");
+
   gl.shaderSource(shader, source);
   gl.compileShader(shader);
+
   if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
     const log = gl.getShaderInfoLog(shader);
 
@@ -228,6 +230,7 @@ function buildProgram(
     gl.attachShader(program, vertex);
     gl.attachShader(program, fragment);
     gl.linkProgram(program);
+
     if (!gl.getProgramParameter(program, gl.LINK_STATUS)) return null;
 
     return program;
@@ -271,6 +274,7 @@ export default function MetalRing({
     } catch {
       gl = null;
     }
+
     if (!gl) return; // no WebGL: the box keeps its plain border
 
     const plasmaProgram = buildProgram(gl, VERTEX_SOURCE, PLASMA_SOURCE);
@@ -316,6 +320,7 @@ export default function MetalRing({
     const complete = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
     if (!complete) return;
 
     const plasmaUniform = (name: string) => gl!.getUniformLocation(plasmaProgram, name);
@@ -371,6 +376,7 @@ export default function MetalRing({
         canvas!.width = width;
         canvas!.height = height;
       }
+
       gl!.useProgram(compositeProgram);
       gl!.uniform2f(compositeLocations.resolution, width, height);
       gl!.uniform1f(compositeLocations.radius, radius * dpr);
@@ -383,8 +389,11 @@ export default function MetalRing({
 
     function frame() {
       rafId = 0;
+
       if (!visible) return;
+
       if (appliedTheme !== themeRef.current) applyPreset();
+
       const preset = CHROMATIC[themeRef.current];
 
       gl!.useProgram(plasmaProgram);
@@ -423,6 +432,7 @@ export default function MetalRing({
     // Pause the loop while off-screen.
     const intersectionObserver = new IntersectionObserver((entries) => {
       visible = entries[0]?.isIntersecting ?? true;
+
       if (visible) schedule();
     });
 
@@ -436,7 +446,9 @@ export default function MetalRing({
 
     return () => {
       wrapper.classList.remove("is-active");
+
       if (rafId) cancelAnimationFrame(rafId);
+
       reducedMotion.removeEventListener("change", onMotionChange);
       resizeObserver.disconnect();
       intersectionObserver.disconnect();

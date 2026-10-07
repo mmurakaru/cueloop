@@ -31,9 +31,12 @@ export function createTestDeviceFlowFetch(routes: {
     const url = input.toString();
 
     if (init?.body !== undefined) bodies.push(String(init.body));
+
     if (url === DEVICE_CODE_ENDPOINT)
       return createTestJsonResponse(routes.device ?? DEFAULT_GRANT_BODY);
+
     if (url === ACCESS_TOKEN_ENDPOINT) return createTestJsonResponse(tokenQueue.shift() ?? {});
+
     if (url === USER_ENDPOINT) return createTestJsonResponse(routes.user ?? {});
 
     throw new Error(`github-device-flow test: unexpected url ${url}`);

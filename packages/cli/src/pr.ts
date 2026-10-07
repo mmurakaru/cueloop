@@ -65,7 +65,9 @@ function isReviewSeverity(value: string): value is ReviewSeverity {
 
 function reviewEvent(value: string): GitHubReviewEvent | undefined {
   if (value === "comment") return "COMMENT";
+
   if (value === "approve") return "APPROVE";
+
   if (value === "request-changes") return "REQUEST_CHANGES";
 
   return undefined;
@@ -75,6 +77,7 @@ function reviewSummary(event: GitHubReviewEvent, body?: string): string | undefi
   const trimmed = body?.trim();
 
   if (trimmed) return trimmed;
+
   if (event === "APPROVE") return undefined;
 
   return "Review submitted with cueloop.";
@@ -115,6 +118,7 @@ async function reanchorReviewComments(
         `finding ${annotation.id} is outdated or ambiguous - refresh the finding before posting`,
       );
     }
+
     const line = finding.side === "RIGHT" ? matched.newLine! : matched.oldLine!;
     let startLine: number | undefined;
 
@@ -124,6 +128,7 @@ async function reanchorReviewComments(
           `finding ${annotation.id} has no start anchor - refresh the finding before posting`,
         );
       }
+
       const matchedStart = resolveLine(finding.startAnchor);
 
       if (!matchedStart) {
@@ -131,6 +136,7 @@ async function reanchorReviewComments(
           `finding ${annotation.id} start is outdated or ambiguous - refresh the finding before posting`,
         );
       }
+
       startLine = finding.side === "RIGHT" ? matchedStart.newLine! : matchedStart.oldLine!;
 
       if (startLine >= line) {
@@ -174,11 +180,16 @@ function reviewFindingInput(flags: Record<string, string | boolean>): ReviewFind
   const suggestion = textFlag(flags, "suggestion", "suggestion-file");
 
   if (!body) throw new Error("--body or --body-file is required");
+
   if (side !== "LEFT" && side !== "RIGHT") throw new Error("--side must be LEFT or RIGHT");
+
   if (!isReviewSeverity(severity)) throw new Error("--severity must be p0, p1, or p2");
+
   if (!Number.isInteger(line) || line < 1) throw new Error("--line must be a positive integer");
+
   if (startLine !== undefined && (!Number.isInteger(startLine) || startLine < 1))
     throw new Error("--start-line must be a positive integer");
+
   if (suggestion?.trim() && side !== "RIGHT")
     throw new Error("suggestions must target the RIGHT side of a diff");
 
@@ -216,12 +227,14 @@ async function reviewFindingAnnotation(
     throw new Error(
       `${input.path}:${input.line} is not present on the ${input.side} side of this diff`,
     );
+
   const fileRange = fileRowRange(rows, input.path)!;
   const fileRows = rows.slice(fileRange.start, fileRange.end);
   let startAnchor: Annotation["anchor"] | undefined;
 
   if (input.startLine !== undefined) {
     if (input.startLine >= input.line) throw new Error("--start-line must be before --line");
+
     const startRowIndex = rows.findIndex(
       (candidate) =>
         candidate.file === input.path &&
@@ -234,8 +247,10 @@ async function reviewFindingAnnotation(
       throw new Error(
         `${input.path}:${input.startLine} is not present on the ${input.side} side of this diff`,
       );
+
     startAnchor = diffRowAnchor(fileRows, startRowIndex - fileRange.start);
   }
+
   const id = input.id ?? nextFindingId(session.annotations);
   const existing = session.annotations.find((annotation) => annotation.id === id);
 
@@ -275,6 +290,7 @@ export async function reviewCommentCommand(argv: string[]): Promise<number> {
 
     return 2;
   }
+
   try {
     const client = await DaemonClient.connect({ autostart: true, role: "agent", author: "agent" });
 
@@ -317,6 +333,7 @@ export async function reviewCommand(argv: string[]): Promise<number> {
 
     return 2;
   }
+
   let imported: Awaited<ReturnType<ReturnType<typeof forge>["importPullRequest"]>>;
 
   try {
@@ -335,6 +352,7 @@ export async function reviewCommand(argv: string[]): Promise<number> {
 
     return 1;
   }
+
   const client = await DaemonClient.connect({ autostart: true });
   // A PR diff is a partial patch with no full file contents, so no `files` here;
   // hunk curation stays disabled for PR reviews (see diff-hunk-curate.ts).
@@ -384,6 +402,7 @@ export async function reviewOpenCommand(argv: string[]): Promise<number> {
 
     return 2;
   }
+
   const client = await DaemonClient.connect({ autostart: true });
 
   try {
@@ -417,6 +436,7 @@ export async function reviewPostCommand(argv: string[]): Promise<number> {
 
     return 2;
   }
+
   const session = await getSession(sessionId);
   const pr = session.artifact.meta.pr;
 
@@ -430,11 +450,13 @@ export async function reviewPostCommand(argv: string[]): Promise<number> {
 
     return 1;
   }
+
   if (session.status !== "resolved" || !session.message) {
     console.error(`session ${sessionId} is unresolved - approve or request changes before posting`);
 
     return 1;
   }
+
   const selectedIds = new Set(
     (stringFlag(flags, "comments") ?? "")
       .split(",")
@@ -453,6 +475,7 @@ export async function reviewPostCommand(argv: string[]): Promise<number> {
 
     return 1;
   }
+
   const eventFlag = stringFlag(flags, "event") ?? "comment";
   const event = reviewEvent(eventFlag);
 
@@ -461,6 +484,7 @@ export async function reviewPostCommand(argv: string[]): Promise<number> {
 
     return 2;
   }
+
   try {
     const body = reviewSummary(event, textFlag(flags, "body", "body-file"));
     const forgePort = forge();
@@ -475,10 +499,12 @@ export async function reviewPostCommand(argv: string[]): Promise<number> {
     ) {
       throw new Error("pull request changed since this review - refresh before posting");
     }
+
     const comments = await reanchorReviewComments(session, selectedComments);
     const number = Number(new URL(session.artifact.meta.prUrl).pathname.split("/").at(-1));
 
     if (!Number.isInteger(number)) throw new Error("pull request URL has no numeric PR number");
+
     const posted = await forgePort.postPullRequestComments({
       publicationId: reviewPublicationId(
         session,

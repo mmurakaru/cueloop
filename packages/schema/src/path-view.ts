@@ -52,10 +52,13 @@ export function viewOfPath(history: SessionHistory, known: Annotation[]): PathVi
 export function applyPathView(session: Thread, view: PathView): void {
   session.artifact = { ...session.artifact, content: view.content };
   session.annotations = view.annotations;
+
   if (view.textCuts?.length) session.textCuts = view.textCuts;
   else delete session.textCuts;
+
   if (view.workingCopy === undefined) delete session.workingCopy;
   else session.workingCopy = view.workingCopy;
+
   if (view.shelvedAnnotations.length === 0) delete session.shelvedAnnotations;
   else session.shelvedAnnotations = view.shelvedAnnotations;
 }
@@ -74,6 +77,7 @@ export function viewFollowing(session: Thread, branch?: string): Thread {
   const shared: Thread = { ...session };
 
   if (!session.history) return shared;
+
   const history = followBranch(session.history, followed);
   const known = [...session.annotations, ...(session.shelvedAnnotations ?? [])];
 

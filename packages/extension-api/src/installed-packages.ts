@@ -45,14 +45,19 @@ function readPackageJson(path: string): v.InferOutput<typeof PackageJsonSchema> 
 
 function packageEntry(root: string, entry: string | undefined): string | undefined {
   if (entry === undefined) return undefined;
+
   if (!entry.startsWith("./")) throw new Error("entry must start with ./");
+
   const absolute = resolve(root, entry);
   const lexicalWithin = relative(root, absolute);
 
   if (isAbsolute(lexicalWithin) || lexicalWithin === ".." || lexicalWithin.startsWith(`..${sep}`))
     throw new Error("entry escapes package root");
+
   if (!existsSync(absolute)) throw new Error(`entry missing: ${entry}`);
+
   if (!statSync(absolute).isFile()) throw new Error(`entry is not a file: ${entry}`);
+
   const within = relative(realpathSync(root), realpathSync(absolute));
 
   if (isAbsolute(within) || within === ".." || within.startsWith(`..${sep}`))
@@ -70,6 +75,7 @@ export function discoverInstalledExtensionPackages(
   const rootManifest = join(installRoot, "package.json");
 
   if (!existsSync(rootManifest)) return { packages, errors };
+
   let dependencies: Record<string, string>;
 
   try {
@@ -85,10 +91,12 @@ export function discoverInstalledExtensionPackages(
       const manifest = readPackageJson(join(root, "package.json")).cueloop;
 
       if (!manifest) throw new Error("package has no cueloop manifest");
+
       const clientEntry = packageEntry(root, manifest.client);
       const daemonEntry = packageEntry(root, manifest.daemon);
 
       if (!clientEntry && !daemonEntry) throw new Error("manifest declares no entry point");
+
       packages.push({ name, root, clientEntry, daemonEntry });
     } catch (error) {
       errors.push(`Extension package ${name}: ${String(error)}`);

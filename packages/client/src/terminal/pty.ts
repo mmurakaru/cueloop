@@ -79,9 +79,11 @@ let ptyLib: PtyLib | null | undefined;
 
 function library(): PtyLib | null {
   if (ptyLib !== undefined) return ptyLib;
+
   const path = nativeLibraryPath();
 
   if (!path) return (ptyLib = null);
+
   try {
     ptyLib = dlopen(path, PTY_SYMBOLS).symbols;
   } catch (error) {
@@ -154,7 +156,9 @@ class Pty implements IPty {
       this.columns,
       this.rowCount,
     );
+
     if (this.handle < 0) throw new Error("PTY spawn failed");
+
     this.processId = lib.cueloop_pty_get_pid(this.handle);
     // Let the caller attach onData/onExit before the first bytes arrive.
     queueMicrotask(() => void this.readLoop());
@@ -178,6 +182,7 @@ class Pty implements IPty {
 
   write(data: string): void {
     if (this.closing) return;
+
     const buffer = Buffer.from(data, "utf8");
 
     this.lib.cueloop_pty_write(this.handle, ptr(buffer), buffer.length);
@@ -185,6 +190,7 @@ class Pty implements IPty {
 
   resize(cols: number, rows: number): void {
     if (this.closing) return;
+
     this.columns = cols;
     this.rowCount = rows;
     this.lib.cueloop_pty_resize(this.handle, cols, rows);
@@ -192,6 +198,7 @@ class Pty implements IPty {
 
   kill(): void {
     if (this.closing) return;
+
     this.closing = true;
     this.lib.cueloop_pty_kill(this.handle);
     this.lib.cueloop_pty_close(this.handle);
@@ -200,6 +207,7 @@ class Pty implements IPty {
 
   private async readLoop(): Promise<void> {
     if (this.reading) return;
+
     this.reading = true;
     const buffer = Buffer.allocUnsafe(READ_BUFFER_BYTES);
     // consecutive empty reads; the idle sleep backs off exponentially so a quiet agent prompt
@@ -221,6 +229,7 @@ class Pty implements IPty {
         const tail = this.decoder.decode();
 
         if (tail) this.dataEvent.fire(tail);
+
         const exitCode = this.lib.cueloop_pty_get_exit_code(this.handle);
 
         this.lib.cueloop_pty_close(this.handle);

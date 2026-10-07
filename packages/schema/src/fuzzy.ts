@@ -20,7 +20,9 @@ export interface FuzzyMatch {
  */
 export function levenshteinDistance(left: string, right: string): number {
   if (left === right) return 0;
+
   if (left.length === 0) return right.length;
+
   if (right.length === 0) return left.length;
 
   let previousRow: number[] = Array.from({ length: right.length + 1 }, (_unused, column) => column);
@@ -114,11 +116,14 @@ export function fuzzyFindBestMatch(
     ) {
       // each window costs a needle x window edit-distance pass; spend that from the shared budget
       budget.remaining -= needle.length * windowLength;
+
       if (budget.remaining <= 0) return bestMatch;
+
       const window = haystack.slice(start, start + windowLength);
       const similarity = similarityRatio(needle, window);
 
       if (similarity < minimumSimilarity) continue;
+
       if (bestMatch === null || similarity > bestMatch.similarity) {
         bestMatch = { start, end: start + windowLength, similarity };
       }

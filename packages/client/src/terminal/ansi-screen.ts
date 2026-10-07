@@ -12,6 +12,7 @@ export function ansiScreenToLines(ansi: string, cols: number, rows: number): str
 
   const put = (character: string): void => {
     if (row >= 0 && row < rows && column >= 0 && column < cols) grid[row]![column] = character;
+
     column += 1;
   };
 
@@ -31,6 +32,7 @@ export function ansiScreenToLines(ansi: string, cols: number, rows: number): str
       });
       continue;
     }
+
     if (character === "\n") {
       row += 1;
       column = 0;
@@ -39,6 +41,7 @@ export function ansiScreenToLines(ansi: string, cols: number, rows: number): str
     } else {
       put(character);
     }
+
     index += 1;
   }
 
@@ -53,7 +56,9 @@ function consumeEscape(ansi: string, start: number, apply: EscapeEffect): number
 
     return bell === -1 ? ansi.length : bell + 1;
   }
+
   if (ansi.slice(start, start + CSI.length) !== CSI) return start + 1;
+
   let index = start + CSI.length;
 
   while (index < ansi.length && !/[A-Za-z]/.test(ansi[index]!)) index += 1;

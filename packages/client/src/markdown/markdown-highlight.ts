@@ -50,6 +50,7 @@ function scanInlineTokens(text: string, base: number, into: MarkdownHighlightRan
       into.push({ start, end, group: "code" });
       continue;
     }
+
     // a link colors its brackets and href; the [] label stays plain unless it is an @-scope, matching how a
     // markdown source view paints links
     const closeBracket = token.indexOf("]");

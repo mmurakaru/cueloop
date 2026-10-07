@@ -116,6 +116,7 @@ function ThreadRow(props: ThreadRowProps): React.ReactNode {
 
   useEffect(() => {
     if (!menuOpen) return;
+
     // the full-screen box closes the menu on an outside click; the menu drops from under the kebab
     setOverlay(
       "thread-menu",

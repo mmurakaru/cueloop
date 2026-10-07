@@ -56,6 +56,7 @@ describe("createCodexDeliveryService", () => {
     );
 
     if (opened.operation !== "open") throw new Error("expected open Thread");
+
     const service = createCodexDeliveryService({ home, codexBin, pollMs: 20 });
 
     service.start();
@@ -88,6 +89,7 @@ describe("createCodexDeliveryService", () => {
     );
 
     if (opened.operation !== "open") throw new Error("expected open Thread");
+
     await client.sessionSendMessage(opened.threadId, "approved", "Continue.");
     await createCodexDeliveryService({ home, codexBin }).reconcile();
 
@@ -111,6 +113,7 @@ describe("createCodexDeliveryService", () => {
     );
 
     if (opened.operation !== "open") throw new Error("expected open Thread");
+
     await client.sessionSendMessage(opened.threadId, "approved", "Continue second session.");
     writeFileSync(
       codexBin,
@@ -129,6 +132,7 @@ describe("createCodexDeliveryService", () => {
     );
 
     if (first.operation !== "open") throw new Error("expected open Thread");
+
     await client.sessionSendMessage(first.threadId, "approved", "Blocked first session.");
 
     await expect(createCodexDeliveryService({ home, codexBin }).reconcile()).rejects.toThrow(
@@ -141,6 +145,7 @@ describe("createCodexDeliveryService", () => {
     );
 
     if (pending.operation !== "pending") throw new Error("expected pending response");
+
     expect(pending.deliveries).toEqual([]);
   });
 
@@ -158,6 +163,7 @@ describe("createCodexDeliveryService", () => {
     );
 
     if (opened.operation !== "open") throw new Error("expected open Thread");
+
     await client.sessionSendMessage(opened.threadId, "approved", "Proceed.");
     const service = createCodexDeliveryService({ home, codexBin });
 
@@ -178,7 +184,9 @@ describe("createCodexDeliveryService", () => {
     );
 
     expect(pending.operation).toBe("pending");
+
     if (pending.operation !== "pending") throw new Error("expected pending response");
+
     expect(pending.deliveries).toEqual([]);
   });
 });

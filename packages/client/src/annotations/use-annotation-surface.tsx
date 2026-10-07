@@ -176,6 +176,7 @@ function firstAnnotatable(source: LineSource): number {
 /** The visual-row direction requested by an arrow or readline-style caret key. */
 function verticalCaretDelta(key: KeyEvent): -1 | 0 | 1 {
   if (key.name === "up" || (key.ctrl && key.name === "p")) return -1;
+
   if (key.name === "down" || (key.ctrl && key.name === "n")) return 1;
 
   return 0;
@@ -228,6 +229,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
 
   useEffect(() => {
     if (requestedBlock === undefined) return;
+
     const next = { blockIndex: requestedBlock.blockIndex, char: 0 };
 
     setCursor(requestedBlock.blockIndex);
@@ -259,7 +261,9 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     const { blockIndex } = caret.head;
 
     if (source.count === 0) return;
+
     if (blockIndex < source.count && source.annotatable(blockIndex)) return;
+
     const clamped = Math.min(blockIndex, source.count - 1);
     const next = source.annotatable(clamped)
       ? clamped
@@ -290,6 +294,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
   const focusedDiscussion = getFocusedDiscussion();
   const setFocusedDiscussion = (key: string | null): void => {
     if (onFocusAnnotation === undefined) return setLocalFocus(key === null ? null : { key });
+
     onFocusAnnotation(discussions.find((discussion) => discussion.key === key)?.rootId);
   };
   const focusSavedComment = (annotationId: string, key: string): void => {
@@ -339,7 +344,9 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
   /** Agent comments require a held selection; legacy surfaces may use the caret word. */
   const caretSpan = (): TextSpan | null => {
     if (heldSpan) return heldSpan;
+
     if (onInvoke) return isPromptBlock?.(head.blockIndex) ? { start: head, end: head } : null;
+
     const word = wordRangeAt(blockText(head.blockIndex), head.char);
 
     return word
@@ -389,15 +396,18 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     return (delta, top, bottom) => {
       if (delta === 0 || oldHeadY === undefined || compose || focusedDiscussion || caretIsSelection)
         return;
+
       const shiftedHeadY = oldHeadY - delta;
 
       if (shiftedHeadY >= top && shiftedHeadY <= bottom) return;
+
       const visible = lines
         .filter((line) => line.y - delta >= top && line.y - delta <= bottom)
         .toSorted((left, right) => left.y - right.y || left.x - right.x);
       const target = delta < 0 ? visible.at(-1) : visible[0];
 
       if (!target) return;
+
       const next = { blockIndex: target.blockIndex, char: target.start };
 
       flushSync(() => {
@@ -424,6 +434,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     const target = currentIndex === -1 ? undefined : lines[currentIndex + direction];
 
     if (!target) return null;
+
     const current = lines[currentIndex]!;
     const column = Math.max(0, position.char - current.start);
 
@@ -439,8 +450,11 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
   const openCompose = (state: ComposeState): void => {
     // a view-only surface (a non-diff thread's live diff) never opens a draft
     if (!commentsEnabled) return;
+
     if (observer) return onObserverBlocked?.("observer");
+
     if (resolved) return onObserverBlocked?.("resolved");
+
     composerReady.current = false;
     readComposerText.current = null;
     composeRef.current = state;
@@ -476,16 +490,22 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     const prompt = target?.kind === "prompt";
 
     if (prompt && !invoke) return;
+
     closeCompose();
     collapseCaret();
+
     if (!target || body.trim().length === 0) return;
+
     if (target.editAnnotationId !== null) {
       onUpdateAnnotation(target.editAnnotationId, body);
+
       if (target.discussionKey) focusSavedComment(target.editAnnotationId, target.discussionKey);
+
       if (invoke) onInvoke?.(target.editAnnotationId);
 
       return;
     }
+
     if (target.discussionKey !== null) {
       const discussion = discussions.find((candidate) => candidate.key === target.discussionKey);
 
@@ -493,11 +513,13 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
         const commentId = onReply(discussion.rootId, body);
 
         if (commentId) focusSavedComment(commentId, discussion.key);
+
         if (invoke && commentId) onInvoke?.(commentId);
 
         return;
       }
     }
+
     const span = target.span ?? caretSpan();
 
     if (span) {
@@ -515,6 +537,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     if (!prompt && commentId) {
       focusSavedComment(commentId, spanKey(span));
     }
+
     if (invoke && (prompt || commentId)) onInvoke?.(commentId || undefined);
   };
   /** A new discussion on the typing anchor; the card renders under the span's last block. */
@@ -526,6 +549,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
       agentInputTarget(Boolean(isPromptBlock?.(head.blockIndex)), Boolean(heldSpan)) === "none"
     )
       return;
+
     if (isPromptBlock?.(head.blockIndex) && span) {
       openCompose({
         kind: "prompt",
@@ -545,6 +569,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
         editAnnotationId: null,
       });
     }
+
     if (isPromptBlock?.(head.blockIndex)) promptDraft.current = "";
   };
 
@@ -554,14 +579,17 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     const target = composeRef.current;
 
     if (!target) return;
+
     if (target.kind === "prompt") {
       promptDraft.current = composeTextRef.current;
 
       return closeCompose();
     }
+
     if (isStandaloneSlashQuery(composeText) || composeText.trim().length === 0) {
       return closeCompose();
     }
+
     saveComment(composeText, false);
   };
 
@@ -570,6 +598,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     const drag = dragging.current;
 
     if (!drag) return;
+
     let next = { head: pointer, anchor: drag.anchor };
 
     if (drag.wordMode) {
@@ -584,7 +613,9 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
           : { anchor: snapped.end, head: snapped.start };
       }
     }
+
     if (comparePositions(next.head, drag.head) === 0) return;
+
     drag.head = next.head;
     setCursor(next.head.blockIndex);
     setCaret({ head: next.head, anchor: next.anchor });
@@ -597,19 +628,23 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
   // on screen - the mark follows the pointer across blocks.
   const handleRootDrag = (event: TerminalMouseEvent): void => {
     if (!dragging.current) return;
+
     dragPointer.current = { x: event.x, y: event.y };
     const position = positionAt(allGeometry(), event.x, event.y);
 
     if (position) extendSelectionTo(position);
+
     if (edgeScrollTimer.current === null) {
       edgeScrollTimer.current = setInterval(() => {
         const pointer = dragPointer.current;
         const viewport = dragViewportRef.current?.();
 
         if (!dragging.current || !pointer || !viewport) return;
+
         const direction = pointer.y <= viewport.top ? -1 : pointer.y >= viewport.bottom ? 1 : 0;
 
         if (direction === 0 || !viewport.scrollBy(direction)) return;
+
         const next = positionAt(allGeometry(), pointer.x, pointer.y);
 
         if (next) extendSelectionTo(next);
@@ -619,7 +654,9 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
   const endDrag = (): void => {
     dragging.current = null;
     dragPointer.current = null;
+
     if (edgeScrollTimer.current !== null) clearInterval(edgeScrollTimer.current);
+
     edgeScrollTimer.current = null;
   };
 
@@ -629,6 +666,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     const target = discussions.find((discussion) => discussion.key === key);
 
     if (!target) return;
+
     blurSaveCompose();
     setCursor(target.blockIndex);
     setFocusedDiscussion(key);
@@ -638,6 +676,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
 
   const handleSlashKey = (key: KeyEvent, activeCompose: ComposeState): boolean => {
     if (!slashActive || slashItems.length === 0) return false;
+
     const selected = Math.min(slashIndex, slashItems.length - 1);
 
     if (key.name === "up") {
@@ -645,11 +684,13 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
 
       return true;
     }
+
     if (key.name === "down") {
       setSlashIndex(Math.min(slashItems.length - 1, selected + 1));
 
       return true;
     }
+
     if (key.name === "return" || key.name === "tab") {
       const inserted = insertSlashItem(composeText, caretOffset, slashItems[selected]!.name);
 
@@ -666,8 +707,10 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
   const handlePremountKey = (key: KeyEvent, activeCompose: ComposeState): void => {
     if (key.name === "return") {
       if (key.super && onInvoke) return;
+
       if (key.meta || key.ctrl || key.super)
         return saveComment(activeCompose.seed, isAgentInvokeKey(key, onInvoke));
+
       const grown = { ...activeCompose, seed: `${activeCompose.seed}\n` };
 
       composeRef.current = grown;
@@ -676,6 +719,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
 
       return setCompose(grown);
     }
+
     const sequence = printableSequence(key);
 
     if (sequence) {
@@ -694,11 +738,13 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
 
       return;
     }
+
     if (isAgentInvokeKey(key, onInvoke)) {
       key.preventDefault();
 
       return saveComment(readComposerText.current?.() ?? activeCompose.seed, true);
     }
+
     // the textarea owns every key while open; the view takes dismiss (which
     // also releases the discussion focus), the slash palette, and pre-mount input
     if (key.name === "escape") {
@@ -706,6 +752,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
 
       return closeCompose();
     }
+
     // backspace on an already empty draft undoes it: the card dissolves
     // and the caret sits back on the still-held selection, ready to re-type
     // (an edit of an existing comment is never deleted this way)
@@ -716,7 +763,9 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     ) {
       return closeCompose();
     }
+
     if (handleSlashKey(key, activeCompose)) return;
+
     if (!composerReady.current) handlePremountKey(key, activeCompose);
   };
 
@@ -727,6 +776,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
 
       for (const discussion of discussions) {
         if (discussion.blockIndex !== cursor) continue;
+
         if (next.has(discussion.key)) next.delete(discussion.key);
         else next.add(discussion.key);
       }
@@ -743,8 +793,10 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
 
       return true;
     }
+
     if ((key.super || key.meta || key.ctrl) && (key.name === "[" || key.name === "]")) {
       if (discussions.length === 0) return true;
+
       const currentIndex = discussions.findIndex(
         (discussion) => discussion.key === focusedDiscussion,
       );
@@ -759,6 +811,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
 
       return true;
     }
+
     // enter replies into the focused discussion, else the cursor block's discussion
     if (key.name === "return") {
       const replyTarget =
@@ -795,15 +848,19 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     };
 
     if (target !== null) return moveTo(head.blockIndex, target);
+
     if (extend && head.char !== (delta === 1 ? text.length : 0)) {
       // the block edge first, then the next step crosses into the neighbour
       return moveTo(head.blockIndex, delta === 1 ? text.length : 0);
     }
+
     // the neighbour is the next block the caret may rest on: headers are skipped
     const neighbour = nearestAnnotatable(source, head.blockIndex, delta);
 
     if (neighbour === head.blockIndex) return;
+
     if (delta === 1) return moveTo(neighbour, 0);
+
     const previousText = blockText(neighbour);
 
     moveTo(
@@ -817,6 +874,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     const visualTarget = verticalTextPosition(head, vertical);
 
     if (!visualTarget && nextBlock === head.blockIndex) return;
+
     const nextHead = visualTarget?.position ?? {
       blockIndex: nextBlock,
       char: key.shift ? Math.min(head.char, textLengthOf(nextBlock)) : 0,
@@ -840,11 +898,13 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
 
       return true;
     }
+
     if (key.name === "right" || (key.ctrl && key.name === "l")) {
       moveCaretHorizontal(1, Boolean(key.shift || key.meta || key.ctrl));
 
       return true;
     }
+
     if (key.name === "left" || (key.ctrl && key.name === "h")) {
       moveCaretHorizontal(-1, Boolean(key.shift || key.meta || key.ctrl));
 
@@ -859,6 +919,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     const sequence = printableSequence(key);
 
     if (!sequence) return;
+
     const discussion = discussions.find((candidate) => candidate.key === focusedDiscussion);
 
     if (discussion) {
@@ -874,6 +935,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
         editAnnotationId: editingOwn ? last.id : null,
       });
     }
+
     openNewCompose(sequence);
   };
 
@@ -889,31 +951,41 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
 
   useSharedKeyboard((key) => {
     if (suspended) return;
+
     if (key.ctrl && key.name === "q") return onExit();
+
     const activeCompose = composeRef.current;
 
     if (activeCompose) return handleComposeKey(key, activeCompose);
+
     if (isAgentInvokeKey(key, onInvoke)) {
       key.preventDefault();
 
       return invokeFocusedComment();
     }
+
     if (key.name === "escape") {
       // from type mode esc only enters nav, so a held mark survives for `c`
       if (!navModeRef.current) return setNavMode(true);
+
       if (focusedDiscussion !== null) setFocusedDiscussion(null);
 
       return collapseCaret();
     }
+
     if (navModeRef.current) {
       if (handleCaretKey(key)) return;
+
       if (key.name === "z") return toggleFoldAtCursor();
+
       if (onNavCommand?.(key, heldSpan)) return;
+
       if (key.name === "c") {
         setNavMode(false);
 
         return openNewCompose("");
       }
+
       if (printableSequence(key)) {
         setNavMode(false);
         startTyping(key);
@@ -921,8 +993,11 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
 
       return;
     }
+
     if (handleDiscussionVerb(key)) return;
+
     if (handleCaretKey(key)) return;
+
     startTyping(key);
   });
 
@@ -1006,6 +1081,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
         focused={focusedDiscussion === discussion.key}
         onFocus={() => {
           if (composeRef.current?.discussionKey === discussion.key) return;
+
           blurSaveCompose();
           setFocusedDiscussion(discussion.key);
           setCursor(discussion.blockIndex);
@@ -1024,8 +1100,11 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     };
 
     for (const discussion of discussions) pushSpan(discussion.span);
+
     if (compose) pushSpan(compose.span);
+
     if (caretIsSelection && !compose) pushSpan(heldSpan);
+
     // the idle caret cell sits at the head, also at the end of a held mark;
     // an open card takes the cursor with it, so no cell is painted then
     if (blockIndex === head.blockIndex && !compose && textLength > 0) {
@@ -1063,6 +1142,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
 
         return;
       }
+
       nodes.push(
         <DiscussionCard
           key="compose-new"
@@ -1079,6 +1159,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
 
     for (const discussion of discussions) {
       if (discussion.blockIndex !== blockIndex || !endsInLine(discussion.span.end.char)) continue;
+
       if (
         composePending &&
         composeStart &&
@@ -1087,15 +1168,19 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
         pushComposeCard();
         composePending = false;
       }
+
       const composingHere = Boolean(composeHere && compose.discussionKey === discussion.key);
 
       if (folded.has(discussion.key) && !composingHere) {
         nodes.push(foldedSummaryFor(discussion));
         continue;
       }
+
       nodes.push(discussionCardFor(discussion, composingHere));
+
       if (composingHere) nodes.push(paletteNode);
     }
+
     if (composePending) pushComposeCard();
 
     return nodes;
@@ -1143,6 +1228,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
       active.blockIndex === blockIndex
     )
       return;
+
     const position = { blockIndex, char: 0 };
 
     openCompose({
@@ -1161,12 +1247,15 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
   const restoredPrompt = useRef<number | null>(null);
   const restorePrompt = useEffectEvent(() => {
     if (!promptRestoreRequest || suspended || !onInvoke) return;
+
     if (restoredPrompt.current === promptRestoreRequest.id) return;
+
     restoredPrompt.current = promptRestoreRequest.id;
     const active = composeRef.current;
     const newerDraft = active?.kind === "prompt" ? composeTextRef.current : promptDraft.current;
 
     if (active?.kind !== "prompt") blurSaveCompose();
+
     promptDraft.current = [promptRestoreRequest.text, newerDraft].filter(Boolean).join("\n");
     focusPrompt(source.count - 1);
   });
@@ -1177,10 +1266,14 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
   const focusedReply = useRef<string | null>(null);
   const continueConversation = useEffectEvent(() => {
     if (!promptFocusRequest || suspended || !onInvoke) return;
+
     if (focusedReply.current === promptFocusRequest.replyId) return;
+
     focusedReply.current = promptFocusRequest.replyId;
+
     // An arriving answer cannot replace a draft or a marked passage under review.
     if (composeRef.current || heldSpan || dragging.current || promptDraft.current) return;
+
     focusPrompt(promptFocusRequest.blockIndex);
   });
 
@@ -1189,6 +1282,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
   }, [promptFocusRequest?.replyId, promptFocusRequest?.blockIndex, suspended]);
   const onPromptMouseDown = (event: TerminalMouseEvent): void => {
     if (!onInvoke || suspended) return;
+
     const blockIndex = source.count - 1;
     const geometry = allGeometry();
     const promptLine = geometry.find((entry) => isPromptBlock?.(entry.blockIndex));
@@ -1206,9 +1300,11 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
       (viewport && event.y >= viewport.bottom)
     )
       return;
+
     if (composeRef.current?.kind === "prompt") {
       promptDraft.current = composeTextRef.current;
     } else blurSaveCompose();
+
     endDrag();
     focusPrompt(blockIndex);
   };
@@ -1218,6 +1314,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     const pressed = positionAt(allGeometry(), event.x, event.y);
 
     if (!pressed || !source.annotatable(pressed.blockIndex)) return;
+
     setNavMode(false);
     const stamp = { time: Date.now(), x: event.x, y: event.y };
     const wordMode = isDoubleClick(lastClick.current, stamp);

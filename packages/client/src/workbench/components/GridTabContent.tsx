@@ -141,6 +141,7 @@ export function GridTabContent(props: {
       />
     );
   }
+
   if (tab.kind !== "file") {
     return (
       <ChangesTabBody
@@ -156,6 +157,7 @@ export function GridTabContent(props: {
       />
     );
   }
+
   // a single-file tab shows that file's rows alone, so its row indices are its own: comments and
   // the caret report back in whole-diff indices; a single-file tab omits only the collapse action
   const fileRowIndices = props.rows.flatMap((row, index) => (row.file === tab.path ? [index] : []));

@@ -478,6 +478,7 @@ export const SessionHistorySchema = v.pipe(
   // the shape is not enough: the tree itself must hold, or a walk hangs or rewires the path
   v.rawCheck(({ dataset, addIssue }) => {
     if (!dataset.typed) return;
+
     const problem = validateHistory(dataset.value);
 
     if (problem !== null) addIssue({ message: `history: ${problem}` });
@@ -519,6 +520,7 @@ export const ThreadRecordSchema = v.pipe(
   } satisfies EntriesOf<Thread>),
   v.rawCheck(({ dataset, addIssue }) => {
     if (!dataset.typed || !dataset.value.textCuts?.length) return;
+
     const { artifact, textCuts, workingCopy } = dataset.value;
     const matchesSource = textCuts.every(
       (cut) => artifact.content.slice(cut.start, cut.end) === cut.quote,
@@ -536,6 +538,7 @@ export function validateThreadRecord(
   const result = v.safeParse(ThreadRecordSchema, raw);
 
   if (result.success) return { ok: true, value: result.output };
+
   const issue = result.issues[0]!;
   const path = issue.path?.map((pathSegment) => String(pathSegment.key)).join(".") ?? "";
 

@@ -23,6 +23,7 @@ export function createCodexDeliveryService(
     if (reconciling) {
       return;
     }
+
     reconciling = true;
 
     try {
@@ -36,6 +37,7 @@ export function createCodexDeliveryService(
           );
 
           if (pending.operation !== "pending") throw new Error("Codex pending response mismatch");
+
           for (const delivery of pending.deliveries) {
             await delivered.sendOnce(delivery.message, async () => {
               const result = await queueCodexMessage({
@@ -72,6 +74,7 @@ export function createCodexDeliveryService(
     if (timer) {
       return;
     }
+
     timer = setInterval(() => {
       void reconcile().catch((error) => console.error(`cueloop Codex delivery: ${String(error)}`));
     }, options.pollMs ?? 1000);
@@ -80,6 +83,7 @@ export function createCodexDeliveryService(
 
   function stop(): void {
     if (timer) clearInterval(timer);
+
     timer = undefined;
   }
 

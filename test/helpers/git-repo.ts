@@ -53,9 +53,13 @@ function runGit(args: string[], cwd: string): void {
  */
 function removeDirectoryTree(dir: string): void {
   rmSync(dir, { recursive: true, force: true });
+
   if (!existsSync(dir)) return;
+
   Bun.spawnSync(["rm", "-rf", dir], { stdout: "ignore", stderr: "ignore" });
+
   if (!existsSync(dir)) return;
+
   const survivors = readdirSync(dir, { recursive: true }).slice(0, 20).join(", ");
 
   throw new Error(`Test git repo cleanup left entries behind in ${dir}: ${survivors}`);

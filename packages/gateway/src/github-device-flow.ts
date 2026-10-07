@@ -109,6 +109,7 @@ export async function pollForUserToken(
     await dependencies.sleep(waitSeconds * 1000);
 
     if (signal?.aborted) return { kind: "failed", reason: "aborted" };
+
     const response = await dependencies.fetch(ACCESS_TOKEN_ENDPOINT, {
       method: "POST",
       headers: { accept: "application/json", "content-type": "application/json" },
@@ -121,13 +122,17 @@ export async function pollForUserToken(
     const parsed = v.parse(AccessTokenSchema, await response.json());
 
     if (parsed.access_token) return { kind: "token", token: parsed.access_token };
+
     if (parsed.error === "authorization_pending") continue;
+
     if (parsed.error === "slow_down") {
       waitSeconds = parsed.interval ?? waitSeconds + 5;
 
       continue;
     }
+
     if (parsed.error === "access_denied") return { kind: "failed", reason: "access_denied" };
+
     if (parsed.error === "expired_token") return { kind: "failed", reason: "expired_token" };
 
     return { kind: "failed", reason: "unexpected" };
@@ -177,6 +182,7 @@ export async function resolveCollaboratorIdentity(
   );
 
   if (outcome.kind === "failed") return outcome;
+
   const identity = await fetchGithubLoginAndName(outcome.token, options);
 
   return { kind: "identity", login: identity.login, name: identity.name };

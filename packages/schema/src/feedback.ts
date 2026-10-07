@@ -75,6 +75,7 @@ export function renderFeedback(input: FeedbackInput): string {
 
   lines.push("# Review: " + input.outcome.replaceAll("_", " "));
   lines.push("");
+
   if (input.summary.trim()) {
     lines.push(input.summary.trim());
     lines.push("");
@@ -88,6 +89,7 @@ export function renderFeedback(input: FeedbackInput): string {
     hasEdits = true;
     lines.push("## Curated changes");
     lines.push("");
+
     if (input.workingCopy.trim()) {
       lines.push("The reviewer accepted a subset of your proposed changes. Apply this");
       lines.push("exact unified diff; it replaces what you submitted.");
@@ -98,6 +100,7 @@ export function renderFeedback(input: FeedbackInput): string {
     } else {
       lines.push("The reviewer rejected all of your proposed changes.");
     }
+
     lines.push("");
   } else {
     const diff =
@@ -132,6 +135,7 @@ export function renderFeedback(input: FeedbackInput): string {
         input.actionBodies,
       ),
     );
+
     if (input.sessionId) {
       lines.push("## Reporting what you addressed");
       lines.push("");
@@ -178,6 +182,7 @@ function annotationSectionLines(
     const target = annotationTarget(annotation);
 
     if (target.kind !== "file") continue;
+
     const group = fileGroups.get(target.path) ?? [];
 
     group.push(annotation);
@@ -200,6 +205,7 @@ function annotationSectionLines(
         lines.push(`- ${expandActionRefs(reply.body, actionBodies).replace(/\n/g, "\n  ")}`);
       lines.push("");
     }
+
     lines.push(`annotation id: \`${annotation.id}\``);
     lines.push("");
   };
@@ -227,6 +233,7 @@ function annotationSectionLines(
       pushNote(annotation, index, location, orphan);
     });
   }
+
   for (const [filePath, notes] of fileGroups) {
     lines.push(`## ${filePath} (${notes.length})`);
     lines.push("");

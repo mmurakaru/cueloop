@@ -34,6 +34,7 @@ function subscribeToKeypress(input: KeyInput, handler: KeyHandler): () => void {
 
   return () => {
     handlers.delete(handler);
+
     if (handlers.size > 0) return;
 
     input.off("keypress", notify);

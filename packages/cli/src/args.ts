@@ -18,6 +18,7 @@ export function parseArgs(argv: string[], booleanFlags: readonly string[] = []):
       positional.push(argument);
       continue;
     }
+
     const equalsIndex = argument.indexOf("=");
 
     if (equalsIndex !== -1) {

@@ -79,6 +79,7 @@ export function Composer({
     const editor = editorRef.current;
 
     if (!editor || !editor.focused || !looksLikeBinaryPaste(event.bytes)) return;
+
     event.preventDefault();
     pastedImageCount.current += 1;
     editor.editBuffer.insertText(imagePlaceholder(pastedImageCount.current));
@@ -100,6 +101,7 @@ export function Composer({
     const editor = editorRef.current;
 
     if (!editor) return;
+
     editor.cursorOffset = seed.length;
     editor.editBuffer.setSyntaxStyle(referenceStyleFor(tokens).style);
     paintReferences(editor);
@@ -133,6 +135,7 @@ export function Composer({
           const editor = editorRef.current;
 
           if (!editor) return;
+
           paintReferences(editor);
           setRows(composeRowCount(editor.plainText, editor.width));
           onInput(editor.plainText, editor.cursorOffset);
@@ -343,6 +346,7 @@ export function CommentRow({
       style={{ flexDirection: "column" }}
       onMouseDown={(event) => {
         if (!onFocus) return;
+
         event.stopPropagation();
         onFocus();
       }}

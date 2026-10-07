@@ -98,6 +98,7 @@ function highlightedByRow(): Map<number, string> {
 
       if (backdrop || (caretCell && underlined)) marked += span.text;
     }
+
     if (marked.length > 0) rows.set(rowIndex, marked);
   });
 
@@ -121,6 +122,7 @@ function caretCells(): Array<{ row: number; column: number; text: string }> {
       if (red === CARET_RGB[0] && green === CARET_RGB[1] && blue === CARET_RGB[2]) {
         cells.push({ row, column, text: span.text });
       }
+
       column += span.width;
     }
   });
@@ -158,6 +160,7 @@ async function framesUntilHighlight(expected: string, limit = 4): Promise<number
     // one scheduler turn (the input parser and React commit), then one frame
     await new Promise((resolve) => setTimeout(resolve, 0));
     await setup.renderOnce();
+
     if (highlightedText() === expected) return frame;
   }
 

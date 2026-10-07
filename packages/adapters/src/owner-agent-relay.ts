@@ -41,6 +41,7 @@ export class OwnerAgentRelay {
 
   notify(event: EventFrame): void {
     if (event.event !== "agent.updated") return;
+
     for (const connection of this.connections.values())
       if (connection.threadId === event.sessionId)
         void connection.publish().catch(this.options.onError);
@@ -56,6 +57,7 @@ export class OwnerAgentRelay {
 
   private async reconcile(threads: Thread[]): Promise<void> {
     if (this.stopped) return;
+
     const shares = threads
       .filter(this.options.enabled)
       .flatMap((thread) =>
@@ -70,12 +72,14 @@ export class OwnerAgentRelay {
         connection.stop();
         this.connections.delete(id);
       }
+
     if (!shares.length) {
       this.client?.close();
       this.client = undefined;
 
       return;
     }
+
     this.client ??= await DaemonClient.connect({ home: this.options.home });
     for (const { thread, share } of shares)
       if (!this.connections.has(share.id))
@@ -93,6 +97,7 @@ export class OwnerAgentRelay {
         .catch(() => {})
         .then(async () => {
           if (stopped || !child || child !== process) return;
+
           await child.stdin.write(`${JSON.stringify(frame)}\n`);
           await child.stdin.flush();
         });
@@ -118,20 +123,24 @@ export class OwnerAgentRelay {
 
         for await (const chunk of child.stdout) {
           buffer += decoder.decode(chunk, { stream: true });
+
           if (Buffer.byteLength(buffer) > 8 * 1024 * 1024)
             throw new Error("Shared agent frame exceeds 8 MiB");
+
           let newline: number;
 
           while ((newline = buffer.indexOf("\n")) >= 0) {
             const frame = v.parse(SharedAgentFrameSchema, JSON.parse(buffer.slice(0, newline)));
 
             buffer = buffer.slice(newline + 1);
+
             if (
               frame.type !== "requests" ||
               frame.thread.id !== threadId ||
               frame.thread.shares?.[0]?.id !== shareId
             )
               throw new Error("Shared agent relay changed its Thread identity");
+
             delay = 250;
             const client = this.client!;
 
@@ -145,6 +154,7 @@ export class OwnerAgentRelay {
             for (const request of frame.requests) {
               if (request.params.id !== threadId)
                 throw new Error("Shared agent request targets another Thread");
+
               if (request.comment) {
                 const state = await client.agentGet(threadId);
 
@@ -158,6 +168,7 @@ export class OwnerAgentRelay {
                     comment: { ...request.comment, author: request.author },
                   });
               }
+
               await client.agentPrompt(request.params);
               accepted.push(request.params.operationId);
             }
@@ -166,14 +177,18 @@ export class OwnerAgentRelay {
         }
       } catch (error) {
         if (!stopped) this.options.onError(relayError(error));
+
         child?.kill();
       } finally {
         await child?.exited;
+
         if (process === child) process = undefined;
+
         if (!stopped) {
           const diagnostic = (await stderr).trim();
 
           if (diagnostic) this.options.onError(new Error(diagnostic));
+
           retry = setTimeout(() => {
             void connect().catch(this.options.onError);
           }, delay);
@@ -189,7 +204,9 @@ export class OwnerAgentRelay {
       publish,
       stop: () => {
         stopped = true;
+
         if (retry) clearTimeout(retry);
+
         process?.kill();
       },
     };
@@ -198,6 +215,7 @@ export class OwnerAgentRelay {
 
 function openRelayTransport(options: OwnerAgentRelayOptions) {
   if (options.transport) return options.transport.open();
+
   const command = [
     "ssh",
     "-p",

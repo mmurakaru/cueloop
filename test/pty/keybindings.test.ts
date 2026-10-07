@@ -147,6 +147,7 @@ async function waitForWorkingCopy(
 
   while (Date.now() < deadline) {
     if (reviewHome.server.core.sessionGet(reviewId).workingCopy?.includes(expected)) return;
+
     await Bun.sleep(5);
   }
 
@@ -165,6 +166,7 @@ async function waitForReviewState(
 
   while (Date.now() < deadline) {
     if (predicate(reviewHome.server.core.sessionGet(reviewId))) return;
+
     await Bun.sleep(5);
   }
 
@@ -178,6 +180,7 @@ async function waitForDiffView(expected: "split" | "stacked"): Promise<void> {
     const config = loadConfig({ userConfigPath: `${reviewHome.home}/no-config.toml` });
 
     if (config.ui.diffView === expected) return;
+
     await Bun.sleep(5);
   }
 
@@ -195,11 +198,13 @@ let reviewHome: TestReviewHome;
 
 beforeAll(() => {
   if (!PTY_TIER_ENABLED) return;
+
   reviewHome = createTestReviewHome();
 });
 
 afterAll(() => {
   if (!PTY_TIER_ENABLED) return;
+
   reviewHome.cleanup();
 });
 
@@ -210,6 +215,7 @@ describe("nav mode in a diff review", () => {
 
   beforeAll(async () => {
     if (!PTY_TIER_ENABLED) return;
+
     const launched = await launchDiffReview(reviewHome, [STORE_CHANGE, OTHER_CHANGE], {
       env: { CUELOOP_EDITOR: reviewHome.createShellScript("unchanged-editor.sh", "exit 0") },
     });
@@ -221,6 +227,7 @@ describe("nav mode in a diff review", () => {
 
   afterAll(async () => {
     if (!PTY_TIER_ENABLED) return;
+
     await session.close();
     repo.cleanup();
   });
@@ -389,6 +396,7 @@ describe("nav mode in a plan review", () => {
 
   beforeAll(async () => {
     if (!PTY_TIER_ENABLED) return;
+
     const launched = await launchPlanReview(reviewHome);
 
     session = launched.session;
@@ -397,6 +405,7 @@ describe("nav mode in a plan review", () => {
 
   afterAll(async () => {
     if (!PTY_TIER_ENABLED) return;
+
     await session.close();
   });
 
@@ -456,6 +465,7 @@ describe("marked Cut in a plan review", () => {
 
   beforeAll(async () => {
     if (!PTY_TIER_ENABLED) return;
+
     const launched = await launchPlanReview(reviewHome);
 
     session = launched.session;
@@ -464,6 +474,7 @@ describe("marked Cut in a plan review", () => {
 
   afterAll(async () => {
     if (!PTY_TIER_ENABLED) return;
+
     await session.close();
   });
 
@@ -482,6 +493,7 @@ describe("marking through a real terminal", () => {
 
   beforeAll(async () => {
     if (!PTY_TIER_ENABLED) return;
+
     const items = Array.from({ length: 30 }, (_, index) => `- item ${index + 1}`);
     const launched = await launchPlanReview(reviewHome, {
       rows: 14,
@@ -495,6 +507,7 @@ describe("marking through a real terminal", () => {
 
   afterAll(async () => {
     if (!PTY_TIER_ENABLED) return;
+
     await session.close();
   });
 

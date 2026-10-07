@@ -85,8 +85,10 @@ export class ThreadStore implements ThreadRepository {
       const bucketPath = join(root, bucket);
 
       if (!statSync(bucketPath).isDirectory()) continue;
+
       for (const file of readdirSync(bucketPath)) {
         if (!file.endsWith(".jsonl")) continue;
+
         const filePath = join(bucketPath, file);
 
         try {
@@ -96,6 +98,7 @@ export class ThreadStore implements ThreadRepository {
           this.files.set(session.id, filePath);
           this.lineCounts.set(session.id, lines);
           report.recovered.push(session.id);
+
           // a torn trailing fragment would fuse with the next append and lose that update, so rewrite
           // the log to a single clean snapshot line now that the last valid record is in hand
           if (torn) this.writeWhole(session);
@@ -117,10 +120,12 @@ export class ThreadStore implements ThreadRepository {
     const legacyDir = sessionsDir(this.home);
 
     if (!existsSync(legacyDir)) return;
+
     const parked = migratedSessionsDir(this.home);
 
     for (const file of readdirSync(legacyDir)) {
       if (!file.endsWith(".json")) continue;
+
       const legacyPath = join(legacyDir, file);
       let session: Thread;
 
@@ -128,6 +133,7 @@ export class ThreadStore implements ThreadRepository {
         const parsed = validateThreadRecord(JSON.parse(readFileSync(legacyPath, "utf8")));
 
         if (!parsed.ok) throw new Error(`invalid record - ${parsed.error}`);
+
         session = withHistory(parsed.value);
       } catch (error) {
         report.skipped.push({
@@ -144,6 +150,7 @@ export class ThreadStore implements ThreadRepository {
       // after a rollback a newer JSONL can already hold this thread; never overwrite it with the
       // older legacy snapshot - the existing log stays authoritative and the threads scan recovers it
       if (!existsSync(targetPath)) this.writeWhole(session);
+
       // forget the in-memory tracking migration seeded: the threads scan is the one recovery path
       this.files.delete(session.id);
       this.lineCounts.delete(session.id);
@@ -192,6 +199,7 @@ export class ThreadStore implements ThreadRepository {
 
       return;
     }
+
     appendFileSync(filePath, JSON.stringify(session) + "\n");
     this.lineCounts.set(session.id, lines + 1);
     this.sessions.set(session.id, session);
@@ -199,9 +207,11 @@ export class ThreadStore implements ThreadRepository {
 
   delete(id: string): boolean {
     if (!this.sessions.delete(id)) return false;
+
     const filePath = this.files.get(id);
 
     if (filePath) rmSync(filePath, { force: true });
+
     this.files.delete(id);
     this.lineCounts.delete(id);
 
@@ -261,6 +271,7 @@ export class MemoryThreadStore implements ThreadRepository {
 
         return;
       }
+
       const session = withHistory(parsed.value);
 
       this.sessions.set(session.id, session);

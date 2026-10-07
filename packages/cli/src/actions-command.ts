@@ -19,6 +19,7 @@ export async function actionsCommand(argv: string[]): Promise<number> {
 
     return 2;
   }
+
   const role = stringFlag(flags, "role") === "agent" ? "agent" : undefined;
   const repoRoot = await repoRootForSession(stringFlag(flags, "session"), role);
   const actions = loadConfig({ repoRoot }).actions;
@@ -39,6 +40,7 @@ async function repoRootForSession(
   role: "agent" | undefined,
 ): Promise<string> {
   if (sessionId === undefined) return process.cwd();
+
   const client = await DaemonClient.connect({ autostart: true, role });
 
   try {

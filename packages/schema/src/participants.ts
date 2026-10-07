@@ -35,11 +35,13 @@ export function registerParticipant(
   const trimmed = name?.trim();
 
   if (existing && !trimmed && !source) return session;
+
   const resolvedName = trimmed ?? existing?.name;
   const resolvedHandle = source?.handle ?? existing?.handle;
   const next: Identity = { id: author, provider: source?.provider ?? existing?.provider ?? "ssh" };
 
   if (resolvedName) next.name = resolvedName;
+
   if (resolvedHandle) next.handle = resolvedHandle;
 
   return {

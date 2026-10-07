@@ -133,15 +133,21 @@ export function ChangesFileTree({
 
   useKeyboard((key) => {
     if (!focused || rows.length === 0) return;
+
     if (key.name === "j" || key.name === "down")
       return setCursor(Math.min(cursorIndex + 1, rows.length - 1));
+
     if (key.name === "k" || key.name === "up") return setCursor(Math.max(cursorIndex - 1, 0));
+
     const row = rows[cursorIndex];
 
     if (!row) return;
+
     if (key.name === "return" || key.name === "enter")
       return row.isFolder ? toggle(row.id) : onSelectFile(row.id, true);
+
     if (key.name === "l" && row.isFolder && collapsedIds.has(row.id)) return toggle(row.id);
+
     if (key.name === "h" && row.isFolder && !collapsedIds.has(row.id)) return toggle(row.id);
   });
 
@@ -162,6 +168,7 @@ export function ChangesFileTree({
           const index = rows.findIndex((row) => row.id === id);
 
           if (index >= 0) setCursor(index);
+
           onSelectFile(id);
         }}
         onDoubleSelect={(id) => onSelectFile(id, true)}

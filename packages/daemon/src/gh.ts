@@ -26,6 +26,7 @@ export async function prRefs(pr: string): Promise<PullRequestRefs | null> {
   const { code, stdout } = await gh(["pr", "view", pr, "--json", "baseRefOid,headRefOid"]);
 
   if (code !== 0) return null;
+
   let input: unknown;
 
   try {
@@ -60,12 +61,15 @@ export async function prSnapshot(
     const before = await readRefs(pr);
 
     if (before === null) return null;
+
     const patch = await readDiff(pr);
 
     if (patch === null) return null;
+
     const after = await readRefs(pr);
 
     if (after === null) return null;
+
     if (before.baseSha === after.baseSha && before.headSha === after.headSha)
       return { patch, ...after };
   }

@@ -26,6 +26,7 @@ export function ownerCredentialStore(path: string, sourcePath?: string): Credent
   const existing = stores.get(path);
 
   if (existing) return existing;
+
   let changes = Promise.resolve();
   const readFile = (file: string): Record<string, Credential> =>
     existsSync(file) ? v.parse(CredentialsSchema, JSON.parse(readFileSync(file, "utf8"))) : {};
@@ -63,6 +64,7 @@ export function ownerCredentialStore(path: string, sourcePath?: string): Credent
 
         if (next) credentials[providerId] = next;
         else credentials[providerId] = null;
+
         mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
         const temporary = `${path}.${randomUUID()}.tmp`;
 

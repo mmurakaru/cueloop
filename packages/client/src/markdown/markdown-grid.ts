@@ -52,7 +52,9 @@ function splitTableRow(line: string): string[] {
     }
   }
   parts.push(cell);
+
   if (parts.length > 1 && parts[0] === "") parts.shift();
+
   if (parts.length > 1 && parts[parts.length - 1] === "") parts.pop();
 
   return parts.map((part) => part.trim());
@@ -78,6 +80,7 @@ function pad(text: string, width: number, align: ColumnAlign): string {
   const slack = Math.max(0, width - text.length);
 
   if (align === "right") return " ".repeat(slack) + text;
+
   if (align === "center") {
     const left = Math.floor(slack / 2);
 
@@ -132,6 +135,7 @@ export function parseFrontmatterRows(text: string): FrontmatterRow[] {
 
   for (const line of text.split("\n")) {
     if (line.trim() === "") continue;
+
     const match = /^([^:\s][^:]*):\s?(.*)$/.exec(line);
 
     if (match) {
@@ -163,6 +167,7 @@ function wrapCell(value: string, width: number): string[] {
  */
 export function layoutFrontmatterGrid(rows: FrontmatterRow[], maxWidth: number): GridLine[] {
   if (rows.length === 0) return [];
+
   const keyWidth = Math.max(3, ...rows.map((row) => row.key.length));
   // size the value column to its content, capped at the width left after the key column and borders,
   // so a short frontmatter table stays compact and a long value wraps instead of overflowing
@@ -183,6 +188,7 @@ export function layoutFrontmatterGrid(rows: FrontmatterRow[], maxWidth: number):
 
   rows.forEach((row, rowIndex) => {
     if (rowIndex > 0) lines.push(rule("├", "┼", "┤"));
+
     const valueLines = wrapCell(row.value, valueWidth);
 
     valueLines.forEach((valueLine, valueIndex) => {

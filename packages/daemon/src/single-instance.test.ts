@@ -213,6 +213,7 @@ describe("one daemon per home", () => {
       expect(existsSync(path!)).toBe(true);
     } finally {
       client.close();
+
       if (previousTimeout === undefined) delete process.env.CUELOOP_START_TIMEOUT_MS;
       else process.env.CUELOOP_START_TIMEOUT_MS = previousTimeout;
     }
@@ -242,7 +243,9 @@ describe("one daemon per home", () => {
       expect((await client.ping()).pid).toBe(process.pid);
     } finally {
       client.close();
+
       if (transient.listening) transient.close();
+
       if (previousTimeout === undefined) delete process.env.CUELOOP_START_TIMEOUT_MS;
       else process.env.CUELOOP_START_TIMEOUT_MS = previousTimeout;
     }

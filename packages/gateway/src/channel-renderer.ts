@@ -51,6 +51,7 @@ function channelStreams(channel: ServerChannel, size: PtySize) {
   const stdin = new Readable({
     read() {
       if (!inputPaused) return;
+
       inputPaused = false;
       channel.resume();
     },
@@ -80,10 +81,13 @@ function channelStreams(channel: ServerChannel, size: PtySize) {
     new Writable({
       write(chunk, _encoding, callback) {
         if (channelGone) return callback();
+
         const bytes = Buffer.from(chunk);
 
         if (bytes.byteLength === 0) return callback();
+
         if (channel.write(bytes)) return callback();
+
         pendingDrain = callback;
         channel.once("drain", releaseDrain);
       },
@@ -118,6 +122,7 @@ export async function renderOverChannel(
   let destroyed = false;
   const destroy = () => {
     if (destroyed) return;
+
     destroyed = true;
     detach();
     try {

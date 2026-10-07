@@ -101,7 +101,8 @@ Verification recipes:
 - Comments state intent and invariants, not narration.
 - Keep interface bodies free of comments.
 - Blank-line padding: keep a blank line before every `return` and after a run of
-  declarations, including before `if` statements. The local
+  declarations, and before and after `if` statements. Keep `else if` and `else`
+  attached to their branch. The local
   `statement-padding/blank-lines` oxlint rule enforces this; `bun run format`
   fixes it before oxfmt runs. Keep consecutive declarations together.
 - Keybindings/labels locked: deletion = Cut, submit = "Send message (n)".

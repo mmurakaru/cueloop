@@ -185,6 +185,7 @@ function readOwnerToken(home: string): string | undefined {
   const path = ownerTokenPath(home);
 
   if (!existsSync(path)) return undefined;
+
   const parsed = v.safeParse(OwnerTokenSchema, readFileSync(path, "utf8"));
 
   if (!parsed.success) {
@@ -223,7 +224,9 @@ export class DaemonClient implements ThreadClient {
     client.home = home;
     try {
       await client.dial(path);
+
       if (client.daemonVersion === DAEMON_VERSION) return client;
+
       const daemonVersion = client.daemonVersion ?? "unknown";
 
       client.close();
@@ -277,8 +280,10 @@ export class DaemonClient implements ThreadClient {
       while (Date.now() < deadline) {
         try {
           await this.dial(path);
+
           if (this.daemonVersion !== DAEMON_VERSION) {
             this.close();
+
             if (typeof Bun === "undefined") {
               throw new DaemonClientError(
                 "version_mismatch",
@@ -292,6 +297,7 @@ export class DaemonClient implements ThreadClient {
           return this;
         } catch (err) {
           if (err instanceof DaemonClientError) throw err;
+
           this.socket?.end();
           this.resetConnection();
           lastError = err;
@@ -319,6 +325,7 @@ export class DaemonClient implements ThreadClient {
 
     const close = () => {
       if (this.connectionEpoch !== epoch) return;
+
       this.closed = true;
       for (const pendingRequest of this.pending.values())
         pendingRequest.reject(
@@ -369,6 +376,7 @@ export class DaemonClient implements ThreadClient {
         },
       });
     }
+
     // Verify liveness: a dead socket file accepts connects on some platforms
     // only to fail later, so a ping is the actual handshake. It also carries the
     // daemon's build version, so connect() can reject incompatible clients.
@@ -387,6 +395,7 @@ export class DaemonClient implements ThreadClient {
         ? { role: this.role, clientVersion: DAEMON_VERSION }
         : { role: this.role, clientVersion: DAEMON_VERSION, author: this.author };
     }
+
     const token = readOwnerToken(this.home);
 
     // a daemon from before owner tokens has no file; it still knows the bare hello
@@ -436,15 +445,19 @@ export class DaemonClient implements ThreadClient {
 
       return;
     }
+
     if ("event" in frame) {
       for (const listener of this.eventListeners) listener(frame);
 
       return;
     }
+
     const pendingRequest = this.pending.get(frame.id);
 
     if (!pendingRequest) return;
+
     this.pending.delete(frame.id);
+
     if (frame.error)
       pendingRequest.reject(new DaemonClientError(frame.error.code, frame.error.message));
     else pendingRequest.resolve(frame.result);
@@ -464,10 +477,12 @@ export class DaemonClient implements ThreadClient {
       return Promise.reject(
         new DaemonTransportError("cancelled", `request ${method} cancelled`, "not_sent", method),
       );
+
     if (this.closed || !this.socket)
       return Promise.reject(
         new DaemonTransportError("connection", "not connected", "not_sent", method),
       );
+
     const id = this.nextId++;
 
     return new Promise<TOutput>((resolve, reject) => {
@@ -502,6 +517,7 @@ export class DaemonClient implements ThreadClient {
                 method,
                 { cause: parsed.issues },
               );
+
             resolve(parsed.output);
           } catch (cause) {
             reject(
@@ -646,6 +662,7 @@ export class DaemonClient implements ThreadClient {
     const params: v.InferInput<(typeof Params)["session.navigate"]> = { id, entryId };
 
     if (summary !== undefined) params.summary = summary;
+
     if (branch !== undefined) params.branch = branch;
 
     return this.request("session.navigate", params, ThreadRecordSchema);
@@ -868,6 +885,7 @@ export function daemonSpawnCommand(
     moduleUrl.includes("$bunfs") || moduleUrl.includes("~BUN") || moduleUrl.includes("%7EBUN");
 
   if (compiled) return [execPath, "daemon", "--autostart"];
+
   const mainPath = entry ?? new URL("./main.ts", moduleUrl).pathname;
 
   const args = entry ? ["daemon", "--autostart"] : [];

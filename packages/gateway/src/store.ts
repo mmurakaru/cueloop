@@ -67,6 +67,7 @@ export class WatchedShareStore implements ShareStore, ShareChangeFeed {
 
     return () => {
       set.delete(listener);
+
       if (set.size === 0) this.listeners.delete(id);
     };
   }
@@ -88,6 +89,7 @@ export class MemoryShareStore implements ShareStore {
     const retention = this.blobs.get(retentionKey(id));
 
     if (!entry) return null;
+
     if (!retention || isExpired(retention.storedAt, this.now())) {
       this.blobs.delete(id);
 

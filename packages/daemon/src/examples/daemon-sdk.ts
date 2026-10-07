@@ -28,6 +28,7 @@ const reviewConversation = Effect.gen(function* () {
 
   if (completed.outcome !== "completed")
     throw new Error(`SDK example agent finished: ${completed.outcome}`);
+
   const comments = yield* sdk.comments.list(thread.id);
 
   if (comments[0])
@@ -36,6 +37,7 @@ const reviewConversation = Effect.gen(function* () {
       commentId: comments[0].id,
       body: "The explanation is clear.",
     });
+
   yield* sdk.sessions.sendMessage({
     threadId: thread.id,
     operationId: sdk.ids.operation(randomUUID()),

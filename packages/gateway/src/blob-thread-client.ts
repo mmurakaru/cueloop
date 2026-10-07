@@ -53,6 +53,7 @@ export class BlobThreadClient implements ThreadClient {
     const changes = this.writeBack?.changes;
 
     if (!changes || this.unsubscribe) return;
+
     this.unsubscribe = changes.subscribe(this.writeBack!.shareId, () => void this.refresh());
     this.unsubscribeAgent =
       this.writeBack?.agent?.subscribe(this.writeBack.shareId, () => {
@@ -66,10 +67,12 @@ export class BlobThreadClient implements ThreadClient {
     const writeBack = this.writeBack;
 
     if (!writeBack) return;
+
     try {
       const stored = await writeBack.store.get(writeBack.shareId);
 
       if (!stored) return;
+
       this.session = unpackGatewayShare(
         openBlob(writeBack.masterKey, writeBack.shareId, stored),
         writeBack.shareId,
@@ -285,6 +288,7 @@ function upsertAnnotation(
 
   if (existing && existing.author !== writeBack.author)
     throw new Error("cannot change another author's note");
+
   const stamped: Annotation = {
     ...incoming,
     author: writeBack.author,
@@ -328,7 +332,9 @@ function removeOwnAnnotation(
 
   if (existing && existing.author !== author)
     throw new Error("cannot delete another author's note");
+
   if (!existing) return session;
+
   const removed: Thread = {
     ...session,
     annotations: session.annotations.filter((annotation) => annotation.id !== annotationId),

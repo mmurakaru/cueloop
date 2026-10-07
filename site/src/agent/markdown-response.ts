@@ -19,6 +19,7 @@ function isDocumentPath(pathname: string): boolean {
   if (pathname.startsWith("/_markdown/") || pathname === "/api" || pathname.startsWith("/api/")) {
     return false;
   }
+
   const lastSegment = pathname.split("/").findLast((segment) => segment.length > 0);
 
   return lastSegment === undefined || !lastSegment.includes(".");
@@ -43,6 +44,7 @@ function addVaryAccept(headers: Headers): void {
     .filter(Boolean);
 
   if (!varyValues.some((value) => value.toLowerCase() === "accept")) varyValues.unshift("Accept");
+
   headers.set("Vary", varyValues.join(", "));
 }
 

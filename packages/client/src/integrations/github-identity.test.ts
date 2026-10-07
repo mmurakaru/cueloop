@@ -10,6 +10,7 @@ const tempDirectories: string[] = [];
 afterEach(() => {
   if (originalBinary === undefined) delete process.env.CUELOOP_GH;
   else process.env.CUELOOP_GH = originalBinary;
+
   for (const directory of tempDirectories.splice(0)) {
     rmSync(directory, { recursive: true, force: true });
   }

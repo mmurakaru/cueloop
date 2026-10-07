@@ -84,6 +84,7 @@ export function splitDiffRows(rows: DiffRow[]): SplitRow[] {
 
   const flushChangeBlock = (): void => {
     if (pendingDeletions.length === 0 && pendingAdditions.length === 0) return;
+
     split.push(...zipChangeBlock(pendingDeletions, pendingAdditions, blockFile));
     pendingDeletions = [];
     pendingAdditions = [];
@@ -96,14 +97,17 @@ export function splitDiffRows(rows: DiffRow[]): SplitRow[] {
 
       return;
     }
+
     if (row.kind === "del") {
       blockFile = row.file;
       pendingDeletions.push({ row, index });
 
       return;
     }
+
     // any non-change row closes the current change block before it renders
     flushChangeBlock();
+
     if (row.kind === "file" || row.kind === "hunk") {
       split.push({ kind: row.kind, file: row.file, text: row.text, rowIndex: index });
     } else
@@ -135,7 +139,9 @@ export function splitRowOffsets(splitRows: SplitRow[]): Map<number, number> {
       contentY += 1;
     } else {
       if (row.left) offsets.set(row.left.rowIndex, contentY);
+
       if (row.right) offsets.set(row.right.rowIndex, contentY);
+
       contentY += 1;
     }
   }

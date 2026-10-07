@@ -395,6 +395,7 @@ export function NoThreadShell(props: {
             message={confirming ? `Delete "${confirming.title}"? This removes the thread.` : ""}
             onConfirm={() => {
               if (confirming) controller.deleteSession(confirming.sessionId);
+
               setMode({ type: "normal" });
             }}
             onCancel={() => setMode({ type: "normal" })}

@@ -143,6 +143,7 @@ test("permission replies use only an advertised option and cannot be reused", as
   const phase = manager.get(thread.id).phase;
 
   if (phase.kind !== "permission") throw new Error("Expected permission request");
+
   expect(() =>
     manager.permission({ id: thread.id, requestId: phase.permission.id, optionId: "invented" }),
   ).toThrow();

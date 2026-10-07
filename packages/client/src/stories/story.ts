@@ -65,6 +65,7 @@ async function collectStories(
 
     for (const [exportName, exported] of Object.entries(moduleExports)) {
       if (exportName === "meta" || !isStory(exported)) continue;
+
       loaded.push({ section, moduleTitle, storyName: exportName, story: exported });
     }
   }
@@ -88,6 +89,7 @@ interface StoryTreeFolder extends TreeNode {
 function hoistSingleStoryFolders(nodes: TreeNode[]): TreeNode[] {
   return nodes.map((node) => {
     if (node.children === undefined) return node;
+
     const children = hoistSingleStoryFolders(node.children);
     const onlyChild = children.length === 1 ? children[0] : undefined;
 
@@ -126,6 +128,7 @@ export function buildStoryTree(stories: LoadedStory[]): TreeNode[] {
         foldersByPath.set(path, folder);
         siblings.push(folder);
       }
+
       siblings = folder.children;
     }
 
@@ -143,8 +146,11 @@ export function componentFilesMissingStories(): string[] {
 
   for (const file of files) {
     if (file.endsWith(".stories.tsx") || file.endsWith(".test.tsx")) continue;
+
     if (file.endsWith(".prototype.tsx")) continue;
+
     if (file === "stories-app.tsx") continue;
+
     const storiesSibling = file.replace(/\.tsx$/, ".stories.tsx");
 
     if (!files.includes(storiesSibling)) missing.push(file);

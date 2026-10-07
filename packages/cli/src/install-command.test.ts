@@ -74,6 +74,7 @@ describe("cueloop install", () => {
       installRoot: root,
       runPackageCommand: async (args) => {
         commands.push(args);
+
         if (args[0] === "add") {
           const packageRoot = join(root, "node_modules", "example");
 
@@ -112,6 +113,7 @@ describe("cueloop install", () => {
       installRoot: root,
       runPackageCommand: async (args) => {
         commands.push(args);
+
         if (args.at(-1) === "example@2.0.0") {
           writeFileSync(
             join(root, "package.json"),

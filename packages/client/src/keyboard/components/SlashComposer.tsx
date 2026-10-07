@@ -46,10 +46,13 @@ export function SlashComposer({
 
   useKeyboard((key) => {
     if (!slashActive) return;
+
     const selected = Math.min(slashIndex, items.length - 1);
 
     if (key.name === "up") return setSlashIndex(Math.max(0, selected - 1));
+
     if (key.name === "down") return setSlashIndex(Math.min(items.length - 1, selected + 1));
+
     if (key.name === "tab" || (key.name === "return" && !key.meta && !key.ctrl && !key.super)) {
       const inserted = insertSlashItem(text, caret, items[selected]!.name);
 

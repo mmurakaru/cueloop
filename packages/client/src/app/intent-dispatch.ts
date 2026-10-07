@@ -125,7 +125,9 @@ function isLandableRow(rows: DiffRow[], index: number): boolean {
   const row = rows[index];
 
   if (isCodeRow(row)) return true;
+
   if (row?.kind !== "file") return false;
+
   const next = rows[index + 1];
 
   return next === undefined || next.kind === "file";
@@ -138,6 +140,7 @@ function nextCodeRowIndex(rows: DiffRow[], from: number, to: IntentOfType<"move"
 
     return from;
   }
+
   if (to === "bottom") {
     for (let index = rows.length - 1; index >= 0; index--) {
       if (isLandableRow(rows, index)) return index;
@@ -145,6 +148,7 @@ function nextCodeRowIndex(rows: DiffRow[], from: number, to: IntentOfType<"move"
 
     return from;
   }
+
   const step = to === "down" ? 1 : -1;
 
   for (let index = from + step; index >= 0 && index < rows.length; index += step) {
@@ -160,6 +164,7 @@ function handleMove(intent: IntentOfType<"move">, deps: IntentDispatchDeps): voi
 
     return;
   }
+
   const navigableCount = deps.display.length;
 
   if (intent.to === "down") deps.setCursor((current) => Math.min(navigableCount - 1, current + 1));
@@ -206,6 +211,7 @@ function handleOpenRename(_intent: IntentOfType<"openRename">, deps: IntentDispa
 
     return;
   }
+
   deps.setMode({
     type: "rename",
     authorId: focused.author,
@@ -225,6 +231,7 @@ function handleConfirmDialog(
   else if (mode.type === "nameSelf") controller.setSelfName(mode.text.trim());
   else if (mode.type === "renameSelf") deps.setLocalIdentityName(mode.text.trim());
   else if (mode.type === "treePrompt") confirmTreePrompt(mode, deps);
+
   deps.setMode({ type: "normal" });
 }
 
@@ -232,6 +239,7 @@ function handleStartSpan(_intent: IntentOfType<"startSpan">, deps: IntentDispatc
   const block = deps.display[deps.cursor];
 
   if (!block?.work) return;
+
   const span = startSpan(deps.cursor, displayText(block));
 
   if (span) deps.setMode({ type: "span", span });
@@ -301,6 +309,7 @@ function handlePickSpanAction(
   const { mode, session, controller } = deps;
 
   if (mode.type !== "spanActions") return;
+
   const action = deps.quickActions[intent.index ?? mode.index];
 
   if (session && action) {
@@ -315,6 +324,7 @@ function handlePickSpanAction(
 
     if (annotationId) deps.setFocusedAnnotationId(annotationId);
   }
+
   deps.setMode({ type: "normal" });
 }
 
@@ -322,6 +332,7 @@ function handleOpenCompose(intent: IntentOfType<"openCompose">, deps: IntentDisp
   const { mode } = deps;
 
   deps.liveInput.current = "";
+
   if (intent.from === "span" && mode.type === "span") {
     deps.setMode({
       type: "compose",
@@ -362,6 +373,7 @@ function handleOpenSubmit(_intent: IntentOfType<"openSubmit">, deps: IntentDispa
   const { session } = deps;
 
   if (!session) return;
+
   deps.liveInput.current = "";
   deps.setMode({ type: "submit", message: deps.defaultMessage, summary: "" });
 }
@@ -387,6 +399,7 @@ function handleFoldFile(_intent: IntentOfType<"foldFile">, deps: IntentDispatchD
   const file = deps.rows[deps.cursor]?.file;
 
   if (!file || deps.controller.isFileCollapsed(file)) return;
+
   deps.controller.setFileCollapsed(file, true);
   // the file band is unchanged in index by its own collapse, so land the cursor on it
   const headerIndex = deps.controller
@@ -400,6 +413,7 @@ function handleUnfoldFile(_intent: IntentOfType<"unfoldFile">, deps: IntentDispa
   const file = deps.rows[deps.cursor]?.file;
 
   if (!file || !deps.controller.isFileCollapsed(file)) return;
+
   deps.controller.setFileCollapsed(file, false);
   // drop the cursor onto the file's first code line now that its body is back
   const firstCode = deps.controller.rows().findIndex((row) => row.file === file && isCodeRow(row));
@@ -423,6 +437,7 @@ function handleRestoreCuration(
   const items = deps.controller.curationItems();
 
   if (!items.length) return;
+
   const targetId = deps.selectedCurationId ?? items[items.length - 1]!.id;
 
   deps.controller.restoreCuration(targetId);
@@ -447,6 +462,7 @@ function handleAnnotationCycle(
   );
 
   if (!annotations.length) return;
+
   const focusedIndex = annotations.findIndex(
     (annotation) => annotation.id === deps.focusedAnnotationId,
   );
@@ -500,11 +516,14 @@ function handleSaveCompose(_intent: IntentOfType<"saveCompose">, deps: IntentDis
 
   if (mode.type === "railEdit") {
     if (session && body) controller.updateAnnotation(mode.id, body);
+
     deps.setMode({ type: "normal" });
 
     return;
   }
+
   if (mode.type !== "compose") return;
+
   if (session && body) {
     const annotationId = controller.annotate(
       mode.kind,
@@ -516,6 +535,7 @@ function handleSaveCompose(_intent: IntentOfType<"saveCompose">, deps: IntentDis
 
     if (annotationId) deps.setFocusedAnnotationId(annotationId);
   }
+
   deps.setMode({ type: "normal" });
 }
 
@@ -526,6 +546,7 @@ function handleSubmitMessage(
   const { mode } = deps;
 
   if (mode.type === "submit") deps.controller.submit(mode.message, deps.liveInput.current);
+
   deps.setMode({ type: "normal" });
 }
 
@@ -533,6 +554,7 @@ function handleCycleMessage(intent: IntentOfType<"cycleMessage">, deps: IntentDi
   const { mode } = deps;
 
   if (mode.type !== "submit") return;
+
   const messageIndex =
     (MESSAGE_OUTCOMES.indexOf(mode.message) + intent.direction + MESSAGE_OUTCOMES.length) %
     MESSAGE_OUTCOMES.length;
@@ -582,6 +604,7 @@ function handleTreeMove(intent: IntentOfType<"treeMove">, deps: IntentDispatchDe
   const rows = deps.controller.treeRows();
 
   if (rows.length === 0) return;
+
   const current = selectedTreeIndex(deps, rows);
   const next = Math.min(rows.length - 1, Math.max(0, current + intent.direction));
 
@@ -593,9 +616,12 @@ function handleTreeGo(_intent: IntentOfType<"treeGo">, deps: IntentDispatchDeps)
   const row = rows[selectedTreeIndex(deps, rows)];
 
   if (!row) return deps.controller.setStatus("select an entry in the tree first");
+
   if (row.isCurrentTip) return deps.controller.setStatus("already at the tip");
+
   // a switch needs no summary; a move back may leave one, so it asks
   if (row.tips.length > 0) return deps.controller.goToEntry(row.entryId);
+
   deps.setMode({ type: "treePrompt", ask: "navigate", entryId: row.entryId, text: "" });
 }
 

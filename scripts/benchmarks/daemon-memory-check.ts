@@ -29,6 +29,7 @@ const MAX_SLOPE_BYTES_PER_CYCLE = 256 * 1024;
 /** Least-squares slope of `samples` against their index, in bytes per cycle. */
 export function fitSlope(samples: number[]): number {
   if (samples.length < 2) return 0;
+
   const count = samples.length;
   const meanIndex = (count - 1) / 2;
   const meanValue = samples.reduce((sum, value) => sum + value, 0) / count;
@@ -74,6 +75,7 @@ async function cycleDaemon(): Promise<number[]> {
   try {
     if (server.start() === null)
       throw new Error("daemon-memory-check: another daemon owns the temp home");
+
     const client = await DaemonClient.connect({ home });
     const plan = largePlanMarkdown(16);
     const samples: number[] = [];
@@ -86,6 +88,7 @@ async function cycleDaemon(): Promise<number[]> {
 
       await client.sessionGet(session.id);
       await client.sessionDelete(session.id);
+
       if (cycle >= WARMUP_CYCLES) samples.push(retainedHeapBytes());
     }
     client.close();
@@ -106,6 +109,7 @@ if (import.meta.main) {
   console.log(
     `daemon-memory-check: ${CYCLES} cycles, heap ${mib(samples[0]!)} -> ${mib(samples.at(-1)!)}, growth ${mib(message.growthBytes)}, slope ${(message.slopeBytesPerCycle / 1024).toFixed(1)} KiB/cycle`,
   );
+
   if (message.leaking) {
     console.error(
       `daemon-memory-check: FAILED, ceilings are ${mib(MAX_GROWTH_BYTES)} growth and ${MAX_SLOPE_BYTES_PER_CYCLE / 1024} KiB/cycle`,

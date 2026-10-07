@@ -47,6 +47,7 @@ export function stripLeadingBlockMarker(line: string): string {
 /** A GFM table delimiter row: one or more dash cells split by pipes, each optionally `:`-aligned. */
 function isTableDelimiterRow(line: string): boolean {
   if (!line.includes("|")) return false;
+
   const cells = line
     .trim()
     .replace(/^\||\|$/g, "")
@@ -81,9 +82,11 @@ function isMarkerLine(line: string): boolean {
  */
 function frontmatterBlock(lines: string[]): Block | null {
   if (lines[0]?.trim() !== "---") return null;
+
   let close = 1;
 
   while (close < lines.length && lines[close]!.trim() !== "---") close++;
+
   if (close >= lines.length) return null;
 
   return {
@@ -110,12 +113,17 @@ function singleLineBlock(line: string, lineIndex: number): Block | null {
   });
 
   if (line.startsWith("### ")) return marked("h3");
+
   if (line.startsWith("## ")) return marked("h2");
+
   if (line.startsWith("# ")) return marked("h1");
+
   if (/^(---|\*\*\*|___)\s*$/.test(line)) {
     return { kind: "hr", text: "", lineStart: lineIndex, lineEnd: lineIndex };
   }
+
   if (line.startsWith("- ")) return marked("li");
+
   if (/^\d+\. /.test(line)) return marked("oli");
 
   return null;
@@ -203,10 +211,13 @@ function nextBlock(lines: string[], lineIndex: number): BlockScan {
   const line = lines[lineIndex]!;
 
   if (line.startsWith("```")) return codeBlock(lines, lineIndex);
+
   const single = singleLineBlock(line, lineIndex);
 
   if (single) return { block: single, next: lineIndex + 1 };
+
   if (line.startsWith("> ")) return quoteBlock(lines, lineIndex);
+
   if (isTableStart(lines, lineIndex)) return tableBlock(lines, lineIndex);
 
   return paragraphBlock(lines, lineIndex);
@@ -243,11 +254,13 @@ function blockSourceSegments(
   } else {
     contentLines = rawLines.map((_, rawLine) => ({ rawLine, prefix: 0 }));
   }
+
   const content = contentLines
     .map(({ rawLine, prefix }) => rawLines[rawLine]!.slice(prefix))
     .join("\n");
 
   if (content !== block.text) return undefined;
+
   const rawLineStarts: number[] = [];
   let rawOffset = 0;
 
@@ -317,11 +330,13 @@ export function parseBlocks(markdown: string): Block[] {
     blocks.push(frontmatter);
     lineIndex = frontmatter.lineEnd + 1;
   }
+
   while (lineIndex < lines.length) {
     if (lines[lineIndex]!.trim() === "") {
       lineIndex++;
       continue;
     }
+
     const scan = nextBlock(lines, lineIndex);
 
     blocks.push(scan.block);

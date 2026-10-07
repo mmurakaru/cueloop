@@ -53,6 +53,7 @@ export async function checkHarnessReleaseIntegrity(): Promise<string[]> {
     if (manifest.name !== expectedName) {
       problems.push(`${path}: unexpected integration name ${manifest.name}`);
     }
+
     if (manifest.version !== cliPackage.version) {
       problems.push(`${path}: ${manifest.version} differs from cueloop ${cliPackage.version}`);
     }
@@ -64,18 +65,23 @@ export async function checkHarnessReleaseIntegrity(): Promise<string[]> {
       );
     }
   }
+
   if (!claudeMarketplace.plugins.some((plugin) => plugin.name === "cueloop")) {
     problems.push(".claude-plugin/marketplace.json: cueloop plugin is missing");
   }
+
   if (!piPackage.pi.extensions.includes("./extension.ts")) {
     problems.push("packages/pi/package.json: pi extension is not registered");
   }
+
   if (!piPackage.pi.skills.includes("./skills")) {
     problems.push("packages/pi/package.json: pi skills are not registered");
   }
+
   if (piPackage.peerDependencies["@earendil-works/pi-coding-agent"] !== `^${hostVersions.pi}`) {
     problems.push("packages/pi/package.json: supported pi host differs from install-matrix pin");
   }
+
   for (const path of ["hooks/hooks.json", codexPlugin.extensions["com.openai"].hooks, "mcp.json"]) {
     if (!(await Bun.file(path).exists())) problems.push(`${path}: harness entry point is missing`);
   }

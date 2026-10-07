@@ -22,6 +22,7 @@ export class FxLegacyStartupMessages {
       (previous === undefined && this.messages.size >= MAX_TRACKED_MESSAGES)
     )
       return text;
+
     let remaining = (previous?.text ?? "") + text;
 
     while (remaining) {
@@ -33,6 +34,7 @@ export class FxLegacyStartupMessages {
         remaining = remaining.slice(newline + 1);
         continue;
       }
+
       const couldBeNotice = STARTUP_PREFIXES.some(
         (prefix) => line.startsWith(prefix) || prefix.startsWith(line),
       );
@@ -47,10 +49,12 @@ export class FxLegacyStartupMessages {
 
         return undefined;
       }
+
       if (id !== undefined) this.messages.set(id, { kind: "answer" });
 
       return remaining;
     }
+
     if (id !== undefined) this.messages.delete(id);
 
     return undefined;

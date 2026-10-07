@@ -99,6 +99,7 @@ function fakeClient(initial: Thread, sink: WorkingCopySink): ThreadClient {
 
       sink.workingCopy = content;
       session = { ...session, workingCopy: content };
+
       if (content === undefined) delete session.workingCopy;
 
       return session;
@@ -111,6 +112,7 @@ function fakeClient(initial: Thread, sink: WorkingCopySink): ThreadClient {
 
       sink.workingCopy = content;
       session = { ...session, workingCopy: content };
+
       if (rejections.length) session.curation = rejections;
       else delete session.curation;
 

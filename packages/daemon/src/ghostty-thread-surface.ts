@@ -139,10 +139,12 @@ export function resolveCueloopLaunchCommand(
 
   for (const directory of path?.split(delimiter) ?? []) {
     if (!isAbsolute(directory)) continue;
+
     const candidate = join(directory, "cueloop");
 
     try {
       accessSync(candidate, constants.X_OK);
+
       if (statSync(candidate).isFile()) return shellQuote(candidate);
     } catch {
       // A PATH entry without an executable cannot launch the Thread.
@@ -161,6 +163,7 @@ export function supportsGhosttyAppleScript(version: string | null): boolean {
   const parsed = version?.match(/^(\d+)\.(\d+)\.(\d+)/);
 
   if (!parsed) return false;
+
   const major = Number(parsed[1]);
   const minor = Number(parsed[2]);
 
@@ -183,7 +186,9 @@ export async function openGhosttyThreadSurface(
   cueloopBinPath?: string | null,
 ): Promise<ThreadSurfaceOpenStatus> {
   if (platform !== "darwin" || !insideGhostty(env)) return "unavailable";
+
   if (mode === "none") return "disabled";
+
   if (!supportsGhosttyAppleScript(runAppleScript(binPath, VERSION_SCRIPT))) return "failed";
 
   try {
@@ -236,6 +241,7 @@ async function openClaimedGhosttyThreadSurface(
     const result = runAppleScript(binPath, FOCUS_SCRIPT, [recorded.terminalId]);
 
     if (result === "focused") return { status: "focused", retainClaim: false };
+
     if (result !== "closed") return { status: "failed", retainClaim: false };
   }
 

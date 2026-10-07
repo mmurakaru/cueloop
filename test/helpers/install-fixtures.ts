@@ -63,6 +63,7 @@ export function startTestReleaseServer(): TestReleaseServer {
       const path = new URL(request.url).pathname;
 
       requests.push(path);
+
       if (path === "/releases") {
         // Response.json is minified like a reformatting proxy; the scoped tag sits last to trap a greedy match
         return Response.json([
@@ -70,12 +71,15 @@ export function startTestReleaseServer(): TestReleaseServer {
           { tag_name: SCOPED_PACKAGE_TAG },
         ]);
       }
+
       const download = /^\/download\/cueloop@([^/]+)\/([^/]+)$/.exec(path);
 
       if (!download) return new Response("not found", { status: 404 });
+
       const [, version, file] = download;
 
       if (version === MISSING_ASSET_VERSION) return new Response("not found", { status: 404 });
+
       const binary = testBinaryScript(version!);
 
       if (file === "checksums.txt") {
@@ -83,6 +87,7 @@ export function startTestReleaseServer(): TestReleaseServer {
 
         return new Response(checksumsText(binary, version === BAD_CHECKSUM_VERSION));
       }
+
       if (RELEASE_ASSETS.includes(file!)) return new Response(binary);
 
       return new Response("not found", { status: 404 });

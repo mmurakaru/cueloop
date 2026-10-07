@@ -142,11 +142,13 @@ function normalizePiMessageUpdate(input: PiHarnessFrame): PiHarnessOutput {
 
   if (update.message && update.message.role !== "assistant")
     throw new Error("Pi harness message_update is not an assistant message");
+
   if (event.type === "text_delta") {
     const delta = v.parse(DeltaSchema, update.assistantMessageEvent);
 
     return { kind: "event", event: { kind: "message", text: delta.delta } };
   }
+
   if (event.type === "error") {
     const failure = v.parse(ErrorSchema, update.assistantMessageEvent);
 

@@ -56,6 +56,7 @@ function lineNumberWidth(rows: DiffRow[]): number {
 
   for (const row of rows) {
     if (row.oldLine !== undefined) width = Math.max(width, String(row.oldLine).length);
+
     if (row.newLine !== undefined) width = Math.max(width, String(row.newLine).length);
   }
 
@@ -339,10 +340,12 @@ function splitLayout(splitRows: SplitRow[], rows: DiffRow[], textWidth: number):
 
       return { index, height: row ? headerHeight(row) : 1 };
     }
+
     const sideHeight = (line: SplitLine | undefined): number =>
       line ? codeRowHeight(line.row, textWidth) : 0;
 
     if (pair.left) itemOfRow[pair.left.rowIndex] = index;
+
     if (pair.right) itemOfRow[pair.right.rowIndex] = index;
 
     return { index, height: Math.max(1, sideHeight(pair.left), sideHeight(pair.right)) };
@@ -401,6 +404,7 @@ function codeLineSpans(
       ) {
         previous.text += character;
       } else spans.push({ text: character, fg, bg, attributes });
+
       column++;
     }
   }
@@ -465,12 +469,14 @@ function emphasisBackgroundColumns(
   const columns: Array<string | undefined> = Array.from({ length: text.length }, () => undefined);
 
   if (!intraline || !emphasisBackground) return columns;
+
   let offset = 0;
 
   for (const run of intraline) {
     if (run.changed)
       for (let index = 0; index < run.text.length && offset + index < text.length; index++)
         columns[offset + index] = emphasisBackground;
+
     offset += run.text.length;
   }
 
@@ -655,6 +661,7 @@ export function DiffContentView({
     const scrollbox = scrollRef.current;
 
     if (!scrollbox) return false;
+
     let distance: number;
 
     if (targetY !== undefined) {
@@ -664,10 +671,12 @@ export function DiffContentView({
       distance = direction === 1 ? targetY - bottom : top - targetY;
     } else {
       if (from === to) return false;
+
       const item = layout.itemOfRow[to];
       const target = item === undefined ? undefined : virtual.startOfIndex(item);
 
       if (target === undefined) return false;
+
       const top = scrollbox.scrollTop;
       const bottom = top + scrollbox.viewport.height - 1;
 
@@ -675,8 +684,10 @@ export function DiffContentView({
     }
 
     if (distance <= 0) return false;
+
     // Let the caret commit before scrolling the next visual row into view.
     if (distance === 1) return false;
+
     scrollbox.scrollBy(direction);
 
     return distance > 1;
@@ -689,15 +700,18 @@ export function DiffContentView({
 
   useEffect(() => {
     if (revealItem === undefined || (!surface.compose && !surface.focusedDiscussion)) return;
+
     virtual.scrollToIndex(revealItem, surface.compose ? "end" : "auto");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [surface.revealBlockIndex, surface.compose, surface.focusedDiscussion]);
 
   useLayoutEffect(() => {
     if (revealItem === undefined || surface.compose || surface.focusedDiscussion) return;
+
     const scrollbox = scrollRef.current;
 
     if (!scrollbox) return;
+
     const headY = surface.headVisualY();
 
     if (headY !== undefined) {
@@ -709,9 +723,11 @@ export function DiffContentView({
 
       return;
     }
+
     const start = virtual.startOfIndex(revealItem);
 
     if (start === undefined) return;
+
     const top = scrollbox.scrollTop;
     const bottom = top + scrollbox.viewport.height - 1;
 
@@ -779,6 +795,7 @@ export function DiffContentView({
           </>
         );
       }
+
       if (split) {
         return (
           <>
@@ -862,6 +879,7 @@ export function DiffContentView({
           </text>
         </box>,
       );
+
       // cards render on the side that owns the row, so a shared context row's card is not duplicated
       if (paintMarks) cards.push(...surface.cardsAfterLine(rowIndex, line, isLastLine));
     }
@@ -895,6 +913,7 @@ export function DiffContentView({
     const row = rows[rowIndex]!;
 
     if (!isCodeRow(row)) return headerNode(row, rowIndex);
+
     const { lines, cards } = codeRowLines(row, rowIndex, textWidth, `row-${rowIndex}`);
 
     return (
@@ -919,6 +938,7 @@ export function DiffContentView({
 
       return { node: filler };
     }
+
     // the change side (right: additions and context) owns the caret and marks; the left carries them
     // only on its deletions, so a context row shared by both columns is not marked twice
     const paintMarks = side === "right" || line.kind === "del";
@@ -951,6 +971,7 @@ export function DiffContentView({
         rowIndex,
       );
     }
+
     const left = splitSide(pair.left, "left", textWidth, `pair-${pairIndex}-left`);
     const right = splitSide(pair.right, "right", textWidth, `pair-${pairIndex}-right`);
     // both sides answer to the pair's id, so a reveal of either base row lands here
@@ -993,6 +1014,7 @@ export function DiffContentView({
     if (firstItem.start > 0) {
       materialized.push(<box key="spacer-above" style={{ height: firstItem.start }} />);
     }
+
     for (const item of virtual.items) {
       // the wrapper is what gets measured, so a row's cards count toward its height
       materialized.push(
@@ -1001,6 +1023,7 @@ export function DiffContentView({
         </box>,
       );
     }
+
     if (below > 0) materialized.push(<box key="spacer-below" style={{ height: below }} />);
   }
 
@@ -1020,7 +1043,9 @@ export function DiffContentView({
             const scrollbox = scrollRef.current;
 
             if (!scrollbox || !event.scroll || event.modifiers.shift) return;
+
             if (event.scroll.direction !== "up" && event.scroll.direction !== "down") return;
+
             const before = scrollbox.scrollTop;
             const followCaret = surface.prepareViewportScroll();
 

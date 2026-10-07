@@ -18,6 +18,7 @@ export function obsidianConfigPath(platform: NodeJS.Platform = process.platform)
   if (platform === "darwin") {
     return join(homedir(), "Library", "Application Support", "obsidian", "obsidian.json");
   }
+
   if (platform === "win32") {
     return join(
       process.env.APPDATA ?? join(homedir(), "AppData", "Roaming"),

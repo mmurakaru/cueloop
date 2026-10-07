@@ -83,6 +83,7 @@ function createTestAgentClient(initial: ThreadAgentState) {
     agentGet: async () => state,
     agentPrompt: async (params) => {
       prompts.push(params);
+
       if (params.text)
         state = {
           ...state,
@@ -314,6 +315,7 @@ test("three bottom prompts survive delayed acceptance and remain separate submis
 
   client.agentPrompt = async (params) => {
     prompts.push(params.text);
+
     if (prompts.length === 1)
       return new Promise((resolve) => {
         release = resolve;
@@ -895,6 +897,7 @@ test("an arriving reply preserves a bottom draft and submits it as the next prom
 
   client.agentPrompt = async (params) => {
     prompts.push(params);
+
     if (prompts.length === 1)
       return new Promise<ThreadAgentState>((resolve) => {
         finish = resolve;
@@ -1065,6 +1068,7 @@ test("a failed mutation flush restores the prompt alongside a newer visible draf
       onOpenFile={noop}
       flushMutations={() => {
         if (flushStarted) return Promise.resolve();
+
         flushStarted = true;
 
         return failedFlush;

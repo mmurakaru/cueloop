@@ -24,6 +24,7 @@ export async function timeToFirstPaint(
     await new Promise((resolve) => setTimeout(resolve, 0));
     // eslint-disable-next-line no-await-in-loop
     await setup.renderOnce();
+
     if (present(setup.captureCharFrame())) return performance.now() - started;
   }
 

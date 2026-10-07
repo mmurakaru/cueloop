@@ -71,6 +71,7 @@ function placementKeys(imageId: number, region: CellRegion): string {
 // cannot pre-place a symlink at the screenshot path and redirect the write.
 function writeTempPng(png: Uint8Array): string {
   if (!privateTempDir) privateTempDir = mkdtempSync(join(tmpdir(), "cueloop-prototype-"));
+
   const path = join(privateTempDir, `${tempFileCounter++}.png`);
 
   writeFileSync(path, png, { flag: "wx" });
@@ -119,6 +120,7 @@ export function transmitKittyImage(
   medium: TransmitMedium = "base64",
 ): void {
   if (region.columns < 1 || region.rows < 1) return;
+
   const body =
     medium === "file" ? fileTransmit(png, region, imageId) : base64Transmit(png, region, imageId);
 
@@ -128,6 +130,7 @@ export function transmitKittyImage(
 /** Re-place the already-transmitted image over its region, cheaply (a=p, no data). */
 export function placeKittyImage(write: OrderedWrite, region: CellRegion, imageId: number): void {
   if (region.columns < 1 || region.rows < 1) return;
+
   write(atRegion(region, graphicsCommand(`a=p,${placementKeys(imageId, region)}`, "")));
 }
 

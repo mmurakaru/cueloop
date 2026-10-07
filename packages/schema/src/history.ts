@@ -105,6 +105,7 @@ export function pathOf(history: SessionHistory, fromId: string = tipOf(history))
   ) {
     if (seen.has(entry.id))
       throw new HistoryError("cycle", `entry "${entry.id}" is its own ancestor`);
+
     seen.add(entry.id);
     path.unshift(entry);
   }
@@ -123,6 +124,7 @@ export function validateHistory(history: SessionHistory): string | null {
 
   for (const entry of history.entries) {
     if (ids.has(entry.id)) return `duplicate entry id "${entry.id}"`;
+
     ids.add(entry.id);
   }
   for (const entry of history.entries) {
@@ -130,11 +132,15 @@ export function validateHistory(history: SessionHistory): string | null {
       return `entry "${entry.id}" points at missing parent "${entry.parentId}"`;
     }
   }
+
   if (history.tips[MAIN_BRANCH] === undefined) return `no "${MAIN_BRANCH}" branch`;
+
   if (history.tips[history.branch] === undefined)
     return `current branch "${history.branch}" has no tip`;
+
   for (const [branch, tip] of Object.entries(history.tips)) {
     if (!ids.has(tip)) return `branch "${branch}" points at missing entry "${tip}"`;
+
     try {
       if (!pathOf(history, tip).some((entry) => entry.type === "revision")) {
         return `branch "${branch}" has no revision on its path`;
@@ -170,14 +176,18 @@ export function derivePath(history: SessionHistory, fromId?: string): DerivedPat
   const head = revisions.at(-1);
 
   if (!head) throw new HistoryError("not-a-revision", "a path without a revision has no head");
+
   const open = new Set<string>();
   const messages: Message[] = [];
   const summaries: Array<SessionEntry & { type: "branch-summary" }> = [];
 
   for (const entry of path) {
     if (entry.type === "comment") open.add(entry.annotationId);
+
     if (entry.type === "comment-removed") open.delete(entry.annotationId);
+
     if (entry.type === "message") messages.push(entry.message);
+
     if (entry.type === "branch-summary") summaries.push(entry);
   }
 
@@ -265,9 +275,11 @@ export function navigateTo(
   if (!entryOf(history, targetId)) {
     throw new HistoryError("unknown-entry", `no entry "${targetId}"`);
   }
+
   const tip = tipOf(history);
 
   if (targetId === tip) throw new HistoryError("already-there", "already at that entry");
+
   const path = pathOf(history);
   const index = path.findIndex((entry) => entry.id === targetId);
 
@@ -277,6 +289,7 @@ export function navigateTo(
       `"${targetId}" is not on branch "${history.branch}" - switch branch first`,
     );
   }
+
   const abandoned = path.slice(index + 1).map((entry) => entry.id);
   const moved: SessionHistory = {
     ...history,
@@ -306,6 +319,7 @@ export function forkHistory(history: SessionHistory): SessionHistory {
   for (const entry of pathOf(history)) {
     if (entry.type === "message" || (entry.type === "revision" && entry.by === "reviewer"))
       continue;
+
     kept.push({ ...entry, parentId: kept.at(-1)?.id ?? null });
     const label = history.labels[entry.id];
 
@@ -397,6 +411,7 @@ export function historyFromLinear(
       nextComment++;
     }
   });
+
   if (session.message) {
     push({
       id: `${session.id}_message`,
@@ -405,6 +420,7 @@ export function historyFromLinear(
       createdAt: session.message.sentAt,
     });
   }
+
   const tip = entries.at(-1);
 
   if (!tip) throw new HistoryError("not-a-revision", `session ${session.id} has no revision`);

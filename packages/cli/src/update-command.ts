@@ -52,6 +52,7 @@ async function fetchLatestVersion(): Promise<string | undefined> {
     const response = await fetch(RELEASES_URL, { headers: { "user-agent": "cueloop-update" } });
 
     if (!response.ok) return undefined;
+
     const parsed = v.safeParse(ReleasesSchema, await response.json());
 
     if (!parsed.success) return undefined;
@@ -87,6 +88,7 @@ async function runInstaller(targetInstallDir: string): Promise<number> {
 
       return 1;
     }
+
     const parsed = v.safeParse(InstallerScriptSchema, await response.text());
 
     if (!parsed.success) {
@@ -94,6 +96,7 @@ async function runInstaller(targetInstallDir: string): Promise<number> {
 
       return 1;
     }
+
     const child = Bun.spawn(["sh"], {
       stdin: "pipe",
       stdout: "inherit",
@@ -143,11 +146,13 @@ export async function runUpdate(deps: UpdateDeps, dryRun: boolean): Promise<numb
 
     return 1;
   }
+
   if (!targetInstallDir.startsWith("/")) {
     deps.error("cueloop update: CUELOOP_INSTALL_DIR must be an absolute path");
 
     return 1;
   }
+
   deps.out(`Current version: ${deps.currentVersion}`);
 
   if (dryRun) {
@@ -155,6 +160,7 @@ export async function runUpdate(deps: UpdateDeps, dryRun: boolean): Promise<numb
 
     return 0;
   }
+
   deps.out("Checking for updates to latest version...");
   const latest = await deps.fetchLatestVersion();
 
@@ -163,6 +169,7 @@ export async function runUpdate(deps: UpdateDeps, dryRun: boolean): Promise<numb
 
     return 0;
   }
+
   deps.out(`updating cueloop in ${targetInstallDir}...`);
   const exitCode = await deps.runInstaller(targetInstallDir);
 

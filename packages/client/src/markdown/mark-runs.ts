@@ -36,6 +36,7 @@ export function runsFor(text: string, ranges: MarkRange[]): Run[] {
     const end = edges[index + 1]!;
 
     if (end <= start) continue;
+
     const covering = ranges.filter((range) => range.start <= start && end <= range.end);
 
     // the caret cell shows through a mark, so the head of a selection is visible
@@ -84,6 +85,7 @@ export function wrapLines(text: string, width: number): VisualLine[] {
           lines.push({ start: lineStart, end: lineEnd });
           lineStart = wordStart;
         }
+
         // a token wider than the line (a long identifier, a URL) breaks at the cell edge, so
         // every visual line stays one terminal row and nothing is clipped away
         while (wordEnd - lineStart > width) {
@@ -94,6 +96,7 @@ export function wrapLines(text: string, width: number): VisualLine[] {
       }
       lines.push({ start: lineStart, end: Math.max(lineEnd, lineStart) });
     }
+
     segmentStart = segmentEnd + 1;
   }
 
@@ -114,6 +117,7 @@ export function lineMarkRanges(ranges: MarkRange[], line: VisualLine): MarkRange
 /** Printable input that should reach a composer: one key, or a whole pasted run in one event. */
 export function printableSequence(key: KeyEvent): string | null {
   if (!key.sequence || key.ctrl || key.meta) return null;
+
   // reject any run carrying a control byte, so escape sequences and \r\t\b never seed a draft
   for (const character of key.sequence) if (character < " ") return null;
 

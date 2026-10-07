@@ -17,6 +17,7 @@ function statusFromCode(code: string): DiffFileStatus {
   const letter = code.charAt(0);
 
   if (letter === "D") return "deleted";
+
   if (letter === "A") return "added";
 
   return "modified";
@@ -35,6 +36,7 @@ export async function workingChangeList(
 
   for (const line of tracked.split("\n")) {
     if (line.trim().length === 0) continue;
+
     const parts = line.split("\t");
 
     // a rename is "R100<tab>old<tab>new"; the new path (last field) is what the reviewer opens
@@ -101,11 +103,13 @@ async function trackedFileContents(cwd: string): Promise<DiffFileContents[]> {
       cursor += 2;
       continue;
     }
+
     const path = tokens[cursor++]!;
     const oldContents = code === "A" ? "" : await headContents(path, cwd);
     const newContents = code === "D" ? "" : await workingContents(path, cwd);
 
     if (looksBinary(oldContents) || looksBinary(newContents)) continue;
+
     const status = code === "A" ? "added" : code === "D" ? "deleted" : "modified";
 
     files.push({ path, oldContents, newContents, status });

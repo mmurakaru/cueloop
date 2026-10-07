@@ -30,6 +30,7 @@ export function useDocsSearch(query: string, limit = 8): SearchHit[] {
 
   useEffect(() => {
     if (indexCache) return;
+
     fetch("/search-index.json")
       .then((response) => response.json())
       .then((value) => parse(searchDocsSchema, value))
@@ -48,6 +49,7 @@ export function useDocsSearch(query: string, limit = 8): SearchHit[] {
     if (!needle) {
       return docs.slice(0, 6).map((doc) => ({ doc, titleRanges: [] }));
     }
+
     // Deterministic substring match: title matches first (with the matched
     // range bolded), then pages whose headings contain the query.
     const titleHits: SearchHit[] = [];
@@ -70,16 +72,20 @@ export function useDocsSearch(query: string, limit = 8): SearchHit[] {
 /** Render text with the given char ranges bolded (Fuse indices are inclusive). */
 export function highlight(text: string, ranges: readonly [number, number][]): ReactNode {
   if (!ranges.length) return text;
+
   const ordered = [...ranges].sort((a, b) => a[0] - b[0]);
   const parts: ReactNode[] = [];
   let cursor = 0;
 
   ordered.forEach(([start, end], index) => {
     if (start < cursor) return;
+
     if (start > cursor) parts.push(text.slice(cursor, start));
+
     parts.push(<strong key={index}>{text.slice(start, end + 1)}</strong>);
     cursor = end + 1;
   });
+
   if (cursor < text.length) parts.push(text.slice(cursor));
 
   return parts;

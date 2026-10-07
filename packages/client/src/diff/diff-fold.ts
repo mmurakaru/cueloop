@@ -55,6 +55,7 @@ export function weaveFullFileRows(
       fillTo(row.newLine);
       woven.push(row);
       newCursor = row.newLine + 1;
+
       if (row.kind === "ctx") oldCursor = (row.oldLine ?? oldCursor) + 1;
     } else {
       // a deletion consumes an old line only; it keeps its place before the additions
@@ -90,6 +91,7 @@ export function applyFold(
   files: readonly FileContents[] | undefined,
 ): DiffRow[] {
   if (collapsed.size === 0 && expanded.size === 0) return base;
+
   const contentsByPath = new Map((files ?? []).map((file) => [file.path, file]));
   const out: DiffRow[] = [];
   let index = 0;
@@ -102,6 +104,7 @@ export function applyFold(
       index += 1;
       continue;
     }
+
     out.push(row);
     const file = row.file;
     let end = index + 1;
@@ -119,6 +122,7 @@ export function applyFold(
     } else {
       out.push(...body);
     }
+
     index = end;
   }
 

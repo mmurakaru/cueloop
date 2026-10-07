@@ -91,6 +91,7 @@ test("reconnect subscribes again and refreshes authoritative state even without 
       },
       onValue: (state) => {
         values.push(state.artifact.meta.title ?? "Initial");
+
         if (connections === 1) initial.resolve();
         else recovered.resolve();
       },
@@ -126,6 +127,7 @@ test("a malformed protocol frame stops the observer instead of reconnecting", as
       open(socket) {
         reads.set(socket, new LineBuffer());
         connections++;
+
         if (connections > 1) failed.reject(new Error("Unexpected reconnect"));
       },
       data(socket, bytes) {
@@ -141,6 +143,7 @@ test("a malformed protocol frame stops the observer instead of reconnecting", as
                   : {},
             }) + "\n",
           );
+
           if (request.method === "events.subscribe") socket.write("{broken\n");
         });
       },

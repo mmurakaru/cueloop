@@ -77,6 +77,7 @@ let scenarioSpecsCache: ScenarioSpec[] | null = null;
 /** Read and validate the scenario manifest that sits next to this host, once. */
 export function loadScenarioSpecs(): ScenarioSpec[] {
   if (scenarioSpecsCache !== null) return scenarioSpecsCache;
+
   const text = readFileSync(join(HOST_DIR, "scenarios.json"), "utf8");
 
   scenarioSpecsCache = v.parse(ScenariosSchema, JSON.parse(text));
@@ -90,6 +91,7 @@ export function parseAssertions(text: string): ScenarioAssertion[] {
 
   for (const line of text.split("\n")) {
     if (line === "") continue;
+
     const [id, status, detail = ""] = line.split("\t");
 
     if (id === undefined || status === undefined) continue;
@@ -134,6 +136,7 @@ function startReleaseServer(assetsDir: string) {
       if (pathname === "/releases") {
         return Response.json(tags.map((tag) => ({ tag_name: tag })));
       }
+
       const requestUrl = new URL(request.url);
       const download = /^\/download\/([^/]+)\/([^/]+)$/.exec(pathname);
 
@@ -142,17 +145,21 @@ function startReleaseServer(assetsDir: string) {
 
         return Response.redirect(target, 302);
       }
+
       const object = /^\/objects\/([^/]+)\/([^/]+)$/.exec(pathname);
 
       if (!object) return new Response("not found", { status: 404 });
+
       const [, tag, asset] = object;
 
       if (tag === undefined || asset === undefined) {
         return new Response("bad path", { status: 400 });
       }
+
       if (tag.includes("..") || asset.includes("..")) {
         return new Response("bad path", { status: 400 });
       }
+
       const file = Bun.file(join(assetsDir, tag, asset));
 
       return (await file.exists())
@@ -252,7 +259,9 @@ function scenarioFailureLines(scenario: ScenarioResult): string[] {
   const lines: string[] = [];
 
   if (scenario.exitCode !== 0) lines.push(`script exited ${scenario.exitCode}`);
+
   if (scenario.assertions.length === 0) lines.push("scenario recorded no assertions");
+
   for (const assertion of scenario.assertions) {
     if (!assertion.passed) lines.push(`${assertion.id}: ${assertion.detail}`);
   }
@@ -268,6 +277,7 @@ export function toJUnitXml(result: MatrixResult): string {
       const open = `    <testcase name="${escapeXml(scenario.name)}" classname="${escapeXml(result.platform)}">`;
 
       if (scenario.passed) return `${open}</testcase>`;
+
       const body = escapeXml(scenarioFailureLines(scenario).join("\n"));
 
       return `${open}\n      <failure message="scenario failed">${body}</failure>\n    </testcase>`;
@@ -292,6 +302,7 @@ function printSummary(result: MatrixResult): void {
     const mark = scenario.passed ? "PASS" : "FAIL";
 
     console.log(`  ${mark}  ${scenario.name}  ${scenario.description}`);
+
     if (!scenario.passed) {
       for (const line of scenarioFailureLines(scenario)) console.log(`          ${line}`);
     }
@@ -327,6 +338,7 @@ async function main(): Promise<void> {
   });
 
   printSummary(result);
+
   if (parsed.values.out !== "") {
     mkdirSync(parsed.values.out, { recursive: true });
     writeFileSync(join(parsed.values.out, "result.json"), `${JSON.stringify(result, null, 2)}\n`);

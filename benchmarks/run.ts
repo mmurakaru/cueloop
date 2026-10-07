@@ -97,6 +97,7 @@ if (import.meta.main) {
   if (!Number.isInteger(samples) || samples < 1) {
     throw new Error("benchmark sampler: --samples must be a positive integer");
   }
+
   const defaultScripts = values["source-only"] ? SOURCE_SCRIPTS : DEFAULT_SCRIPTS;
   const scripts = values.script && values.script.length > 0 ? values.script : defaultScripts;
   const samplesByMetric = new Map<string, number[]>();
@@ -113,6 +114,7 @@ if (import.meta.main) {
   };
 
   console.log(formatRunTable(run));
+
   if (values.out) {
     mkdirSync(dirname(values.out), { recursive: true });
     await Bun.write(values.out, `${JSON.stringify(run, null, 2)}\n`);

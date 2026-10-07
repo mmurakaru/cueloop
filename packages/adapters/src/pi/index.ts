@@ -66,11 +66,13 @@ function requestFor(
 
     return { ...common, workflow: "review", pullRequestReference: params.pullRequestReference };
   }
+
   if (params.workflow === "refine") {
     if (!params.proposal) throw new Error("refine needs proposal from the corpus report");
 
     return { ...common, workflow: "refine", proposal: params.proposal };
   }
+
   if (!params.content) throw new Error(`${params.workflow} needs content`);
 
   return { ...common, workflow: params.workflow, content: params.content, title: params.title };
@@ -94,6 +96,7 @@ export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
   return function cueloopExtension(pi: PiExtensionAPI): void {
     async function reconcile(binding: HarnessBinding): Promise<void> {
       if (!client || !controller || binding.harnessSessionId !== activeSessionId) return;
+
       pendingThreads.add(binding.threadId);
       const thread = await client.sessionGet(binding.threadId);
 
@@ -102,17 +105,22 @@ export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
           nativeMessages.sendOnce(message, () => {
             if (binding.harnessSessionId !== activeSessionId)
               throw new Error("pi conversation changed before Message injection");
+
             pi.sendUserMessage(wakeMessage(thread.id, message), { deliverAs: "followUp" });
           }),
       });
+
       if (thread.status !== "pending") pendingThreads.delete(thread.id);
     }
 
     function retryReconcile(binding: HarnessBinding): void {
       if (reconciliationTimers.has(binding.id)) return;
+
       const timer = setTimeout(() => {
         reconciliationTimers.delete(binding.id);
+
         if (bindings.get(binding.id) !== binding) return;
+
         void reconcile(binding).catch(() => retryReconcile(binding));
       }, 500);
 
@@ -122,11 +130,14 @@ export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
 
     function scheduleReconnect(context: PiContext): void {
       if (reconnectTimer) return;
+
       const expectedGeneration = generation;
 
       reconnectTimer = setTimeout(() => {
         reconnectTimer = null;
+
         if (generation !== expectedGeneration) return;
+
         void start(context, true).catch(() => scheduleReconnect(context));
       }, 500);
       reconnectTimer.unref?.();
@@ -140,8 +151,11 @@ export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
       activeSessionId = null;
       starting = null;
       bindings.clear();
+
       if (!preservePending) pendingThreads.clear();
+
       if (reconnectTimer) clearTimeout(reconnectTimer);
+
       reconnectTimer = null;
       for (const timer of reconciliationTimers.values()) clearTimeout(timer);
       reconciliationTimers.clear();
@@ -151,7 +165,9 @@ export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
       const sessionId = context.sessionManager?.getSessionId();
 
       if (!sessionId) throw new Error("pi did not provide a conversation ID");
+
       if (starting) return starting;
+
       const existingClient = client;
       const sameSession = existingClient !== null && activeSessionId === sessionId;
 
@@ -164,6 +180,7 @@ export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
           preservePending = true;
         }
       }
+
       stop(preservePending);
       const currentGeneration = generation;
 
@@ -175,6 +192,7 @@ export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
 
           return;
         }
+
         try {
           const shared = createHarnessThreadController(connected, {
             surface: createTerminalThreadSurfacePort(connected),
@@ -194,16 +212,20 @@ export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
               pendingThreads.delete(event.sessionId);
               for (const binding of bindings.values()) {
                 if (binding.threadId !== event.sessionId) continue;
+
                 bindings.delete(binding.id);
                 const timer = reconciliationTimers.get(binding.id);
 
                 if (timer) clearTimeout(timer);
+
                 reconciliationTimers.delete(binding.id);
               }
 
               return;
             }
+
             if (event.event !== "message.sent" && event.event !== "session.revised") return;
+
             const binding = [...bindings.values()].find(
               (item) => item.threadId === event.sessionId,
             );
@@ -267,17 +289,20 @@ export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
           const parsed = v.safeParse(OpenThreadParamsSchema, params);
 
           if (!parsed.success) throw new Error("pi Thread request is invalid");
+
           await start(context);
           const sessionId = activeSessionId;
 
           if (!controller || !sessionId) {
             throw new Error("pi Thread adapter is not ready");
           }
+
           const opened = await controller.openWorkflow(
             requestFor(parsed.output, sessionId, context.cwd),
           );
 
           bindings.set(opened.binding.id, opened.binding);
+
           if (opened.approvedRetry) {
             return {
               content: text("The unchanged approved plan may proceed."),
@@ -289,6 +314,7 @@ export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
               },
             };
           }
+
           pendingThreads.add(opened.thread.id);
 
           return {
@@ -331,6 +357,7 @@ export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
 
     pi.on("tool_call", (event) => {
       if (!pendingThreads.size) return undefined;
+
       if (event.toolName === OPEN_THREAD_TOOL || READ_ONLY_TOOLS.has(event.toolName))
         return undefined;
 

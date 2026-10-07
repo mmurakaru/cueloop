@@ -39,6 +39,7 @@ export function subscribeToFrames(renderer: Renderer, measure: Measure): () => v
 
   return () => {
     measures.delete(measure);
+
     if (measures.size > 0) return;
 
     renderer.off("frame", notify);
@@ -59,6 +60,7 @@ export function useFrameMeasure<T>(
   useEffect(() => {
     // a measurement only needed while a popover is open subscribes no per-frame listener when closed
     if (!active) return;
+
     const measure = (): void => {
       const next = read();
 
@@ -66,6 +68,7 @@ export function useFrameMeasure<T>(
     };
 
     measure();
+
     if (renderer) return subscribeToFrames(renderer, measure);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [renderer, active]);

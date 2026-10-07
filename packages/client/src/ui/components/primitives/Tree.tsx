@@ -31,7 +31,9 @@ function rowGlyph(isFolder: boolean, expanded: boolean, icons: TreeIcons): strin
 
 function toneColor(tone: TreeTone, theme: Theme): string {
   if (tone === "green") return theme.green;
+
   if (tone === "blue") return theme.blue;
+
   if (tone === "red") return theme.red;
 
   return theme.textDim;
@@ -90,9 +92,11 @@ export function Tree({
                 lastClick.current?.id === row.id && isDoubleClick(lastClick.current.stamp, stamp);
 
               lastClick.current = { id: row.id, stamp };
+
               if (row.isFolder) onToggle?.(row.id);
               else {
                 onSelect?.(row.id);
+
                 if (doubleClick) onDoubleSelect?.(row.id);
               }
             }}

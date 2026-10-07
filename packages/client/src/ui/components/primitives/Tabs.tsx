@@ -60,6 +60,7 @@ export function TabList({ children }: TabListProps): React.ReactNode {
   const tabs = useContext(TabsContext);
 
   if (!tabs) throw new Error("TabList must render inside Tabs");
+
   const tokens = useComponentTheme(tabs.theme);
   const items: { id: string; label: string }[] = [];
 

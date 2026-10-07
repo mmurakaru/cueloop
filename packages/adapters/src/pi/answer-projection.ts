@@ -18,19 +18,23 @@ export class PiAnswerProjection {
   apply(event: AgentEvent): void {
     if (event.type === "submission" && event.record.type === "input" && event.record.entry)
       this.inputId ??= event.record.entry;
+
     if (event.type === "message_start")
       this.partial =
         event.message.role === "assistant" ? structuredClone(event.message) : undefined;
+
     if (event.type === "message_end") {
       this.entries = [...this.entries.filter((entry) => entry.id !== event.entry.id), event.entry];
       this.partial = undefined;
     }
+
     if (event.type === "message_update")
       for (const change of event.changes) {
         if (change.type === "message") this.partial = structuredClone(change.message);
         else if (this.partial) {
           if (change.type === "block" || "block" in change)
             this.partial.content[change.contentIndex] = structuredClone(change.block);
+
           if (change.type === "text_delta") {
             const block = this.partial.content[change.contentIndex];
 
@@ -42,11 +46,14 @@ export class PiAnswerProjection {
 
   text(): string {
     if (!this.inputId) return "";
+
     let text = "";
 
     for (const entry of [...this.entries].sort((a, b) => a.id - b.id)) {
       if (entry.id <= this.inputId) continue;
+
       if (entry.model?.some((message) => message.role === "user")) break;
+
       text += entry.model?.map(assistantText).join("") ?? "";
     }
 

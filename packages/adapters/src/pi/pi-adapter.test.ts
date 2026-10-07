@@ -65,10 +65,12 @@ function fakePi(options: { failFirstMessage?: boolean } = {}): FakePi {
     registerCommand: (name, command) => commands.set(name, command),
     sendUserMessage: (message, options) => {
       attempts += 1;
+
       if (failFirstMessage) {
         failFirstMessage = false;
         throw new Error("native pi message injection failed");
       }
+
       sentMessages.push({ content: message, options });
       wakes.push(message);
     },
@@ -78,6 +80,7 @@ function fakePi(options: { failFirstMessage?: boolean } = {}): FakePi {
 
         return;
       }
+
       const registered = handlers.get(event) ?? [];
 
       registered.push(handler);
@@ -114,6 +117,7 @@ async function waitForWake(fake: FakePi): Promise<void> {
 async function waitForGateOpen(fake: FakePi, sessionId: string): Promise<void> {
   for (let attempt = 0; attempt < 100; attempt++) {
     if ((await fake.gate(toolCall("write"), context(sessionId))) === undefined) return;
+
     await Bun.sleep(10);
   }
 

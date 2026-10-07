@@ -22,9 +22,11 @@ export type HerdrEnv = Record<string, string | undefined>;
  */
 export function detectHerdr(env: HerdrEnv = process.env): HerdrContext | null {
   if (env.HERDR_ENV !== "1") return null;
+
   const paneId = env.HERDR_PANE_ID;
 
   if (!paneId) return null;
+
   // herdr 0.8.0 exposes no HERDR_BIN_PATH; the CLI is `herdr` on PATH and finds
   // the app over HERDR_SOCKET_PATH from the inherited env. Tests still override
   // HERDR_BIN_PATH to point the spawn at a stub script.
@@ -48,6 +50,7 @@ export function returnPaneFor(
   env: HerdrEnv = process.env,
 ): string | undefined {
   if (!insideHerdr(env)) return undefined;
+
   const pane = env.CUELOOP_RETURN_PANE ?? sessionHerdrPane;
 
   return pane && pane !== env.HERDR_PANE_ID ? pane : undefined;

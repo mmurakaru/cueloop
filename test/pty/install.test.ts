@@ -79,6 +79,7 @@ for (const terminalName of ["xterm-256color", "dumb"]) {
         for (const segment of segments) expect(segment.indexOf(message)).toBe(4);
       }
     }
+
     if (terminalName === "dumb") expect(output).not.toContain("\r\x1b[K");
   });
 }

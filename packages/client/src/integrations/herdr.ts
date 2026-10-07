@@ -21,9 +21,11 @@ export function focusHerdrPane(binPath: string, paneId: string): boolean {
     });
 
     if (got.exitCode !== 0) return false;
+
     const parsed = v.safeParse(HerdrPaneSchema, JSON.parse(got.stdout.toString()));
 
     if (!parsed.success) return false;
+
     const tab = parsed.output.result?.pane?.tab_id;
 
     if (!tab) return false;

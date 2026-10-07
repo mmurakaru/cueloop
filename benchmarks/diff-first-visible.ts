@@ -42,6 +42,7 @@ async function timeToVisible(home: string, cwd: string, file = FILE): Promise<Vi
       if (performance.now() >= deadline) {
         throw new Error(`Changed file did not appear within ${TIMEOUT_MS}ms:\n${session.text()}`);
       }
+
       await Bun.sleep(POLL_MS);
     }
 

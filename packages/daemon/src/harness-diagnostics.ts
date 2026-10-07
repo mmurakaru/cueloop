@@ -20,6 +20,7 @@ export function writeHarnessDiagnostic(
 
   try {
     mkdirSync(directory, { recursive: true, mode: 0o700 });
+
     if (existsSync(path) && statSync(path).size + Buffer.byteLength(record) > 256 * 1024)
       writeFileSync(path, record, { mode: 0o600 });
     else appendFileSync(path, record, { mode: 0o600 });

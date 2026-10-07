@@ -180,6 +180,7 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
             delay: 0.05,
           });
         }
+
         // Section blocks rise in as they enter the viewport.
         revealBlocks.forEach((block) => {
           gsap.to(block, {

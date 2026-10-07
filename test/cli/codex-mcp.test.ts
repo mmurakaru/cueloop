@@ -14,7 +14,9 @@ beforeEach(() => {
 });
 afterEach(async () => {
   processHandle?.kill();
+
   if (processHandle) await processHandle.exited;
+
   server?.stop();
   rmSync(home, { recursive: true, force: true });
 });
@@ -65,6 +67,7 @@ test("Codex MCP lists the shared workflow tool in a real stdio exchange", async 
 
         continue;
       }
+
       const chunk = await Promise.race([
         reader.read(),
         new Promise<never>((_, reject) =>
@@ -73,6 +76,7 @@ test("Codex MCP lists the shared workflow tool in a real stdio exchange", async 
       ]);
 
       if (chunk.done) throw new Error("MCP process closed stdout");
+
       buffer += decoder.decode(chunk.value);
     }
 

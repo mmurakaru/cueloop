@@ -443,4 +443,5 @@ try {
   process.removeListener("SIGINT", cancel);
   process.removeListener("SIGTERM", cancel);
 }
+
 if (failure) process.exitCode = 1;

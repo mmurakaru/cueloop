@@ -51,6 +51,7 @@ async function runScriptProcess(
 
       throw new Error(`benchmark ${script} exited with code ${code}${timedOut}`);
     }
+
     const metrics = new Map<string, number>();
 
     for (const line of stdout.split("\n")) {

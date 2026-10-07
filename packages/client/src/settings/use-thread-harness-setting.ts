@@ -47,6 +47,7 @@ export function useThreadHarnessSetting(options: ThreadHarnessSettingOptions) {
               (connection = await DaemonClient.connect({ home: request.home, autostart: true }));
 
             if (!api.agentConfigure) throw new Error("Thread harness switching is unavailable");
+
             const state = await api.agentConfigure({
               id: requestedId,
               configId: "harness",
@@ -55,6 +56,7 @@ export function useThreadHarnessSetting(options: ThreadHarnessSettingOptions) {
 
             if (latest.current.thread?.id === requestedId) latest.current.onState(state);
           }
+
           persistThreadHarness(harness);
           latest.current.onPreferred(harness);
         } catch (failure) {

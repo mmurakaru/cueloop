@@ -126,6 +126,7 @@ function terminalColorScheme(textColor: string): "dark" | "light" {
   const hex = textColor.replace("#", "");
 
   if (hex.length < 6) return "dark";
+
   const r = parseInt(hex.slice(0, 2), 16);
   const g = parseInt(hex.slice(2, 4), 16);
   const b = parseInt(hex.slice(4, 6), 16);
@@ -181,12 +182,14 @@ function PrototypeContentViewImpl({
   // harness), but the launch trigger still runs.
   useEffect(() => {
     if (!renderer) return;
+
     const rendererOutput = v.safeParse(v.object({ writeOut: v.function() }), renderer);
     const rawWrite = rendererOutput.success ? rendererOutput.output.writeOut : null;
     const write = rawWrite ? (chunk: string) => rawWrite.call(renderer, chunk) : null;
     const medium = resolveTransmitMedium();
     const paint = (): void => {
       if (!write) return;
+
       // an app overlay is covering the sheet: pull the image so it does not show
       // through the overlay's cells, and re-transmit once the overlay closes
       if (hiddenRef.current) {
@@ -197,10 +200,12 @@ function PrototypeContentViewImpl({
 
         return;
       }
+
       const region = regionOf(regionRef.current);
       const png = pngRef.current;
 
       if (!region || !png) return;
+
       if (transmittedRef.current !== png) {
         transmitKittyImage(write, png, region, PROTOTYPE_IMAGE_ID, medium);
         transmittedRef.current = png;
@@ -219,6 +224,7 @@ function PrototypeContentViewImpl({
 
     return () => {
       renderer.off("frame", onFrame);
+
       if (write) deleteKittyImage(write, PROTOTYPE_IMAGE_ID);
     };
   }, [renderer]);
@@ -241,11 +247,13 @@ function PrototypeContentViewImpl({
     const caps = renderer?.capabilities;
 
     if (launchedRef.current || !region) return;
+
     if (caps && caps.kitty_graphics === false) {
       setStatus("unsupported");
 
       return;
     }
+
     launchedRef.current = true;
     const capture = captureConfig(region, renderer!);
 
@@ -266,6 +274,7 @@ function PrototypeContentViewImpl({
 
           return;
         }
+
         browserRef.current = browser;
         setPng(await browser.screenshot());
         setStatus("ready");
@@ -304,6 +313,7 @@ function PrototypeContentViewImpl({
     const region = regionOf(regionRef.current);
 
     if (status !== "ready" || !browser || !region) return;
+
     const geometry = {
       x: region.column,
       y: region.row,
@@ -313,10 +323,12 @@ function PrototypeContentViewImpl({
     const cssPoint = imageCellToCss(event, geometry, viewportRef.current);
 
     if (!cssPoint) return;
+
     void (async () => {
       const element = await browser.elementAt(cssPoint.x, cssPoint.y);
 
       if (!element) return;
+
       const cell = cssBoxToCell(element.box, geometry, viewportRef.current);
       const topRaw = cell.row - geometry.y;
 
@@ -326,6 +338,7 @@ function PrototypeContentViewImpl({
         top: Math.max(0, topRaw < OVERLAY_ROWS ? topRaw + 1 : topRaw - OVERLAY_ROWS),
         regionColumns: geometry.width,
       });
+
       // selecting an element opens the compose card directly, the same edit
       // primitive plan and diff use - there is no intermediate marker toolbar
       if (canComment) {
@@ -344,6 +357,7 @@ function PrototypeContentViewImpl({
     const browser = browserRef.current;
 
     if (status !== "ready" || !browser) return;
+
     const delta = event.scroll?.direction === "up" ? -SCROLL_STEP : SCROLL_STEP;
 
     // a selection would drift once the page scrolls under it, so drop it
@@ -356,7 +370,9 @@ function PrototypeContentViewImpl({
 
   const commit = (body: string): void => {
     if (!canComment) return;
+
     if (selected && body.trim()) onCommentElement(selected, body.trim());
+
     clearSelection();
   };
 
@@ -435,6 +451,7 @@ export const PrototypeContentView = React.memo(PrototypeContentViewImpl);
 
 function statusLine(status: SheetStatus, errorMessage: string): string {
   if (status === "loading") return "rendering prototype…";
+
   if (status === "unsupported")
     return "prototype preview needs a graphics terminal (kitty or ghostty)";
 

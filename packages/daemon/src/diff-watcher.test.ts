@@ -18,6 +18,7 @@ test("startup reconciliation watches a directory whose creation event was missed
   const change = Promise.withResolvers<void>();
   const watcher = new DiffWatcher(() => {
     refreshes++;
+
     if (refreshes === 1) startup.resolve();
     else change.resolve();
   });
@@ -91,6 +92,7 @@ test("replacing a watch during reconciliation stops the old directory traversal"
   const watcher = new DiffWatcher(() => {});
   const spy = spyOn(directoryReads, "readdir").mockImplementation((path) => {
     scanned.push(String(path));
+
     if (path === first) {
       scanStarted.resolve();
 

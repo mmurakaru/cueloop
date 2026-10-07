@@ -61,6 +61,7 @@ const RESOLVED: Intent = { type: "status", message: "review submitted - read-onl
 
 function mutating(intent: Intent, context: ThreadNavContext): Intent {
   if (!context.isOwner) return READ_ONLY;
+
   if (context.resolved) return RESOLVED;
 
   return intent;
@@ -134,13 +135,17 @@ export function resolveSessionChord(
 ): Intent | null {
   if (key.name === "return" || key.name === "enter") {
     if (!(key.ctrl || key.meta || key.super)) return null;
+
     if (!context.isOwner) return READ_ONLY;
 
     return context.resolved ? null : { type: "openSubmit" };
   }
+
   if (!key.ctrl) return null;
+
   if (key.name === "e")
     return context.resolved ? RESOLVED : context.isOwner ? { type: "edit" } : READ_ONLY;
+
   if (key.name === "s") return context.isOwner ? { type: "share" } : READ_ONLY;
 
   return null;

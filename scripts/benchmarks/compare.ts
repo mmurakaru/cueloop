@@ -86,6 +86,7 @@ interface CompareOptions {
 
 function thresholdFor(unit: MetricResult["unit"]): RegressionThreshold | null {
   if (unit === "ms") return TIMING_THRESHOLD;
+
   if (unit === "bytes") return MEMORY_THRESHOLD;
 
   return null;
@@ -100,7 +101,9 @@ export function isMaterialRegression(
   const growth = head - base;
 
   if (growth <= 0) return false;
+
   if (growth < threshold.minAbsoluteRegression) return false;
+
   if (base === 0) return true;
 
   return head / base >= threshold.maxRegressionRatio;
@@ -189,13 +192,17 @@ function compareRow(
   };
 
   if (threshold === null) return row;
+
   if (baseRow === null) return { ...row, status: "missing-base" };
+
   if (headRow.unit === "ms" && Math.max(baseRow.median, headRow.median) < GATE_FLOOR_MS) {
     return { ...row, status: "below-floor" };
   }
+
   if (!isMaterialRegression(baseRow.median, headRow.median, threshold)) {
     return { ...row, status: "pass" };
   }
+
   const acceptance = acceptedFor(headRow.name, headVersion, accepted);
 
   if (acceptance) return { ...row, status: "accepted", reason: acceptance.reason };
@@ -208,6 +215,7 @@ function formatThreshold(
   unit: MetricResult["unit"],
 ): string {
   if (threshold === null) return "";
+
   const percent = Math.round((threshold.maxRegressionRatio - 1) * 100);
 
   return `+${percent}% and +${formatMetricValue(threshold.minAbsoluteRegression, unit)}`;

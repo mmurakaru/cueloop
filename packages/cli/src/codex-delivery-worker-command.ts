@@ -17,6 +17,7 @@ function claimWorker(path: string): boolean {
       return true;
     } catch (error) {
       if (!(error instanceof Error && "code" in error && error.code === "EEXIST")) throw error;
+
       const before = statSync(path);
       const owner = Number(readFileSync(path, "utf8"));
 
@@ -39,7 +40,9 @@ function claimWorker(path: string): boolean {
       } else if (Date.now() - before.mtimeMs < 5_000) {
         return false;
       }
+
       if (statSync(path).ino !== before.ino) return false;
+
       unlinkSync(path);
     }
   }
@@ -53,6 +56,7 @@ export async function codexDeliveryWorkerCommand(): Promise<number> {
   const lockPath = join(home, "codex-delivery-worker.pid");
 
   if (!claimWorker(lockPath)) return 0;
+
   const sessions = createCodexSessionRegistry(home);
   const delivery = createCodexDeliveryService({
     home,
@@ -70,6 +74,7 @@ export async function codexDeliveryWorkerCommand(): Promise<number> {
     }
   } finally {
     delivery.stop();
+
     if (readFileSync(lockPath, "utf8") === String(process.pid)) unlinkSync(lockPath);
   }
 

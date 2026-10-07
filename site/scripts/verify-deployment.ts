@@ -82,18 +82,21 @@ async function verifyResponse(
       response.status === check.expectedStatus,
       `${label}: expected ${check.expectedStatus}, received ${response.status}`,
     );
+
     if (check.contentType) {
       invariant(
         response.headers.get("content-type")?.includes(check.contentType) === true,
         `${label}: expected Content-Type ${check.contentType}`,
       );
     }
+
     if (check.bodyIncludes) {
       invariant(
         body.includes(check.bodyIncludes),
         `${label}: response body is missing expected text`,
       );
     }
+
     if (check.varyOnAccept) {
       invariant(
         response.headers
@@ -103,6 +106,7 @@ async function verifyResponse(
         `${label}: response does not vary on Accept`,
       );
     }
+
     if (check.location) {
       invariant(
         response.headers.get("location") === check.location,
@@ -111,6 +115,7 @@ async function verifyResponse(
     }
   } catch (error) {
     if (attemptsRemaining === 1) throw error;
+
     await Bun.sleep(500);
 
     return verifyResponse(baseUrl, check, attemptsRemaining - 1);

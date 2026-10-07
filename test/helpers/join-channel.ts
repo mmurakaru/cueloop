@@ -24,6 +24,7 @@ export function createTestJoinChannel(): TestJoinChannel {
 
         return;
       }
+
       // SAFETY: the remaining on("data") overload guarantees a chunk listener.
       dataListeners.add(listener as (chunk: Buffer) => void);
     },
@@ -34,6 +35,7 @@ export function createTestJoinChannel(): TestJoinChannel {
 
         return;
       }
+
       // SAFETY: the remaining removeListener("data") overload guarantees a chunk listener.
       dataListeners.delete(listener as (chunk: Buffer) => void);
     },

@@ -52,11 +52,13 @@ function changedColumns(length: number, intralineRuns: IntralineRun[] | undefine
   const changed = Array.from({ length }, () => false);
 
   if (!intralineRuns) return changed;
+
   let offset = 0;
 
   for (const run of intralineRuns) {
     if (run.changed)
       for (let index = 0; index < run.text.length; index++) changed[offset + index] = true;
+
     offset += run.text.length;
   }
 
@@ -75,6 +77,7 @@ function syntaxColorColumns(
     const color = colorForSyntaxGroup(span.group, tokens);
 
     if (!color) continue;
+
     for (let column = span.start; column < span.end && column < length; column++) {
       colors[column] = color;
     }

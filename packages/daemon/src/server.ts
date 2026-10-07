@@ -158,6 +158,7 @@ export class DaemonServer {
    */
   private acquireLock(): boolean {
     if (HELD_HOMES.has(this.home)) return false; // another instance here owns it
+
     const path = lockPath(this.home);
 
     for (let attempt = 0; attempt < 3; attempt++) {
@@ -175,6 +176,7 @@ export class DaemonServer {
         return true;
       } catch (error) {
         closeSync(fd);
+
         if (!(error instanceof Error && "code" in error && error.code === "EEXIST")) throw error;
 
         let ownerPid = 0;
@@ -188,12 +190,15 @@ export class DaemonServer {
             Atomics.wait(LOCK_WAIT, 0, 0, 20);
             ownerText = readFileSync(path, "utf8").trim();
           }
+
           if (!ownerText && Date.now() - statSync(path).mtimeMs < 5_000) return false;
+
           ownerPid = Number(ownerText);
         } catch {
           // the owner vanished between open and read; retry
           continue;
         }
+
         if (ownerPid && ownerPid !== process.pid) {
           try {
             process.kill(ownerPid, 0); // throws when the pid is gone
@@ -203,6 +208,7 @@ export class DaemonServer {
             // stale lock from a crashed daemon
           }
         }
+
         // ownerPid === our pid but HELD_HOMES says we do not own it: a stale
         // file from an earlier instance in this process - reclaim it.
         try {
@@ -220,6 +226,7 @@ export class DaemonServer {
 
   private releaseLock(): void {
     HELD_HOMES.delete(this.home);
+
     if (this.lockFd !== null) {
       try {
         if (statSync(lockPath(this.home)).ino === fstatSync(this.lockFd).ino)
@@ -242,11 +249,13 @@ export class DaemonServer {
    */
   start(): string | null {
     if (!this.acquireLock()) return null;
+
     const path = socketPath(this.home);
 
     // safe now: holding the lock means no live daemon owns this home, so any
     // socket file left behind is stale
     if (existsSync(path)) rmSync(path, { force: true });
+
     // the token exists before the socket does: the first client to connect
     // must be able to prove ownership
     this.ownerToken = randomBytes(32).toString("hex");
@@ -298,6 +307,7 @@ export class DaemonServer {
   resumeAgents(): void {
     for (const thread of this.core.sessionList({ status: "pending" })) {
       if (!this.threadAgent.isEnabled(thread.id)) continue;
+
       const state = this.threadAgent.get(thread.id);
 
       if (state.handoff || state.submissions?.some((submission) => submission.status === "queued"))
@@ -315,13 +325,17 @@ export class DaemonServer {
   stop(): void {
     void this.threadAgent.dispose().catch((error) => console.error("[agent shutdown]", error));
     this.core.dispose();
+
     if (this.lockFd === null) return;
+
     this.server?.stop(true);
     this.server = null;
     rmSync(socketPath(this.home), { force: true });
     rmSync(pidPath(this.home), { force: true });
     rmSync(ownerTokenPath(this.home), { force: true });
+
     if (this.idleTimer) clearTimeout(this.idleTimer);
+
     this.releaseLock();
   }
 
@@ -336,7 +350,9 @@ export class DaemonServer {
   /** Idle = no pending session and no attached client. */
   private scheduleIdleCheck(): void {
     if (this.idleExitMs <= 0) return;
+
     if (this.idleTimer) clearTimeout(this.idleTimer);
+
     this.idleTimer = setTimeout(() => {
       if (this.connections.size === 0 && !this.core.hasPendingSessions()) {
         this.stop();
@@ -377,16 +393,19 @@ export class DaemonServer {
     const origin = this.core.sessionGet(threadId);
 
     assertAgentToolScope(origin, args);
+
     if (args.kind === "api" && args.method === "session.list") {
       const { filter } = parseParams("session.list", args.params);
 
       return JSON.stringify(!filter?.status || origin.status === filter.status ? [origin] : []);
     }
+
     if (args.kind === "reply") {
       const thread = origin;
       const comment = thread.annotations.find((entry) => entry.id === args.commentId);
 
       if (!comment) return JSON.stringify(this.replyAgentComment(args));
+
       const root =
         thread.annotations.find((entry) => entry.id === (comment.replyTo ?? comment.id)) ?? comment;
 
@@ -406,6 +425,7 @@ export class DaemonServer {
         ),
       );
     }
+
     const method = args.method;
 
     if (!isKnownMethod(method)) throw new Error("Thread agent tool API method is unavailable");
@@ -489,6 +509,7 @@ export class DaemonServer {
       if (params.role === "owner" && params.token !== this.ownerToken) {
         throw new DaemonError("forbidden", "owner token required");
       }
+
       if (params.clientVersion !== this.version) {
         throw new DaemonError(
           "version_mismatch",
@@ -497,6 +518,7 @@ export class DaemonServer {
       }
 
       connection.role = params.role;
+
       // identity is bound once, here; a non-owner never names it per call
       if (params.role !== "owner" && params.author !== undefined) connection.author = params.author;
 
@@ -784,11 +806,13 @@ export class DaemonServer {
     if (!isKnownMethod(request.method)) {
       throw new DaemonError("unknown_method", `unknown method ${request.method}`);
     }
+
     // Capability gate: a capped role (a review-side agent) cannot escalate past
     // read + annotate, whatever primitive it sends.
     if (!roleAllowsMethod(connection.role, request.method)) {
       throw new DaemonError("forbidden", `role ${connection.role} cannot call ${request.method}`);
     }
+
     if (!Object.hasOwn(this.handlers, request.method)) {
       throw new DaemonError("unknown_method", `unknown method ${request.method}`);
     }

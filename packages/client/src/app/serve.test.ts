@@ -49,9 +49,11 @@ function sshCapture(
     let done = false;
     const finish = (err?: Error) => {
       if (done) return;
+
       done = true;
       clearTimeout(timer);
       conn.end();
+
       if (err) reject(err);
       else resolve(out);
     };
@@ -61,8 +63,10 @@ function sshCapture(
       .on("ready", () => {
         conn.shell({ term: "xterm-256color", cols: 100, rows: 30 }, (err, stream) => {
           if (err) return finish(err);
+
           stream.on("data", (chunk: Buffer) => {
             out += chunk.toString("utf8");
+
             if (until(out)) finish();
           });
           stream.on("close", () => finish(new Error(`stream closed early; captured:\n${out}`)));

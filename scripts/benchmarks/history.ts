@@ -41,6 +41,7 @@ if (import.meta.main) {
   });
 
   if (!values.run || !values.history) throw new Error("history: --run and --history are required");
+
   const run = v.parse(BenchmarkRunSchema, await Bun.file(values.run).json());
   const existing = existsSync(values.history)
     ? parseHistory(readFileSync(values.history, "utf8"))

@@ -30,6 +30,7 @@ test("late configuration and action responses cannot replace a newer accepted st
         return new Promise((resolve) => {
           first = resolve;
         });
+
       state = { ...initial, phase: { kind: "running" } };
 
       return state;

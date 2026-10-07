@@ -92,9 +92,11 @@ export function openHerdrThreadTab(
     );
 
     if (created.exitCode !== 0) return null;
+
     const parsed = v.safeParse(CreatedTabSchema, JSON.parse(created.stdout.toString()));
 
     if (!parsed.success) return null;
+
     const paneId = parsed.output.result?.root_pane?.pane_id;
     const tabId = parsed.output.result?.root_pane?.tab_id;
 
@@ -147,10 +149,12 @@ export function openHerdrThreadPane(
     );
 
     if (created.exitCode !== 0) return null;
+
     const parsed = v.safeParse(CreatedPaneSchema, JSON.parse(created.stdout.toString()));
     const paneId = parsed.success ? parsed.output.result?.pane?.pane_id : undefined;
 
     if (!paneId) return null;
+
     if (!sendCueloopThreadCommand(binPath, paneId, sessionId, layout)) {
       closeHerdrThreadSurface(binPath, "pane", paneId);
 
@@ -189,6 +193,7 @@ function sendCueloopThreadCommand(
   });
 
   if (typed.exitCode !== 0) return false;
+
   const entered = runHerdrCommand([binPath, "pane", "send-keys", paneId, "enter"], {
     stdout: "ignore",
     stderr: "ignore",
@@ -208,6 +213,7 @@ function herdrPaneAlive(binPath: string, paneId: string): boolean {
     });
 
     if (got.exitCode !== 0) return false;
+
     const parsed = v.safeParse(PaneResultSchema, JSON.parse(got.stdout.toString()));
 
     return parsed.success && parsed.output.result?.pane != null;
@@ -249,10 +255,13 @@ function focusHerdrThreadSurface(binPath: string, handle: HerdrThreadSurfaceHand
       const neighbor = herdrPaneNeighbor(binPath, handle.paneId, direction);
 
       if (neighbor === undefined) return false;
+
       if (neighbor === null) continue;
+
       hasNeighbor = true;
 
       if (herdrPaneNeighbor(binPath, neighbor, opposite) !== handle.paneId) continue;
+
       const focused = runHerdrCommand(
         [binPath, "pane", "focus", "--pane", neighbor, "--direction", opposite],
         { stdout: "pipe", stderr: "ignore", timeout: HERDR_SPAWN_TIMEOUT_MS },
@@ -286,6 +295,7 @@ function herdrPaneNeighbor(
     );
 
     if (neighbor.exitCode !== 0) return undefined;
+
     const parsed = v.safeParse(PaneNeighborSchema, JSON.parse(neighbor.stdout.toString()));
 
     return parsed.success ? (parsed.output.result.neighbor.neighbor_pane_id ?? null) : undefined;
@@ -307,6 +317,7 @@ export async function openHerdrThreadSurface(
   if (!herdr) return "unavailable";
 
   if (mode === "none") return "disabled";
+
   const recorded = await recallHerdrThreadSurface(persistence, session.id);
 
   if (
@@ -317,6 +328,7 @@ export async function openHerdrThreadSurface(
   ) {
     return focusHerdrThreadSurface(herdr.binPath, recorded) ? "focused" : "failed";
   }
+
   const cwd = session.artifact.meta.cwd ?? session.workspace.repoRoot;
   const opened =
     mode === "pane"
@@ -340,6 +352,7 @@ export async function openHerdrThreadSurface(
         });
 
   if (!opened) return "failed";
+
   if (recorded && recorded.paneId !== opened.paneId) {
     closeHerdrThreadSurface(
       herdr.binPath,
@@ -347,6 +360,7 @@ export async function openHerdrThreadSurface(
       recorded.mode === "pane" ? recorded.paneId : recorded.tabId,
     );
   }
+
   await rememberHerdrThreadSurface(persistence, session.id, opened);
 
   return "opened";

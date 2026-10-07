@@ -53,6 +53,7 @@ export function WorkspacePanels(props: {
 
   useKeyboard((key) => {
     if (!props.focused || (key.name !== "[" && key.name !== "]")) return;
+
     const choices = [null, ...views];
     const current = selected ? views.indexOf(selected) + 1 : 0;
     const step = key.name === "]" ? 1 : -1;

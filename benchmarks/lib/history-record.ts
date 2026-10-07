@@ -30,8 +30,11 @@ function isMetricPoint(value: unknown): value is MetricPoint {
 /** A structural check, so a malformed line is skipped rather than trusted. */
 export function isHistoryRecord(value: unknown): value is HistoryRecord {
   if (typeof value !== "object" || value === null) return false;
+
   if (!("sha" in value) || typeof value.sha !== "string") return false;
+
   if (!("date" in value) || typeof value.date !== "string") return false;
+
   if (!("metrics" in value) || typeof value.metrics !== "object" || value.metrics === null) {
     return false;
   }
@@ -42,6 +45,7 @@ export function isHistoryRecord(value: unknown): value is HistoryRecord {
 /** The record on one log line, or null when the line is not JSON or not a record. */
 function parseLine(line: string): HistoryRecord | null {
   if (!line.trim()) return null;
+
   try {
     const value: unknown = JSON.parse(line);
 

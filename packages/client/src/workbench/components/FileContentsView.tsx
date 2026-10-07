@@ -63,6 +63,7 @@ export function FileContentsView({
       </box>
     );
   }
+
   if (loaded.lines === null) {
     // a file that no longer reads in the Changes/Project view is one the working tree deleted;
     // the bottom pad lifts the text one row so it lines up with the footer-shortened thread empty state
@@ -74,6 +75,7 @@ export function FileContentsView({
       </box>
     );
   }
+
   const content = loaded.lines.join("\n");
 
   return (

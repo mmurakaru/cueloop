@@ -32,6 +32,7 @@ function hasSpanColor(
   for (const line of setup.captureSpans().lines) {
     for (const span of line.spans) {
       if (!span.text.includes(needle) || !span.fg) continue;
+
       const [red, green, blue] = span.fg.toInts();
 
       if (red === color[0] && green === color[1] && blue === color[2]) return true;

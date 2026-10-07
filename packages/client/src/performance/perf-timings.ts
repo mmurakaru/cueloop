@@ -17,6 +17,7 @@ function perfInstrumentationEnabled(): boolean {
 /** Record the elapsed ms since the previous mark (or process start) under `label`. */
 export function perfMark(label: string): void {
   if (!perfInstrumentationEnabled()) return;
+
   const now = performance.now();
 
   phaseMarks.push({ label, elapsedMs: now - (lastMarkAt ?? 0) });

@@ -66,6 +66,7 @@ async function existingNames(bearer: string): Promise<Set<string>> {
     const response = await fetch(next, { headers: { Authorization: `Bearer ${bearer}` } });
 
     if (!response.ok) throw new Error(`listing monitors failed: HTTP ${response.status}`);
+
     const page = v.parse(MonitorListSchema, await response.json());
 
     for (const monitor of page.data) names.add(monitor.attributes.pronounceable_name);

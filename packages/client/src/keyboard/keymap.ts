@@ -121,9 +121,11 @@ export function reduceKey(state: KeyState, key: KeyInput, resolvedAction?: strin
   const overlayGrammar = overlayGrammars[state.overlay];
 
   if (overlayGrammar) return overlayGrammar(state, key);
+
   const action = resolvedAction ?? actionFor(state.keys, name, key.shift);
 
   if (action === "quit") return [{ type: "exit" }];
+
   // the ONE read-only rule: any mutating attempt answers instead of acting
   // (span-mode c, x, and a are hardwired keys, so they gate by name as well)
   const mutating =
@@ -140,8 +142,10 @@ export function reduceKey(state: KeyState, key: KeyInput, resolvedAction?: strin
   }
 
   if (state.view === "inbox") return inboxGrammar(state, name);
+
   // span mode owns its single-letter keys (b slides the span back)
   if (state.spanMode) return spanGrammar(state, name);
+
   if (state.view === "diff") return diffGrammar(state, action);
 
   return planGrammar(state, action, name);
@@ -164,6 +168,7 @@ function composeOverlayGrammar(state: KeyState, key: KeyInput): Intent[] {
   const name = key.name;
 
   if (name === "escape") return [{ type: "closeOverlay" }];
+
   if (name === "return" || name === "enter") {
     // In the composer, ⌥/Alt+⏎ (meta) and shift+⏎ insert a newline - the
     // focused textarea owns that; only a bare ⏎ saves. The submit overlay
@@ -180,6 +185,7 @@ function submitOverlayGrammar(state: KeyState, key: KeyInput): Intent[] {
   const name = key.name;
 
   if (name === "escape") return [{ type: "closeOverlay" }];
+
   if (name === "left" || name === "right") {
     return [{ type: "cycleMessage", direction: name === "left" ? -1 : 1 }];
   }
@@ -191,6 +197,7 @@ function confirmOverlayGrammar(state: KeyState, key: KeyInput): Intent[] {
   const name = key.name;
 
   if (name === "return" || name === "enter") return [{ type: "confirmDialog" }];
+
   if (name === "escape") return [{ type: "closeOverlay" }];
 
   return [];
@@ -200,6 +207,7 @@ function promptOverlayGrammar(state: KeyState, key: KeyInput): Intent[] {
   const name = key.name;
 
   if (name === "return" || name === "enter") return [{ type: "confirmDialog" }];
+
   if (name === "escape") return [{ type: "closeOverlay" }];
 
   return [];
@@ -209,8 +217,11 @@ function spanActionsOverlayGrammar(state: KeyState, key: KeyInput): Intent[] {
   const name = key.name;
 
   if (name === "j" || name === "down") return [{ type: "moveSpanAction", direction: 1 }];
+
   if (name === "k" || name === "up") return [{ type: "moveSpanAction", direction: -1 }];
+
   if (name === "return" || name === "enter") return [{ type: "pickSpanAction" }];
+
   if (name === "escape") return [{ type: "closeSpanActions" }];
 
   return [];
@@ -220,7 +231,9 @@ function completionOverlayGrammar(state: KeyState, key: KeyInput): Intent[] {
   const name = key.name;
 
   if (name === "return" || name === "enter" || name === "q") return [{ type: "finishReview" }];
+
   if (name === "a") return [{ type: "optInAutoClose" }];
+
   if (name === "escape") return [{ type: "dismissCompletion" }];
 
   return [];
@@ -230,11 +243,15 @@ function walkOverlayGrammar(state: KeyState, key: KeyInput): Intent[] {
   const name = key.name;
 
   if (name === "]") return [{ type: "walkForward" }];
+
   if (name === "[") return [{ type: "walkBack" }];
+
   if (name === "escape") return [{ type: "walkLeave" }];
+
   if ((name === "return" || name === "enter") && state.walkAtEnd) {
     return [{ type: "walkLeave" }, { type: "openSubmit" }];
   }
+
   if (name === "q") return [{ type: "exit" }];
 
   return [];
@@ -242,9 +259,13 @@ function walkOverlayGrammar(state: KeyState, key: KeyInput): Intent[] {
 
 function inboxGrammar(state: KeyState, name: string): Intent[] {
   if (!state.hasInboxItems) return [];
+
   if (name === "j" || name === "down") return [{ type: "inboxMove", to: "down" }];
+
   if (name === "k" || name === "up") return [{ type: "inboxMove", to: "up" }];
+
   if (name === "return" || name === "enter") return [{ type: "openSession" }];
+
   if (name === "d") return [{ type: "requestDeleteSession" }];
 
   return [];
@@ -254,39 +275,49 @@ function diffGrammar(state: KeyState, action: string | undefined): Intent[] {
   const navigation = navigationIntent(action);
 
   if (navigation) return navigation;
+
   if (action === "walk") {
     // marking viewed writes the session record, so a resolved review answers
     if (state.resolved) return status("review submitted - read-only");
 
     return [{ type: "walkStart" }];
   }
+
   if (action === "comment") {
     if (state.resolved) return status("review submitted - read-only");
+
     if (!state.cursorAnnotatable) return status("move to a code line to comment");
 
     return [{ type: "openCompose", kind: "comment", from: "cursor" }];
   }
+
   // cut rejects the change under the cursor, reject_hunk the whole hunk; both
   // write the working copy, so they gate on owner like a plan edit.
   if (action === "cut" || action === "reject_hunk") {
     if (state.resolved) return status("review submitted - read-only");
+
     if (state.canEditPlan === false) return status("only the diff owner can curate hunks");
 
     return [{ type: action === "reject_hunk" ? "rejectHunk" : "rejectChange" }];
   }
+
   const viewToggle = viewToggleIntent(action);
 
   if (viewToggle) return viewToggle;
+
   // restore un-does a curated-out rejection from the rail; same owner gate as reject
   if (action === "restore_curation") {
     if (state.resolved) return status("review submitted - read-only");
+
     if (state.canEditPlan === false) return status("only the diff owner can curate hunks");
 
     return [{ type: "restoreCuration" }];
   }
+
   const shared = annotationCluster(state, action);
 
   if (shared) return shared;
+
   if (action === "span" || action === "edit") {
     return status("plan-only primitive - diff review uses c on a line");
   }
@@ -296,13 +327,18 @@ function diffGrammar(state: KeyState, action: string | undefined): Intent[] {
 
 function spanGrammar(state: KeyState, name: string): Intent[] {
   if (name === "escape") return [{ type: "closeOverlay" }];
+
   if (SPAN_KEYS.has(name)) return [{ type: "spanKey", name }];
+
   // c comments, x cuts, a opens quick-actions - all mutate, so a resolved
   // review is read-only, like the plan grammar
   if (name === "c" || name === "x" || name === "a") {
     if (state.resolved) return status("review submitted - read-only");
+
     if (name === "c") return [{ type: "openCompose", kind: "comment", from: "span" }];
+
     if (name === "a") return [{ type: "openSpanActions" }];
+
     if (state.canEditPlan === false) return [];
 
     return [{ type: "spanCut" }];
@@ -315,28 +351,38 @@ function planGrammar(state: KeyState, action: string | undefined, name: string):
   const navigation = navigationIntent(action);
 
   if (navigation) return navigation;
+
   if (action === "walk") return status("the guided walk is a diff-review mode");
+
   if (name === "escape") return [{ type: "deselect" }];
+
   if (action === "span") return state.cursorAnnotatable ? [{ type: "startSpan" }] : [];
+
   if (action === "comment") {
     if (state.resolved) return status("review submitted - read-only");
+
     if (!state.cursorAnnotatable) return status("text is cut - restore it first");
 
     return [{ type: "openCompose", kind: "comment", from: "cursor" }];
   }
+
   // restore un-does a rail removal (a cut block); a plan edit, so owner-only
   if (action === "restore_curation") {
     if (state.resolved) return status("review submitted - read-only");
+
     if (state.canEditPlan === false) return [];
 
     return [{ type: "restoreCuration" }];
   }
+
   if (action === "cut" || action === "edit") {
     if (state.resolved) return status("review submitted - read-only");
+
     // the document selects, the rail edits: with a card selected, Cut deletes
     // the annotation and edit rewrites the card body in place
     if (state.hasFocusedAnnotation)
       return [action === "cut" ? { type: "removeAnnotation" } : { type: "editCard" }];
+
     // editing the plan itself is the owner's primitive; a share viewer only annotates,
     // and has no edit affordance, so the key is silent rather than a nag
     if (state.canEditPlan === false) return [];
@@ -360,7 +406,9 @@ function navigationIntent(action: string | undefined): Intent[] | null {
  *  split/stacked (split lays out only when the Changes pane is wide/zoomed). */
 function viewToggleIntent(action: string | undefined): Intent[] | null {
   if (action === "collapse_file") return [{ type: "foldFile" }];
+
   if (action === "expand_file") return [{ type: "unfoldFile" }];
+
   if (action === "split_diff") return [{ type: "toggleDiffView" }];
 
   return null;
@@ -373,16 +421,19 @@ function annotationCluster(state: KeyState, action: string | undefined): Intent[
 
     return [{ type: action === "next_annotation" ? "nextAnnotation" : "prevAnnotation" }];
   }
+
   if (action === "delete_annotation") {
     if (state.resolved || !state.hasFocusedAnnotation) return [];
 
     return [{ type: "removeAnnotation" }];
   }
+
   if (action === "rename") {
     if (!state.hasFocusedAnnotation) return status("select a collaborator's note to rename them");
 
     return [{ type: "openRename" }];
   }
+
   if (action === "submit") {
     // a collaborator's notes union back as they go; there is no message to submit
     if (state.canSubmitMessage === false)

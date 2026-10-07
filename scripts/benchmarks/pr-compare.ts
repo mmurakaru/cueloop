@@ -105,6 +105,7 @@ async function sampleTree(
   if ((await proc.exited) !== 0) {
     throw new Error(`pr-compare: ${script} failed in ${tree.directory}`);
   }
+
   const run = v.parse(BenchmarkRunSchema, await Bun.file(out).json());
 
   return new Map(
@@ -130,7 +131,9 @@ async function measureTrees(
 
       for (const side of order) {
         if (side === "base" && !baseHasScript) continue;
+
         if (side === "head" && !headHasScript) continue;
+
         console.error(`pr-compare: ${script} sample ${sample + 1}/${options.samples} ${side}`);
         const tree = side === "head" ? options.head : options.base;
         const into = side === "head" ? headSamples : baseSamples;

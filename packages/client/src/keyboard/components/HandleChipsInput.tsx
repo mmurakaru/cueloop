@@ -77,6 +77,7 @@ export function HandleChipsInput({
     const input = inputRef.current;
 
     if (!input || !focused) return;
+
     input.focus();
     input.cursorOffset = seed.length; // land the caret at the end of the seeded text
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -91,12 +92,15 @@ export function HandleChipsInput({
     const handle = (inputRef.current?.plainText ?? "").trim().replace(/^@/, "").toLowerCase();
 
     if (handle && !logins.includes(handle)) onChange([...logins, handle]);
+
     reseed("");
   };
 
   useKeyboard((key) => {
     if (!focused) return;
+
     if (key.name !== "backspace" || (inputRef.current?.plainText ?? "").length > 0) return;
+
     // backspace on an empty field pulls the last chip back in to edit; with none left, collapse
     if (logins.length > 0) {
       const last = logins[logins.length - 1]!;

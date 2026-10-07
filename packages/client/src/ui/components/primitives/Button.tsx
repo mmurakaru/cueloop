@@ -48,6 +48,7 @@ export function Button({
       onMouseUp={(event: MouseEvent) => {
         // Consume the press so it never bubbles to an ancestor's onMouseUp (e.g. a card).
         event.stopPropagation();
+
         if (!isDisabled) onPress();
       }}
     >

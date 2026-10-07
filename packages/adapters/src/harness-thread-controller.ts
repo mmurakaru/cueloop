@@ -178,6 +178,7 @@ export function createHarnessThreadController(
         manualOpenCommand,
       };
     }
+
     if (input.workflow === "refine") {
       const review = await openReview(client, {
         type: "plan",

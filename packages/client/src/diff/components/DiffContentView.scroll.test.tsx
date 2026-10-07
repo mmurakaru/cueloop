@@ -17,6 +17,7 @@ const noop = (): void => {};
 /** Find a renderable by id anywhere in the tree (getRenderable is not recursive). */
 function findById(node: Renderable, id: string): Renderable | undefined {
   if (node.id === id) return node;
+
   for (const child of node.getChildren()) {
     const found = findById(child, id);
 
@@ -81,6 +82,7 @@ test("walking the caret down past wrapped discussion cards keeps it on screen an
   const found = findById(setup.renderer.root, "diff-scroll");
 
   if (!(found instanceof ScrollBoxRenderable)) throw new Error("diff-scroll is not a scrollbox");
+
   const scrollbox = found;
   const caretCell = annotationPaletteFor(DARK).caretCell;
 
@@ -156,6 +158,7 @@ test("wheel input accelerates a continuous gesture and settles back to precise s
   const found = findById(setup.renderer.root, "diff-scroll");
 
   if (!(found instanceof ScrollBoxRenderable)) throw new Error("diff-scroll is not a scrollbox");
+
   const scrollbox = found;
   const acceleration = scrollbox.scrollAcceleration;
   const first = acceleration.tick(1000);
@@ -196,6 +199,7 @@ test("wheel scrolling up keeps the caret on the bottom visible code row", async 
   const found = findById(setup.renderer.root, "diff-scroll");
 
   if (!(found instanceof ScrollBoxRenderable)) throw new Error("diff-scroll is not a scrollbox");
+
   const scrollbox = found;
 
   for (const key of Array.from({ length: 30 }, () => "down" as const)) {
@@ -270,6 +274,7 @@ test("rapid wheel scrolling through a large wrapped diff does not loop React upd
   for (const [index, direction] of Array.from({ length: 240 }, () => "down" as const).entries()) {
     // eslint-disable-next-line no-await-in-loop
     await setup.mockMouse.scroll(20, 5, direction);
+
     if (index % 12 === 0) {
       // eslint-disable-next-line no-await-in-loop
       await settle(setup);
@@ -315,6 +320,7 @@ test("walking long wrapped code lines advances the viewport one visual row per k
   const found = findById(setup.renderer.root, "diff-scroll");
 
   if (!(found instanceof ScrollBoxRenderable)) throw new Error("diff-scroll is not a scrollbox");
+
   const scrollbox = found;
   const steps: number[] = [];
   const caretCell = annotationPaletteFor(DARK).caretCell;
@@ -410,6 +416,7 @@ test("Up keeps the caret on the first screen row while wrapped lines scroll", as
   const found = findById(setup.renderer.root, "diff-scroll");
 
   if (!(found instanceof ScrollBoxRenderable)) throw new Error("diff-scroll is not a scrollbox");
+
   const scrollbox = found;
 
   for (let index = 0; index < 40; index++) await press(setup, "down");
@@ -423,10 +430,12 @@ test("Up keeps the caret on the first screen row while wrapped lines scroll", as
     const top = scrollbox.scrollTop;
 
     expect(previousTop - top).toBeLessThanOrEqual(1);
+
     if (top < previousTop) {
       expect(marker).toBe(0);
       scrolled = true;
     }
+
     previousTop = top;
   }
   expect(scrolled).toBe(true);

@@ -92,6 +92,7 @@ async function inspectPiExtension(work: string): Promise<void> {
     const exitCode = await processHandle.exited.finally(() => clearTimeout(timeout));
 
     if (timedOut) throw new Error("pi RPC did not exit in 15 seconds");
+
     const output = await new Response(processHandle.stdout).text();
 
     if (exitCode !== 0) {
@@ -99,9 +100,11 @@ async function inspectPiExtension(work: string): Promise<void> {
         `pi RPC exited with code ${exitCode}: ${output} ${await new Response(processHandle.stderr).text()}`,
       );
     }
+
     const line = output.split("\n").find((entry) => entry.includes('"command":"get_commands"'));
 
     if (!line) throw new Error(`pi RPC did not list commands: ${output}`);
+
     const message = v.parse(
       v.object({
         command: v.literal("get_commands"),
@@ -116,15 +119,19 @@ async function inspectPiExtension(work: string): Promise<void> {
     if (commandNames.includes("threads")) {
       throw new Error("pi still registers the cueloop Threads command");
     }
+
     for (const workflow of WORKFLOW_SKILL_KINDS) {
       if (!commandNames.includes(`cueloop:${workflow}`)) {
         throw new Error(`pi did not register /cueloop:${workflow}`);
       }
+
       if (!commandNames.includes(`skill:cueloop-${workflow}`)) {
         throw new Error(`pi did not load skill:cueloop-${workflow}`);
       }
     }
+
     if (!existsSync(workflowInventory)) throw new Error("pi did not invoke the workflow probe");
+
     const tools = v.parse(
       v.array(
         v.object({
@@ -207,6 +214,7 @@ try {
     if (process.env.GITHUB_ACTIONS !== "true" && !localSmoke) {
       throw new Error("Harness host installation smoke needs an ephemeral runner or --local-smoke");
     }
+
     if (!localSmoke) {
       for (const [command, version] of [
         ["claude", hostVersions.claude],
@@ -234,6 +242,7 @@ try {
     if (!claudePlugin?.version.startsWith(cliPackage.version)) {
       throw new Error("Claude Code did not install the matching cueloop Mod plugin");
     }
+
     checkInstalledSkills(claudePlugin.installPath, "Claude Code");
     runHostCommand(["claude", "plugin", "validate", claudePlugin.installPath, "--strict"], work);
     runHostCommand(["claude", "plugin", "details", "cueloop@cueloop-host-smoke"], work);
@@ -252,13 +261,16 @@ try {
     ) {
       throw new Error("Codex did not install the matching cueloop plugin");
     }
+
     checkInstalledSkills(
       join(hostEnv.CODEX_HOME, "plugins/cache/cueloop/cueloop", cliPackage.version),
       "Codex",
     );
+
     if (!runHostCommand(["codex", "mcp", "list"]).includes("cueloop")) {
       throw new Error("Codex did not load the cueloop MCP server");
     }
+
     const codexMcp = v.parse(
       v.object({ transport: v.object({ command: v.string(), args: v.array(v.string()) }) }),
       JSON.parse(runHostCommand(["codex", "mcp", "get", "cueloop", "--json"])),

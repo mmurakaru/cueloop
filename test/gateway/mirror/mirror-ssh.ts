@@ -42,13 +42,16 @@ export async function execMirrorSsh(
 
           return;
         }
+
         channel.on("data", (chunk: Buffer) => chunks.push(chunk));
         channel.stderr.on("data", (chunk: Buffer) => (diagnostic += chunk.toString()));
         channel.on("close", (code: number | undefined) => {
           clearTimeout(timer);
+
           if (code && code !== 0) reject(new Error(diagnostic || `SSH command exited ${code}`));
           else resolve(Buffer.concat(chunks));
         });
+
         if (endInput) channel.end(input);
         else channel.write(input);
       });
@@ -71,6 +74,7 @@ export class MirrorSshView {
     const terminal = loadGhosttyTerminals()?.create(this.cols, this.rows);
 
     if (!terminal) throw new Error("Gateway mirror requires the native Ghostty VT test library");
+
     this.terminal = terminal;
   }
 
@@ -99,6 +103,7 @@ export class MirrorSshView {
 
   write(text: string): void {
     if (this.closed || !this.channel) throw new Error("Gateway mirror SSH view is closed");
+
     this.channel.write(text);
   }
 
@@ -116,6 +121,7 @@ export class MirrorSshView {
     const column = lines[row]?.indexOf(text) ?? -1;
 
     if (column < 0) throw new Error(`Gateway mirror cannot select missing text: ${text}`);
+
     const before = JSON.stringify(this.terminal.readCell(column + 1, row));
 
     this.write(

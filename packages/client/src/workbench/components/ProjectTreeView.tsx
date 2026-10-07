@@ -50,16 +50,22 @@ export function ProjectTreeView({
 
   useKeyboard((key) => {
     if (!focused || rows.length === 0) return;
+
     if (key.name === "j" || key.name === "down")
       return setCursorId(rows[Math.min(cursorIndex + 1, rows.length - 1)]!.id);
+
     if (key.name === "k" || key.name === "up")
       return setCursorId(rows[Math.max(cursorIndex - 1, 0)]!.id);
+
     const row = rows[cursorIndex];
 
     if (!row) return;
+
     if (key.name === "return" || key.name === "enter")
       return row.isFolder ? toggle(row.id) : onSelectFile(row.id, true);
+
     if (key.name === "l" && row.isFolder && !expandedIds.has(row.id)) return toggle(row.id);
+
     if (key.name === "h" && row.isFolder && expandedIds.has(row.id)) return toggle(row.id);
   });
 
@@ -69,6 +75,7 @@ export function ProjectTreeView({
 
     const refreshFiles = async (): Promise<void> => {
       if (requestInFlight) return;
+
       requestInFlight = true;
 
       try {
@@ -112,6 +119,7 @@ export function ProjectTreeView({
       </box>
     );
   }
+
   if (paths.length === 0) {
     return (
       <box

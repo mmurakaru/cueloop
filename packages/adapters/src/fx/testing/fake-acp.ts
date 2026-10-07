@@ -63,6 +63,7 @@ input.on("line", (line) => {
 
     return;
   }
+
   switch (frame.method) {
     case "initialize":
       noticesSupported = frame.params?.clientCapabilities?.session?.notices !== undefined;
@@ -99,12 +100,14 @@ function serveTestPrompt(frame: v.InferOutput<typeof InputSchema>): void {
 
   if (text.startsWith("structured ")) {
     if (!noticesSupported) throw new Error("Test ACP notice capability was not advertised");
+
     if (text === "structured transition")
       update({
         sessionUpdate: "agent_message_chunk",
         messageId: `reply-${turn}`,
         content: { type: "text", text: "[context] skill cat" },
       });
+
     update({
       sessionUpdate: "notice",
       severity: text === "structured notices" ? "future-severity" : "error",
@@ -126,6 +129,7 @@ function serveTestPrompt(frame: v.InferOutput<typeof InputSchema>): void {
 
     return;
   }
+
   update({
     sessionUpdate: "agent_message_chunk",
     messageId: `startup-${turn}`,
@@ -149,6 +153,7 @@ function serveTestPrompt(frame: v.InferOutput<typeof InputSchema>): void {
       messageId: `startup-${turn}`,
       content: { type: "text", text: "HTTP 401: authentication failed\n" },
     });
+
   update({
     sessionUpdate: "tool_call",
     toolCallId: `tool-${turn}`,
@@ -156,6 +161,7 @@ function serveTestPrompt(frame: v.InferOutput<typeof InputSchema>): void {
     kind: "read",
     status: "in_progress",
   });
+
   if (text === "hold" || text === "permission") {
     pendingPrompt = frame.id;
     process.stdout.write(
@@ -173,6 +179,7 @@ function serveTestPrompt(frame: v.InferOutput<typeof InputSchema>): void {
 
     return;
   }
+
   update({
     sessionUpdate: "tool_call_update",
     toolCallId: `tool-${turn}`,
@@ -191,12 +198,14 @@ function serveTestPrompt(frame: v.InferOutput<typeof InputSchema>): void {
           : "The timer survives ",
     },
   });
+
   if (!loaded && !text.includes("Prove this"))
     update({
       sessionUpdate: "agent_message_chunk",
       messageId: `reply-${turn}-${loaded}`,
       content: { type: "text", text: "cancellation." },
     });
+
   reply(frame.id!, { stopReason: "end_turn" });
 
   return;

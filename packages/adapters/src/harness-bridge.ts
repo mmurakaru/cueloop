@@ -75,11 +75,13 @@ function workflowRequest(input: OpenRequest): HarnessWorkflowRequest {
 
     return { ...common, workflow: "review", pullRequestReference: input.pullRequestReference };
   }
+
   if (input.workflow === "refine") {
     if (!input.proposal) throw new Error("Harness bridge refine needs proposal");
 
     return { ...common, workflow: "refine", proposal: input.proposal };
   }
+
   if (!input.content) throw new Error(`Harness bridge ${input.workflow} needs content`);
 
   return { ...common, workflow: input.workflow, content: input.content, title: input.title };
@@ -121,11 +123,13 @@ export async function runHarnessBridge(
         manualOpenCommand: opened.manualOpenCommand,
       };
     }
+
     if (request.operation === "refine") {
       const report = await controller.analyzeRefineCorpus();
 
       return { operation: "refine", report: report.report };
     }
+
     if (request.operation === "pending") {
       const bindings = await client.harnessBindingsForSession(
         request.harness,
@@ -138,6 +142,7 @@ export async function runHarnessBridge(
         const thread = await client.sessionGet(binding.threadId);
 
         if (thread.status === "pending") pendingThreadIds.push(thread.id);
+
         for (const item of await client.deliveryPending(binding.id)) {
           deliveries.push({
             bindingId: binding.id,
@@ -152,13 +157,16 @@ export async function runHarnessBridge(
 
       return { operation: "pending", deliveries, pendingThreadIds };
     }
+
     const binding = await client.harnessGetBinding(request.bindingId);
     const pending = await client.deliveryPending(binding.id);
     const delivery = pending.find((item) => item.delivery.id === request.deliveryId);
 
     if (!delivery || delivery.message.id !== request.messageId)
       throw new Error("Harness bridge acknowledgement does not match a pending Message");
+
     await client.deliveryAcknowledge(delivery.delivery.id);
+
     if (binding.harness === "claude-code") {
       reportState("working");
       reportLabel(`review done: ${delivery.message.outcome}`);

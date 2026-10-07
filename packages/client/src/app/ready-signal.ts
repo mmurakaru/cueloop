@@ -23,6 +23,7 @@ function announceReady(): void {
   const path = process.env[READY_FILE_ENV];
 
   if (!path) return;
+
   writeFileSync(path, "ready\n");
 }
 
@@ -37,6 +38,7 @@ export function useReadySignal(ready: boolean, onReady?: () => void): void {
 
   useEffect(() => {
     if (!ready || fired.current) return;
+
     const emit = (): void => {
       fired.current = true;
       announceReady();

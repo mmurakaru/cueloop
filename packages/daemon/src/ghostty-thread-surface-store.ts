@@ -65,6 +65,7 @@ export class GhosttyThreadSurfaceStore {
     const previous = this.surfaces.get(threadId);
 
     if (previous?.opening) return false;
+
     this.surfaces.set(threadId, { ...previous, opening: true });
 
     try {
@@ -83,8 +84,10 @@ export class GhosttyThreadSurfaceStore {
     const record = this.surfaces.get(threadId);
 
     if (!record?.opening) return;
+
     if (record.terminalId) this.surfaces.set(threadId, { terminalId: record.terminalId });
     else this.surfaces.delete(threadId);
+
     this.persist();
   }
 

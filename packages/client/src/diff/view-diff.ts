@@ -92,10 +92,12 @@ export function fileChangeCounts(
 
   for (const row of rows) {
     if (row.kind !== "add" && row.kind !== "del") continue;
+
     const entry = counts.get(row.file) ?? { additions: 0, deletions: 0 };
 
     if (row.kind === "add") entry.additions += 1;
     else entry.deletions += 1;
+
     counts.set(row.file, entry);
   }
 
@@ -143,9 +145,11 @@ export function marksByRows(
   for (const annotation of annotations) {
     // an addressed annotation keeps its record but paints no highlight
     if (isAddressed(annotation)) continue;
+
     const resolved = resolveAnchor(annotation.anchor, blocks);
 
     if (!resolved) continue;
+
     const span: TextSpan = {
       start: { blockIndex: resolved.blockIndex, char: resolved.start },
       end: { blockIndex: resolved.endBlockIndex, char: resolved.end },
@@ -156,6 +160,7 @@ export function marksByRows(
       const range = spanRangeInBlock(span, rowIndex, blocks[rowIndex]!.text.length);
 
       if (!range) continue;
+
       const marks = marksByIndex.get(rowIndex) ?? [];
 
       marks.push({
@@ -205,6 +210,7 @@ function addResolvedMark(
       blocks[rowIndex]!.text.length === 0;
 
     if (!range && !marksEmptyLine) continue;
+
     const marks = marksByIndex.get(rowIndex) ?? [];
 
     marks.push({
@@ -228,12 +234,14 @@ function addReviewFindingMark(
   const finding = annotation.reviewComment;
 
   if (!finding || isAddressed(annotation)) return false;
+
   const end = resolveReviewAnchorRow(rows, annotation.anchor, finding.path, finding.side);
   const start = finding.startAnchor
     ? resolveReviewAnchorRow(rows, finding.startAnchor, finding.path, finding.side)
     : end;
 
   if (!start || !end || start.rowIndex > end.rowIndex) return false;
+
   addResolvedMark(marksByIndex, annotation, blocks, start.rowIndex, end.rowIndex, focusedId);
 
   return true;
@@ -261,6 +269,7 @@ export function fileRowRange(rows: DiffRow[], path: string): { start: number; en
   const start = rows.findIndex((row) => row.file === path);
 
   if (start === -1) return null;
+
   let end = start;
 
   while (end < rows.length && rows[end]!.file === path) end++;
@@ -284,6 +293,7 @@ export function fileTargetMarks(
     const target = annotationTarget(annotation);
 
     if (target.kind !== "file") continue;
+
     const forPath = byFile.get(target.path) ?? [];
 
     forPath.push(annotation);
@@ -295,6 +305,7 @@ export function fileTargetMarks(
     const range = fileRowRange(rows, path);
 
     if (!range) continue;
+
     const base = range.start;
     const fileRows = rows.slice(range.start, range.end);
     const reviewRootIds = new Set(
@@ -319,10 +330,12 @@ export function fileTargetMarks(
       const finding = annotation.reviewComment;
 
       if (!finding || isAddressed(annotation)) continue;
+
       if (addReviewFindingMark(fileMarks, annotation, fileRows, blocks, focusedId)) {
         resolvedIds.add(annotation.id);
         continue;
       }
+
       const relativeRow = fileRows.findIndex(
         (row) =>
           (finding.side === "RIGHT" ? row.newLine : row.oldLine) === finding.line &&
@@ -349,11 +362,13 @@ export function fileTargetMarks(
     for (const annotation of fileAnnotations) {
       if (!annotation.replyTo || resolvedIds.has(annotation.id) || isAddressed(annotation))
         continue;
+
       const parent = [...fileMarks.entries()].find(([, marks]) =>
         marks.some((mark) => mark.annotationId === annotation.replyTo),
       );
 
       if (!parent) continue;
+
       const [fallbackRow, parentMarks] = parent;
       const parentMark = parentMarks.find((mark) => mark.annotationId === annotation.replyTo)!;
       const replyMark: Mark = {
@@ -448,6 +463,7 @@ export function commentCountsByFile(session: Thread, rows: DiffRow[]): Map<strin
     const file = rows[discussion.blockIndex]?.file;
 
     if (file === undefined) continue;
+
     counts.set(file, (counts.get(file) ?? 0) + discussion.annotations.length);
   }
 
@@ -496,6 +512,7 @@ export function resolveReviewAnchorRow(
       (side === "RIGHT" ? row.newLine === undefined : row.oldLine === undefined)
     )
       return [];
+
     const context = diffRowAnchorContext(rows, rowIndex);
 
     return [
@@ -508,6 +525,7 @@ export function resolveReviewAnchorRow(
   });
 
   if (candidates.length === 0) return undefined;
+
   const bestScore = Math.max(...candidates.map((candidate) => candidate.score));
   const best = candidates.filter((candidate) => candidate.score === bestScore);
 

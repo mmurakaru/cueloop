@@ -85,6 +85,7 @@ export function resolveEditorCommand(rawEditor: string): ResolvedEditor {
   const base = editorBaseName(parts[0] ?? "");
 
   if (TERMINAL_EDITORS.has(base)) return { argv: parts, waits: true };
+
   const waitFlags = GUI_WAIT_FLAGS[base];
 
   if (waitFlags) {
@@ -103,6 +104,7 @@ const NO_WAIT_THRESHOLD_MS = 1000;
 
 function suspectsNoWait(resolved: ResolvedEditor, elapsedMs: number, unchanged: boolean): boolean {
   if (resolved.waits) return false; // holds the terminal or has a wait flag - trust the exit
+
   if (!unchanged) return false; // edits landed, so it waited after all
 
   return elapsedMs < NO_WAIT_THRESHOLD_MS;
@@ -145,6 +147,7 @@ export function editInEditor(
     });
 
     if (editorProcess.exitCode !== 0) throw new Error(`editor exited ${editorProcess.exitCode}`);
+
     let next = readFileSync(path, "utf8");
 
     if (suspectsNoWait(resolved, now() - startedAt, next === content)) {

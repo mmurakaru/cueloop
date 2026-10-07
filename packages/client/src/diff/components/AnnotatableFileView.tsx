@@ -81,6 +81,7 @@ export function AnnotatableFileView(props: AnnotatableFileViewProps): React.Reac
       </box>
     );
   }
+
   if (loaded.lines === null) {
     return (
       <box
