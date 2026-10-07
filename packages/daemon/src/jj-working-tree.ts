@@ -26,6 +26,7 @@ function jjSummary(text: string): { path: string; status: DiffFileStatus; curata
     const path = tokens[index + 1];
 
     if (!code || !path) continue;
+
     changes.push({
       path,
       status: code === "A" ? "added" : code === "D" ? "deleted" : "modified",
@@ -62,12 +63,15 @@ async function captureJjRevision(repoRoot: string, revset: string): Promise<VcsD
   );
 
   if (!identity) throw new Error(`Jujutsu diff capture failed: could not resolve ${revset}`);
+
   const lines = identity.trim().split("\n");
 
   if (lines.length !== 3) throw new Error(`Jujutsu change is ambiguous: ${revset}`);
+
   const [changeId, revisionId, parents] = lines;
 
   if (!changeId || !revisionId) throw new Error("Jujutsu diff capture failed: invalid identity");
+
   const [patch, summary] = await Promise.all([
     jj(["--ignore-working-copy", "diff", "--git", "-r", revisionId], repoRoot),
     jj(["--ignore-working-copy", "diff", "-T", JJ_DIFF_FILES_TEMPLATE, "-r", revisionId], repoRoot),
@@ -75,19 +79,23 @@ async function captureJjRevision(repoRoot: string, revset: string): Promise<VcsD
 
   if (patch === null || summary === null)
     throw new Error("Jujutsu diff capture failed: could not read pinned revision");
+
   const files: DiffFileContents[] = [];
   const parent = parents?.split(",")[0];
 
   if (parent && !parents?.includes(",")) {
     for (const change of jjSummary(summary)) {
       if (!change.curatable) continue;
+
       const oldContents =
         change.status === "added" ? "" : await jjFileContents(repoRoot, parent, change.path);
       const newContents =
         change.status === "deleted" ? "" : await jjFileContents(repoRoot, revisionId, change.path);
 
       if (oldContents === null || newContents === null) continue;
+
       if (isBinary(oldContents) || isBinary(newContents)) continue;
+
       files.push({ path: change.path, oldContents, newContents, status: change.status });
     }
   }
@@ -109,6 +117,7 @@ export const jjVcsAdapter: VcsAdapter = {
   },
   async captureChange(repoRoot, changeId) {
     if (!/^[a-z]{32}$/.test(changeId)) throw new Error(`Jujutsu change ID is invalid: ${changeId}`);
+
     if ((await jj(["status"], repoRoot)) === null)
       throw new Error("Jujutsu diff capture failed: could not snapshot the working copy");
 

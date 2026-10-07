@@ -27,6 +27,7 @@ ptyTest(
     const row = diffRows(patch).find((candidate) => candidate.text.includes("line 08"));
 
     if (!row) throw new Error("annotation row missing");
+
     reviewHome.server.core.sessionAnnotate(review.id, {
       id: "scroll-note",
       kind: "comment",
@@ -62,13 +63,16 @@ ptyTest(
 
       for (let step = 0; step < 55; step++) {
         if (step === 15) session.captureTerminalFrames = true;
+
         await session.press("down");
+
         if (step === 15) {
           session.captureTerminalFrames = false;
           expect(session.terminalFrames).toHaveLength(1);
           expect(session.terminalFrames[0]?.match(/▎/g)).toHaveLength(1);
           expect(session.terminalFrames[0]).toContain("▎        paragraph that");
         }
+
         await session.waitIdle();
         const after = visibleRows(session.text());
         const shared = [...before].filter(([line]) => after.has(line));

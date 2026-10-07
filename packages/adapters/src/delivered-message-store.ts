@@ -65,7 +65,9 @@ export function createDeliveredMessageStore(path: string): DeliveredMessageStore
         const parsed = v.safeParse(FileErrorSchema, error);
 
         if (!parsed.success || parsed.output.code !== "EEXIST") throw error;
+
         if (reapAbandonedLock(lockPath)) continue;
+
         if (Date.now() >= deadline)
           throw new Error(`timed out waiting for Message journal ${path}`, { cause: error });
 
@@ -92,6 +94,7 @@ export function createDeliveredMessageStore(path: string): DeliveredMessageStore
       } else if (Date.now() - before.mtimeMs < 5_000) {
         return false;
       }
+
       if (statSync(lockPath).ino !== before.ino) return false;
 
       unlinkSync(lockPath);

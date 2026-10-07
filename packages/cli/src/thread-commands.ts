@@ -46,6 +46,7 @@ async function sessionCreate({ client, flags }: SessionContext): Promise<number>
 
     return 2;
   }
+
   const contentFile = stringFlag(flags, "content-file");
   const content = contentFile ? await Bun.file(contentFile).text() : await readStdin();
   // per-file agent notes for diff sessions: a JSON array of { path, body }
@@ -76,6 +77,7 @@ async function sessionCreate({ client, flags }: SessionContext): Promise<number>
   if (openResult !== "opened" && openResult !== "focused") {
     console.error(manualThreadOpenCommand(review.id));
   }
+
   out(review.session);
 
   return 0;
@@ -113,6 +115,7 @@ async function sessionWaitCommand({ client, positional, flags }: SessionContext)
 
     return 0;
   }
+
   const { allow, message } = messageResponse(session);
 
   out({ status: "resolved", allow, message });
@@ -143,6 +146,7 @@ async function annotateAnchor(
       ? { anchor: root.anchor, replyTo: root.replyTo ?? root.id }
       : { anchor: root.anchor, replyTo: root.replyTo ?? root.id, target: root.target };
   }
+
   const selector = stringFlag(flags, "selector");
   const quote =
     selector === undefined
@@ -177,6 +181,7 @@ async function sessionAnnotateCommand({
   };
 
   if (replyTo !== undefined) base.replyTo = replyTo;
+
   const annotation: Omit<Annotation, "createdAt"> =
     target === undefined ? base : { ...base, target };
 
@@ -351,7 +356,9 @@ async function sessionEventsCommand({
   const stream = new Promise<number>((resolve) => {
     client.onEvent((event) => {
       if (event.sessionId !== id) return;
+
       out(event);
+
       if (once) resolve(0);
     });
   });
@@ -359,6 +366,7 @@ async function sessionEventsCommand({
   const disconnect = new Promise<number>((resolve) => {
     client.onDisconnect(() => {
       if (finished) return;
+
       console.error("daemon connection closed - restart cueloop session events to resume");
       resolve(1);
     });
@@ -366,6 +374,7 @@ async function sessionEventsCommand({
 
   await client.subscribe();
   await client.sessionGet(id);
+
   if (ready) console.log(JSON.stringify({ event: "events.ready", sessionId: id }));
 
   const code = await Promise.race([stream, disconnect]);
@@ -546,9 +555,11 @@ async function annotateBody(
   const explicit = stringFlag(flags, "body");
 
   if (explicit !== undefined) return explicit;
+
   const actionRef = stringFlag(flags, "action");
 
   if (actionRef === undefined) return "";
+
   const session = await client.sessionGet(id);
   const actions = loadConfig({ repoRoot: session.workspace.repoRoot }).actions;
   const action = resolveQuickAction(actions, actionRef);

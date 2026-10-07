@@ -36,10 +36,12 @@ for (const enabled of [false, true])
       expect(setup.captureCharFrame().includes("Allow agent messages")).toBe(enabled);
       await press(setup, "down");
       await press(setup, "down");
+
       if (enabled) {
         await press(setup, " ");
         await press(setup, "down");
       }
+
       await press(setup, "enter");
       expect(created).toHaveLength(1);
       expect(created[0]?.agentEnabled).toBe(enabled ? true : undefined);

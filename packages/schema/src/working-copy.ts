@@ -17,6 +17,7 @@ export function mergeTextCut(
     // SAFETY: a no-op returns the caller's array unchanged; callers never mutate the result.
     return cuts as TextCut[];
   }
+
   const ranges = [
     ...cuts.map((cut) => ({ start: cut.start, end: cut.end })),
     { start: boundedStart, end: boundedEnd },
@@ -52,12 +53,14 @@ export function restoreTextCut(
   const cutIndex = cuts.findIndex((cut) => cut.start <= start && end <= cut.end);
 
   if (cutIndex === -1 || end <= start) return null;
+
   const cut = cuts[cutIndex]!;
   const replacements: TextCut[] = [];
 
   if (cut.start < start) {
     replacements.push({ start: cut.start, end: start, quote: source.slice(cut.start, start) });
   }
+
   if (end < cut.end) {
     replacements.push({ start: end, end: cut.end, quote: source.slice(end, cut.end) });
   }
@@ -68,6 +71,7 @@ export function restoreTextCut(
 /** Apply valid source ranges in source order, ignoring stale or overlapping records. */
 export function applyTextCuts(source: string, cuts: readonly TextCut[]): string {
   if (cuts.length === 0) return source;
+
   let cursor = 0;
   const pieces: string[] = [];
 
@@ -76,6 +80,7 @@ export function applyTextCuts(source: string, cuts: readonly TextCut[]): string 
   )) {
     if (cut.start < cursor || cut.start < 0 || cut.end > source.length || cut.end <= cut.start)
       continue;
+
     if (source.slice(cut.start, cut.end) !== cut.quote) continue;
 
     pieces.push(source.slice(cursor, cut.start));
@@ -190,7 +195,9 @@ export function restoreBlock(
   const insertedLines = sourceChunk(base, block).split("\n");
 
   if (before.length && before[before.length - 1]!.trim() !== "") insertedLines.unshift("");
+
   if (after.length && after[0]!.trim() !== "") insertedLines.push("");
+
   const restored = [...before, ...insertedLines, ...after].join("\n");
 
   return signature(restored) === signature(base) ? undefined : restored;

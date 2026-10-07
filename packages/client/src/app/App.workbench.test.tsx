@@ -244,6 +244,7 @@ describe("the four-pane workbench", () => {
     for (const [index, direction] of Array.from({ length: 500 }, () => "down" as const).entries()) {
       // eslint-disable-next-line no-await-in-loop
       await setup.mockMouse.scroll(75, 10, direction);
+
       if (index % 25 === 0) {
         // eslint-disable-next-line no-await-in-loop
         await setup.waitForVisualIdle();

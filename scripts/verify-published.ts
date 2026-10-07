@@ -51,7 +51,9 @@ async function settle(check: () => Promise<string | null>): Promise<string | nul
     const problem = await check();
 
     if (problem === null) return null;
+
     if (Date.now() >= deadline) return problem;
+
     await Bun.sleep(POLL_INTERVAL_MS);
   }
 }
@@ -109,12 +111,14 @@ export default function (pi: any) {
     const exitCode = await host.exited.finally(() => clearTimeout(timeout));
 
     if (exitCode !== 0 || !existsSync(toolsPath)) return false;
+
     const output = await new Response(host.stdout).text();
     const commandLine = output
       .split("\n")
       .find((line) => line.includes('"command":"get_commands"'));
 
     if (!commandLine) return false;
+
     const commands = v.parse(
       v.object({
         success: v.literal(true),
@@ -145,6 +149,7 @@ for (const name of new Set(names)) {
 
     if (!response.ok)
       return `${name}: not on the registry (HTTP ${response.status}) - the publish did not land`;
+
     const doc = v.parse(RegistryDocSchema, await response.json());
 
     if (!doc.versions?.[version]) {
@@ -200,11 +205,13 @@ if (problems.length === 0) {
         );
       }
     }
+
     const piHome = join(work, "pi-agent");
     const globalPrefix = Bun.spawnSync(["npm", "prefix", "-g"]).stdout.toString().trim();
     const piExecutable = join(globalPrefix, "bin", "pi");
 
     if (!existsSync(piExecutable)) throw new Error(`pi host is not installed at ${piExecutable}`);
+
     const piInstall = Bun.spawnSync([piExecutable, "install", `npm:@cueloop/pi@${version}`], {
       cwd: work,
       env: { ...process.env, PI_CODING_AGENT_DIR: piHome },
@@ -236,4 +243,5 @@ if (problems.length) {
   for (const problem of problems) console.error(`  - ${problem}`);
   process.exit(1);
 }
+
 console.log(`verified: ${version} (tag ${tag}) is on the registry and the CLI installs and runs`);

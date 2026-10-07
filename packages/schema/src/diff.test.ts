@@ -54,6 +54,7 @@ describe("unifiedDiff", () => {
 
     for (const line of diffLines) {
       if (line.kind === "hunk") continue;
+
       if (line.kind === "ctx" || line.kind === "add") rebuilt.push(line.text.slice(1));
     }
     expect(rebuilt.join("\n")).toBe(newText);

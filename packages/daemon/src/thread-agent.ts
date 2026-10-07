@@ -25,6 +25,7 @@ import {
   recordPromptOperation,
   settlePromptOperations,
 } from "./operation-receipts";
+import { harnessHandoffPrompt, harnessContinuationPrompt } from "./harness-handoff";
 import { writeHarnessDiagnostic } from "./harness-diagnostics";
 import { stepAgentTurn, agentTurnCancelled, type AgentTurn } from "./agent-turn";
 import { ThreadAgentSchema } from "./thread-agent-validation";
@@ -39,6 +40,7 @@ export interface ThreadAgentOptions {
   getThread: (id: string) => Thread;
   onChange: (id: string) => void;
   tools?: (thread: Thread) => AgentHarnessTools;
+  defaultHarnessForThread?: (thread: Thread) => AgentHarnessAdapter;
 }
 
 interface ActiveAgent {
@@ -46,6 +48,8 @@ interface ActiveAgent {
   turn: AgentTurn;
   turnId: string;
   revision: number;
+  attemptId?: string;
+  handoffText?: Map<string, string>;
 }
 
 /** Own harness processes and durable agent transcripts without mutating reviewed artifacts. */
@@ -73,6 +77,7 @@ export class ThreadAgentManager {
   /** Refuse agent API calls while its experimental flag is disabled. */
   assertEnabled(id: string): void {
     if (this.disposed) throw new Error("Thread agent is shutting down");
+
     if (!this.isEnabled(id))
       throw new Error(
         "Thread agent is disabled; enable [experimental] thread_agent in config.toml",
@@ -85,13 +90,16 @@ export class ThreadAgentManager {
     const cached = this.states.get(id);
 
     if (cached) return structuredClone(cached);
+
     const path = this.path(id);
+    const initialAdapter =
+      this.options.defaultHarnessForThread?.(this.options.getThread(id)) ?? this.options.adapter;
     const state = existsSync(path)
       ? v.parse(ThreadAgentSchema, JSON.parse(readFileSync(path, "utf8")))
       : {
           threadId: id,
-          harness: this.options.adapter
-            ? { id: this.options.adapter.id, label: this.options.adapter.label }
+          harness: initialAdapter
+            ? { id: initialAdapter.id, label: initialAdapter.label }
             : undefined,
           phase: { kind: "idle" as const },
           messages: [],
@@ -100,26 +108,29 @@ export class ThreadAgentManager {
         };
 
     if (state.threadId !== id) throw new Error("Thread agent record has the wrong thread identity");
+
+    const recoverable = this.canRecover(state);
+
     if (
       state.phase.kind === "running" ||
       state.phase.kind === "permission" ||
       state.submissions?.some((entry) => entry.status === "queued" || entry.status === "running")
     ) {
-      state.phase =
-        state.harness?.id === "pi"
-          ? { kind: "idle" }
-          : {
-              kind: "failed",
-              error: "Agent was interrupted by a daemon restart. Send a message to resume.",
-            };
+      state.phase = recoverable
+        ? { kind: "idle" }
+        : {
+            kind: "failed",
+            error: "Agent was interrupted by a daemon restart. Send a message to resume.",
+          };
       for (const submission of state.submissions ?? []) {
         if (submission.status === "running" || submission.status === "queued")
-          submission.status = state.harness?.id === "pi" ? "queued" : "failed";
+          submission.status = recoverable ? "queued" : "failed";
       }
       for (const tool of state.tools) {
         if (tool.status === "pending" || tool.status === "in_progress") tool.status = "cancelled";
       }
     }
+
     settlePromptOperations(state);
     this.states.set(id, state);
 
@@ -138,8 +149,11 @@ export class ThreadAgentManager {
 
       return structuredClone(state);
     }
+
     if (!this.options.adapter) throw new Error("Thread agent harness is not configured");
+
     if (thread.status !== "pending") throw new Error("Thread agent review is already resolved");
+
     assertHarnessIdentity(state, this.adapter(state));
     const before = structuredClone(state);
 
@@ -165,7 +179,9 @@ export class ThreadAgentManager {
 
         if (!submission || submission.status !== "failed")
           throw new Error("Thread agent retry requires a failed submission");
+
         delete submission.cancelled;
+        submission.attemptId = randomUUID();
         submission.status = stepAgentSubmission(submission.status, "retry", true);
       } else {
         const accepted = new Set(submissions.map((entry) => entry.commentId));
@@ -174,8 +190,10 @@ export class ThreadAgentManager {
           this.enqueueComment(state, thread, annotation.id, enqueue);
         for (const comment of state.comments.filter((entry) => !params.inputOnly && !entry.sent))
           this.enqueueComment(state, thread, comment.id, enqueue);
+
         if (params.text.trim()) enqueue({ prompt: params.text.trim(), quote: params.context });
       }
+
       recordPromptOperation(state, before, params);
       this.save(state);
     } catch (error) {
@@ -201,15 +219,28 @@ export class ThreadAgentManager {
     value?: string;
   }): Promise<ThreadAgentState> {
     this.assertEnabled(params.id);
+
     if (!this.options.adapter) throw new Error("Thread agent harness is not configured");
+
     const state = this.mutable(params.id);
+
+    if (params.configId === "harness" && params.value !== undefined)
+      return this.switchHarness(state, params.value);
+
+    if (state.handoff && params.configId === undefined) {
+      this.drain(state);
+
+      return structuredClone(state);
+    }
 
     if (state.phase.kind === "running" || state.phase.kind === "permission") {
       // Discovery can read existing choices without reconfiguring an active turn.
       if (params.configId === undefined || params.value === undefined)
         return structuredClone(state);
+
       throw new Error("Thread agent configuration waits for the current turn");
     }
+
     const active = await this.connect(state, this.options.getThread(params.id), "", 1);
 
     if (params.configId === undefined || params.value === undefined) {
@@ -217,16 +248,186 @@ export class ThreadAgentManager {
 
       if (current.phase.kind !== "running" && current.phase.kind !== "permission")
         active.turn = stepAgentTurn(active.turn, "finished");
+
       this.drain(state);
 
       return structuredClone(state);
     }
+
     if (!active.connection.configure)
       throw new Error("Thread agent harness does not advertise configuration");
+
     await active.connection.configure(params.configId, params.value);
     this.save(state);
 
     return structuredClone(state);
+  }
+
+  private switchHarness(state: ThreadAgentState, target: string): ThreadAgentState {
+    const adapter = this.options.adapters?.[target];
+
+    if (!adapter || adapter.recovery !== "durable")
+      throw new Error("Thread harness is unavailable for durable handoff");
+
+    if (state.handoff && (state.handoff.status !== "queued" || state.phase.kind === "running")) {
+      state.handoff.requestedTarget = target;
+      this.save(state);
+
+      return structuredClone(state);
+    }
+
+    if (this.adapter(state).id === target) state.handoff = undefined;
+    else
+      state.handoff = {
+        target,
+        operationId: randomUUID(),
+        status: "queued",
+        source: state.harness ? { ...state.harness } : undefined,
+      };
+
+    this.save(state);
+    this.drain(state);
+
+    return structuredClone(state);
+  }
+
+  private handoffCurrent(state: ThreadAgentState): boolean {
+    return !this.disposed && this.states.get(state.threadId) === state;
+  }
+
+  private coalesceQueuedHandoff(
+    state: ThreadAgentState,
+    handoff: NonNullable<ThreadAgentState["handoff"]>,
+  ): ThreadAgentState["handoff"] {
+    if (handoff.status !== "queued" || !handoff.requestedTarget) return handoff;
+
+    const latest = { ...handoff, target: handoff.requestedTarget, requestedTarget: undefined };
+
+    if (this.adapter(state).id === latest.target) {
+      state.handoff = undefined;
+      this.save(state);
+      this.drain(state);
+
+      return undefined;
+    }
+
+    state.handoff = latest;
+
+    return latest;
+  }
+
+  private async performHandoff(state: ThreadAgentState): Promise<void> {
+    let handoff = state.handoff;
+
+    if (!this.handoffCurrent(state)) return;
+
+    if (!handoff || state.phase.kind === "running" || state.phase.kind === "permission") return;
+
+    handoff = this.coalesceQueuedHandoff(state, handoff);
+
+    if (!handoff) return;
+
+    state.phase = { kind: "running" };
+    this.save(state);
+    let active: ActiveAgent | undefined;
+    const original = handoff.status === "queued" ? state.harness : handoff.source;
+    const intent = { ...handoff, source: original ? { ...original } : undefined };
+
+    try {
+      const thread = this.options.getThread(state.threadId);
+      const text = await this.prepareHandoff(state, thread, intent);
+
+      if (!this.handoffCurrent(state)) return;
+
+      const sessionId = state.harness?.sessionId;
+
+      state.handoff = {
+        ...intent,
+        requestedTarget: state.handoff?.requestedTarget,
+        status: "prepared",
+        text,
+      };
+      this.save(state);
+      await this.retire(state.threadId);
+
+      if (!this.handoffCurrent(state)) return;
+
+      const target = this.options.adapters![handoff.target]!;
+
+      state.harness = { id: target.id, label: target.label, sessionId };
+      state.configOptions = [];
+      active = await this.connect(state, thread, "", 1);
+
+      if (!this.handoffCurrent(state)) return;
+
+      active.turn = stepAgentTurn(active.turn, "finished");
+      state.continuation = text || undefined;
+      const requestedTarget = state.handoff?.requestedTarget;
+
+      state.handoff =
+        requestedTarget && requestedTarget !== target.id
+          ? {
+              target: requestedTarget,
+              operationId: randomUUID(),
+              status: "queued",
+              source: { ...state.harness },
+            }
+          : undefined;
+      state.phase = { kind: "idle" };
+      this.save(state);
+      this.drain(state);
+    } catch (error) {
+      await this.retire(state.threadId, active);
+
+      if (!this.handoffCurrent(state)) return;
+
+      state.harness = original;
+      state.handoff = undefined;
+      state.phase = {
+        kind: "failed",
+        error: error instanceof Error ? error.message : "Thread harness handoff failed",
+      };
+      this.save(state);
+    }
+  }
+
+  private async prepareHandoff(
+    state: ThreadAgentState,
+    thread: Thread,
+    handoff: NonNullable<ThreadAgentState["handoff"]>,
+  ): Promise<string> {
+    if (handoff.status === "prepared") return handoff.text;
+
+    if (!state.messages.length) return "";
+
+    const active = await this.connect(
+      state,
+      thread,
+      handoff.operationId,
+      thread.revisions.at(-1)?.revision ?? 1,
+    );
+
+    if (!this.handoffCurrent(state)) throw new Error("Thread handoff was closed");
+
+    active.turnId = handoff.operationId;
+    active.attemptId = undefined;
+    active.handoffText = new Map();
+    state.handoff = {
+      ...handoff,
+      requestedTarget: state.handoff?.requestedTarget,
+      status: "summarizing",
+      prompt: handoff.prompt ?? harnessHandoffPrompt(thread, state),
+    };
+    this.save(state);
+    const result = await active.connection.prompt(state.handoff.prompt!, handoff.operationId);
+
+    if (result.outcome !== "completed") throw new Error("Thread harness handoff did not complete");
+
+    const text = [...active.handoffText.values()].join("\n").trim();
+
+    if (!text) throw new Error("Thread harness handoff returned no continuation context");
+
+    return text;
   }
 
   private enqueueComment(
@@ -242,6 +443,7 @@ export class ThreadAgentManager {
 
     if (!input || state.submissions?.some((submission) => submission.commentId === commentId))
       throw new Error("Shared agent comment is unavailable or already sent");
+
     enqueue({
       commentId,
       prompt: frozen?.text ?? input.body,
@@ -249,6 +451,7 @@ export class ThreadAgentManager {
       messageId: comment?.messageId,
       context: frozen?.discussion ?? commentDiscussion(state, thread, commentId),
     });
+
     if (comment) comment.sent = true;
   }
 
@@ -268,8 +471,10 @@ export class ThreadAgentManager {
       128
     )
       throw new Error("Thread agent prototype reached its 128-message limit");
+
     if (Buffer.byteLength(input.prompt) > 320_000 || Buffer.byteLength(input.quote ?? "") > 320_000)
       throw new Error("Thread agent input exceeds 320 KiB");
+
     const used = state.messages.reduce(
       (total, message) => total + Buffer.byteLength(message.text),
       0,
@@ -277,6 +482,7 @@ export class ThreadAgentManager {
 
     if (used + Buffer.byteLength(input.prompt) > 2 * 1024 * 1024)
       throw new Error("Thread agent input exceeds transcript limit");
+
     const submission: AgentSubmission = {
       ...input,
       id: operationId ?? randomUUID(),
@@ -304,9 +510,17 @@ export class ThreadAgentManager {
       this.retiring.has(state.threadId)
     )
       return;
+
+    if (state.handoff) {
+      void this.performHandoff(state);
+
+      return;
+    }
+
     const submission = state.submissions?.find((entry) => entry.status === "queued");
 
     if (!submission) return;
+
     const before = structuredClone(state);
 
     submission.status = stepAgentSubmission(submission.status, "start", true);
@@ -334,14 +548,17 @@ Discussion context: ${submission.context ?? submission.messageId ?? ""}
 Input: ${submission.prompt}`;
 
     try {
-      submission.harnessPrompt = prompt;
+      submission.harnessPrompt = state.continuation
+        ? harnessContinuationPrompt(state.continuation, prompt)
+        : prompt;
+      state.continuation = undefined;
       this.save(state);
     } catch (error) {
       // Acceptance is already durable; a retry can resume the queue before any harness request.
       restoreAgentState(state, before);
       throw error;
     }
-    void this.run(state, thread, submission.id, revision, prompt, [], submission);
+    void this.run(state, thread, submission.id, revision, submission.harnessPrompt!, submission);
   }
 
   /** Attach quote-primary feedback only to a finalized agent message. */
@@ -351,8 +568,10 @@ Input: ${submission.prompt}`;
 
     if (!message || !message.complete)
       throw new Error("Thread agent comment requires a completed answer");
+
     if (!resolveAnchor(params.comment.anchor, parseBlocks(message.text)))
       throw new Error("Thread agent comment quote does not resolve");
+
     const index = state.comments.findIndex((comment) => comment.id === params.comment.id);
     const previous = state.comments[index];
     const root = params.comment.replyTo
@@ -364,19 +583,24 @@ Input: ${submission.prompt}`;
       (!root || root.messageId !== message.id || root.id === params.comment.id)
     )
       throw new Error("Thread agent reply requires a comment on the same answer");
+
     if (
       this.isReadOnly(params.id, params.comment.id) ||
       (previous && (previous.sent || previous.messageId !== params.comment.messageId))
     )
       throw new Error("Thread agent delivered comments are immutable");
+
     if (Buffer.byteLength(JSON.stringify(params.comment)) > 32_768)
       throw new Error("Thread agent comment exceeds 32 KiB");
+
     if (index >= 0) state.comments[index] = { ...params.comment, sent: false };
     else {
       if (state.comments.length >= 128)
         throw new Error("Thread agent prototype reached its comment limit");
+
       state.comments.push({ ...params.comment, sent: false });
     }
+
     this.save(state);
 
     return structuredClone(state);
@@ -388,10 +612,12 @@ Input: ${submission.prompt}`;
     const comment = agentCommentRoot(state, commentId);
 
     if (!comment) throw new Error("Thread agent reply comment does not exist");
+
     const root = agentCommentRoot(state, comment.replyTo ?? comment.id) ?? comment;
 
     if (state.comments.length >= 128)
       throw new Error("Thread agent prototype reached its comment limit");
+
     state.comments.push({
       ...root,
       id: randomUUID(),
@@ -415,6 +641,7 @@ Input: ${submission.prompt}`;
       const submission = state.submissions?.find((entry) => entry.status === "running");
 
       if (submission) submission.cancelled = true;
+
       for (const tool of state.tools) {
         if (tool.status === "pending" || tool.status === "in_progress") tool.status = "cancelled";
       }
@@ -438,8 +665,10 @@ Input: ${submission.prompt}`;
     ) {
       throw new Error("Thread agent permission request is no longer pending");
     }
+
     if (!state.phase.permission.options.some((option) => option.optionId === params.optionId))
       throw new Error("Thread agent permission option was not advertised");
+
     active.connection.permission(params.requestId, params.optionId);
     state.phase = { kind: "running" };
     this.save(state);
@@ -474,7 +703,9 @@ Input: ${submission.prompt}`;
       this.active.delete(id);
       active?.connection.cancel();
       await active?.connection.close();
+
       if (state.harness?.sessionId) await this.adapter(state).remove?.(state.harness.sessionId);
+
       rmSync(this.path(id), { force: true });
       rmSync(this.path(id) + ".tmp", { force: true });
       rmSync(join(this.directory, `${encodeURIComponent(id)}.diagnostics.ndjson`), { force: true });
@@ -483,17 +714,39 @@ Input: ${submission.prompt}`;
     }
   }
 
-  private adapter(state: ThreadAgentState): AgentHarnessAdapter {
-    const adapter =
-      (state.harness && this.options.adapters?.[state.harness.id]) ?? this.options.adapter;
+  private canRecover(state: ThreadAgentState): boolean {
+    return this.availableAdapter(state)?.recovery === "durable";
+  }
 
-    if (!adapter) throw new Error("Thread agent harness is not configured");
+  private availableAdapter(state: ThreadAgentState): AgentHarnessAdapter | undefined {
+    const preferred =
+      this.options.defaultHarnessForThread?.(this.options.getThread(state.threadId)) ??
+      this.options.adapter;
+
+    if (!state.harness) return preferred;
+
+    return (
+      this.options.adapters?.[state.harness.id] ??
+      (preferred?.id === state.harness.id ? preferred : undefined)
+    );
+  }
+
+  private adapter(state: ThreadAgentState): AgentHarnessAdapter {
+    const adapter = this.availableAdapter(state);
+
+    if (!adapter)
+      throw new Error(
+        state.harness && this.options.adapter
+          ? "Thread is bound to a different harness"
+          : "Thread agent harness is not configured",
+      );
 
     return adapter;
   }
 
   private assertReadable(id: string): void {
     if (this.deleting.has(id)) throw new Error("Thread agent is being deleted");
+
     this.options.getThread(id);
   }
 
@@ -509,11 +762,14 @@ Input: ${submission.prompt}`;
 
   private save(state: ThreadAgentState): void {
     settlePromptOperations(state);
+
     if (this.states.get(state.threadId) !== state) return;
+
     const data = JSON.stringify(state);
 
     if (Buffer.byteLength(data) > 8 * 1024 * 1024)
       throw new Error("Thread agent transcript exceeds 8 MiB");
+
     mkdirSync(this.directory, { recursive: true, mode: 0o700 });
     writeFileSync(this.path(state.threadId) + ".tmp", data, { mode: 0o600 });
     renameSync(this.path(state.threadId) + ".tmp", this.path(state.threadId));
@@ -526,38 +782,45 @@ Input: ${submission.prompt}`;
     turnId: string,
     revision: number,
     prompt: string,
-    comments: AgentComment[],
     submission?: AgentSubmission,
   ): Promise<void> {
     let active = this.active.get(state.threadId);
-    const messageStart = state.messages.length;
 
     try {
       active = await this.connect(state, thread, turnId, revision);
+
       if (this.states.get(state.threadId) !== state) return;
+
       active.turnId = turnId;
       active.revision = revision;
+      active.attemptId = submission?.attemptId;
+
       // Cancellation during initialization must not submit a new model request.
       if (active.turn.kind === "idle") {
         if (submission) submission.status = "failed";
+
         state.phase = { kind: "idle" };
         this.save(state);
         this.drain(state);
 
         return;
       }
-      const result = await active.connection.prompt(prompt, turnId);
+
+      const result = await active.connection.prompt(prompt, submission?.attemptId ?? turnId);
 
       if (this.states.get(state.threadId) !== state) return;
-      finalizeAgentMessages(state, messageStart, result.outcome);
+
+      finalizeAgentMessages(state, active, result.outcome);
+
       if (submission && result.outcome === "cancelled") submission.cancelled = true;
+
       if (submission)
         submission.status = stepAgentSubmission(
           submission.status,
           result.outcome === "completed" ? "complete" : "fail",
           true,
         );
-      if (result.outcome === "completed") for (const comment of comments) comment.sent = true;
+
       for (const tool of state.tools) {
         if (tool.status === "pending" || tool.status === "in_progress") tool.status = "cancelled";
       }
@@ -567,11 +830,13 @@ Input: ${submission.prompt}`;
       this.drain(state);
     } catch (error) {
       if (submission) submission.status = "failed";
+
       state.phase = {
         kind: "failed",
         error: error instanceof Error ? error.message : "Thread agent request failed",
       };
       await this.retire(state.threadId, active);
+
       if (!this.disposed && this.states.get(state.threadId) === state) {
         this.save(state);
         this.drain(state);
@@ -583,6 +848,7 @@ Input: ${submission.prompt}`;
     const existing = this.retiring.get(id);
 
     if (existing) return existing;
+
     this.active.delete(id);
     const closing = Promise.resolve()
       .then(() => active?.connection.close())
@@ -605,10 +871,13 @@ Input: ${submission.prompt}`;
     const retiring = this.retiring.get(state.threadId);
 
     if (retiring) await retiring;
+
     if (this.disposed) throw new Error("Thread agent is shutting down");
+
     const pending = this.initializing.get(state.threadId);
 
     if (pending) return pending;
+
     const promise = this.startConnection(state, thread, turnId, revision);
 
     this.initializing.set(state.threadId, promise);
@@ -617,6 +886,22 @@ Input: ${submission.prompt}`;
     } finally {
       this.initializing.delete(state.threadId);
     }
+  }
+
+  private handoffTools(state: ThreadAgentState, thread: Thread): AgentHarnessTools | undefined {
+    const tools = this.options.tools?.(thread);
+
+    if (!tools) return undefined;
+
+    return {
+      ...tools,
+      call: (name, input) => {
+        if (state.handoff?.status === "summarizing")
+          throw new Error("Thread tools are unavailable while preparing a harness handoff");
+
+        return tools.call(name, input);
+      },
+    };
   }
 
   private async startConnection(
@@ -632,11 +917,13 @@ Input: ${submission.prompt}`;
       const connection = adapter.connect({
         cwd: thread.artifact.meta.cwd ?? thread.workspace.repoRoot,
         sessionId: state.harness?.sessionId,
-        tools: this.options.tools?.(thread),
+        tools: this.handoffTools(state, thread),
         onEvent: (event) => this.receive(state, event),
         onExit: (error) => {
           if (this.active.get(state.threadId)?.connection !== connection) return;
+
           this.active.delete(state.threadId);
+
           if (!this.disposed) {
             state.phase = { kind: "failed", error: error.message };
             this.save(state);
@@ -649,6 +936,7 @@ Input: ${submission.prompt}`;
       const sessionId = await connection.start();
 
       if (this.states.get(state.threadId) !== state) throw new Error("Thread agent was removed");
+
       state.harness = {
         id: adapter.id,
         label: adapter.label,
@@ -664,7 +952,20 @@ Input: ${submission.prompt}`;
   }
 
   private receive(state: ThreadAgentState, event: AgentHarnessEvent): void {
+    const handoff = this.active.get(state.threadId)?.handoffText;
+
+    if (handoff && event.kind === "message") {
+      const id = event.id ?? "summary";
+
+      handoff.set(id, event.replace ? event.text : (handoff.get(id) ?? "") + event.text);
+
+      return;
+    }
+
+    if (handoff && event.kind === "tool") return;
+
     if (this.states.get(state.threadId) !== state) return;
+
     const routed = routeHarnessOutput(event);
 
     if (routed.destination === "diagnostics") {
@@ -672,27 +973,33 @@ Input: ${submission.prompt}`;
 
       return;
     }
+
     event = routed.event;
+
     if (event.kind === "config") {
       state.configOptions = event.options;
       this.save(state);
 
       return;
     }
+
     const active = this.active.get(state.threadId);
 
     if (!active || active.turn.kind === "starting") return;
+
     if (event.kind === "permission") {
       if (agentTurnCancelled(active.turn)) {
         active.connection.permission(event.permission.id);
 
         return;
       }
+
       state.phase = { kind: "permission", permission: event.permission };
       this.save(state);
 
       return;
     }
+
     this.applyUpdate(state, active, event);
   }
 
@@ -702,7 +1009,9 @@ Input: ${submission.prompt}`;
     update: Extract<AgentHarnessEvent, { kind: "message" | "tool" }>,
   ): void {
     if (update.kind === "message") {
-      const messageId = update.id ?? `answer-${active.turnId}`;
+      const messageId = active.attemptId
+        ? `${active.attemptId}:${update.id ?? "answer"}`
+        : (update.id ?? `answer-${active.turnId}`);
       let message = state.messages.find((message) => message.id === messageId);
 
       if (!message) {
@@ -716,7 +1025,9 @@ Input: ${submission.prompt}`;
         };
         state.messages.push(message);
       }
+
       if (message.complete) return;
+
       const used = state.messages.reduce(
         (total, entry) => total + Buffer.byteLength(entry.text),
         0,
@@ -743,6 +1054,7 @@ Input: ${submission.prompt}`;
       if (!tool) {
         if (state.tools.length >= 128)
           throw new Error("Thread agent reached its tool activity limit");
+
         tool = {
           id: update.id,
           turnId: active.turnId,
@@ -754,16 +1066,22 @@ Input: ${submission.prompt}`;
         };
         state.tools.push(tool);
       }
+
       if (update.title) tool.title = update.title.slice(0, 256);
+
       if (update.toolKind) tool.kind = update.toolKind;
+
       if (update.status)
         tool.status = agentTurnCancelled(active.turn) ? "cancelled" : update.status;
+
       if (update.locations)
         tool.locations = update.locations
           .slice(0, 8)
           .map((location) => ({ ...location, path: location.path.slice(0, 512) }));
+
       if (update.output !== undefined) tool.output = update.output.slice(0, 8192);
     }
+
     this.save(state);
   }
 }
@@ -771,11 +1089,18 @@ Input: ${submission.prompt}`;
 /** Only this turn can finalize its answers; stopped and historical partials stay incomplete. */
 function finalizeAgentMessages(
   state: ThreadAgentState,
-  start: number,
+  active: ActiveAgent,
   outcome: AgentHarnessResult["outcome"],
 ): void {
   if (outcome !== "completed") return;
-  for (const message of state.messages.slice(start)) message.complete = true;
+
+  for (const message of state.messages) {
+    if (message.role !== "agent" || message.submissionId !== active.turnId) continue;
+
+    if (active.attemptId && !message.id.startsWith(`${active.attemptId}:`)) continue;
+
+    message.complete = true;
+  }
 }
 
 function isPendingAgentInput(
@@ -792,8 +1117,11 @@ function isPendingAgentInput(
 
 function restoreAgentState(state: ThreadAgentState, before: ThreadAgentState): void {
   if (before.submissions === undefined) delete state.submissions;
+
   if (before.promptOperations === undefined) delete state.promptOperations;
+
   if (before.harness === undefined) delete state.harness;
+
   Object.assign(state, before);
 }
 
@@ -831,6 +1159,7 @@ function commentDiscussion(state: ThreadAgentState, thread: Thread, commentId: s
         .map((entry) => ({ id: entry.id, body: entry.body })),
     });
   }
+
   const comment = agentCommentRoot(state, commentId)!;
   const root = agentCommentRoot(state, comment.replyTo ?? comment.id) ?? comment;
 

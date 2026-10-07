@@ -26,6 +26,7 @@ export interface ThumbGeometry {
 
 export function thumbGeometry(state: ScrollState, track: number): ThumbGeometry | null {
   if (track <= 0 || state.height <= state.viewport || state.viewport <= 0) return null;
+
   const height = Math.max(1, Math.round((state.viewport / state.height) * track));
   const maxTop = state.height - state.viewport;
   const row = Math.round((state.top / maxTop) * (track - height));
@@ -64,7 +65,9 @@ export function OverlayScrollbar({ scrollbox, theme }: OverlayScrollbarProps): R
 
   const reveal = (): void => {
     setVisible(true);
+
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+
     hideTimerRef.current = setTimeout(() => {
       if (!draggingRef.current) setVisible(false);
     }, HIDE_DELAY_MS);
@@ -73,6 +76,7 @@ export function OverlayScrollbar({ scrollbox, theme }: OverlayScrollbarProps): R
   // reveal on real scroll movement, never on first mount, then hide once idle
   useEffect(() => {
     if (prevTopRef.current !== null && state.top !== prevTopRef.current) reveal();
+
     prevTopRef.current = state.top;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.top]);
@@ -91,6 +95,7 @@ export function OverlayScrollbar({ scrollbox, theme }: OverlayScrollbarProps): R
     const box = scrollbox.current;
 
     if (!box || !geometry) return;
+
     const row = screenY - (trackRef.current?.y ?? 0) - Math.floor(geometry.height / 2);
     const ratio = Math.min(1, Math.max(0, row / Math.max(1, track - geometry.height)));
 

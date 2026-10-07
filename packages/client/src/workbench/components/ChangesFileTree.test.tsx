@@ -12,6 +12,7 @@ import { DARK } from "../../appearance/theme";
 
 function findById(node: Renderable, id: string): Renderable | undefined {
   if (node.id === id) return node;
+
   for (const child of node.getChildren()) {
     const found = findById(child, id);
 
@@ -89,6 +90,7 @@ test("keyboard navigation reveals the selected changed file", async () => {
   const scrollbox = findById(setup.renderer.root, "tree-scroll");
 
   if (!(scrollbox instanceof ScrollBoxRenderable)) throw new Error("tree scrollbox missing");
+
   const scrollSteps: number[] = [];
 
   for (const [index, key] of Array.from({ length: 15 }, () => "j").entries()) {
@@ -173,6 +175,7 @@ test("horizontal name scrolling reveals the final extension beside the status", 
   const label = findById(setup.renderer.root, `tree-label-${path}`);
 
   if (!(label instanceof TextRenderable)) throw new Error("file label missing");
+
   expect(label.maxScrollX).toBeGreaterThan(0);
   label.scrollX = label.maxScrollX;
   await settle(setup);

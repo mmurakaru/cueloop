@@ -50,6 +50,7 @@ export function exportSession(
   const vault = config.vault ?? detectVaults(config.obsidianConfigPath)[0];
 
   if (!vault) return { success: false, error: "no Obsidian vault configured or detected" };
+
   if (!existsSync(vault)) return { success: false, error: `vault not found: ${vault}` };
 
   const content = session.workingCopy ?? session.artifact.content;

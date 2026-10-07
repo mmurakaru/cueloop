@@ -61,6 +61,7 @@ function singleRangeTextChanges(
   newText: string,
 ): ReturnType<typeof wordLevelChanges> | null {
   if (oldText === newText || oldText.length === newText.length) return null;
+
   let prefixLength = 0;
 
   while (
@@ -77,7 +78,9 @@ function singleRangeTextChanges(
     oldText[oldText.length - 1 - suffixLength] === newText[newText.length - 1 - suffixLength]
   )
     suffixLength++;
+
   if (prefixLength + suffixLength !== shorterLength) return null;
+
   const commonPrefix = oldText.slice(0, prefixLength);
   const commonSuffix = oldText.slice(oldText.length - suffixLength);
   const changed =
@@ -101,8 +104,11 @@ function singleRangeTextChanges(
 /** Word-overlap similarity gate: an unrelated cut + insert must not merge. */
 function similar(baseBlock: Block, workBlock: Block, expectedText?: string): boolean {
   if (baseBlock.kind !== workBlock.kind) return false;
+
   if (expectedText === workBlock.text) return true;
+
   if (singleRangeTextChanges(baseBlock.text, workBlock.text)) return true;
+
   const words = (text: string) => new Set(text.toLowerCase().split(/\s+/).filter(Boolean));
   const baseWords = words(baseBlock.text);
   const workWords = words(workBlock.text);
@@ -132,6 +138,7 @@ export function buildDisplay(
     const segments = sourceSegments[blockIndex];
 
     if (!segments?.length) return;
+
     const sourceStart = segments[0]!.sourceStart;
     const last = segments.at(-1)!;
     const sourceEnd = last.sourceStart + last.textEnd - last.textStart;
@@ -143,6 +150,7 @@ export function buildDisplay(
       const cut = exactCuts[index]!;
 
       if (cut.start >= sourceEnd) break;
+
       const start = blockTextBoundary(segments, block.text.length, cut.start);
       const end = blockTextBoundary(segments, block.text.length, cut.end);
 
@@ -153,6 +161,7 @@ export function buildDisplay(
     };
 
     if (ranges.length > 0) data.textCutRanges = ranges;
+
     cutData.set(block, data);
   });
   const blockCutData = (block: Block) => cutData.get(block) ?? {};
@@ -160,6 +169,7 @@ export function buildDisplay(
     const data = blockCutData(block);
 
     if (!data.textCutRanges) return undefined;
+
     let text = block.text;
 
     for (let index = data.textCutRanges.length - 1; index >= 0; index--) {
@@ -178,6 +188,7 @@ export function buildDisplay(
       if (!data.textCutRanges) {
         return { type: "same", kind: base.kind, base, work: base, ...data };
       }
+
       const text = expectedBlockText(base)!;
 
       return {
@@ -207,6 +218,7 @@ export function buildDisplay(
 
     return display;
   }
+
   const workBlocks = parseBlocks(workingContent);
   const signature = (block: Block) => block.kind + "\0" + block.text;
   const ops = lcsDiff(
@@ -225,6 +237,7 @@ export function buildDisplay(
       opIndex++;
       continue;
     }
+
     const deletedBlocks: Block[] = [];
     const addedBlocks: Block[] = [];
 
@@ -233,6 +246,7 @@ export function buildDisplay(
 
       if (changeOp.kind === "del") deletedBlocks.push(changeOp.oldValue!);
       else addedBlocks.push(changeOp.newValue!);
+
       opIndex++;
     }
     let deletedIndex = 0;
@@ -309,6 +323,7 @@ function blockTextBoundary(
     const sourceEnd = segment.sourceStart + segment.textEnd - segment.textStart;
 
     if (sourceOffset < segment.sourceStart) return segment.textStart;
+
     if (sourceOffset <= sourceEnd) return segment.textStart + sourceOffset - segment.sourceStart;
   }
 
@@ -377,13 +392,16 @@ export function marksByDisplay(
   for (const annotation of annotations) {
     // an addressed annotation keeps its record but paints no highlight
     if (isAddressed(annotation)) continue;
+
     const resolved = resolveAnchor(annotation.anchor, workBlocks);
 
     if (!resolved) continue;
+
     const startEntry = workEntries[resolved.blockIndex];
     const endEntry = workEntries[resolved.endBlockIndex];
 
     if (!startEntry || !endEntry) continue;
+
     // resolveAnchor works in the block's work text; the surface paints and hit-tests in rendered
     // text (markers concealed), so map the span onto the visible characters it covers
     const renderedStart = renderedOffsetAtOrAfter(
@@ -396,6 +414,7 @@ export function marksByDisplay(
     );
 
     if (renderedStart === null || renderedEndInclusive === null) continue;
+
     const span: TextSpan = {
       start: { blockIndex: startEntry.displayIndex, char: renderedStart },
       end: { blockIndex: endEntry.displayIndex, char: renderedEndInclusive + 1 },
@@ -407,6 +426,7 @@ export function marksByDisplay(
       const range = spanRangeInBlock(span, entry.displayIndex, renderedText(entry.block).length);
 
       if (!range) continue;
+
       const marks = marksByIndex.get(entry.displayIndex) ?? [];
 
       marks.push({
@@ -425,6 +445,7 @@ export function marksByDisplay(
 
 function exactCutRuns(block: DisplayBlock, literal: boolean): StyleRun[] | null {
   if (!block.base || !block.work || !block.textCutRanges) return null;
+
   const localCuts = block.textCutRanges;
   const expected = localCuts.reduceRight(
     (text, cut) => text.slice(0, cut.start) + text.slice(cut.end),
@@ -432,6 +453,7 @@ function exactCutRuns(block: DisplayBlock, literal: boolean): StyleRun[] | null 
   );
 
   if (expected !== block.work.text) return null;
+
   const sourceRuns = literal
     ? [{ text: block.base.text, role: "plain" as const, start: 0 }]
     : inlineStyleRuns(block.base.text, 0);
@@ -441,6 +463,7 @@ function exactCutRuns(block: DisplayBlock, literal: boolean): StyleRun[] | null 
 
   for (const sourceRun of sourceRuns) {
     if (sourceRun.start === null) continue;
+
     const runStart = sourceRun.start;
     const runEnd = runStart + sourceRun.text.length;
     let position = runStart;
@@ -461,6 +484,7 @@ function exactCutRuns(block: DisplayBlock, literal: boolean): StyleRun[] | null 
         });
         break;
       }
+
       if (position < cut.start) {
         const commonEnd = Math.min(runEnd, cut.start);
 
@@ -473,6 +497,7 @@ function exactCutRuns(block: DisplayBlock, literal: boolean): StyleRun[] | null 
         position = commonEnd;
         continue;
       }
+
       const removedEnd = Math.min(runEnd, cut.end);
 
       runs.push({
@@ -482,6 +507,7 @@ function exactCutRuns(block: DisplayBlock, literal: boolean): StyleRun[] | null 
         baseStart: position,
       });
       position = removedEnd;
+
       if (position === cut.end) {
         deletedBefore += cut.end - cut.start;
         cutIndex++;
@@ -518,6 +544,7 @@ export function blockRuns(block: DisplayBlock, markup: boolean): StyleRun[] {
         runs.push({ text: change.text, role: "del", start: null });
         continue;
       }
+
       // A code/rule block stays literal; prose segments inline-tokenize so their
       // markers conceal while their work offsets stay intact. Added text keeps
       // the green diff role (it wins over emphasis); context text shows emphasis.
@@ -533,6 +560,7 @@ export function blockRuns(block: DisplayBlock, markup: boolean): StyleRun[] {
 
     return runs;
   }
+
   const text = displayText(block);
 
   // Prose carries inline markup; code fences and rules are literal. Concealed
@@ -550,6 +578,7 @@ export function blockRuns(block: DisplayBlock, markup: boolean): StyleRun[] {
  *  document could otherwise splice into the terminal escape stream. */
 export function safeLinkHref(href: string | undefined): string | undefined {
   if (href === undefined) return undefined;
+
   if (!/^(https?:|mailto:)/i.test(href)) return undefined;
 
   return /^[\x21-\x7e]+$/.test(href) ? href : undefined;
@@ -565,6 +594,7 @@ export function inlineStyleRuns(text: string, base: number): StyleRun[] {
 
   for (const run of inlineRuns(text)) {
     if (run.role === "marker" || run.start === null) continue;
+
     const styleRun: StyleRun = {
       text: run.text,
       role: run.role === "text" ? "plain" : run.role,
@@ -572,6 +602,7 @@ export function inlineStyleRuns(text: string, base: number): StyleRun[] {
     };
 
     if (run.href !== undefined) styleRun.href = run.href;
+
     runs.push(styleRun);
   }
 
@@ -595,6 +626,7 @@ export function renderedStyleRuns(block: DisplayBlock): RenderedRun[] {
     const positioned: RenderedRun = { text: run.text, role: run.role, start: rendered };
 
     if (run.href !== undefined) positioned.href = run.href;
+
     runs.push(positioned);
     rendered += run.text.length;
   }
@@ -619,6 +651,7 @@ function addSyntaxBoundaries(
 ): void {
   for (const span of syntaxSpans) {
     if (span.start > line.start && span.start < line.end) cuts.add(span.start);
+
     if (span.end > line.start && span.end < line.end) cuts.add(span.end);
   }
 }
@@ -647,6 +680,7 @@ export function styledRunsFor(
 
   for (const run of roleRuns) {
     if (run.start > line.start && run.start < line.end) cuts.add(run.start);
+
     const runEnd = run.start + run.text.length;
 
     if (runEnd > line.start && runEnd < line.end) cuts.add(runEnd);
@@ -669,6 +703,7 @@ export function styledRunsFor(
     const end = edges[index + 1]!;
 
     if (end <= start) continue;
+
     const roleRun = roleRuns.find(
       (candidate) => candidate.start <= start && start < candidate.start + candidate.text.length,
     );
@@ -681,9 +716,11 @@ export function styledRunsFor(
     };
 
     if (roleRun?.href !== undefined) styled.href = roleRun.href;
+
     const syntaxGroup = syntaxGroupForRun(syntaxSpans, start, end);
 
     if (syntaxGroup) styled.syntaxGroup = syntaxGroup;
+
     runs.push(styled);
   }
 
@@ -693,6 +730,7 @@ export function styledRunsFor(
 /** Split runs at mark boundaries; marks only bind to runs with offsets. */
 export function overlayMarks(runs: StyleRun[], marks: Mark[]): StyleRun[] {
   if (!marks.length) return runs;
+
   const splitRuns: StyleRun[] = [];
 
   for (const run of runs) {
@@ -700,6 +738,7 @@ export function overlayMarks(runs: StyleRun[], marks: Mark[]): StyleRun[] {
       splitRuns.push(run);
       continue;
     }
+
     const bounds = new Set<number>([0, run.text.length]);
 
     for (const mark of marks) {
@@ -719,6 +758,7 @@ export function overlayMarks(runs: StyleRun[], marks: Mark[]): StyleRun[] {
       const sliceEnd = boundaries[boundaryIndex + 1]!;
 
       if (sliceStart >= sliceEnd) continue;
+
       const absoluteStart = runStart + sliceStart;
       const mark = marks.find(
         (candidate) => candidate.start <= absoluteStart && runStart + sliceEnd <= candidate.end,
@@ -751,6 +791,7 @@ export function renderedOffsetFor(runs: StyleRun[], workOffset: number): number 
     if (run.start !== null && workOffset >= run.start && workOffset < run.start + run.text.length) {
       return rendered + (workOffset - run.start);
     }
+
     rendered += run.text.length;
   }
 
@@ -770,6 +811,7 @@ export function renderedOffsetAtOrAfter(runs: StyleRun[], workOffset: number): n
     if (run.start !== null && run.start + run.text.length > workOffset) {
       return rendered + Math.max(0, workOffset - run.start);
     }
+
     rendered += run.text.length;
   }
 
@@ -788,6 +830,7 @@ export function renderedOffsetAtOrBefore(runs: StyleRun[], workOffset: number): 
     if (run.start !== null && run.start <= workOffset) {
       best = rendered + Math.min(workOffset - run.start, run.text.length - 1);
     }
+
     rendered += run.text.length;
   }
 
@@ -812,11 +855,14 @@ export function workRangeForRendered(
     const runRenderedEnd = rendered + run.text.length;
 
     rendered = runRenderedEnd;
+
     if (run.start === null) continue;
+
     const overlapStart = Math.max(renderedStart, runRenderedStart);
     const overlapEnd = Math.min(renderedEnd, runRenderedEnd);
 
     if (overlapEnd <= overlapStart) continue;
+
     const workStart = run.start + (overlapStart - runRenderedStart);
     const workEnd = run.start + (overlapEnd - runRenderedStart);
 
@@ -844,11 +890,14 @@ export function baseRangeForRendered(
     const runRenderedEnd = rendered + run.text.length;
 
     rendered = runRenderedEnd;
+
     if (run.baseStart === undefined) continue;
+
     const overlapStart = Math.max(renderedStart, runRenderedStart);
     const overlapEnd = Math.min(renderedEnd, runRenderedEnd);
 
     if (overlapEnd <= overlapStart) continue;
+
     const baseStart = run.baseStart + overlapStart - runRenderedStart;
     const baseEnd = run.baseStart + overlapEnd - runRenderedStart;
 
@@ -883,6 +932,7 @@ export function renderedSpanToWork(
 
     return range ?? { start: renderedStart, end: renderedEnd };
   }
+
   const startRuns = blockRuns(startBlock, true);
   const startRange = workRangeForRendered(
     startRuns,
@@ -952,6 +1002,7 @@ export function spanFromRange(
   const wordIndex = words.findIndex((word) => word[1] > start);
 
   if (wordIndex === -1) return null;
+
   let wordEnd = wordIndex;
 
   for (let index = wordIndex; index < words.length && words[index]![0] < end; index++) {
@@ -989,6 +1040,7 @@ export function spanKey(span: SpanState, key: string, text: string): SpanState {
     nextSpan.wordEnd = width;
     nextSpan.wordIndex = 0;
   } else return span;
+
   nextSpan.start = words[nextSpan.wordIndex]![0];
   nextSpan.end = words[nextSpan.wordEnd]![1];
 

@@ -73,6 +73,7 @@ function shareUpload(port: number, blob: Buffer): Promise<string> {
       .on("ready", () => {
         conn.exec("cueloop-share", (err, stream) => {
           if (err) return reject(err);
+
           stream.on("data", (chunk: Buffer) => (out += chunk.toString("utf8")));
           stream.on("close", () => {
             clearTimeout(timer);
@@ -105,9 +106,11 @@ function shellCapture(
     let done = false;
     const finish = (err?: Error) => {
       if (done) return;
+
       done = true;
       clearTimeout(timer);
       conn.end();
+
       if (err) reject(err);
       else resolve(out);
     };
@@ -117,8 +120,10 @@ function shellCapture(
       .on("ready", () => {
         conn.shell({ term: "xterm-256color", cols: 100, rows: 30 }, (err, stream) => {
           if (err) return finish(err);
+
           const onChunk = (chunk: Buffer) => {
             out += chunk.toString("utf8");
+
             if (until(out)) finish();
           };
 
@@ -139,6 +144,7 @@ async function pollFrames(getFrames: () => string, needle: string, ms = 20000): 
 
   while (Date.now() < deadline) {
     if (getFrames().includes(needle)) return true;
+
     await new Promise((r) => setTimeout(r, 100));
   }
 
@@ -160,6 +166,7 @@ function viewThenQuit(port: number, shareId: string): Promise<string> {
 
       while (Date.now() < deadline) {
         if (frames.includes(needle)) return true;
+
         await wait(100);
       }
 
@@ -170,20 +177,25 @@ function viewThenQuit(port: number, shareId: string): Promise<string> {
       .on("ready", () =>
         conn.shell({ term: "xterm-256color", cols: 100, rows: 30 }, async (err, stream) => {
           if (err) return reject(err);
+
           const collect = (chunk: Buffer) => (frames += chunk.toString("utf8"));
 
           stream.on("data", collect);
           stream.stderr.on("data", collect);
           // the channel closing on the app's graceful exit is the resolve signal
           stream.on("close", () => (clearTimeout(timer), conn.end(), resolve(frames)));
+
           if (!(await until("welcome")))
             return (
               clearTimeout(timer), conn.end(), reject(new Error(`no name prompt:\n${frames}`))
             );
+
           await wait(300);
           stream.write("\x1b"); // skip naming
+
           if (!(await until("Rollout Plan")))
             return (clearTimeout(timer), conn.end(), reject(new Error(`no render:\n${frames}`)));
+
           await wait(400);
           stream.write("\x11"); // ctrl+q: graceful quit -> restore the terminal, then close
         }),
@@ -316,6 +328,7 @@ function annotateOverShell(port: number, shareId: string, body: string): Promise
 
       while (Date.now() < deadline) {
         if (frames.includes(needle)) return true;
+
         await wait(100);
       }
 
@@ -326,20 +339,25 @@ function annotateOverShell(port: number, shareId: string, body: string): Promise
       .on("ready", () =>
         conn.shell({ term: "xterm-256color", cols: 100, rows: 30 }, async (err, stream) => {
           if (err) return reject(err);
+
           const collect = (chunk: Buffer) => (frames += chunk.toString("utf8"));
 
           stream.on("data", collect);
           stream.stderr.on("data", collect);
+
           // first open opens the name prompt over the plan; esc skips it (their
           // notes read anonymous) and reveals the plan the keys below drive
           if (!(await until("welcome")))
             return (
               clearTimeout(timer), conn.end(), reject(new Error(`no name prompt:\n${frames}`))
             );
+
           await wait(300);
           stream.write("\x1b");
+
           if (!(await until("Rollout Plan")))
             return (clearTimeout(timer), conn.end(), reject(new Error(`no render:\n${frames}`)));
+
           await wait(400);
           // the caret rests on the title's first word: a printable opens the
           // draft there, alt+enter (ESC CR) sends it -> unions into the stored blob
@@ -372,6 +390,7 @@ function nameSelfOverShell(port: number, shareId: string, name: string): Promise
 
       while (Date.now() < deadline) {
         if (frames.includes(needle)) return true;
+
         await wait(100);
       }
 
@@ -382,14 +401,17 @@ function nameSelfOverShell(port: number, shareId: string, name: string): Promise
       .on("ready", () =>
         conn.shell({ term: "xterm-256color", cols: 100, rows: 30 }, async (err, stream) => {
           if (err) return reject(err);
+
           const collect = (chunk: Buffer) => (frames += chunk.toString("utf8"));
 
           stream.on("data", collect);
           stream.stderr.on("data", collect);
+
           if (!(await until("welcome")))
             return (
               clearTimeout(timer), conn.end(), reject(new Error(`no name prompt:\n${frames}`))
             );
+
           await wait(400);
           stream.write(name);
           await wait(400);
@@ -455,6 +477,7 @@ function sharePull(
       .on("ready", () => {
         conn.exec("cueloop-pull", (error, stream) => {
           if (error) return reject(error);
+
           stream.on("data", (chunk: Buffer) => (out += chunk.toString("utf8")));
           stream.stderr.on("data", (chunk: Buffer) => (err += chunk.toString("utf8")));
           stream.on("exit", (exitCode: number) => (code = exitCode));
@@ -518,6 +541,7 @@ function shareRevoke(
       .on("ready", () => {
         conn.exec("cueloop-revoke", (error, stream) => {
           if (error) return reject(error);
+
           // drain stdout so the ssh2 stream flows and our stdin end() reaches the server
           stream.on("data", () => {});
           stream.stderr.on("data", (chunk: Buffer) => (err += chunk.toString("utf8")));
@@ -580,6 +604,7 @@ function sharePush(
       .on("ready", () => {
         conn.exec("cueloop-push", (error, stream) => {
           if (error) return reject(error);
+
           stream.on("data", () => {});
           stream.stderr.on("data", (chunk: Buffer) => (err += chunk.toString("utf8")));
           stream.on("exit", (exitCode: number) => (code = exitCode));
@@ -712,6 +737,7 @@ function shareWatch(
       .on("ready", () => {
         conn.exec("cueloop-watch", (error, stream) => {
           if (error) return reject(error);
+
           stream.on("data", (chunk: Buffer) => {
             buffered += chunk.toString("utf8");
             const lines = buffered.split("\n");
@@ -731,6 +757,7 @@ function shareWatch(
                   refused,
                 });
               }
+
               if (frame.type === "session") {
                 const waiter = waiters.shift();
 
@@ -863,12 +890,15 @@ test("the owner agent channel accepts duplex state and rejects another fingerpri
 
               return;
             }
+
             stream = channel;
             let buffer = "";
 
             channel.on("data", (chunk: Buffer) => {
               buffer += chunk.toString("utf8");
+
               if (!buffer.includes("\n")) return;
+
               const frame = JSON.parse(buffer.slice(0, buffer.indexOf("\n")));
 
               expect(frame.type).toBe("requests");
@@ -898,6 +928,7 @@ test("the owner agent channel accepts duplex state and rejects another fingerpri
       const current = await relay.get(id);
 
       if (current.messages.length) break;
+
       await Bun.sleep(1);
     }
     expect((await relay.get(id)).messages[0]?.text).toBe("日本語 🦊");
@@ -919,6 +950,7 @@ test("the owner agent channel accepts duplex state and rejects another fingerpri
 
               return;
             }
+
             channel.resume();
             channel.stderr.resume();
             channel.on("close", (code: number) => {
@@ -963,6 +995,7 @@ test("an agent channel rejects a flood of queued frames from a signed SSH client
 
             return;
           }
+
           let stderr = "";
 
           channel.resume();

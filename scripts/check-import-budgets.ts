@@ -63,6 +63,7 @@ export function packageOfFile(file: string, packages: PackageHome[]): PackageHom
 
   for (const candidate of packages) {
     if (!file.startsWith(`${candidate.directory}/`)) continue;
+
     if (home === null || candidate.directory.length > home.directory.length) home = candidate;
   }
 
@@ -106,6 +107,7 @@ export function checkModule(
       }
     }
   }
+
   const isTest = /\.test\.tsx?$/.test(file);
   const budget = budgets.moduleBudgets[file] ?? budgets.moduleImportBudget;
 
@@ -145,11 +147,13 @@ async function main(): Promise<number> {
     const file = relative(root, `${root}/${path}`).split(sep).join("/");
 
     if (file.includes("/node_modules/") || file.includes("/dist/")) continue;
+
     violations.push(
       ...checkModule(file, readFileSync(`${root}/${file}`, "utf8"), budgets, packages),
     );
   }
   for (const violation of violations) console.error(`${violation.file}: ${violation.message}`);
+
   if (violations.length) console.error(`${violations.length} import budget violation(s)`);
 
   return violations.length ? 1 : 0;

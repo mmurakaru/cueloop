@@ -7,6 +7,7 @@ export function truncateTitle(title: string, maxWidth: number): string {
   const oneLine = title.replace(/\n/g, " ");
 
   if (maxWidth <= 0) return "";
+
   const characters = [...oneLine];
 
   if (characters.length <= maxWidth) return oneLine;

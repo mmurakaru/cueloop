@@ -32,6 +32,7 @@ export class HarnessStateStore {
     );
 
     if (existing) return existing;
+
     const binding: HarnessBinding = {
       ...input,
       id: newRoutingId("bind"),
@@ -77,6 +78,7 @@ export class HarnessStateStore {
 
   private deleteBindingsAndDeliveries(bindingIds: ReadonlySet<string>): boolean {
     if (bindingIds.size === 0) return false;
+
     for (const bindingId of bindingIds) this.bindings.delete(bindingId);
     for (const delivery of this.deliveries.values()) {
       if (bindingIds.has(delivery.bindingId)) this.deliveries.delete(delivery.id);
@@ -111,6 +113,7 @@ export class HarnessStateStore {
     );
 
     if (existing) return existing;
+
     const delivery: Delivery = {
       ...input,
       id: newRoutingId("del"),
@@ -136,6 +139,7 @@ export class HarnessStateStore {
 
     for (const delivery of this.deliveries.values()) {
       if (delivery.status !== "pending") continue;
+
       const binding = this.bindings.get(delivery.bindingId);
 
       if (binding) ids.add(binding.threadId);
@@ -163,6 +167,7 @@ export class HarnessStateStore {
     if (!delivery) throw new Error(`no delivery ${deliveryId}`);
 
     if (delivery.status === "acknowledged") return delivery;
+
     const acknowledged: Delivery = {
       ...delivery,
       status: "acknowledged",

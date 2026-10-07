@@ -32,9 +32,12 @@ export function walkFiles(rows: DiffRow[]): WalkFile[] {
       byPath.set(row.file, file);
       files.push(file);
     }
+
     if (row.kind !== "add" && row.kind !== "del") continue;
+
     if (row.kind === "add") file.added += 1;
     else file.removed += 1;
+
     if (file.preview.length < WALK_PREVIEW_ROWS) {
       file.preview.push({
         sign: row.kind === "add" ? "+" : "-",

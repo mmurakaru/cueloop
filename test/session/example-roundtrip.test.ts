@@ -33,9 +33,12 @@ test("the two-terminal example receives and acknowledges a Message", async () =>
       threadId = (await client.sessionList({ status: "pending" }))[0]?.id;
 
       if (threadId) break;
+
       await Bun.sleep(10);
     }
+
     if (!threadId) throw new Error("example did not open a Thread");
+
     await client.sessionSendMessage(threadId, "approved", "Example approved.");
     const exitCode = await Promise.race([
       child.exited,

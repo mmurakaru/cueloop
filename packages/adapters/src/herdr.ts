@@ -11,6 +11,7 @@ export function reportState(state: HerdrAgentState, env: HerdrEnv = process.env)
   const herdr = detectHerdr(env);
 
   if (!herdr) return;
+
   spawnQuiet([
     herdr.binPath,
     "pane",
@@ -28,6 +29,7 @@ export function reportLabel(text: string, env: HerdrEnv = process.env): void {
   const herdr = detectHerdr(env);
 
   if (!herdr) return;
+
   spawnQuiet([
     herdr.binPath,
     "pane",

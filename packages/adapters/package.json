@@ -32,6 +32,7 @@
     "./forge-review": "./src/forge-review.ts",
     "./github-review-comment": "./src/github-review-comment.ts",
     "./wake-message": "./src/wake-message.ts",
+    "./thread-harness": "./src/thread-harness.ts",
     "./fx/harness": "./src/fx/harness.ts",
     "./pi/harness-output": "./src/pi/harness-output.ts",
     "./pi/durable-harness": "./src/pi/durable-harness.ts",

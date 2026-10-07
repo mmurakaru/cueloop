@@ -111,10 +111,12 @@ export function treeRows(history: SessionHistory): TreeRow[] {
     };
 
     if (label !== undefined) row.label = label;
+
     rows.push(row);
     const siblings = children.get(entry.id) ?? [];
 
     if (siblings.length === 0) return;
+
     const trunk = trunkChild(siblings);
 
     for (const child of siblings) if (child !== trunk) walk(child, depth + 1, nextRound);
@@ -133,9 +135,11 @@ export function treeRows(history: SessionHistory): TreeRow[] {
  */
 export function entryTarget(history: SessionHistory, entryId: string): EntryTarget | null {
   if (entryId === tipOf(history)) return { kind: "here" };
+
   const tipBranch = Object.entries(history.tips).find(([, tip]) => tip === entryId);
 
   if (tipBranch) return { kind: "switch", branch: tipBranch[0] };
+
   const holds = (branch: string): boolean =>
     pathOf(history, tipOf(history, branch)).some((entry) => entry.id === entryId);
   const branch = holds(history.branch)

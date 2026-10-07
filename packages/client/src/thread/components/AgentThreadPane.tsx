@@ -80,6 +80,7 @@ export function AgentThreadPane(props: AgentThreadPaneProps): React.ReactNode {
 
   useEffect(() => {
     if (!busy) return;
+
     const timer = setInterval(() => setPulse((value) => !value), 600);
 
     return () => clearInterval(timer);
@@ -119,7 +120,9 @@ export function AgentThreadPane(props: AgentThreadPaneProps): React.ReactNode {
 
   const invoke = async (commentId?: string): Promise<void> => {
     if (thread.status !== "pending") return;
+
     if (!commentId && !draft.current.trim()) return;
+
     invocations.current.push({
       text: draft.current,
       commentId: commentId
@@ -128,7 +131,9 @@ export function AgentThreadPane(props: AgentThreadPaneProps): React.ReactNode {
       writes: pendingWrites.current.splice(0),
     });
     draft.current = "";
+
     if (invoking.current) return;
+
     invoking.current = true;
 
     const rejected: string[] = [];
@@ -144,6 +149,7 @@ export function AgentThreadPane(props: AgentThreadPaneProps): React.ReactNode {
             rejected.push(input.text);
             continue;
           }
+
           await props.flushMutations?.();
           const accepted = await agent.act((client) =>
             client.agentPrompt({
@@ -219,6 +225,7 @@ export function AgentThreadPane(props: AgentThreadPaneProps): React.ReactNode {
     );
 
     if (!submission) return undefined;
+
     if (submission.status === "failed" && props.client?.canControlAgent !== false)
       return {
         label: "Retry",
@@ -293,6 +300,7 @@ export function AgentThreadPane(props: AgentThreadPaneProps): React.ReactNode {
 
           return;
         }
+
         if (source?.kind === "mirror") {
           const mirrorId = projection.marks.get(span.start.blockIndex)?.[0]?.annotationId;
 
@@ -300,15 +308,18 @@ export function AgentThreadPane(props: AgentThreadPaneProps): React.ReactNode {
 
           return;
         }
+
         if (source?.kind === "artifact" && end?.kind === "artifact") {
           return child?.onAnnotate(span, body);
         }
+
         if (
           source?.kind !== "message" ||
           end?.kind !== "message" ||
           source.messageId !== end.messageId
         )
           return;
+
         const message = state.messages.find((entry) => entry.id === source.messageId)!;
         const localState = { ...state, messages: [message] };
         const comment = commentOnAgentSpan(
@@ -347,6 +358,7 @@ export function AgentThreadPane(props: AgentThreadPaneProps): React.ReactNode {
             {state.phase.kind === "offline" ? (
               <text fg={theme.textMuted}>Owner offline</text>
             ) : null}
+            {state.phase.kind === "failed" ? <text fg={theme.red}>{state.phase.error}</text> : null}
             {busy ? <text fg={pulse ? theme.textDim : theme.textMuted}>Thinking…</text> : null}
             {state.phase.kind === "permission" && props.client?.canControlAgent !== false ? (
               <>

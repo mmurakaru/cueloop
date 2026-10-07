@@ -102,8 +102,10 @@ ptyTest(
         (screen) => screen.includes("Retry review") && screen.includes("Send message (1)"),
         { what: "resized Thread header and composer" },
       );
+
       if (process.env.CUELOOP_FX_CAPTURE)
         writeFileSync(process.env.CUELOOP_FX_CAPTURE, session.text());
+
       await session.close();
       session = launchTuiSession({
         home,

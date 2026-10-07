@@ -23,6 +23,7 @@ function incompleteRows(frame: string): number {
 
   for (const line of frame.split("\n")) {
     if (/row\d{3} text/.test(line) && !/\d+\s+\+\s+row\d{3} text/.test(line)) count++;
+
     if (/\d+\s+\+\s*$/.test(line)) count++;
   }
 
@@ -90,6 +91,7 @@ if (!ptyTuiAvailable()) {
       const paintedAt = session.terminalFrames.findIndex((frame) => frame.includes(target));
 
       if (paintedAt < 0) throw new Error("caret row did not appear in a completed terminal frame");
+
       paintMs.push(session.terminalFrameTimes[paintedAt]! - started);
       completedFrames += session.terminalFrames.length;
       multiFrameSteps += Number(session.terminalFrames.length > 1);
@@ -119,11 +121,13 @@ if (!ptyTuiAvailable()) {
       const previous = rows.at(-2);
 
       if (!current || !previous) return;
+
       for (const xOf of ["numberX", "textX"] as const) {
         const edge = cellAt(current[xOf], current.y);
         const reference = cellAt(previous[xOf], previous.y);
 
         if (!edge || !reference) continue;
+
         fastColorSamples++;
         fastColorMismatches += Number(
           JSON.stringify(edge.fg) !== JSON.stringify(reference.fg) ||

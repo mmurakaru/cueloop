@@ -22,7 +22,9 @@ test("only a completed reply in an idle conversation offers continuation", () =>
   const completed: AgentContinuation = agentContinuation({ ...state, messages: [message] });
 
   expect(completed.kind).toBe("ready");
+
   if (completed.kind === "ready") expect(completed.replyId).toBe("answer");
+
   expect(agentContinuation({ ...state, phase: { kind: "running" }, messages: [message] })).toEqual({
     kind: "waiting",
   });

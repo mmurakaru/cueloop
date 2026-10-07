@@ -14,5 +14,6 @@ export function reportPerfMarks(scope: string): void {
   if (marks.length === 0) return;
 
   if (process.env.CUELOOP_PERF === "1") process.stderr.write(formatPerfBlock(scope, marks));
+
   void postOtlpTrace(PERF_SERVICE_NAME, phaseMarksToSpans(scope, marks));
 }

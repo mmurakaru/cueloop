@@ -93,13 +93,16 @@ function csiModifierParameter(modifiers: ReadonlySet<PtyKeyModifier>): number {
  */
 export function encodePtyKeyPress(press: PtyKeyPress): string {
   if (!Array.isArray(press)) return encodeSingleKey(press, new Set());
+
   const key = press[press.length - 1];
   const modifiers = new Set<PtyKeyModifier>();
 
   for (const token of press.slice(0, -1)) {
     if (!isModifier(token)) throw new Error(`PTY key chord has an unknown modifier "${token}"`);
+
     modifiers.add(token);
   }
+
   if (key === undefined) throw new Error("PTY key chord is empty");
 
   return encodeSingleKey(key, modifiers);
@@ -112,6 +115,7 @@ function encodeSingleKey(key: string, modifiers: ReadonlySet<PtyKeyModifier>): s
     if (key.length === 1 && /[a-z]/i.test(key)) {
       return prefix + String.fromCharCode(key.toLowerCase().charCodeAt(0) & 0x1f);
     }
+
     const codePoint = MODIFY_OTHER_KEYS_CODE_POINTS.get(key);
 
     if (codePoint === undefined) {
@@ -122,16 +126,19 @@ function encodeSingleKey(key: string, modifiers: ReadonlySet<PtyKeyModifier>): s
 
     return `\x1b[27;${csiModifierParameter(modifiers)};${codePoint}~`;
   }
+
   if (isNamedKey(key)) {
     const sequence = PTY_KEY_SEQUENCES[key];
 
     if (modifiers.has("shift") && key === "tab") return `${prefix}\x1b[Z`;
+
     if (modifiers.has("shift") && sequence.startsWith("\x1b[") && /[A-Z]$/.test(sequence)) {
       return `${prefix}\x1b[1;${csiModifierParameter(modifiers)}${sequence.slice(-1)}`;
     }
 
     return prefix + sequence;
   }
+
   if (key.length !== 1)
     throw new Error(`PTY key press "${key}" is neither a named key nor one character`);
 
@@ -150,12 +157,16 @@ export function cheatsheetChordKeyPress(chord: string): PtyKeyPress {
     modifiers.push("alt");
     key = key.slice(1);
   }
+
   if (key.startsWith("⌃")) {
     modifiers.push("ctrl");
     key = key.slice(1);
   }
+
   if (key === "⌫") key = "backspace";
+
   if (key === "⏎") key = "enter";
+
   if (key.length === 1 && key !== key.toLowerCase()) {
     modifiers.push("shift");
     key = key.toLowerCase();

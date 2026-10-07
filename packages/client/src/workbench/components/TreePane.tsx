@@ -42,6 +42,7 @@ function trailerFor(row: TreeRow): string {
   const parts: string[] = [];
 
   if (row.tips.length) parts.push(`← ${row.tips.join(", ")}`);
+
   if (row.label !== undefined) parts.push(`⚑ ${row.label}`);
 
   return parts.length ? `  ${parts.join("  ")}` : "";
@@ -67,6 +68,7 @@ export function TreePane({
   // the trunk draws last, so a long history opens with its tip below the fold: keep the row in view
   useEffect(() => {
     if (revealId === undefined) return;
+
     try {
       scrollRef.current?.scrollChildIntoView(`tree-row-${revealId}`);
     } catch {

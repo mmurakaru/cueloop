@@ -238,6 +238,7 @@ export class DaemonCore {
     const binding = this.harnessState.binding(bindingId);
 
     if (!binding) throw new DaemonError("not_found", `no harness binding ${bindingId}`);
+
     const session = this.sessionGet(binding.threadId);
 
     if (
@@ -259,6 +260,7 @@ export class DaemonCore {
     const binding = this.harnessState.binding(bindingId);
 
     if (!binding) throw new DaemonError("not_found", `no harness binding ${bindingId}`);
+
     const session = this.sessionGet(binding.threadId);
 
     return this.harnessState.pending(bindingId).map((delivery) => {
@@ -377,8 +379,10 @@ export class DaemonCore {
   }): Thread[] {
     return this.store.list().filter((session) => {
       if (filter?.status && session.status !== filter.status) return false;
+
       if (filter?.workspace?.repoRoot && session.workspace.repoRoot !== filter.workspace.repoRoot)
         return false;
+
       if (filter?.workspace?.branch && session.workspace.branch !== filter.workspace.branch)
         return false;
 
@@ -401,14 +405,17 @@ export class DaemonCore {
       let done = false;
       const timer = setTimeout(() => {
         if (done) return;
+
         done = true;
         const waiterIndex = list.indexOf(waiter);
 
         if (waiterIndex !== -1) list.splice(waiterIndex, 1);
+
         resolve(null);
       }, timeoutMs);
       const waiter = (session: Thread | null) => {
         if (done) return;
+
         done = true;
         clearTimeout(timer);
         resolve(session);
@@ -432,6 +439,7 @@ export class DaemonCore {
 
     // a welcome-playground note is ephemeral by design: never persisted, so never fed back
     if (annotationTarget(annotation).kind === "welcome") return session;
+
     const existing = session.annotations.findIndex((candidate) => candidate.id === annotation.id);
     const full: Annotation = { ...annotation, createdAt: new Date().toISOString() };
 
@@ -449,12 +457,14 @@ export class DaemonCore {
         ...full,
         createdAt: session.annotations[existing]!.createdAt,
       };
+
     if (annotation.author && authorName)
       session.participants = registerParticipant(
         session,
         annotation.author,
         authorName,
       ).participants;
+
     this.store.upsert(session);
     this.emit("session.updated", id, entryId);
 
@@ -473,6 +483,7 @@ export class DaemonCore {
     if (onBehalfOf !== undefined && target !== undefined && target.author !== onBehalfOf) {
       throw new DaemonError("forbidden", `${onBehalfOf} cannot remove another author's comment`);
     }
+
     session.annotations = session.annotations.filter((candidate) => candidate.id !== annotationId);
     let entryId: string | undefined;
 
@@ -508,6 +519,7 @@ export class DaemonCore {
     const session = this.mutable(id);
 
     if (textCuts?.length) this.assertTextCuts(session.artifact.content, workingCopy, textCuts);
+
     const entryId = this.applyWorkingCopy(session, workingCopy, textCuts);
 
     this.store.upsert(session);
@@ -552,6 +564,7 @@ export class DaemonCore {
 
     if (viewedPaths.length === 0) delete session.viewedPaths;
     else session.viewedPaths = [...new Set([...(session.viewedPaths ?? []), ...viewedPaths])];
+
     this.store.upsert(session);
     this.emit("session.updated", id);
 
@@ -565,6 +578,7 @@ export class DaemonCore {
 
     if (trimmed.length === 0) delete session.artifact.meta.title;
     else session.artifact.meta.title = trimmed;
+
     this.store.upsert(session);
     // the title shows in the Threads sidebar, so a rename is an inbox change, not just a content edit
     this.emit("inbox.changed", id);
@@ -668,10 +682,12 @@ export class DaemonCore {
       );
 
     if (open) return { session: open };
+
     // serialize concurrent bare launches for the same repo onto one creation, so they share a thread
     const inFlight = this.workbenchCreation.get(key);
 
     if (inFlight) return inFlight;
+
     const creation = this.vcsSources.capture(cwd, selected.adapter.id).then((diff) => ({
       session: this.sessionCreate({
         workspace,
@@ -716,7 +732,9 @@ export class DaemonCore {
     const session = this.store.get(id);
 
     if (!this.store.delete(id)) throw new DaemonError("not_found", `no session ${id}`);
+
     if (session) this.untrackLiveDiffSession(session);
+
     this.diffRefreshGenerations.delete(id);
     this.herdrThreadSurfaces.delete(id);
     this.ghosttyThreadSurfaces.delete(id);
@@ -740,6 +758,7 @@ export class DaemonCore {
 
     if (!block)
       throw new DaemonError("invalid_params", `no block ${blockIndex} in the working copy`);
+
     const entryId = this.applyWorkingCopy(session, cutBlock(working, block));
 
     this.store.upsert(session);
@@ -764,6 +783,7 @@ export class DaemonCore {
         `no block ${baseBlockIndex} in the submitted revision`,
       );
     }
+
     const working = session.workingCopy ?? base;
 
     if (!isBlockCut(base, working, block)) {
@@ -772,6 +792,7 @@ export class DaemonCore {
         `block ${baseBlockIndex} of the submitted revision is present in the working copy`,
       );
     }
+
     const beforeLine = Math.min(line ?? working.split("\n").length, working.split("\n").length);
     const entryId = this.applyWorkingCopy(session, restoreBlock(base, working, block, beforeLine));
 
@@ -792,11 +813,14 @@ export class DaemonCore {
     if (session.artifact.type !== "diff") {
       throw new DaemonError("invalid_params", "only a diff review is curated by hunk");
     }
+
     if (!session.artifact.files?.length) {
       throw new DaemonError("invalid_params", "hunk curation needs full file contents");
     }
+
     if (rejections.length === 0) delete session.curation;
     else session.curation = rejections;
+
     const entryId = this.applyWorkingCopy(
       session,
       rejections.length === 0 ? undefined : curateDiff(session.artifact.files, rejections),
@@ -828,6 +852,7 @@ export class DaemonCore {
 
     for (const annotation of incoming.annotations) {
       if (known.has(annotation.id)) continue;
+
       known.add(annotation.id);
       session.annotations.push(annotation);
       this.recordOn(session, branch, {
@@ -841,6 +866,7 @@ export class DaemonCore {
 
     for (const removal of incoming.removals ?? []) {
       if (recorded.has(removal.id) || !known.has(removal.annotationId)) continue;
+
       this.recordOn(session, branch, {
         id: removal.id,
         type: "comment-removed",
@@ -849,6 +875,7 @@ export class DaemonCore {
       });
       changed = true;
     }
+
     if (incoming.participants?.length) {
       const registry = new Map(
         (session.participants ?? []).map((participant) => [participant.id, participant]),
@@ -857,8 +884,10 @@ export class DaemonCore {
       for (const participant of incoming.participants) registry.set(participant.id, participant);
       session.participants = [...registry.values()];
     }
+
     if (changed && session.history) this.refreshView(session, session.history);
     else this.store.upsert(session);
+
     this.emit("session.updated", id);
 
     return session;
@@ -880,6 +909,7 @@ export class DaemonCore {
     const receipt = findOperationReceipt(current.messageOperations, operationId, fingerprint);
 
     if (receipt) return { ...structuredClone(current), message: structuredClone(receipt.result) };
+
     const mutable = this.mutable(id);
     const session = operationId ? structuredClone(mutable) : mutable;
     const sentAt = new Date().toISOString();
@@ -906,6 +936,7 @@ export class DaemonCore {
 
     if (operationId)
       (session.messageOperations ??= []).push({ operationId, fingerprint, result: message });
+
     session.message = message;
     session.status = outcome === "comment" ? "pending" : "resolved";
     const entryId = this.record(session, {
@@ -917,11 +948,13 @@ export class DaemonCore {
     this.store.upsert(session);
     this.reconcileDeliveries(session);
     this.emit("message.sent", id, entryId);
+
     if (outcome === "comment") {
       this.emit("session.updated", id, entryId);
 
       return session;
     }
+
     // a resolved diff review is frozen; stop hot-reloading its working tree
     this.untrackLiveDiffSession(session);
     const parked = this.waiters.get(id) ?? [];
@@ -993,6 +1026,7 @@ export class DaemonCore {
 
     for (const annotation of session.annotations) {
       if (isAddressed(annotation) || isAgentNote(annotation)) continue;
+
       if (reportedIds.has(annotation.id)) {
         annotation.resolution = { revision: revisionNumber, source: "agent" };
       } else if (
@@ -1107,8 +1141,10 @@ export class DaemonCore {
     fork.annotations = view.annotations.map((annotation) =>
       forkedAnnotation(annotation, source, fork),
     );
+
     if (source.participants)
       fork.participants = source.participants.map((identity) => ({ ...identity }));
+
     this.store.upsert(fork);
     this.trackLiveDiffSession(fork);
     this.emit("session.created", fork.id);
@@ -1122,8 +1158,10 @@ export class DaemonCore {
     const session = this.mutable(id);
 
     if (session.artifact.type !== "diff") return { changed: false };
+
     // a PR review has no local working tree; re-pull it from the PR instead of clobbering it
     if (session.artifact.meta.pr !== undefined) return this.sessionRefreshPrDiff(id);
+
     const generation = (this.diffRefreshGenerations.get(id) ?? 0) + 1;
 
     this.diffRefreshGenerations.set(id, generation);
@@ -1145,14 +1183,17 @@ export class DaemonCore {
     // capture, and re-read so a resolved review is never mutated and a deleted
     // one is never revived by this upsert.
     if (this.diffRefreshGenerations.get(id) !== generation) return { changed: false };
+
     const current = this.store.get(id);
 
     if (!current || current.status !== "pending" || current.artifact.type !== "diff")
       return { changed: false };
+
     const contentChanged = diff.patch !== current.artifact.content;
     const sourceChanged = diff.source?.revisionId !== current.artifact.meta.vcsRevisionId;
 
     if (!contentChanged && !sourceChanged) return { changed: false };
+
     current.artifact = {
       ...current.artifact,
       content: diff.patch,
@@ -1206,12 +1247,15 @@ export class DaemonCore {
 
       return;
     }
+
     if (changed) {
       const history = withHistory(session).history;
 
       if (history) session.history = recaptureMainHead(history, diff.patch);
     }
+
     if (pinned) return;
+
     const liveRevision = session.revisions.at(-1);
 
     if (liveRevision) {
@@ -1233,9 +1277,11 @@ export class DaemonCore {
 
     if (!session || session.status !== "pending" || session.artifact.type !== "diff")
       return { changed: false };
+
     const pr = session.artifact.meta.prUrl ?? session.artifact.meta.pr;
 
     if (pr === undefined) return { changed: false };
+
     const generation = (this.diffRefreshGenerations.get(id) ?? 0) + 1;
 
     this.diffRefreshGenerations.set(id, generation);
@@ -1243,12 +1289,15 @@ export class DaemonCore {
 
     // gh failed (offline, unauthenticated): keep the diff we have, try again next poll
     if (snapshot === null) return { changed: false };
+
     // the pull yields the event loop: discard a stale capture or a closed session
     if (this.diffRefreshGenerations.get(id) !== generation) return { changed: false };
+
     const current = this.store.get(id);
 
     if (!current || current.status !== "pending" || current.artifact.type !== "diff")
       return { changed: false };
+
     const contentChanged = snapshot.patch !== current.artifact.content;
     const sourceChanged =
       snapshot.baseSha !== current.artifact.meta.prBaseSha ||
@@ -1262,6 +1311,7 @@ export class DaemonCore {
       current.artifact.meta.prRefreshHeadSha === undefined
     )
       return { changed: false };
+
     current.artifact = {
       ...current.artifact,
       content: snapshot.patch,
@@ -1273,6 +1323,7 @@ export class DaemonCore {
         prRefreshHeadSha: undefined,
       },
     };
+
     if (contentChanged || sourceChanged) {
       const now = new Date().toISOString();
 
@@ -1293,6 +1344,7 @@ export class DaemonCore {
         createdAt: now,
       });
     }
+
     this.store.upsert(current);
     this.emit("session.updated", id);
 
@@ -1304,11 +1356,13 @@ export class DaemonCore {
     const session = this.store.get(id);
 
     if (!session || session.status !== "pending" || session.artifact.meta.pr === undefined) return;
+
     if (
       session.artifact.meta.prBaseSha === refs.baseSha &&
       session.artifact.meta.prHeadSha === refs.headSha
     )
       return;
+
     session.artifact = {
       ...session.artifact,
       meta: {
@@ -1361,6 +1415,7 @@ export class DaemonCore {
 
   private untrackLiveDiffSession(session: Thread): void {
     if (session.artifact.type !== "diff") return;
+
     this.diffWatcher.untrackDiffRepo(session.workspace.repoRoot, session.id);
     this.prPoller.untrackPr(session.id);
   }
@@ -1382,8 +1437,10 @@ export class DaemonCore {
 
     if (textCuts?.length) session.textCuts = textCuts;
     else delete session.textCuts;
+
     if (next === undefined) delete session.workingCopy;
     else session.workingCopy = next;
+
     const after = next ?? session.artifact.content;
 
     if (after === before) return undefined;
@@ -1415,6 +1472,7 @@ export class DaemonCore {
       return operation();
     } catch (error) {
       if (error instanceof HistoryError) throw new DaemonError("invalid_params", error.message);
+
       throw error;
     }
   }
@@ -1434,6 +1492,7 @@ export class DaemonCore {
     const history = withHistory(session).history;
 
     if (!history) return undefined;
+
     const appended = appendEntry(history, entry);
 
     session.history = appended.history;
@@ -1451,6 +1510,7 @@ export class DaemonCore {
     const history = withHistory(session).history;
 
     if (!history) return undefined;
+
     const appended = appendEntry(switchBranch(history, branch), entry);
 
     session.history = { ...appended.history, branch: history.branch };
@@ -1464,6 +1524,7 @@ export class DaemonCore {
 
     if (shareId !== undefined && !link)
       throw new DaemonError("not_found", `no share link ${shareId}`);
+
     const branch = link?.shareBranch ?? MAIN_BRANCH;
 
     return session.history?.tips[branch] === undefined ? MAIN_BRANCH : branch;
@@ -1491,6 +1552,7 @@ function forkedAnnotation(annotation: Annotation, source: Thread, fork: Thread):
   const { resolution, ...open } = annotation;
 
   if (resolution === undefined) return { ...annotation };
+
   const addressedBy = source.revisions.find(
     (revision) => revision.revision === resolution.revision,
   );
@@ -1503,6 +1565,7 @@ function forkedAnnotation(annotation: Annotation, source: Thread, fork: Thread):
 
 function applyRevisionSource(artifact: Artifact, source?: DiffSource): void {
   if (source) artifact.meta.vcs = source.vcs;
+
   if (artifact.type !== "diff") return;
 
   artifact.meta.vcsChangeId = source?.changeId;

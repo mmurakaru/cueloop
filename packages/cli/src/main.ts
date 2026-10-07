@@ -8,6 +8,7 @@
  * observers), `cueloop daemon` runs the daemon in the foreground.
  */
 
+import { parseHarnessSelection, assertDaemonHarness } from "./harness-selection";
 import { basename, resolve } from "node:path";
 import { parseArgs, stringFlag, type ParsedArgs } from "./args";
 import {
@@ -29,7 +30,11 @@ import { openReview } from "@cueloop/daemon/thread-review";
 // The CLI owns adapter composition; the daemon package still starts independently.
 process.env.CUELOOP_DAEMON_ENTRY = import.meta.path;
 
-const argv = process.argv.slice(2);
+const harnessSelection = parseHarnessSelection(process.argv.slice(2));
+const argv = harnessSelection.args;
+
+if (harnessSelection.harness) process.env.CUELOOP_AGENT_HARNESS = harnessSelection.harness;
+
 const cmd = argv[0];
 
 async function serveEntry(rest: string[]): Promise<number> {
@@ -116,20 +121,25 @@ const helpAliases = new Set(["-h", "--help", "help"]);
 
 async function main(): Promise<number> {
   if (cmd === undefined) return runTui();
+
   const handler = commandHandlers[cmd];
 
   if (handler !== undefined) return handler(argv.slice(1));
+
   if (versionAliases.has(cmd)) {
     console.log(CLI_VERSION);
 
     return 0;
   }
+
   if (helpAliases.has(cmd)) {
     printHelp();
 
     return 0;
   }
+
   if (cmd.startsWith("ses_")) return runTui(cmd);
+
   printHelp();
 
   return 2;
@@ -170,11 +180,13 @@ async function openReviewOfKind(
   const target = resolveOpenTarget(sessions, { match, selector });
 
   if (target.kind === "session") return runTui(target.sessionId, layout);
+
   if (target.kind === "no-pending" && emptyMessage !== undefined) {
     console.error(emptyMessage);
 
     return 1;
   }
+
   console.error(openTargetMessage(label, target));
 
   return 1;
@@ -223,6 +235,7 @@ async function prototypeCommand(argv: string[]): Promise<number> {
 
     return 1;
   }
+
   const client = await DaemonClient.connect({ autostart: true });
   const review = await openReview(client, {
     type: "prototype",
@@ -262,6 +275,7 @@ async function diffCommand(argv: string[]): Promise<number> {
       initialReview = await client.workbenchReview(cwd);
     } catch (error) {
       if (!(error instanceof DaemonClientError) || error.code !== "unknown_method") throw error;
+
       const session = await client.sessionWorkbench(cwd);
       const diff = await client.repoDiff(cwd);
 
@@ -286,12 +300,14 @@ async function pairCommand(argv: string[]): Promise<number> {
 
     if (sessionId !== undefined) {
       thread = await client.sessionGet(sessionId);
+
       if (thread.artifact.meta.workbench !== true || thread.status !== "pending") {
         throw new Error(`Thread ${sessionId} is not an open workbench`);
       }
     } else {
       thread = await client.sessionWorkbench(process.cwd());
     }
+
     if (parsed.flags["open-tab"] === true) {
       const { openHerdrThreadSurface } = await import("@cueloop/daemon/herdr-thread-surface");
 
@@ -300,6 +316,7 @@ async function pairCommand(argv: string[]): Promise<number> {
   } finally {
     client.close();
   }
+
   if (parsed.flags["no-tui"] === true || parsed.flags["open-tab"] === true) {
     console.log(
       JSON.stringify({ threadId: thread.id, startedAt, ...(openStatus && { openStatus }) }),
@@ -405,13 +422,27 @@ function printHelp(): void {
       "  cueloop review-comment <id>      add or update an agent PR finding (see --help)",
       "  cueloop daemon                   run the daemon in the foreground",
       "  cueloop stop                     stop the local daemon",
-      "  cueloop restart                  stop the local daemon and start a fresh one",
+      "  cueloop restart [--harness pi|fx] restart with the preferred Thread harness",
       "  cueloop dev                      open the TUI on an isolated home seeded with example threads",
       "",
+      "  cueloop --harness pi|fx         select the default for new Threads",
       "  cueloop -v, --version            print the installed version",
       "  cueloop -h, --help               print this help",
     ].join("\n"),
   );
 }
+
+if (cmd === "dev") (await import("./dev-command")).configureDevHome();
+
+if (
+  harnessSelection.harness &&
+  cmd !== "restart" &&
+  cmd !== "daemon" &&
+  cmd !== "--help" &&
+  cmd !== "-h" &&
+  cmd !== "--version" &&
+  cmd !== "-v"
+)
+  await assertDaemonHarness(harnessSelection.harness);
 
 process.exit(await main());

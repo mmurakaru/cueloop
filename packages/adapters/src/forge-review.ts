@@ -110,6 +110,7 @@ export function createGitHubForgeReviewPort(delivered: DeliveredMessageStore, co
         result.stderr.trim() || `gh pr view ${pullRequestReference} failed (exit ${result.code})`,
       );
     }
+
     const metadata = v.parse(PullRequestMetadataSchema, JSON.parse(result.stdout));
 
     return {
@@ -132,9 +133,11 @@ export function createGitHubForgeReviewPort(delivered: DeliveredMessageStore, co
           diffResult.stderr.trim() || `gh pr diff ${before.url} failed (exit ${diffResult.code})`,
         );
       }
+
       if (!diffResult.stdout.trim()) {
         throw new Error(`PR ${pullRequestReference} has an empty diff - nothing to review`);
       }
+
       const after = await readPullRequest(before.url, cwd);
 
       if (before.headRefOid === after.headRefOid && before.baseRefOid === after.baseRefOid) {
@@ -156,6 +159,7 @@ export function createGitHubForgeReviewPort(delivered: DeliveredMessageStore, co
     const match = /^https:\/\/github\.com\/([^/]+)\/([^/]+)\/pull\/\d+/.exec(input.pullRequest.url);
 
     if (!match) throw new Error(`Unsupported GitHub pull request URL ${input.pullRequest.url}`);
+
     const comments = input.comments.map((annotation) => {
       const comment: GitHubInlineReviewComment = {
         path: annotation.reviewComment!.path,
@@ -178,6 +182,7 @@ export function createGitHubForgeReviewPort(delivered: DeliveredMessageStore, co
     };
 
     if (input.body?.trim()) payload.body = input.body.trim();
+
     let url: string | undefined;
     const publication: Message = {
       id: input.publicationId,
@@ -210,6 +215,7 @@ export function createGitHubForgeReviewPort(delivered: DeliveredMessageStore, co
       if (result.code !== 0) {
         throw new Error(result.stderr.trim() || `GitHub review post failed (exit ${result.code})`);
       }
+
       const response: unknown = result.stdout.trim() ? JSON.parse(result.stdout) : {};
       const parsed = v.safeParse(v.object({ html_url: v.optional(v.string()) }), response);
 

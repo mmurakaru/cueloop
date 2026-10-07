@@ -1,3 +1,4 @@
+import { useThreadHarnessSetting } from "../settings/use-thread-harness-setting";
 import React, {
   useCallback,
   useEffect,
@@ -203,6 +204,7 @@ export function quitKeyHandled(
   onExit?: (code: number) => void,
 ): boolean {
   if (!key.ctrl || key.name !== "q") return false;
+
   onExit?.(0);
 
   return true;
@@ -214,6 +216,7 @@ function menuModalHandled(
   key: { name: string },
 ): boolean {
   if (menuControl.openMenuId === null) return false;
+
   if (key.name === "escape") menuControl.closeMenu();
 
   return true;
@@ -300,7 +303,9 @@ function chooseThreadBody(choice: {
   threadView: React.ReactNode;
 }): React.ReactNode {
   if (choice.isPixelPrototype) return choice.prototype;
+
   if (choice.isDiff) return choice.diffPlaceholder;
+
   if (choice.editingBody) return choice.editor;
 
   return choice.threadView;
@@ -453,16 +458,19 @@ export function threadsNavHandled(params: {
   const { focusedPane, quiet, key, count } = params;
 
   if (focusedPane !== "threads" || !quiet || count === 0) return false;
+
   if (key.name === "j" || key.name === "down") {
     params.setInboxCursor((cursor) => Math.min(cursor + 1, count - 1));
 
     return true;
   }
+
   if (key.name === "k" || key.name === "up") {
     params.setInboxCursor((cursor) => Math.max(cursor - 1, 0));
 
     return true;
   }
+
   if (key.name === "return" || key.name === "enter") {
     params.openSession();
 
@@ -490,8 +498,11 @@ export function visiblePanes(
   const panes: FocusPane[] = [];
 
   if (sidebarOpen) panes.push("threads");
+
   if (threadShown) panes.push("thread");
+
   if (changesOpen) panes.push("changes");
+
   if (projectOpen) panes.push("project");
 
   return panes;
@@ -503,6 +514,7 @@ export function nextFocusPane(
   backward: boolean,
 ): FocusPane {
   if (panes.length === 0) return current;
+
   const index = panes.indexOf(current);
   const step = backward ? -1 : 1;
 
@@ -617,6 +629,7 @@ export function App({
 
       if (next.has(id)) next.delete(id);
       else next.add(id);
+
       persistPins([...next]);
 
       return next;
@@ -688,6 +701,7 @@ export function App({
 
     setPrototypePixels(config.experimental.prototypePixels);
     setThreadAgentEnabled(config.experimental.threadAgent);
+    setThreadHarness(config.thread.harness);
     keysRef.current = config.keys;
     keyBindings.setKeys(config.keys);
     setTheme(composeTheme(config.ui.theme, config.themeOverrides, appearance));
@@ -714,6 +728,7 @@ export function App({
 
   useEffect(() => {
     if (!toast) return;
+
     const timer = setTimeout(() => controller.dismissToast(), TOAST_DISMISS_MS);
 
     return () => clearTimeout(timer);
@@ -725,6 +740,7 @@ export function App({
 
   useEffect(() => {
     if (promptedSelfRef.current || role !== "collaborator" || !selfAuthor || !session) return;
+
     promptedSelfRef.current = true;
     const known = session.participants?.find((participant) => participant.id === selfAuthor)?.name;
 
@@ -747,12 +763,30 @@ export function App({
 
     void resolveGithubIdentity().then((github) => {
       if (identityGenerationRef.current !== generation) return;
+
       if (!github) return controller.setStatus("GitHub not connected - run gh auth login");
+
       const name = github.name?.trim() || github.login;
 
       applyIdentity({ name, provider: "github" });
     });
   };
+
+  const [agentState, setAgentState] = useState<import("@cueloop/schema").ThreadAgentState>();
+  const [threadHarness, setThreadHarness] = useState<"pi" | "fx">("pi");
+
+  const harnessSetting = useThreadHarnessSetting({
+    home,
+    thread: session,
+    enabled: threadAgentEnabled,
+    owner: isOwner,
+    state: agentState,
+    preferred: threadHarness,
+    client: agentClient,
+    onState: setAgentState,
+    onPreferred: setThreadHarness,
+    onError: (message) => controller.setStatus(message),
+  });
 
   // ── settings dialog: config-backed model, navigation, persistence ──
   const {
@@ -787,6 +821,9 @@ export function App({
     reviewSkill,
     reviewWorkspace,
     setReviewWorkspace,
+    canSwitchHarness: harnessSetting.enabled,
+    threadHarness: harnessSetting.harness,
+    onSwitchHarness: harnessSetting.switchHarness,
   });
 
   // ── derived view model ──────────────────────
@@ -843,7 +880,6 @@ export function App({
     () => undefined,
   );
   const agentInvoke = useRef<((commentId?: string) => void) | undefined>(undefined);
-  const [agentState, setAgentState] = useState<import("@cueloop/schema").ThreadAgentState>();
   const [prototypeComposing, setPrototypeComposing] = useState(false);
   const [welcomeComposing, setWelcomeComposing] = useState(false);
   // inline body edit: the markdown editor owns the thread pane and all keys while open
@@ -868,9 +904,11 @@ export function App({
 
   const openCardEdit = (annotationId: string): void => {
     if (observer) return controller.setStatus("observer - read-only");
+
     const annotation = session?.annotations.find((candidate) => candidate.id === annotationId);
 
     if (!annotation) return;
+
     // a collaborator's note is theirs to word: activating it (click or e) renames
     // the author rather than editing the body the planner does not own
     if (annotation.author) {
@@ -882,7 +920,9 @@ export function App({
         text: authorNames[annotation.author] ?? "",
       });
     }
+
     if (resolved) return controller.setStatus("review submitted - read-only");
+
     liveInput.current = annotation.body;
     setMode({ type: "railEdit", id: annotation.id, text: annotation.body });
   };
@@ -894,6 +934,7 @@ export function App({
 
       return;
     }
+
     renderer?.suspend();
     try {
       controller.edit();
@@ -949,6 +990,7 @@ export function App({
     },
     openShareDialog: () => {
       if (!isOwner) return controller.setStatus("only the plan owner can share");
+
       shareDialogStore.getState().reset();
       setShareDialogOpen(true);
     },
@@ -974,6 +1016,7 @@ export function App({
   useEffect(() => {
     // the bare shell drives its panes from its own workbench, so only reconcile against this one
     if (!session) return;
+
     const next = reconciledFocus(navigablePanes, focusedPane);
 
     if (next) setFocusedPane(next);
@@ -995,6 +1038,7 @@ export function App({
     });
 
     if (!intent) return false;
+
     if (intent.type === "cut" && selection) {
       controller.cut(
         selection.start.blockIndex,
@@ -1010,9 +1054,11 @@ export function App({
   const openThread = (id: string): void => {
     // save the open editor into the leaving thread's working copy before the switch, so a click away never drops edits
     if (bodyEditing.editing) bodyEditing.requestExit();
+
     const index = grouped.ordered.findIndex((thread) => thread.id === id);
 
     if (index >= 0) setInboxCursor(() => index);
+
     controller.open(id);
   };
 
@@ -1038,7 +1084,9 @@ export function App({
       !key.super
     )
       return true;
+
     if (!threadViewActive || threadViewSuspended) return false;
+
     if (!threadComposing) {
       const chord = resolveSessionChord(key, { isOwner, resolved });
 
@@ -1050,14 +1098,19 @@ export function App({
 
   useKeyboard((key) => {
     if (quitKeyHandled(key, onExit)) return;
+
     // the inline body editor owns the pane and every key while open
     if (bodyEditing.editing) return;
+
     // the share dialog owns its own keys while open; the shell grammar stands down
     if (shareDialogOpen) return;
+
     if (menuModalHandled(menuControl, key)) return;
+
     if (paneCycleRequested(key, overlay, menuOwnsKeyboard, threadComposing)) {
       return cyclePanes(Boolean(key.shift));
     }
+
     if (
       threadsNavHandled({
         focusedPane,
@@ -1069,17 +1122,24 @@ export function App({
       })
     )
       return;
+
     if (threadSurfaceHandledKey(key)) return;
+
     // A compose textarea owns the keyboard while open: let it receive the typed note instead of the
     // global keymap acting on each letter (the prototype, and the bare-shell welcome playground).
     if (prototypeComposing || welcomeComposing) return;
+
     if (menuDialog === "settings") return void handleSettingsKey(key.name);
+
     if (menuDialog) return void (key.name === "escape" && setMenuDialog(null));
+
     // the toast is non-modal: escape only dismisses it when nothing else owns
     // escape, so an open overlay (compose, submit, prompt, walk) still cancels
     if (toastDismissRequested(toast !== null, key, overlay, mode.type === "span"))
       return controller.dismissToast();
+
     if (bareShellDefersKeys(session === null, overlay === "none", focusedPane)) return;
+
     const state = buildKeyState({
       keys: keysRef.current,
       observer,
@@ -1136,6 +1196,7 @@ export function App({
 
   // ── render ──────────────────────────────────
   if (error) return <ErrorScreen error={error} theme={theme} />;
+
   if (!session)
     return inbox ? (
       <SlashSkillsContext.Provider value={skills}>
@@ -1229,15 +1290,20 @@ export function App({
     // A share viewer/observer has no Edit affordance (the button is hidden), so
     // this is owner-only; stay silent rather than nag if it is ever reached.
     if (!isOwner) return;
+
     if (resolved) return controller.setStatus("review submitted - read-only");
+
     openBodyEditor();
   };
 
   // clicking the rail Submit button: same read-only answer as the submit key
   const onSubmitRequest = (): void => {
     if (observer) return controller.setStatus("observer - read-only");
+
     if (!isOwner) return controller.setStatus("shared view - your notes save as you go");
+
     if (resolved) return;
+
     dispatch({ type: "openSubmit" });
   };
 

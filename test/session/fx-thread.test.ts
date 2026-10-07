@@ -285,7 +285,9 @@ test.skipIf(!process.env.CUELOOP_TEST_FX)(
         state = await client.agentGet(thread.id);
       }
       expect(state.phase.kind).toBe("permission");
+
       if (state.phase.kind !== "permission") throw new Error(JSON.stringify(state.phase));
+
       const reject = state.phase.permission.options.find(
         (option) => option.kind === "reject_once",
       )!;
@@ -530,7 +532,9 @@ test.skipIf(!process.env.CUELOOP_TEST_FX)(
             optionId: option!.optionId,
           });
         }
+
         if (Date.now() > deadline) throw new Error("Real fx cueloop tools did not return feedback");
+
         await Bun.sleep(5);
       }
       const returned = await client.sessionGet(thread.id);
@@ -581,6 +585,7 @@ test("disabled experimental agents reject all agent socket methods without start
 
     for (const result of rejected) {
       expect(result.status).toBe("rejected");
+
       if (result.status === "rejected")
         expect(String(result.reason)).toContain("Thread agent is disabled");
     }

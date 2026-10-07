@@ -43,6 +43,7 @@ async function jjRoot(cwd: string): Promise<string | null> {
 /** The oldest root commit reachable from HEAD; the project key that survives moving or re-cloning the repo. */
 function earliestRootCommit(revList: string | null): string | undefined {
   if (!revList) return undefined;
+
   const roots = revList.split("\n").filter((line) => line.length > 0);
 
   // --date-order lists newest first, so the last root is the earliest
@@ -77,6 +78,7 @@ export async function resolveWorkspace(cwd = process.cwd()): Promise<WorkspaceKe
 
   // a repo with no commits (or a shallow clone) has no reliable root, so the thread stays standalone
   if (rootCommit) workspace.rootCommit = rootCommit;
+
   if (remote) workspace.remote = remote;
 
   return workspace;
@@ -191,6 +193,7 @@ export class ReviewHandle {
 
       return resolved === null ? "pending" : outcome(resolved);
     }
+
     const chunkMs = pollMs ?? 10_000;
     const deadline = Number.isFinite(timeoutMs) ? Date.now() + timeoutMs : undefined;
 
@@ -198,11 +201,13 @@ export class ReviewHandle {
       const budget = deadline === undefined ? chunkMs : Math.min(chunkMs, deadline - Date.now());
 
       if (budget <= 0 || signal?.aborted) return "pending";
+
       const resolved = await raceAbort(this.client.sessionWait(this.session.id, budget), signal);
 
       if (resolved === ABORTED) return "pending";
 
       if (resolved !== null) return outcome(resolved);
+
       // Still pending after this chunk: re-read to surface reviewer progress.
       const current = await raceAbort(this.client.sessionGet(this.session.id), signal);
 
@@ -278,6 +283,7 @@ export async function findExistingReview(
     return candidates.find(
       (candidate) => candidate.artifact.meta.vcsChangeId === options.vcsChangeId,
     );
+
   if (isJjDiff) {
     const jjCandidates = candidates.filter(hasJjProvenance);
 
@@ -295,6 +301,7 @@ async function matchingDiffCapture(
   cwd: string,
 ): Promise<{ source?: DiffSource; files?: DiffFileContents[] }> {
   if (options.type !== "diff" || options.pr || !options.content.trim()) return {};
+
   try {
     const captured = await new VcsSourceManager().capture(cwd, options.vcs);
 
@@ -347,6 +354,7 @@ export async function openReview(
 
     return new ReviewHandle(client, revised);
   }
+
   let session = await client.sessionCreate(workspace, {
     type: options.type,
     content: options.content,

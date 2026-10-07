@@ -9,6 +9,7 @@ const whenSignalAborts = (signal: AbortSignal): Effect.Effect<void> =>
 
       return;
     }
+
     const onAbort = () => resume(Effect.void);
 
     signal.addEventListener("abort", onAbort, { once: true });
@@ -37,6 +38,7 @@ export function raceAbort<T>(
   signal: AbortSignal | undefined,
 ): Promise<T | typeof ABORTED> {
   if (!signal) return promise;
+
   if (signal.aborted) {
     promise.catch(() => {});
 
@@ -56,6 +58,7 @@ export function pollUntilResolved<T>(
   signal: AbortSignal | undefined,
 ): Promise<T | null> {
   if (signal?.aborted) return Promise.resolve(null);
+
   const loop = Effect.repeat(fromSettledPromise(attempt), {
     until: (result): result is T => result !== null,
   });

@@ -37,6 +37,7 @@ export function loadSkills(dir: string): SlashItem[] {
 
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
+
     let text;
 
     try {
@@ -47,6 +48,7 @@ export function loadSkills(dir: string): SlashItem[] {
     const frontmatter = /^---\n([\s\S]*?)\n---/.exec(text.replace(/\r\n/g, "\n"));
 
     if (!frontmatter) continue;
+
     const name = v.safeParse(
       SkillNameSchema,
       frontmatterValue(frontmatter[1]!, "name") ?? entry.name,

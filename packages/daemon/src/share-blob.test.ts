@@ -71,8 +71,10 @@ describe("the payload cap against a long review", () => {
         body: "Fail fast with a readable error; the review never opens on a store that cannot write.",
         replyTo: `a_${round}`,
       });
+
       if (round % 10 === 0)
         core.sessionSetWorkingCopy(session.id, `${content}\n\nEdit ${round}.\n`);
+
       if (round % 20 === 0) core.sessionRemoveAnnotation(session.id, `r_${round}`);
     }
     const shared = viewFollowing(core.sessionGet(session.id));

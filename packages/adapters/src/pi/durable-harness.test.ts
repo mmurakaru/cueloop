@@ -12,6 +12,81 @@ afterEach(() =>
   directories.splice(0).forEach((path) => rmSync(path, { recursive: true, force: true })),
 );
 
+test("Pi model failures preserve their reason instead of becoming an empty idle turn", async () => {
+  const home = mkdtempSync(join(tmpdir(), "cueloop-pi-model-error-"));
+  const models = createModels();
+  const provider = fauxProvider();
+  const failure = fauxAssistantMessage("");
+
+  directories.push(home);
+  failure.stopReason = "error";
+  failure.errorMessage = "OAuth auth derivation failed: missing provider module";
+  models.setProvider(provider.provider);
+  provider.setResponses([failure]);
+  const connection = createPiHarness({ home, models }).connect({
+    cwd: home,
+    onEvent() {},
+    onExit() {},
+  });
+
+  try {
+    await connection.start();
+    await expect(connection.prompt("Hello", "failed-request")).rejects.toThrow(
+      failure.errorMessage,
+    );
+  } finally {
+    await connection.close();
+  }
+});
+
+test("standalone Pi harness bundles Codex OAuth credential derivation", async () => {
+  const home = mkdtempSync(join(tmpdir(), "cueloop-pi-compiled-oauth-"));
+  const script = join(home, "oauth-worker.ts");
+  const binary = join(home, "oauth-worker");
+
+  directories.push(home);
+  writeFileSync(
+    script,
+    `
+import { createPiHarness } from ${JSON.stringify(import.meta.dir + "/durable-harness.ts")};
+import { builtinModels } from ${JSON.stringify(Bun.resolveSync("@earendil-works/pi-ai/providers/all", import.meta.dir))};
+const models = builtinModels({ credentials: {
+  read: async () => ({type:"oauth",access:"fixture-access",refresh:"fixture-refresh",expires:Date.now()+3600000}),
+  list: async () => [{providerId:"openai-codex",type:"oauth"}],
+  modify: async () => {throw new Error("Unexpected token refresh");},
+  delete: async () => {},
+}});
+createPiHarness({home:${JSON.stringify(home)},models});
+const auth = await models.getAuth("openai-codex");
+if (auth?.auth.apiKey !== "fixture-access") throw new Error("Codex OAuth did not resolve");
+console.log("Codex OAuth resolved");
+`,
+  );
+  const build = Bun.spawn(
+    [
+      process.execPath,
+      "build",
+      "--compile",
+      "--bytecode",
+      "--format=esm",
+      "--minify",
+      script,
+      "--outfile",
+      binary,
+    ],
+    { stdout: "pipe", stderr: "pipe" },
+  );
+  const buildOutput = new Response(build.stderr).text();
+
+  expect(await build.exited, await buildOutput).toBe(0);
+  const worker = Bun.spawn([binary], { cwd: home, stdout: "pipe", stderr: "pipe" });
+  const stdout = new Response(worker.stdout).text();
+  const stderr = new Response(worker.stderr).text();
+
+  expect(await worker.exited, await stderr).toBe(0);
+  expect(await stdout).toContain("Codex OAuth resolved");
+}, 60_000);
+
 test("unsafe saved conversation IDs cannot open or erase the owner home", async () => {
   const home = mkdtempSync(join(tmpdir(), "cueloop-pi-unsafe-id-"));
   const sentinel = join(home, "model-credentials.json");

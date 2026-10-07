@@ -7,6 +7,7 @@ export default function recordCueloopWorkflows(pi: ExtensionAPI): void {
       const path = process.env.CUELOOP_TEST_PI_WORKFLOWS_FILE;
 
       if (!path) throw new Error("CUELOOP_TEST_PI_WORKFLOWS_FILE is required");
+
       writeFileSync(
         path,
         JSON.stringify(pi.getAllTools().map(({ name, parameters }) => ({ name, parameters }))),

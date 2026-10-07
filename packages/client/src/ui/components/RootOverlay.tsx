@@ -28,6 +28,7 @@ export function RootOverlayProvider({ children }: { children: React.ReactNode })
       clearOverlay: (key) =>
         setOverlays((current) => {
           if (!current.has(key)) return current;
+
           const next = new Map(current);
 
           next.delete(key);

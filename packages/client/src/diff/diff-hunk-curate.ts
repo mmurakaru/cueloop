@@ -65,6 +65,7 @@ function changeSideLine(
 ): { side: DiffSide; lineNumber: number } | null {
   if (row.kind === "add" && row.newLine !== undefined)
     return { side: "addition", lineNumber: row.newLine };
+
   if (row.kind === "del" && row.oldLine !== undefined)
     return { side: "deletion", lineNumber: row.oldLine };
 
@@ -104,6 +105,7 @@ export function changeRejectionForRow(
   const change = changeSideLine(row);
 
   if (!change) return null;
+
   const located = locateLine(model, change.side, change.lineNumber);
 
   if (!located || located.changeIndex === undefined) return null;
@@ -139,6 +141,7 @@ export function isRowRejected(
   const change = changeSideLine(row);
 
   if (!change) return false;
+
   const located = locateLine(model, change.side, change.lineNumber);
 
   if (!located || located.changeIndex === undefined) return false;

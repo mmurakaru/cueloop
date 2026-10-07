@@ -8,6 +8,7 @@
 /** The clipboard-write commands to try, most-preferred first, for this platform. */
 export function clipboardCommands(platform: NodeJS.Platform = process.platform): string[][] {
   if (platform === "darwin") return [["pbcopy"]];
+
   if (platform === "win32") return [["clip.exe"]];
 
   return [["wl-copy"], ["xclip", "-selection", "clipboard"], ["xsel", "--clipboard", "--input"]];

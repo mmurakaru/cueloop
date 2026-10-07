@@ -49,6 +49,7 @@ async function waitForLines(logPath: string, count: number): Promise<string[]> {
 
       if (lines.length >= count) return lines;
     }
+
     await Bun.sleep(25);
   }
   throw new Error(`stub log ${logPath} never reached ${count} lines`);
@@ -60,6 +61,7 @@ const saved = new Map<string, string | undefined>();
 function setHookEnv(vars: Partial<Record<(typeof ENV_KEYS)[number], string>>): void {
   for (const key of ENV_KEYS) {
     if (!saved.has(key)) saved.set(key, process.env[key]);
+
     const value = vars[key];
 
     if (value === undefined) delete process.env[key];
@@ -141,6 +143,7 @@ async function resolvePending(
 
         return;
       }
+
       await Bun.sleep(25);
     }
     throw new Error(`hook never created a session containing "${marker}"`);
@@ -162,7 +165,9 @@ describe("harness bridge inside herdr", () => {
 
     // Assert
     expect(first.operation).toBe("open");
+
     if (first.operation !== "open") throw new Error("expected an opened Thread");
+
     expect(first.approvedRetry).toBeFalse();
     const before = await waitForLines(stub.logPath, 5);
     const paneLines = before.filter(
@@ -187,7 +192,9 @@ describe("harness bridge inside herdr", () => {
     );
 
     expect(pending.operation).toBe("pending");
+
     if (pending.operation !== "pending") throw new Error("expected pending Messages");
+
     const delivery = pending.deliveries[0]!;
 
     await runHarnessBridge(
@@ -203,7 +210,9 @@ describe("harness bridge inside herdr", () => {
 
     // Assert
     expect(second.operation).toBe("open");
+
     if (second.operation !== "open") throw new Error("expected an opened Thread");
+
     expect(second.approvedRetry).toBeTrue();
     const after = await waitForLines(stub.logPath, 7);
     const outcomeLines = after.filter(
@@ -230,7 +239,9 @@ describe("harness bridge inside herdr", () => {
 
     // Assert
     expect(decision.operation).toBe("open");
+
     if (decision.operation !== "open") throw new Error("expected an opened Thread");
+
     expect(decision.approvedRetry).toBeFalse();
     await Bun.sleep(150); // give any stray report time to land
     // pane auto-open (3 lines) + blocked report + label = 5; never a working report

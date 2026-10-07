@@ -34,6 +34,7 @@ export function launchHarnessInSplit(
   const herdr = detectHerdr(env);
 
   if (!herdr) return false;
+
   try {
     const split = Bun.spawnSync(
       [
@@ -52,14 +53,18 @@ export function launchHarnessInSplit(
     );
 
     if (split.exitCode !== 0) return false;
+
     const parsed = v.safeParse(SplitPaneSchema, JSON.parse(split.stdout.toString()));
 
     if (!parsed.success) return false;
+
     const paneId = parsed.output.result?.pane?.pane_id;
 
     if (!paneId) return false;
+
     sendText(herdr.binPath, paneId, options.command);
     sendKeys(herdr.binPath, paneId, "enter");
+
     if (options.seedText) sendText(herdr.binPath, paneId, options.seedText);
 
     return true;

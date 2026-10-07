@@ -78,9 +78,11 @@ export class TerminalPaneRenderable extends Renderable {
     const terminals = factory();
 
     if (!terminals) return;
+
     const vt = terminals.create(cols, rows);
 
     if (!vt) return; // no emulator, no visible screen - do not spawn a blind child
+
     this.vt = vt;
     this.cols = cols;
     this.rows = rows;
@@ -96,10 +98,12 @@ export class TerminalPaneRenderable extends Renderable {
       // the shim streams a UTF-8-decoded string (split multibyte is handled); a
       // rare non-UTF-8 byte arrives as U+FFFD - acceptable for agent TUIs.
       this.vt?.write(encoder.encode(data));
+
       if (this.pendingSeed !== undefined) {
         this.pty?.write(this.pendingSeed);
         this.pendingSeed = undefined;
       }
+
       this.requestRender();
     });
     this.pty.onExit(({ exitCode }) => this.opts.onExit?.(exitCode));
@@ -112,12 +116,15 @@ export class TerminalPaneRenderable extends Renderable {
 
   protected onResize(width: number, height: number): void {
     if (width <= 0 || height <= 0) return;
+
     if (!this.pty) {
       this.start(width, height);
 
       return;
     }
+
     if (width === this.cols && height === this.rows) return;
+
     this.cols = width;
     this.rows = height;
     this.vt?.resize(width, height);
@@ -126,17 +133,20 @@ export class TerminalPaneRenderable extends Renderable {
 
   protected renderSelf(buffer: OptimizedBuffer): void {
     if (!this.vt) return;
+
     for (let y = 0; y < this.height; y++) {
       for (let x = 0; x < this.width; x++) {
         const cell = this.vt.readCell(x, y);
 
         // Skip an empty normal-width cell; the buffer already starts blank.
         if (cell && cell.width === 0 && cell.codepoint === 0) continue;
+
         const char = cell && cell.codepoint ? String.fromCodePoint(cell.codepoint) : " ";
         let fg = cell ? resolveColor(cell.fg, DEFAULT_FG) : DEFAULT_FG;
         let bg = cell ? resolveColor(cell.bg, TRANSPARENT) : TRANSPARENT;
 
         if (cell?.inverse) [fg, bg] = [bg, fg];
+
         const attributes = cell
           ? createTextAttributes({
               bold: cell.bold,
@@ -181,6 +191,7 @@ export class TerminalPaneRenderable extends Renderable {
 /** Map a Ghostty cell color to an OpenTUI RGBA, using `fallback` for the terminal default. */
 function resolveColor(color: GhosttyColor, fallback: RGBA): RGBA {
   if (color.kind === "rgb") return RGBA.fromInts(color.r, color.g, color.b, 255);
+
   if (color.kind === "palette") return RGBA.fromIndex(color.index);
 
   return fallback;
@@ -191,6 +202,7 @@ let registered = false;
 /** Register `<terminalPane>` with the OpenTUI React reconciler (idempotent). */
 export function registerTerminalPane(): void {
   if (registered) return;
+
   registered = true;
   extend({ terminalPane: TerminalPaneRenderable });
 }

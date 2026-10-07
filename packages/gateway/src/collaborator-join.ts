@@ -43,6 +43,7 @@ export function interpretJoinKey(chunk: Buffer): JoinKey {
 
   for (const byte of chunk) {
     if (byte === 0x0d || byte === 0x0a) return "enter";
+
     if (byte === 0x75 || byte === 0x55) return "copy";
   }
 
@@ -63,6 +64,7 @@ function packGreedy(words: string[], width: number): string[] {
       current = candidate;
     }
   }
+
   if (current !== "") rows.push(current);
 
   return rows;
@@ -72,6 +74,7 @@ function packGreedy(words: string[], width: number): string[] {
 // fits in that many rows, so lines even out and no last row is left with a lone word.
 function wrapToWidth(line: string, width: number): string[] {
   if ([...line].length <= width) return [line];
+
   const words = line.split(" ");
   const minRows = packGreedy(words, width).length;
   let low = Math.max(...words.map((word) => [...word].length));
@@ -200,9 +203,11 @@ export async function runCollaboratorJoin(options: {
   channel.write(HIDE_CURSOR);
   try {
     channel.write(renderJoinSplash(size));
+
     if ((await waitForJoinKey(channel, ["enter", "escape"])) === "escape") {
       return { kind: "skipped" };
     }
+
     let prompt: VerificationPrompt | null = null;
     let copied = false;
     const draw = (): void => {

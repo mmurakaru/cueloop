@@ -19,6 +19,7 @@ export function parseAgentToolInput(name: string, serialized: string) {
 
     return { kind: "reply" as const, ...args };
   }
+
   if (name === "send_message") {
     const args = v.parse(
       v.object({
@@ -31,7 +32,9 @@ export function parseAgentToolInput(name: string, serialized: string) {
 
     return { kind: "api" as const, method: "session.sendMessage", params: args };
   }
+
   if (name !== "cueloop_api") throw new Error("Thread agent tool name is unavailable");
+
   const args = v.parse(v.object({ method: v.string(), params: v.unknown() }), input);
 
   return { kind: "api" as const, ...args };
@@ -77,7 +80,9 @@ export function assertAgentToolScope(
 
     return;
   }
+
   if (input.method === "session.list") return;
+
   const params = v.parse(v.record(v.string(), v.unknown()), input.params);
 
   if (THREAD_AGENT_SESSION_METHODS.has(input.method)) {
@@ -85,6 +90,7 @@ export function assertAgentToolScope(
 
     return;
   }
+
   if (THREAD_AGENT_REPO_METHODS.has(input.method)) {
     const { cwd } = v.parse(v.object({ cwd: v.string() }), params);
 

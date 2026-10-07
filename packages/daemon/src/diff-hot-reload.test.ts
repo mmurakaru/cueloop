@@ -59,6 +59,7 @@ describe("session.refreshDiff", () => {
     });
 
     if (init.exitCode !== 0) throw new Error(init.stderr.toString());
+
     writeFileSync(join(repo, "a.ts"), "export const a = 2;\n");
     const first = await core.repoDiff(repo);
     const workspace = await resolveWorkspace(repo);
@@ -81,6 +82,7 @@ describe("session.refreshDiff", () => {
     });
 
     if (describe.exitCode !== 0) throw new Error(describe.stderr.toString());
+
     const result = await core.sessionRefreshDiff(session.id);
     const current = core.sessionGet(session.id);
 
@@ -100,6 +102,7 @@ describe("session.refreshDiff", () => {
     });
 
     if (init.exitCode !== 0) throw new Error(init.stderr.toString());
+
     writeFileSync(join(repo, "a.ts"), "export const a = 2;\n");
     const first = await core.repoDiff(repo);
     const workspace = await resolveWorkspace(repo);
@@ -339,6 +342,7 @@ describe("the fs watcher drives hot-reload", () => {
     });
 
     if (init.exitCode !== 0) throw new Error(init.stderr.toString());
+
     const session = await core.workbenchSession(repo);
 
     expect(session.artifact.meta.vcs).toBe("jj");

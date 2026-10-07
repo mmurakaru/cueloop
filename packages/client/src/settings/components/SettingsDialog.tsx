@@ -92,10 +92,12 @@ export function SettingsDialog({
   const { width: terminalWidth, height: terminalHeight } = useTerminalDimensions();
 
   if (!isOpen) return null;
+
   const category =
     categories.find((candidate) => candidate.id === activeCategoryId) ?? categories[0];
 
   if (!category) return null;
+
   const onKeybinds = category.id === KEYBINDS_CATEGORY_ID;
 
   return (
@@ -143,6 +145,7 @@ export function SettingsDialog({
                     />
                   );
                 }
+
                 if (row.kind === "cycle") {
                   return (
                     <CycleRow

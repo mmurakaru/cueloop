@@ -19,6 +19,7 @@ export function filetypeFor(language?: string): string | undefined {
   const info = (language ?? "").toLowerCase();
 
   if (!info) return undefined;
+
   const aliases: SyntaxAliases = {
     ts: "typescript",
     js: "javascript",
@@ -40,6 +41,7 @@ export function filetypeForPath(path: string): string | undefined {
   const byBasename = basenameToFiletype.get(basename);
 
   if (byBasename) return byBasename;
+
   const dotIndex = basename.lastIndexOf(".");
 
   if (dotIndex <= 0) return undefined;
@@ -90,6 +92,7 @@ export function syntaxStyleFor(theme: Theme): SyntaxStyle {
   const cached = syntaxStyleCache.get(theme);
 
   if (cached) return cached;
+
   const style = SyntaxStyle.fromStyles(syntaxGroupStyles(theme));
 
   syntaxStyleCache.set(theme, style);
@@ -109,6 +112,7 @@ export function referenceStyleFor(theme: Theme): ReferenceStyle {
   const cached = referenceStyleCache.get(theme);
 
   if (cached) return cached;
+
   const entry: ReferenceStyle = {
     style: SyntaxStyle.fromStyles({ reference: { fg: theme.accent } }),
     styleId: 0,
@@ -126,6 +130,7 @@ export function colorForSyntaxGroup(group: string, theme: Theme): string | undef
   const direct = styles[group];
 
   if (direct) return direct.fg;
+
   // capture names are dotted (e.g. "keyword.control"); match the broadest prefix
   const base = group.split(".")[0]!;
 

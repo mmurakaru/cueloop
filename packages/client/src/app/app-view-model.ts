@@ -49,8 +49,11 @@ export function resolveOverlay(
   walking: boolean,
 ): KeyState["overlay"] {
   if (mode.type === "compose" || mode.type === "railEdit") return "compose";
+
   if (mode.type === "submit") return "submit";
+
   if (mode.type === "confirmDelete") return "confirm";
+
   if (
     mode.type === "rename" ||
     mode.type === "renameThread" ||
@@ -58,9 +61,13 @@ export function resolveOverlay(
     mode.type === "treePrompt"
   )
     return "prompt";
+
   if (mode.type === "spanActions") return "spanActions";
+
   if (completionPhase === "prompt") return "completion-prompt";
+
   if (completionPhase === "counting") return "completion-counting";
+
   if (walking) return "walk";
 
   return "none";

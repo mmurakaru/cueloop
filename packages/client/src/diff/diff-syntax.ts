@@ -47,9 +47,11 @@ export function highlightJobs(rows: DiffRow[]): HighlightJob[] {
     if (filetype) {
       if (oldLines.length && (hasChange || newLines.length === 0))
         jobs.push({ filetype, source: oldLines.join("\n"), rowIndexByLine: oldRowIndexByLine });
+
       if (newLines.length)
         jobs.push({ filetype, source: newLines.join("\n"), rowIndexByLine: newRowIndexByLine });
     }
+
     oldLines = [];
     newLines = [];
     oldRowIndexByLine = [];
@@ -70,16 +72,19 @@ export function highlightJobs(rows: DiffRow[]): HighlightJob[] {
       flush();
       continue;
     }
+
     const text = stripTrailingNewline(row.text);
 
     if (row.kind === "ctx" || row.kind === "del") {
       oldLines.push(text);
       oldRowIndexByLine.push(rowIndex);
     }
+
     if (row.kind === "ctx" || row.kind === "add") {
       newLines.push(text);
       newRowIndexByLine.push(rowIndex);
     }
+
     if (row.kind === "add" || row.kind === "del") hasChange = true;
   }
   flush();
@@ -145,6 +150,7 @@ export function spansByLine(source: string, highlights: SimpleHighlight[]): Synt
       const group = chars[column];
 
       if (group === undefined) continue;
+
       const previous = spans[spans.length - 1];
 
       if (previous && previous.group === group && previous.end === column)
@@ -166,6 +172,7 @@ export async function highlightDiffRows(rows: DiffRow[]): Promise<Map<number, Sy
   const jobs = highlightJobs(rows);
 
   if (!jobs.length) return spansByRow;
+
   const client = getTreeSitterClient();
 
   await client.initialize();
@@ -173,6 +180,7 @@ export async function highlightDiffRows(rows: DiffRow[]): Promise<Map<number, Sy
     const result = await client.highlightOnce(job.source, job.filetype);
 
     if (!result.highlights) continue;
+
     const lineSpans = spansByLine(job.source, result.highlights);
 
     job.rowIndexByLine.forEach((rowIndex, line) => {

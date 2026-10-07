@@ -6,6 +6,7 @@ function session(id: string, title: string, rootCommit?: string, remote?: string
   const workspace: WorkspaceKey = { repoRoot: `/home/dev/${id}-checkout`, branch: "main" };
 
   if (rootCommit !== undefined) workspace.rootCommit = rootCommit;
+
   if (remote !== undefined) workspace.remote = remote;
 
   return {

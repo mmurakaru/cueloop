@@ -34,11 +34,13 @@ export function subscribeThreadState<Value>(options: ThreadSubscriptionOptions<V
 
     try {
       api = await options.connect();
+
       if (stopped || epoch !== generation) {
         api.close();
 
         return;
       }
+
       connection = api;
       const current = api;
       const refresh = async () => {
@@ -62,6 +64,7 @@ export function subscribeThreadState<Value>(options: ThreadSubscriptionOptions<V
               detach?.();
               current.close();
             }
+
             options.onError(error);
           }
         } finally {
@@ -73,11 +76,13 @@ export function subscribeThreadState<Value>(options: ThreadSubscriptionOptions<V
       });
       const offDisconnect = api.onDisconnect((reason) => {
         if (stopped || epoch !== generation) return;
+
         ++generation;
         detach?.();
         for (const read of reads) read.abort();
         connection = undefined;
         current.close();
+
         if (isFatalSubscriptionError(reason)) {
           stopped = true;
           options.onError(reason);
@@ -89,16 +94,20 @@ export function subscribeThreadState<Value>(options: ThreadSubscriptionOptions<V
         offDisconnect();
       };
       await api.subscribe();
+
       if (stopped || epoch !== generation) return;
+
       options.onConnect?.(api);
       await refresh();
     } catch (error) {
       if (stopped || epoch !== generation) return;
+
       ++generation;
       detach?.();
       api?.close();
       connection = undefined;
       options.onError(error);
+
       if (!(error instanceof Error && isFatalSubscriptionError(error))) schedule();
     }
   };

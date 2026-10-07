@@ -79,6 +79,7 @@ const StoredAgentSchema = v.object({
         messageId: v.optional(v.string()),
         prompt: v.string(),
         harnessPrompt: v.optional(v.string()),
+        attemptId: v.optional(v.string()),
         quote: v.optional(v.string()),
         context: v.optional(v.string()),
         status: v.picklist(["queued", "running", "completed", "failed"]),
@@ -95,6 +96,25 @@ const StoredAgentSchema = v.object({
         outcome: v.optional(v.picklist(["completed", "failed", "cancelled"])),
       }),
     ),
+  ),
+  continuation: v.optional(v.string()),
+  handoff: v.optional(
+    v.intersect([
+      v.object({
+        target: v.string(),
+        requestedTarget: v.optional(v.string()),
+        operationId: v.string(),
+        prompt: v.optional(v.string()),
+        source: v.optional(
+          v.object({ id: v.string(), label: v.string(), sessionId: v.optional(v.string()) }),
+        ),
+      }),
+      v.variant("status", [
+        v.object({ status: v.literal("queued") }),
+        v.object({ status: v.literal("summarizing") }),
+        v.object({ status: v.literal("prepared"), text: v.string() }),
+      ]),
+    ]),
   ),
   configOptions: v.optional(
     v.array(

@@ -70,6 +70,7 @@ export function unifiedDiff(oldText: string, newText: string, context = 3): Unif
   const ops = lcsDiff(oldText.split("\n"), newText.split("\n"));
 
   if (!ops.some((op) => op.kind !== "ctx")) return null;
+
   let oldLineNumber = 1;
   let newLineNumber = 1;
   const rows = ops.map((op) => {
@@ -81,6 +82,7 @@ export function unifiedDiff(oldText: string, newText: string, context = 3): Unif
     };
 
     if (op.kind !== "add") oldLineNumber++;
+
     if (op.kind !== "del") newLineNumber++;
 
     return row;
@@ -107,10 +109,12 @@ export function unifiedDiff(oldText: string, newText: string, context = 3): Unif
 
       return;
     }
+
     if (!openHunk) {
       openHunk = { rows: [] };
       hunks.push(openHunk);
     }
+
     openHunk.rows.push(row);
   });
   const lines: UnifiedLine[] = [];

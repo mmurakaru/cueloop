@@ -45,10 +45,12 @@ export function PromptDialog({
 
   useEffect(() => {
     if (!inputRef.current) return;
+
     inputRef.current.focus();
     inputRef.current.cursorOffset = value.length;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
   if (!isOpen) return null;
 
   return (

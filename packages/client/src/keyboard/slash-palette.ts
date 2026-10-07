@@ -28,11 +28,14 @@ const WORD_BOUNDARY = /[\s\-_./:]/;
 /** Order-preserving subsequence score, or null when a query character is missing; higher is better. */
 export function scoreMatch(name: string, query: string): number | null {
   if (query.length === 0) return 0;
+
   const lowerName = name.toLowerCase();
   const lowerQuery = query.toLowerCase();
 
   if (lowerName === lowerQuery) return 1000;
+
   if (lowerName.startsWith(lowerQuery)) return 500 - name.length;
+
   let score = 0;
   let cursor = 0;
   let run = 0;
@@ -41,9 +44,12 @@ export function scoreMatch(name: string, query: string): number | null {
     const found = lowerName.indexOf(character, cursor);
 
     if (found === -1) return null;
+
     run = found === cursor ? run + 1 : 0;
     score += found === cursor ? 5 + run : 1;
+
     if (found === 0 || WORD_BOUNDARY.test(lowerName[found - 1]!)) score += 10;
+
     score -= found - cursor;
     cursor = found + 1;
   }
@@ -53,6 +59,7 @@ export function scoreMatch(name: string, query: string): number | null {
 
 export function slashFilter(items: SlashItem[], query: string): SlashItem[] {
   if (query.length === 0) return items;
+
   const scored: Array<{ item: SlashItem; score: number }> = [];
 
   for (const item of items) {
@@ -113,6 +120,7 @@ export function skillReferenceRanges(
     const token = match[1]!;
 
     if (!names.has(token.slice(1))) continue;
+
     const start = match.index + match[0].length - token.length;
 
     ranges.push({ start, end: start + token.length });

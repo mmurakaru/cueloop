@@ -24,8 +24,10 @@ export function useRememberLayout(
 
       return;
     }
+
     // only the active workbench persists: on a bare launch App's unused panes must not clobber the shell's
     if (!active || layout === undefined) return;
+
     persistLayout(layoutFromPanes({ threads, changesOpen, projectOpen, zoomChanges }));
   }, [active, layout, threads, changesOpen, projectOpen, zoomChanges]);
 }

@@ -24,8 +24,11 @@ export const GATE_FLOOR_MS = 5;
 /** Unit and gating of a metric from its name alone. */
 export function classifyMetric(name: string): MetricClassification {
   if (name.endsWith("_ms")) return { unit: "ms", comparable: true };
+
   if (name.endsWith("_heap")) return { unit: "bytes", comparable: true };
+
   if (name.startsWith("is_")) return { unit: "boolean", comparable: false };
+
   if (name.endsWith("_bytes")) return { unit: "bytes", comparable: false };
 
   return { unit: "count", comparable: false };
@@ -34,6 +37,7 @@ export function classifyMetric(name: string): MetricClassification {
 /** Nearest-rank percentile of `samples` (any order); `fraction` in [0, 1]. NaN for no samples. */
 export function percentile(samples: number[], fraction: number): number {
   if (samples.length === 0) return Number.NaN;
+
   const sorted = samples.toSorted((left, right) => left - right);
   const rank = Math.ceil(fraction * sorted.length);
 
@@ -89,8 +93,11 @@ export function splitMetricName(name: string): { script: string; metric: string 
 /** A value in its unit for a table: ms with two decimals, bytes as MiB, counts as is; "-" for none. */
 export function formatMetricValue(value: number | null, unit: MetricUnit): string {
   if (value === null || Number.isNaN(value)) return "-";
+
   if (unit === "ms") return `${value.toFixed(2)} ms`;
+
   if (unit === "bytes") return `${(value / (1024 * 1024)).toFixed(1)} MiB`;
+
   if (unit === "boolean") return value ? "yes" : "no";
 
   return String(value);
@@ -99,6 +106,7 @@ export function formatMetricValue(value: number | null, unit: MetricUnit): strin
 /** How a row relates to the gate: compared, compared but too small to ever fail, or context only. */
 function gateNote(result: MetricResult): string {
   if (!result.comparable) return "";
+
   if (result.unit === "ms" && result.median < GATE_FLOOR_MS) return "below floor";
 
   return "gated";

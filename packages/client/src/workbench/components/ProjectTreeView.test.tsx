@@ -11,6 +11,7 @@ import { DARK } from "../../appearance/theme";
 
 function findById(node: Renderable, id: string): Renderable | undefined {
   if (node.id === id) return node;
+
   for (const child of node.getChildren()) {
     const found = findById(child, id);
 
@@ -64,6 +65,7 @@ test("keyboard navigation reveals the selected project row", async () => {
   const scrollbox = findById(setup.renderer.root, "tree-scroll");
 
   if (!(scrollbox instanceof ScrollBoxRenderable)) throw new Error("tree scrollbox missing");
+
   const scrollSteps: number[] = [];
 
   for (const [index, key] of Array.from({ length: 15 }, () => "j").entries()) {
@@ -101,6 +103,7 @@ test("project wheel scrolling accelerates during a gesture and resets after a pa
   const scrollbox = findById(setup.renderer.root, "tree-scroll");
 
   if (!(scrollbox instanceof ScrollBoxRenderable)) throw new Error("tree scrollbox missing");
+
   const acceleration = scrollbox.scrollAcceleration;
   const first = acceleration.tick(1000);
   const burst = Array.from({ length: 10 }, (_, index) => acceleration.tick(1016 + index * 16));

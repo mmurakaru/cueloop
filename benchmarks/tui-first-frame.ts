@@ -40,6 +40,7 @@ if (!ptyTuiAvailable()) {
   emitMetric("is_pty_available", 1);
   emitMetric("is_compiled_binary", process.env.CUELOOP_TEST_EXECUTABLE ? 1 : 0);
   emitMetric("is_ready_signal_supported", readySignalSupported ? 1 : 0);
+
   if (readySignalSupported) {
     const reviewHome = createTestReviewHome();
 

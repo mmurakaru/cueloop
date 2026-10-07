@@ -120,6 +120,7 @@ class FxHarnessConnection implements AgentHarnessConnection {
 
   async configure(id: string, value: string): Promise<void> {
     if (!this.sessionId) throw new Error("Fx ACP session is not ready");
+
     const result = await this.connection.request(
       "session/set_config_option",
       { sessionId: this.sessionId, configId: id, value },
@@ -143,6 +144,7 @@ class FxHarnessConnection implements AgentHarnessConnection {
     if (this.sessionId) {
       if (!initialized.agentCapabilities.loadSession)
         throw new Error("Fx ACP cannot restore the recorded session");
+
       const result = await this.connection.request(
         "session/load",
         { sessionId: this.sessionId, cwd: this.options.cwd, mcpServers: this.mcpServers },
@@ -160,6 +162,7 @@ class FxHarnessConnection implements AgentHarnessConnection {
       this.sessionId = result.sessionId;
       this.options.onEvent({ kind: "config", options: result.configOptions ?? [] });
     }
+
     await this.connection.request(
       "session/set_mode",
       { sessionId: this.sessionId, modeId: "ask" },
@@ -200,6 +203,7 @@ class FxHarnessConnection implements AgentHarnessConnection {
 
   cancel(): void {
     if (this.permissionId !== undefined) this.permission(String(this.permissionId));
+
     if (!this.loading && this.sessionId)
       this.connection.write({
         jsonrpc: "2.0",
@@ -211,6 +215,7 @@ class FxHarnessConnection implements AgentHarnessConnection {
   permission(requestId: string, optionId?: string): void {
     if (this.permissionId === undefined || String(this.permissionId) !== requestId)
       throw new Error("Fx ACP permission request is no longer pending");
+
     this.connection.write({
       jsonrpc: "2.0",
       id: this.permissionId,
@@ -228,6 +233,7 @@ class FxHarnessConnection implements AgentHarnessConnection {
 
   private async serveTool(frame: FxAcpFrame): Promise<void> {
     if (frame.id === undefined) return;
+
     try {
       const params = v.parse(
         v.object({
@@ -240,6 +246,7 @@ class FxHarnessConnection implements AgentHarnessConnection {
       const tools = this.options.tools;
 
       if (!tools) throw new Error("Fx ACP cueloop tools are unavailable");
+
       let result: FxToolResult;
 
       if (params.method === "server/discover")
@@ -266,6 +273,7 @@ class FxHarnessConnection implements AgentHarnessConnection {
           isError: false,
         };
       } else throw new Error("Fx ACP MCP method is unavailable");
+
       this.connection.write({ jsonrpc: "2.0", id: frame.id, result: { result } });
     } catch (error) {
       this.connection.write({
@@ -293,11 +301,13 @@ class FxHarnessConnection implements AgentHarnessConnection {
 
       return;
     }
+
     if (frame.method === "session/request_permission") {
       const params = v.parse(PermissionSchema, frame.params);
 
       if (params.sessionId !== this.sessionId || frame.id === undefined)
         throw new Error("Fx ACP permission has the wrong session");
+
       this.permissionId = frame.id;
       this.options.onEvent({
         kind: "permission",
@@ -310,6 +320,7 @@ class FxHarnessConnection implements AgentHarnessConnection {
 
       return;
     }
+
     if (frame.method !== "session/update" || this.loading) {
       if (frame.method && frame.id !== undefined)
         this.connection.write({
@@ -320,9 +331,11 @@ class FxHarnessConnection implements AgentHarnessConnection {
 
       return;
     }
+
     const params = v.parse(UpdateSchema, frame.params);
 
     if (params.sessionId !== this.sessionId) throw new Error("Fx ACP update has the wrong session");
+
     const update = params.update;
 
     if (update.sessionUpdate === "notice") {
@@ -342,6 +355,7 @@ class FxHarnessConnection implements AgentHarnessConnection {
 
       return;
     }
+
     this.receiveUpdate(update);
   }
 

@@ -32,6 +32,7 @@ export function markdownEditorStyle(theme: Theme): MarkdownEditorStyle {
   const cached = markdownEditorStyleCache.get(theme);
 
   if (cached) return cached;
+
   const groupStyles = markdownGroupStyles(theme);
   const style = SyntaxStyle.fromStyles(groupStyles);
   const styleIds = new Map<MarkdownHighlightGroup, number>();

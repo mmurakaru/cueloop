@@ -77,6 +77,7 @@ export function buildFileTree(
           : { id: prefix, label: segment, children: new Map() };
         level.set(segment, node);
       }
+
       if (!isLeaf) level = node.children!;
     });
   }
@@ -104,6 +105,7 @@ export function buildPathTree(paths: readonly string[]): TreeNode[] {
           : { id: prefix, label: segment, children: new Map() };
         level.set(segment, node);
       }
+
       if (!isLeaf) level = node.children!;
     });
   }

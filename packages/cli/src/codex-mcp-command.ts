@@ -41,6 +41,7 @@ export function createCodexMcpServer(home = cueloopHome()): McpServer {
             "cueloop Codex session is not authorized; trust the plugin hooks and restart Codex",
           );
         }
+
         const { hookToken: _hookToken, ...threadInput } = input;
         const result = await runHarnessBridge(
           { operation: "open", harness: "codex", ...threadInput },

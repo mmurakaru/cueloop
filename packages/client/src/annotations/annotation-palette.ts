@@ -47,6 +47,7 @@ export function lighten(hex: string, amount = 0.25): string {
   const channels = hex.match(/^#(..)(..)(..)$/);
 
   if (!channels) return hex;
+
   const lifted = channels
     .slice(1)
     .map((channel) => {

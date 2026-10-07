@@ -16,6 +16,7 @@ export function findOperationReceipt<Result>(
   fingerprint: string,
 ): OperationReceipt<Result> | undefined {
   if (!operationId) return;
+
   const receipt = receipts?.find((entry) => entry.operationId === operationId);
 
   if (receipt && receipt.fingerprint !== fingerprint)
@@ -23,6 +24,7 @@ export function findOperationReceipt<Result>(
       "operation_conflict",
       "Operation payload conflict: use a new operation ID for changed input",
     );
+
   if (!receipt && (receipts?.length ?? 0) >= 128)
     throw new DaemonError(
       "operation_capacity",
@@ -39,12 +41,14 @@ export function recordPromptOperation(
   input: AgentPromptRequest,
 ): void {
   if (!input.operationId) return;
+
   const previous = new Set(before.submissions?.map((entry) => entry.id));
   const accepted = input.retry
     ? [input.retry]
     : (state.submissions ?? []).filter((entry) => !previous.has(entry.id)).map((entry) => entry.id);
 
   if (!accepted.length) throw new DaemonError("invalid_params", "Agent operation requires input");
+
   const fingerprint = promptOperationFingerprint(input);
 
   (state.promptOperations ??= []).push({
@@ -58,6 +62,7 @@ export function recordPromptOperation(
 export function settlePromptOperations(state: ThreadAgentState): void {
   for (const receipt of state.promptOperations ?? []) {
     if (receipt.outcome || !receipt.result.length) continue;
+
     const submissions = receipt.result.map((id) =>
       state.submissions?.find((entry) => entry.id === id),
     );
@@ -66,6 +71,7 @@ export function settlePromptOperations(state: ThreadAgentState): void {
       submissions.some((entry) => !entry || entry.status === "queued" || entry.status === "running")
     )
       continue;
+
     receipt.outcome = submissions.some((entry) => entry?.cancelled)
       ? "cancelled"
       : submissions.some((entry) => entry?.status === "failed")

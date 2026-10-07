@@ -55,7 +55,9 @@ describe("Claude Thread bridge round-trip", () => {
     );
 
     expect(opened.operation).toBe("open");
+
     if (opened.operation !== "open") throw new Error("expected an opened Thread");
+
     expect(opened.approvedRetry).toBeFalse();
     const setup = await renderReadyApp(<App home={home} sessionId={opened.threadId} />, {
       width: 120,
@@ -81,7 +83,9 @@ describe("Claude Thread bridge round-trip", () => {
     );
 
     expect(pending.operation).toBe("pending");
+
     if (pending.operation !== "pending") throw new Error("expected pending Messages");
+
     expect(pending.deliveries).toHaveLength(1);
     expect(pending.deliveries[0]?.wakeText).toContain("Too aggressive.");
     expect(pending.deliveries[0]?.wakeText).toContain("Stage the rollout: 5% then 50% then 100%.");

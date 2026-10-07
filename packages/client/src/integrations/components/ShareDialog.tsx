@@ -293,7 +293,9 @@ function Wizard({
 
   useEffect(() => {
     if (focus !== "name") return;
+
     nameRef.current?.focus();
+
     if (nameRef.current) nameRef.current.cursorOffset = draft.name.length;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus]);
@@ -418,6 +420,7 @@ export function ShareDialog({
 
   const saveWizard = (): void => {
     if (!wizard || saveDisabled) return;
+
     const input: NewShareLink = {
       name: wizard.name.trim() || undefined,
       requireAuth: wizard.requireAuth,
@@ -425,13 +428,16 @@ export function ShareDialog({
     };
 
     if (agentAvailable) input.agentEnabled = wizard.agentEnabled ?? false;
+
     if (wizard.editingId) onUpdateLink(wizard.editingId, input);
     else onCreateLink(input);
+
     backToList();
   };
 
   const activateListRow = (): void => {
     if (listCursor >= links.length) return openWizardWith(newWizardDraft(threadName));
+
     const link = links[listCursor];
 
     if (link) onCopyLink(link.id);
@@ -440,30 +446,41 @@ export function ShareDialog({
   // turning auth on drops the cursor straight into the handles field; turning it off resets them
   const toggleAuth = (): void => {
     if (!wizard) return;
+
     const next = !wizard.requireAuth;
 
     shareDialogStore.getState().setRequireAuth(next);
+
     if (!next) shareDialogStore.getState().setAllowlist([]);
+
     setWizardFocus(next ? "allowlist" : "auth");
   };
 
   // grammar keys only bite outside a focused text field, where they cannot be typed
   const handleWizardKey = (name: string): void => {
     if (!wizard) return;
+
     if (name === "escape") return backToList();
+
     if (name === "down") return moveWizardFocus(1);
+
     if (name === "up") return moveWizardFocus(-1);
+
     const activated = name === "return" || name === "enter";
 
     if (wizardFocus === "auth" && (activated || name === "space")) return toggleAuth();
+
     if (wizardFocus === "agent" && (activated || name === "space"))
       return shareDialogStore.getState().setAgentEnabled(!wizard.agentEnabled);
+
     if (wizardFocus === "actions" && activated) saveWizard();
   };
 
   const handleNavKey = (name: string): void => {
     if (name === "j" || name === "down") return shareDialogStore.getState().setCategory("export");
+
     if (name === "k" || name === "up") return shareDialogStore.getState().setCategory("external");
+
     const enter =
       name === "l" || name === "right" || name === "return" || name === "enter" || name === "tab";
 
@@ -478,21 +495,32 @@ export function ShareDialog({
 
   const handleBodyKey = (name: string): void => {
     if (name === "h" || name === "left") return setActiveZone("nav");
+
     if (name === "j" || name === "down")
       return setListCursor((cursor) => Math.min(cursor + 1, rowCount - 1));
+
     if (name === "k" || name === "up") return setListCursor((cursor) => Math.max(cursor - 1, 0));
+
     if (name === "return" || name === "enter") return activateListRow();
+
     if (listCursor >= links.length) return;
+
     if (name === "e") return editLinkAtCursor();
+
     if (name === "d") onDeleteLink(links[listCursor]!.id);
   };
 
   useKeyboard((key) => {
     if (!isOpen) return;
+
     if (wizard) return handleWizardKey(key.name);
+
     if (menuOpenId !== null) return void (key.name === "escape" && setMenuOpenId(null));
+
     if (key.name === "escape") return onClose();
+
     if (activeZone === "nav") return handleNavKey(key.name);
+
     handleBodyKey(key.name);
   });
 

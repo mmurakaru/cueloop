@@ -54,6 +54,7 @@ function persistence(initial: GhosttyThreadSurfaceHandle | null = null) {
   const port: GhosttyThreadSurfacePersistence = {
     ghosttyClaimThreadSurface: async () => {
       if (claimed) return false;
+
       claimed = true;
 
       return true;
@@ -316,6 +317,7 @@ describe("openGhosttyThreadSurface", () => {
     const store: GhosttyThreadSurfacePersistence = {
       ghosttyClaimThreadSurface: async () => {
         if (claimed) return false;
+
         claimed = true;
 
         return true;

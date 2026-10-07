@@ -94,6 +94,7 @@ export function resolveOpenTarget(sessions: Thread[], query: OpenTargetQuery): O
     .sort(newestFirst);
 
   if (substringMatches.length === 1) return { kind: "session", sessionId: substringMatches[0]!.id };
+
   if (substringMatches.length === 0) return { kind: "no-match", selector };
 
   return {

@@ -80,6 +80,7 @@ export async function shareSession(
 
     return 1;
   }
+
   const session = params.fork ? await client.sessionFork(picked.id) : picked;
   // a workbench thread renders live locally; freeze its diff so the remote reviewer gets a stable snapshot
   const shared = client.repoDiff
@@ -98,7 +99,9 @@ export async function shareSession(
         shareBranch: session.history?.branch ?? "main",
       },
     ]);
+
   if (params.fork) deps.out(`forked ${picked.id} as ${session.id}`);
+
   deps.out(copied ? `share link copied - ${line}` : line);
 
   return 0;
@@ -121,6 +124,7 @@ export async function pullSession(
 
     return 1;
   }
+
   const remote = await deps.pull(session.shares!.at(-1)!.id, {
     host: params.host,
     port: params.port,
@@ -143,6 +147,7 @@ export async function pullSession(
 /** The named session, or the most recent one when no id is given. */
 async function pickSession(client: ThreadClient, sessionId?: string): Promise<Thread | null> {
   if (sessionId) return client.sessionGet(sessionId);
+
   const sessions = await client.sessionList();
 
   return sessions.at(-1) ?? null;
@@ -155,6 +160,7 @@ async function pickSharedSession(client: ThreadClient, sessionId?: string): Prom
 
     return session.shares?.length ? session : null;
   }
+
   const sessions = await client.sessionList();
 
   return sessions.filter((session) => session.shares?.length).at(-1) ?? null;

@@ -62,6 +62,7 @@ function AgentConfigMenu({
 
   useEffect(() => {
     if (!open) return;
+
     overlay.setOverlay(
       "agent-config",
       <box

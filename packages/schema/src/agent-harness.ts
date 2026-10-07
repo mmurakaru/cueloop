@@ -44,6 +44,7 @@ export interface AgentHarnessOptions {
 export interface AgentHarnessAdapter {
   id: string;
   label: string;
+  recovery?: "durable";
   connect(options: AgentHarnessOptions): AgentHarnessConnection;
   remove?(sessionId: string): void | Promise<void>;
 }

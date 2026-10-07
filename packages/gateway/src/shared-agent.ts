@@ -43,6 +43,7 @@ export class SharedAgentRelay {
     const bytes = await this.store.get(id);
 
     if (!bytes) throw new Error("Shared agent artifact was not found");
+
     const thread = unpackGatewayShare(openBlob(this.key, id, bytes), id);
 
     if (!thread.shares?.[0]?.agentEnabled) throw new Error("Shared agent access is disabled");
@@ -65,6 +66,7 @@ export class SharedAgentRelay {
     const bytes = Buffer.from(JSON.stringify(record));
 
     if (bytes.length > 8 * 1024 * 1024) throw new Error("Shared agent record exceeds 8 MiB");
+
     await this.store.put(id + ".agent", sealBlob(this.key, id + ".agent", bytes));
   }
 
@@ -95,11 +97,13 @@ export class SharedAgentRelay {
     );
 
     if (!this.owners.has(id)) state.phase = { kind: "offline" };
+
     for (const request of record.requests) {
       const { params } = request;
 
       if (state.promptOperations?.some((receipt) => receipt.operationId === params.operationId))
         continue;
+
       state.submissions ??= [];
       state.submissions.push({
         id: params.operationId,
@@ -132,6 +136,7 @@ export class SharedAgentRelay {
 
       if (params.id !== thread.id || !params.operationId || params.retry)
         throw new Error("Shared agent input requires this Thread and a new operation ID");
+
       const receiptId = createHash("sha256")
         .update(JSON.stringify([id, author, params.operationId]))
         .digest("hex");
@@ -147,7 +152,9 @@ export class SharedAgentRelay {
 
         return;
       }
+
       if (record.receipts.length >= 128) throw new Error("Shared agent request capacity reached");
+
       const pending = thread.annotations.filter(
         (annotation) =>
           !params.inputOnly &&
@@ -195,9 +202,12 @@ export class SharedAgentRelay {
             operationId: `shared-${receiptId}`,
           },
         });
+
       if (!requests.length) throw new Error("Shared agent input is empty");
+
       if (record.requests.length + requests.length > 128)
         throw new Error("Shared agent queue capacity reached");
+
       record.requests.push(
         ...requests.map((request, index) => ({
           ...request,
@@ -226,24 +236,29 @@ export class SharedAgentRelay {
         )
       )
         throw new Error("Shared agent comment requires a completed answer");
+
       if (
         record.requests.some((request) => request.params.commentId === comment.id) ||
         previous?.sent ||
         (previous && previous.author !== author)
       )
         throw new Error("Shared agent comment is read-only");
+
       const message = record.state.messages.find((message) => message.id === comment.messageId)!;
       const resolved = resolveAnchor(comment.anchor, parseBlocks(message.text));
 
       if (!resolved) throw new Error("Shared agent comment quote does not match its answer");
+
       if (comment.replyTo) {
         const root = agentCommentRoot(record.state, comment.replyTo);
 
         if (!root || root.messageId !== comment.messageId)
           throw new Error("Shared agent reply requires a comment in this answer");
       }
+
       if (!previous && record.state.comments.length >= 128)
         throw new Error("Shared agent comment capacity reached");
+
       record.state.comments = [
         ...record.state.comments.filter((entry) => entry.id !== comment.id),
         { ...comment, author, sent: false },
@@ -263,7 +278,9 @@ export class SharedAgentRelay {
 
     if (thread.shares?.[0]?.owner !== author)
       throw new Error("Shared agent connection requires the share owner");
+
     if (this.owners.has(id)) throw new Error("Shared agent owner is already connected");
+
     const connection = { author, send };
 
     this.owners.set(id, connection);
@@ -277,6 +294,7 @@ export class SharedAgentRelay {
 
     return async () => {
       if (this.owners.get(id) !== connection) return;
+
       this.owners.delete(id);
       await this.serialize(id, async () => this.write(id, await this.read(id)));
     };
@@ -299,6 +317,7 @@ export class SharedAgentRelay {
         state.threadId !== thread.id
       )
         throw new Error("Shared agent state requires the connected owner of this Thread");
+
       const record = await this.read(id);
       const comments =
         record.state?.comments.filter(
@@ -331,6 +350,7 @@ export class SharedAgentRelay {
     const owner = this.owners.get(id);
 
     if (!owner) return;
+
     owner.send({
       type: "requests",
       thread: await this.thread(id),
@@ -380,6 +400,7 @@ function sharedCommentDiscussion(
         .map((entry) => ({ id: entry.id, body: entry.body })),
     });
   }
+
   const comment = state && agentCommentRoot(state, id);
   const root =
     state && comment && (agentCommentRoot(state, comment.replyTo ?? comment.id) ?? comment);

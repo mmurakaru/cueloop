@@ -13,6 +13,7 @@ if (path === null) {
   console.log("cueloop daemon already running for this home");
   process.exit(0);
 }
+
 console.log(`cueloop daemon listening on ${path}`);
 
 process.on("SIGINT", () => {

@@ -58,6 +58,7 @@ describe("parseParams", () => {
       throw new Error("should have thrown");
     } catch (err) {
       expect(err).toBeInstanceOf(DaemonError);
+
       if (err instanceof DaemonError) {
         expect(err.code).toBe("invalid_params");
         expect(err.message).toContain("session.create: workspace");
@@ -180,6 +181,7 @@ describe("validateThreadRecord", () => {
 
     // Assert
     expect(result.ok).toBe(false);
+
     if (!result.ok) expect(result.error).toContain("schemaVersion");
   });
 
@@ -366,6 +368,7 @@ describe("wire pins", () => {
 
     // Assert
     expect(parsed.ok).toBe(false);
+
     if (!parsed.ok) expect(parsed.error).toContain("history:");
   });
 
@@ -376,6 +379,7 @@ describe("wire pins", () => {
     });
 
     expect(result.ok).toBe(false);
+
     if (!result.ok) {
       expect(result.error).toContain(
         "text Cuts do not match the submitted artifact and working copy",

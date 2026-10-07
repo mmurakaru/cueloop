@@ -143,11 +143,14 @@ function matchLink(
   end: number;
 } | null {
   if (text[index] !== "[") return null;
+
   const labelStart = index + 1;
   const labelEnd = text.indexOf("]", labelStart);
 
   if (labelEnd < 0 || labelEnd === labelStart) return null;
+
   if (text[labelEnd + 1] !== "(") return null;
+
   const hrefStart = labelEnd + 2;
   // the destination may carry balanced parentheses (wiki URLs); the span ends
   // at the first unmatched closer
@@ -162,6 +165,7 @@ function matchLink(
         depth--;
         continue;
       }
+
       if (scan === hrefStart) return null;
 
       return { labelStart, labelEnd, hrefStart, hrefEnd: scan, end: scan + 1 };
@@ -177,6 +181,7 @@ function matchCode(
   index: number,
 ): { contentStart: number; contentEnd: number; end: number } | null {
   if (text[index] !== "`") return null;
+
   let fence = 0;
 
   while (text[index + fence] === "`") fence++;
@@ -194,7 +199,9 @@ function matchEmphasis(text: string, index: number): Span | null {
   const two = text.slice(index, index + 2);
 
   if (two === "**") return closingSpan(text, index, 2, "strong");
+
   if (two === "~~") return closingSpan(text, index, 2, "strike");
+
   if (text[index] === "*") return closingSpan(text, index, 1, "em");
 
   return null;
@@ -224,9 +231,11 @@ function findLoneStar(text: string, from: number): number {
   while (index < text.length) {
     if (text[index] === "*") {
       if (text[index + 1] !== "*") return index;
+
       while (text[index] === "*") index++; // skip the whole `**` run
       continue;
     }
+
     index++;
   }
 

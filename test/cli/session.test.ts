@@ -219,6 +219,7 @@ describe("cueloop session (black box)", () => {
       });
 
       if (init.exitCode !== 0) throw new Error(init.stderr.toString());
+
       const source = new VcsSourceManager(join(home, "missing-config.toml"));
       const first = await source.capture(repo.dir, "jj");
       const created = cliJson<Thread>(

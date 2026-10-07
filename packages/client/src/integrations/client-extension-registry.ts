@@ -65,12 +65,15 @@ export class ClientExtensionRegistry {
   ): ExtensionUIDisposable {
     if (!/^[a-z][a-z0-9-]*$/.test(contribution.id))
       throw new Error(`Client extension invalid contribution ID: ${contribution.id}`);
+
     if (contribution.zone !== zone)
       throw new Error(`Client extension ${owner}:${contribution.id} must use zone ${zone}`);
+
     const key = `${owner}:${contribution.id}`;
 
     if (this.sections.has(key) || this.actions.has(key) || this.views.has(key))
       throw new Error(`Client extension duplicate contribution: ${key}`);
+
     map.set(key, contribution);
     this.changed();
 
@@ -149,6 +152,7 @@ export async function loadInstalledClientExtensions(
       const parsed = v.safeParse(v.object({ default: v.function() }), module);
 
       if (!parsed.success) throw new Error("client entry point must export a default factory");
+
       await registry.load(extension.name, async (api) => {
         await parsed.output.default(api);
       });

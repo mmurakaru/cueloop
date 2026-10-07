@@ -38,6 +38,7 @@ test("a Codex reply is delivered without an MCP transport", async () => {
   );
 
   if (opened.operation !== "open") throw new Error("expected open Thread");
+
   const previousCodexBin = process.env.CUELOOP_CODEX_BIN;
 
   // A reused PID belonging to this test process must not impersonate the worker.
@@ -49,8 +50,10 @@ test("a Codex reply is delivered without an MCP transport", async () => {
     import.meta.dir + "/main.ts",
     "codex-delivery-worker",
   ]);
+
   if (previousCodexBin === undefined) delete process.env.CUELOOP_CODEX_BIN;
   else process.env.CUELOOP_CODEX_BIN = previousCodexBin;
+
   expect(worker).toBeDefined();
   const deadline = Date.now() + 5000;
 

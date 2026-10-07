@@ -21,6 +21,7 @@ async function gitFileList(repoRoot: string, args: string[]): Promise<string[] |
 /** Existing tracked paths, sorted ascending and capped; [] on failure or a non-repo. */
 export async function listProjectFiles(repoRoot: string | undefined): Promise<string[]> {
   if (repoRoot === undefined || repoRoot.length === 0) return [];
+
   try {
     const [tracked, deleted] = await Promise.all([
       gitFileList(repoRoot, ["--cached"]),
@@ -28,6 +29,7 @@ export async function listProjectFiles(repoRoot: string | undefined): Promise<st
     ]);
 
     if (tracked === null || deleted === null) return [];
+
     const missing = new Set(deleted);
 
     return tracked
@@ -52,10 +54,12 @@ export async function readProjectFile(
   path: string,
 ): Promise<string | null> {
   if (repoRoot === undefined || repoRoot.length === 0) return null;
+
   const root = resolve(repoRoot);
   const target = resolve(root, path);
 
   if (escapesRoot(root, target)) return null;
+
   try {
     const stats = await stat(target);
 

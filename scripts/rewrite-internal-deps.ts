@@ -38,6 +38,7 @@ for (const path of new Set(paths)) {
     const deps = pkg[field];
 
     if (!deps) continue;
+
     for (const [name, range] of Object.entries(deps)) {
       if (internal.has(name) && range.startsWith("workspace:")) {
         deps[name] = version;
@@ -46,6 +47,7 @@ for (const path of new Set(paths)) {
       }
     }
   }
+
   if (touched) await Bun.write(path, JSON.stringify(pkg, null, 2) + "\n");
 }
 console.log(`internal deps pinned to ${version} (${rewrites} rewritten)`);

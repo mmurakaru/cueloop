@@ -21,6 +21,7 @@ export function generateEd25519Key(): string {
 /** Read the host key at `path`, or generate and persist one on first boot. */
 export function loadOrCreateHostKey(path: string): string {
   if (existsSync(path)) return readFileSync(path, "utf8");
+
   mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
   const key = generateEd25519Key();
 

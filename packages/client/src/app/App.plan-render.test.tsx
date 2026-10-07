@@ -91,6 +91,7 @@ function foregroundsOf(setup: Setup, needle: string): string[] {
   for (const line of setup.captureSpans().lines) {
     for (const span of line.spans) {
       if (span.fg === undefined || !span.text.includes(needle)) continue;
+
       const [red, green, blue] = span.fg.toInts();
 
       foregrounds.push(
@@ -109,6 +110,7 @@ function backgroundsOf(setup: Setup, needle: string): string[] {
   for (const line of setup.captureSpans().lines) {
     for (const span of line.spans) {
       if (!span.text.includes(needle)) continue;
+
       const [red, green, blue] = span.bg.toInts();
 
       backgrounds.push(

@@ -435,11 +435,13 @@ class Controller implements ReviewController {
 
   constructor(private readonly options: ReviewControllerOptions) {
     this.client = options.initialClient ?? null;
+
     if (options.initialSession?.id === options.sessionId && options.initialDiff) {
       this.liveDiff = options.initialDiff;
       this.initialDiffAvailable = true;
       this.store.setState({ session: options.initialSession });
     }
+
     this.readOnly = options.readOnly ?? false;
     this.clock = options.clock ?? new SystemClock();
     this.shareTransport = options.shareTransport ?? DEFAULT_SHARE_TRANSPORT;
@@ -473,12 +475,14 @@ class Controller implements ReviewController {
         const client = await openClient();
 
         if (this.closed) return void client.close();
+
         this.client = client;
         client.onEvent((event) => {
           // another controller/observer changed state: re-fetch the active session's content
           const session = this.snapshot.session;
 
           if (session && event.sessionId === session.id) void this.refreshSession(session.id);
+
           // only the list-changing events touch the Threads sidebar; refreshing on every
           // content edit (session.updated) would amplify an active review into a request storm
           if (event.event !== "session.updated") void this.refreshInbox();
@@ -508,6 +512,7 @@ class Controller implements ReviewController {
 
   private clearCountdown(): void {
     if (this.countdown !== undefined) this.clock.clearTimeout(this.countdown);
+
     this.countdown = undefined;
   }
 
@@ -577,9 +582,11 @@ class Controller implements ReviewController {
     const cached = this.derived.models.get(path);
 
     if (cached) return cached;
+
     const contents = this.derived.fileContents.get(path);
 
     if (!contents) return undefined;
+
     const model = parseFileDiff(contents);
 
     this.derived.models.set(path, model);
@@ -594,6 +601,7 @@ class Controller implements ReviewController {
     const liveDiff = frozenDiff ? null : this.liveDiff;
 
     if (this.derivedFor === session && this.derivedForLiveDiff === liveDiff) return;
+
     // reuse the parsed projection across an update that left the inputs unchanged; only the cheap tree can differ
     if (session !== null && this.reusesDerived(session, liveDiff)) {
       this.derivedFor = session;
@@ -601,11 +609,13 @@ class Controller implements ReviewController {
 
       return;
     }
+
     // a different thread resets fold state; a same-thread re-derivation (content edit) keeps it
     if (this.derivedFor?.id !== session?.id) {
       this.collapsedFiles.clear();
       this.expandedFiles.clear();
     }
+
     // returning to a recently-viewed thread whose inputs are unchanged reuses its parsed projection
     const cached = session !== null ? this.derivedCache.get(session.id) : undefined;
 
@@ -624,9 +634,11 @@ class Controller implements ReviewController {
 
       return;
     }
+
     this.derivedFor = session;
     this.derivedForLiveDiff = liveDiff;
     this.derived = this.buildDerived(session, frozenDiff, liveDiff);
+
     if (session !== null) this.rememberDerived(session, liveDiff, this.derived);
   }
 
@@ -646,6 +658,7 @@ class Controller implements ReviewController {
       const oldest = this.derivedCache.keys().next().value;
 
       if (oldest === undefined) break;
+
       this.derivedCache.delete(oldest);
     }
   }
@@ -671,6 +684,7 @@ class Controller implements ReviewController {
 
   rows(): DiffRow[] {
     this.ensureDerived();
+
     if (this.collapsedFiles.size === 0 && this.expandedFiles.size === 0) return this.derived.rows;
 
     return applyFold(this.derived.rows, this.collapsedFiles, this.expandedFiles, this.foldFiles());
@@ -683,6 +697,7 @@ class Controller implements ReviewController {
     } else {
       this.collapsedFiles.delete(file);
     }
+
     this.update({});
   }
 
@@ -697,6 +712,7 @@ class Controller implements ReviewController {
     } else {
       this.expandedFiles.delete(file);
     }
+
     this.update({});
   }
 
@@ -770,9 +786,11 @@ class Controller implements ReviewController {
     const session = this.snapshot.session;
 
     if (readsFrozenDiff(session)) return session!.artifact.files ?? [];
+
     const initialFiles = this.consumeInitialDiffFiles(session);
 
     if (initialFiles !== null) return initialFiles;
+
     // eager: capture the live working-tree diff so the Changes navigator and its file tabs render a real diff
     if (this.client?.repoDiff !== undefined) {
       const diff = await this.client.repoDiff(
@@ -784,6 +802,7 @@ class Controller implements ReviewController {
       // showing changes from the wrong repo; compare the thread id, not the object, so an unrelated
       // re-render that replaced the snapshot for the SAME thread does not drop its diff to "No changes"
       if (this.snapshot.session?.id !== session?.id) return diff.files;
+
       const changed =
         this.liveDiff?.patch !== diff.patch ||
         this.liveDiff.files.length !== diff.files.length ||
@@ -803,8 +822,10 @@ class Controller implements ReviewController {
 
       return diff.files;
     }
+
     // a peer without the live-diff capability still lists changes, just without a diff body
     if (this.client?.repoChanges === undefined) return [];
+
     const changes = await this.client.repoChanges(this.sidebarRepoRoot());
 
     return changes.map((change) => ({
@@ -817,6 +838,7 @@ class Controller implements ReviewController {
 
   private consumeInitialDiffFiles(session: Thread | null): readonly DiffFileContents[] | null {
     if (!this.initialDiffAvailable) return null;
+
     this.initialDiffAvailable = false;
 
     return session?.id === this.options.sessionId ? (this.liveDiff?.files ?? []) : null;
@@ -826,6 +848,7 @@ class Controller implements ReviewController {
     const session = this.snapshot.session;
 
     if (session?.artifact.type !== "diff" || !this.client?.sessionRefreshDiff) return;
+
     try {
       await this.client.sessionRefreshDiff(session.id);
     } catch (cause) {
@@ -839,6 +862,7 @@ class Controller implements ReviewController {
   private async refreshSession(id: string): Promise<void> {
     try {
       if (!this.client) return;
+
       const session = await this.client.sessionGet(id);
 
       // a rapid switch may have moved on during the fetch; never clobber the now-viewed thread
@@ -898,11 +922,13 @@ class Controller implements ReviewController {
     // copy trails the daemon for a live diff, whose session.updated refreshes the open
     // thread but not the list, so a returned-to diff would otherwise show stale content
     if (cached) this.update({ session: cached });
+
     void this.refreshSession(id);
   }
 
   async createEmptyThread(): Promise<void> {
     if (this.readOnly || !this.client?.sessionCreate) return;
+
     const workspace = this.snapshot.session?.workspace ?? {
       repoRoot: this.options.cwd ?? process.cwd(),
       branch: "detached",
@@ -927,6 +953,7 @@ class Controller implements ReviewController {
 
   deleteSession(id: string): void {
     if (this.readOnly) return this.setStatus("observer - read-only");
+
     // a deleted thread's links must not outlive it; revoke every one first, best-effort, so an
     // unreachable gateway never blocks the local delete (the blob's 30-day TTL is the backstop)
     for (const link of this.linksFor(this.sessionRecord(id)))
@@ -952,6 +979,7 @@ class Controller implements ReviewController {
 
   renameSession(id: string, title: string): void {
     if (this.readOnly) return this.setStatus("observer - read-only");
+
     void this.client
       ?.sessionSetTitle(id, title)
       .catch((cause: unknown) =>
@@ -963,6 +991,7 @@ class Controller implements ReviewController {
     const session = this.snapshot.session;
 
     if (!session) return;
+
     this.apply(this.client!.sessionSetSelfName(session.id, name));
   }
 
@@ -970,9 +999,11 @@ class Controller implements ReviewController {
     const session = this.snapshot.session;
 
     if (!session || session.status === "resolved") return;
+
     const block = this.display()[displayIndex];
 
     if (!block) return;
+
     const working = this.working();
 
     if (start !== undefined && end !== undefined && block.work) {
@@ -980,6 +1011,7 @@ class Controller implements ReviewController {
       const endBlock = display[endDisplayIndex];
 
       if (!endBlock?.work) return;
+
       const exactSourceRange = this.exactCutSourceRange(
         session,
         display,
@@ -1007,6 +1039,7 @@ class Controller implements ReviewController {
         const content = applyTextCuts(session.artifact.content, textCuts);
 
         if (content === working) return;
+
         const expected: Thread = { ...session, workingCopy: content, textCuts };
 
         if (textCuts.length === 0) {
@@ -1021,10 +1054,12 @@ class Controller implements ReviewController {
 
         return;
       }
+
       const range = renderedSpanToWork(display, displayIndex, endDisplayIndex, start, end);
       const content = cutTextRange(working, block.work, range.start, endBlock.work, range.end);
 
       if (content === working) return;
+
       this.setWorkingCopy(content);
     } else if (block.type === "del") {
       this.restoreDelBlock(block, displayIndex);
@@ -1035,6 +1070,7 @@ class Controller implements ReviewController {
 
   private cutWholeBlock(session: Thread, block: DisplayBlock, working: string): void {
     if (!block.work) return;
+
     const base = session.artifact.content;
     const existingCuts = session.textCuts ?? [];
 
@@ -1044,6 +1080,7 @@ class Controller implements ReviewController {
       const content = applyTextCuts(base, textCuts);
 
       if (content === working) return;
+
       this.applyOptimistic(
         { ...session, workingCopy: content, textCuts },
         this.client!.sessionSetWorkingCopy(session.id, content, textCuts),
@@ -1051,11 +1088,13 @@ class Controller implements ReviewController {
 
       return;
     }
+
     const workIndex = parseBlocks(working).findIndex(
       (candidate) => candidate.lineStart === block.work!.lineStart,
     );
 
     if (workIndex === -1) return;
+
     this.applyOptimistic(
       { ...session, workingCopy: cutBlock(working, block.work) },
       this.client!.sessionCutBlock(session.id, workIndex),
@@ -1074,10 +1113,12 @@ class Controller implements ReviewController {
     const existingCuts = session.textCuts ?? [];
 
     if ((session.workingCopy ?? base) !== applyTextCuts(base, existingCuts)) return null;
+
     const startBlock = display[displayIndex];
     const endBlock = display[endDisplayIndex];
 
     if (!startBlock?.base || !endBlock?.base) return null;
+
     if (existingCuts.length === 0) {
       const workRange = renderedSpanToWork(
         display,
@@ -1093,6 +1134,7 @@ class Controller implements ReviewController {
         ? null
         : { start: sourceStart, end: sourceEnd };
     }
+
     const startRange = baseRangeForRendered(
       blockRuns(startBlock, true),
       renderedStart,
@@ -1118,6 +1160,7 @@ class Controller implements ReviewController {
     const session = this.snapshot.session;
 
     if (!session || !block.base) return;
+
     const working = this.working();
     const line = restoreLine(
       nextWorkBlock(this.display(), displayIndex),
@@ -1129,12 +1172,14 @@ class Controller implements ReviewController {
     );
 
     if (baseIndex === -1) return;
+
     const expected: Thread = {
       ...session,
       workingCopy: restoreBlock(base, working, block.base, line),
     };
 
     if (expected.workingCopy === undefined) delete expected.workingCopy;
+
     this.applyOptimistic(expected, this.client!.sessionRestoreBlock(session.id, baseIndex, line));
   }
 
@@ -1144,11 +1189,13 @@ class Controller implements ReviewController {
     const session = this.snapshot.session;
 
     if (!session || session.status === "resolved") return null;
+
     if (!session.artifact.files?.length) {
       this.setStatus("hunk curation needs full file contents (PR diffs cannot be curated)");
 
       return null;
     }
+
     const row = this.rows()[rowIndex];
 
     if (!row || row.kind === "file" || row.kind === "hunk") {
@@ -1156,6 +1203,7 @@ class Controller implements ReviewController {
 
       return null;
     }
+
     const model = this.fileModel(row.file);
 
     if (!model) return null;
@@ -1167,9 +1215,11 @@ class Controller implements ReviewController {
     const located = this.curationRow(rowIndex);
 
     if (!located) return;
+
     const target = hunkRejectionForRow(located.row.file, located.model, located.row);
 
     if (!target) return this.setStatus("no hunk under the cursor");
+
     const wholeHunk = (rejection: HunkRejection): boolean => rejectsWholeHunk(rejection, target);
 
     if (this.rejections.some(wholeHunk)) {
@@ -1189,14 +1239,18 @@ class Controller implements ReviewController {
     const located = this.curationRow(rowIndex);
 
     if (!located) return;
+
     if (located.row.kind !== "add" && located.row.kind !== "del")
       return this.setStatus("move to a changed line to reject a change");
+
     const target = changeRejectionForRow(located.row.file, located.model, located.row);
 
     if (!target) return this.setStatus("no change under the cursor");
+
     const wholeCovers = this.rejections.some((rejection) => rejectsWholeHunk(rejection, target));
 
     if (wholeCovers) return this.setStatus("the whole hunk is rejected - restore it first");
+
     if (this.rejections.some((rejection) => sameRejection(rejection, target))) {
       this.curate(this.rejections.filter((rejection) => !sameRejection(rejection, target)));
     } else {
@@ -1209,15 +1263,19 @@ class Controller implements ReviewController {
     const session = this.snapshot.session;
 
     if (!session) return;
+
     const expected: Thread = { ...session, curation: rejections };
 
     if (!rejections.length) delete expected.curation;
+
     this.applyOptimistic(expected, this.client!.sessionCurate(session.id, rejections));
   }
 
   rejectedRows(): Set<number> {
     this.ensureDerived();
+
     if (!this.rejections.length) return EMPTY_REJECTED_ROWS;
+
     const rejected = new Set<number>();
 
     this.derived.rows.forEach((row, index) => {
@@ -1244,10 +1302,12 @@ class Controller implements ReviewController {
       const kept = this.rejections.filter((rejection) => curationItemId(rejection) !== id);
 
       if (kept.length === this.rejections.length) return;
+
       this.curate(kept);
 
       return;
     }
+
     const display = this.display();
     const displayIndex = display.findIndex(
       (block) => block.type === "del" && block.base && planCutId(block.base) === id,
@@ -1259,6 +1319,7 @@ class Controller implements ReviewController {
   /** The curated-out diff rejections as removal cards (newest decisions last). */
   private diffCurationItems(): CurationItem[] {
     if (!this.rejections.length) return EMPTY_CURATION_ITEMS;
+
     const items: CurationItem[] = [];
 
     for (const rejection of this.rejections) {
@@ -1284,6 +1345,7 @@ class Controller implements ReviewController {
 
     this.derived.display.forEach((block, displayIndex) => {
       if (block.type !== "del" || !block.base) return;
+
       items.push({
         id: planCutId(block.base),
         source: "plan",
@@ -1300,10 +1362,12 @@ class Controller implements ReviewController {
     const model = this.fileModel(rejection.path);
 
     if (!model) return [];
+
     const rows: DiffRow[] = [];
 
     for (const row of this.derived.rows) {
       if (row.file !== rejection.path || (row.kind !== "add" && row.kind !== "del")) continue;
+
       if (rejection.changeIndex === undefined) {
         const target = hunkRejectionForRow(rejection.path, model, row);
 
@@ -1322,6 +1386,7 @@ class Controller implements ReviewController {
     const session = this.snapshot.session;
 
     if (!session || session.status === "resolved") return;
+
     try {
       const result = editInEditor(this.working(), "plan.md", { editor: this.editor });
 
@@ -1336,7 +1401,9 @@ class Controller implements ReviewController {
     const session = this.snapshot.session;
 
     if (!session || session.status === "resolved") return;
+
     if (content === this.working()) return;
+
     this.setWorkingCopy(content);
     this.reconcileAnnotations(session, content);
   }
@@ -1368,6 +1435,7 @@ class Controller implements ReviewController {
     const session = this.snapshot.session;
 
     if (!session) return undefined;
+
     let anchor;
     let resolvedTarget = target;
     // a file target (a Changes-panel diff note) and a diff artifact both anchor into the diff rows
@@ -1414,6 +1482,7 @@ class Controller implements ReviewController {
         workIndexOf(endDisplayIndex),
       );
     }
+
     // absent target means the reviewed artifact, so keep artifact notes free of the field
     const wire =
       resolvedTarget.kind === "artifact"
@@ -1431,6 +1500,7 @@ class Controller implements ReviewController {
     const session = this.snapshot.session;
 
     if (!session) return undefined;
+
     const wire =
       target.kind === "artifact"
         ? { id: newAnnotationId(), kind: "comment", anchor, body }
@@ -1446,7 +1516,9 @@ class Controller implements ReviewController {
   /** Find-or-create the per-repo workbench thread and adopt it as active; true once a session exists. */
   private async ensureWorkbenchSession(): Promise<boolean> {
     if (this.snapshot.session) return true;
+
     if (this.client?.sessionWorkbench === undefined) return false;
+
     let workbench;
 
     try {
@@ -1466,6 +1538,7 @@ class Controller implements ReviewController {
 
   async commentOnWorkbench(anchor: Anchor, target: AnnotationTarget, body: string): Promise<void> {
     if (!(await this.ensureWorkbenchSession())) return;
+
     this.addComment(anchor, target, body);
   }
 
@@ -1478,6 +1551,7 @@ class Controller implements ReviewController {
     body: string,
   ): Promise<void> {
     if (!(await this.ensureWorkbenchSession())) return;
+
     // annotate re-derives the file path and rev from the diff row it lands on
     this.annotate("comment", displayIndex, start, end, body, endDisplayIndex, {
       kind: "file",
@@ -1491,6 +1565,7 @@ class Controller implements ReviewController {
     const root = session?.annotations.find((annotation) => annotation.id === rootAnnotationId);
 
     if (!session || !root) return undefined;
+
     // a reply to a reply still hangs off the discussion's root comment, and shares its target
     // so it renders and resolves on the same surface
     const base = {
@@ -1513,6 +1588,7 @@ class Controller implements ReviewController {
     const session = this.snapshot.session;
 
     if (!session) return undefined;
+
     const anchor = { quote, prefix: "", suffix: "", selector };
     const wire = { id: newAnnotationId(), kind: "comment", anchor, body };
     const persisted = this.client!.sessionComment(session.id, wire);
@@ -1527,9 +1603,11 @@ class Controller implements ReviewController {
     const session = this.snapshot.session;
 
     if (!session) return;
+
     const existing = session.annotations.find((annotation) => annotation.id === id);
 
     if (!existing) return;
+
     // the daemon's annotate primitive upserts by id: same id, anchor, and
     // reply link, new body
     const wire: Omit<Annotation, "createdAt"> = {
@@ -1540,6 +1618,7 @@ class Controller implements ReviewController {
     };
 
     if (existing.replyTo !== undefined) wire.replyTo = existing.replyTo;
+
     const persisted = this.client!.sessionComment(session.id, wire);
 
     this.applyOptimistic(withAnnotationUpserted(session, wire), persisted);
@@ -1559,6 +1638,7 @@ class Controller implements ReviewController {
     );
 
     if (links.length === 0) return;
+
     void persisted
       .then(() => Promise.all(links.map((link) => this.shareTransport.push(link.id, [annotation]))))
       .catch(() => {});
@@ -1568,6 +1648,7 @@ class Controller implements ReviewController {
     const session = this.snapshot.session;
 
     if (!session) return;
+
     this.apply(this.client!.sessionRemoveAnnotation(session.id, id));
   }
 
@@ -1575,6 +1656,7 @@ class Controller implements ReviewController {
     const session = this.snapshot.session;
 
     if (!session) return;
+
     this.apply(this.client!.sessionSetWorkingCopy(session.id, content));
   }
 
@@ -1591,9 +1673,11 @@ class Controller implements ReviewController {
     const session = this.snapshot.session;
 
     if (!session || session.artifact.type !== "diff") return;
+
     const files = this.files();
 
     if (files.length === 0) return this.setStatus("nothing to walk - the diff is empty");
+
     // resume at the first unviewed file; a finished walk reopens on the end card
     this.update({ walk: { index: firstUnviewedIndex(files, this.viewedSet()) } });
   }
@@ -1603,16 +1687,19 @@ class Controller implements ReviewController {
     const session = this.snapshot.session;
 
     if (!walk || !session) return;
+
     const files = this.files();
     const current = files[walk.index];
 
     if (!current) return; // already on the end card
+
     // advancing IS the viewed mark: the step is complete once you move past
     // it; the daemon primitive merges, so only the new path travels
     if (!this.viewedSet().has(current.path)) {
       this.locallyViewed.add(current.path);
       this.apply(this.client!.sessionSetViewed(session.id, [current.path]));
     }
+
     this.update({ walk: { index: walk.index + 1 } });
   }
 
@@ -1620,6 +1707,7 @@ class Controller implements ReviewController {
     const walk = this.snapshot.walk;
 
     if (!walk) return;
+
     this.update({ walk: { index: Math.max(0, walk.index - 1) } });
   }
 
@@ -1631,6 +1719,7 @@ class Controller implements ReviewController {
     const session = this.snapshot.session;
 
     if (!session) return;
+
     this.walkLeave();
     const actionBodies = Object.fromEntries(
       slashItemsFrom(this.quickActions).map((item) => [item.name, item.body]),
@@ -1641,14 +1730,17 @@ class Controller implements ReviewController {
         // The completion overlay heading already states the message, so the
         // status line stays empty here - only export/error messages fill it.
         this.update({ session: resolved, status: "" });
+
         if (message === "comment") {
           this.setStatus("comment sent - thread stays open");
 
           return;
         }
+
         // notes-vault export: guarded by each exporter's policy (default manual = no-op)
         for (const exporter of this.exporters) {
           if (!exporter.runsOn(message)) continue;
+
           void exporter.run(resolved).then((exportResult) => {
             this.setStatus(
               exportResult.success && exportResult.path
@@ -1690,9 +1782,11 @@ class Controller implements ReviewController {
 
   createShareLink(input: NewShareLink): void {
     if (this.readOnly) return this.setStatus("observer - read-only");
+
     const session = this.snapshot.session;
 
     if (!session || !this.client) return;
+
     const client = this.client;
     const shareBranch = session.history?.branch ?? MAIN_BRANCH;
 
@@ -1714,6 +1808,7 @@ class Controller implements ReviewController {
         const id = this.shareTransport.parseShareId(line);
 
         if (!id) throw new Error("gateway returned no share id");
+
         const link: ShareLink = {
           id,
           name: input.name?.trim() || undefined,
@@ -1723,6 +1818,7 @@ class Controller implements ReviewController {
         };
 
         if (input.agentEnabled !== undefined) link.agentEnabled = input.agentEnabled;
+
         await client.sessionSetShares(session.id, [...this.linksFor(this.snapshot.session), link]);
         this.setStatus("");
         this.showToast(line, copied ? "link copied" : "link created");
@@ -1734,21 +1830,26 @@ class Controller implements ReviewController {
 
   updateShareLink(id: string, input: NewShareLink): void {
     if (this.readOnly) return this.setStatus("observer - read-only");
+
     const session = this.snapshot.session;
 
     if (!session || !this.client) return;
+
     const links = this.linksFor(session);
 
     if (!links.some((link) => link.id === id)) return;
+
     const allowlist = input.requireAuth ? input.allowlist : [];
 
     const policy: SharePolicy = { requireAuth: input.requireAuth, allowlist };
 
     if (input.agentEnabled !== undefined) policy.agentEnabled = input.agentEnabled;
+
     // Publish the same policy stored on the local link.
     void this.shareTransport.push(id, [], policy).catch(() => {});
     const next = links.map((link) => {
       if (link.id !== id) return link;
+
       const updated = {
         ...link,
         name: input.name?.trim() || undefined,
@@ -1769,9 +1870,11 @@ class Controller implements ReviewController {
 
   deleteShareLink(id: string): void {
     if (this.readOnly) return this.setStatus("observer - read-only");
+
     const session = this.snapshot.session;
 
     if (!session || !this.client) return;
+
     const remaining = this.linksFor(session).filter((link) => link.id !== id);
 
     void this.shareTransport.revoke(id).catch(() => {});
@@ -1792,10 +1895,12 @@ class Controller implements ReviewController {
   /** Stop sharing the open thread: revoke every link so none of them resolve. */
   unshare(): void {
     if (this.readOnly) return this.setStatus("observer - read-only");
+
     const session = this.snapshot.session;
     const links = this.linksFor(session);
 
     if (!session || links.length === 0) return this.setStatus("this thread is not shared");
+
     this.stopShareSync();
     void Promise.all(links.map((link) => this.shareTransport.revoke(link.id).catch(() => {})));
     void this.client?.sessionSetShares(session.id, []).catch(() => {});
@@ -1805,10 +1910,13 @@ class Controller implements ReviewController {
     const session = this.snapshot.session;
 
     if (!session?.history || !this.client) return;
+
     const target = entryTarget(session.history, entryId);
 
     if (target === null) return this.setStatus("that entry is not on any branch");
+
     if (target.kind === "here") return this.setStatus("already at the tip");
+
     if (target.kind === "switch") {
       this.moveTree(session, switchBranch(session.history, target.branch), () =>
         this.client!.sessionSwitch(session.id, target.branch),
@@ -1816,6 +1924,7 @@ class Controller implements ReviewController {
 
       return;
     }
+
     // an entry another branch reaches: the daemon stands on that branch first, in the same request
     const onBranch = switchBranch(session.history, target.branch);
     const options = summary === undefined || summary === "" ? {} : { summary };
@@ -1832,9 +1941,12 @@ class Controller implements ReviewController {
     const branchName = name.trim();
 
     if (!session?.history || !this.client) return;
+
     if (!branchName) return this.setStatus("a branch needs a name");
+
     if (session.history.tips[branchName] !== undefined)
       return this.setStatus(`branch ${branchName} exists`);
+
     this.moveTree(session, createBranch(session.history, branchName), () =>
       this.client!.sessionBranch(session.id, branchName),
     );
@@ -1845,7 +1957,9 @@ class Controller implements ReviewController {
     const name = label.trim();
 
     if (!session?.history || !this.client) return;
+
     if (!name) return this.setStatus("a checkpoint needs a name");
+
     this.moveTree(session, labelTip(session.history, name), () =>
       this.client!.sessionLabel(session.id, name),
     );
@@ -1855,6 +1969,7 @@ class Controller implements ReviewController {
     const session = this.snapshot.session;
 
     if (!session || !this.client) return;
+
     this.client
       .sessionFork(session.id)
       .then((fork) => {
@@ -1869,6 +1984,7 @@ class Controller implements ReviewController {
     const session = this.snapshot.session;
 
     if (!session || !this.client) return;
+
     const client = this.client;
 
     this.setStatus("forking and sharing…");
@@ -1888,6 +2004,7 @@ class Controller implements ReviewController {
           await client.sessionSetShares(fork.id, [
             { id, requireAuth: false, allowlist: [], shareBranch },
           ]);
+
         this.setStatus("");
         this.showToast(line, copied ? "fork shared - link copied" : "fork shared");
       })
@@ -1962,6 +2079,7 @@ class Controller implements ReviewController {
       const shareId = this.linksFor(this.snapshot.session)[0]?.id;
 
       if (this.shareRun !== run || this.closed || !shareId) return;
+
       void this.pullShared();
       this.shareStop = this.shareTransport.watch(shareId, {
         onSession: (remote) => {
@@ -1970,6 +2088,7 @@ class Controller implements ReviewController {
         },
         onClose: () => {
           if (this.shareRun !== run || this.closed) return;
+
           this.shareStop = null;
           this.shareReconnect = this.clock.setTimeout(connect, delay);
           delay = Math.min(delay * 2, SHARE_RECONNECT_MAX_MS);
@@ -1986,7 +2105,9 @@ class Controller implements ReviewController {
 
   private stopShareSync(): void {
     this.shareRun = null;
+
     if (this.shareReconnect !== undefined) this.clock.clearTimeout(this.shareReconnect);
+
     this.shareReconnect = undefined;
     this.shareStop?.();
     this.shareStop = null;
@@ -1995,6 +2116,7 @@ class Controller implements ReviewController {
   // ── completion hand-back ────────────────────
   private startCounting(remaining: number): void {
     if (remaining <= 0) return this.finishReview();
+
     this.update({ completion: { phase: "counting", remaining } });
     this.countdown = this.clock.setTimeout(() => this.startCounting(remaining - 1), 1000);
   }
@@ -2005,6 +2127,7 @@ class Controller implements ReviewController {
     const pane = returnPaneFor(this.snapshot.session?.artifact.meta.herdrPane);
 
     if (herdr && pane) focusHerdrPane(herdr.binPath, pane);
+
     this.options.onExit?.(0);
   }
 

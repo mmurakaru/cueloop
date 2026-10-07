@@ -237,6 +237,7 @@ function isoWeek(iso: string): string {
   const date = new Date(iso);
 
   if (Number.isNaN(date.getTime())) return "undated";
+
   const utc = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
   const weekday = utc.getUTCDay() || 7;
 

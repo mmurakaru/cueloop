@@ -26,6 +26,7 @@ export async function runMirrorCommand(argv: string[], timeoutMs = 180_000): Pro
     const diagnostic = await stderr;
 
     signal.throwIfAborted();
+
     if (code !== 0)
       throw new Error(
         `Gateway mirror command failed (${code}): ${argv.join(" ")}\n${diagnostic}\n${output}`,

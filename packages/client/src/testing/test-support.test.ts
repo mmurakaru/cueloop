@@ -46,6 +46,7 @@ describe("isolateUserConfig", () => {
     } finally {
       if (priorEnv === undefined) delete process.env.CUELOOP_CONFIG;
       else process.env.CUELOOP_CONFIG = priorEnv;
+
       rmSync(home, { recursive: true, force: true });
     }
   });
@@ -69,6 +70,7 @@ describe("isolateUserConfig", () => {
       expect(process.env.CUELOOP_CONFIG).toBeUndefined();
     } finally {
       if (priorEnv !== undefined) process.env.CUELOOP_CONFIG = priorEnv;
+
       rmSync(home, { recursive: true, force: true });
     }
   });

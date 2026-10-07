@@ -58,6 +58,7 @@ if (!ptyTuiAvailable()) {
       const paintedAt = session.terminalFrames.findIndex((frame) => frame.includes(target));
 
       if (paintedAt < 0) throw new Error(`${mode}: selected row missing from completed frames`);
+
       paintMs.push(session.terminalFrameTimes[paintedAt]! - started);
       frames += session.terminalFrames.length;
       missingSelectedRows += Number(!session.text().includes(target));

@@ -71,6 +71,7 @@ try {
 
   if (!proof.includes("ALL PROOFS CHECK") || proof.includes("SOME PROOFS FAIL"))
     throw new Error(`Agent laws were not verified: ${proof}`);
+
   console.log("Bend proof check: ALL PROOFS CHECK (2 recovery laws)");
   const submissionSource = join(import.meta.dirname, "../examples/agent-submission");
   const submissionPath = join(scratch, "submission.mjs");
@@ -86,6 +87,7 @@ try {
   let compared = 0;
   const compareTraces = (state: AgentTurn, depth: number): void => {
     if (depth === 0) return;
+
     for (const event of events) {
       const expected = stepAgentTurn(state, event);
       const actual = v.parse(
@@ -156,6 +158,7 @@ try {
   let submissionTransitions = 0;
   const compareSubmissions = (status: AgentSubmissionStatus, depth: number): void => {
     if (!depth) return;
+
     for (const event of submissionEvents)
       for (const hasInput of [false, true]) {
         const expected = stepAgentSubmission(status, event, hasInput);
@@ -196,6 +199,7 @@ try {
 
   if (!emptyVerdict.includes("SOME PROOFS FAIL"))
     throw new Error("Submission law failed to reject an empty-input invocation");
+
   console.log("Mutation rejected: empty input cannot enqueue an invocation");
   const inputMutation = readFileSync(join(submissionSource, "submission.bend"), "utf8").replace(
     "case True{}: PromptInput{}",
@@ -212,6 +216,7 @@ try {
 
   if (!inputVerdict.includes("SOME PROOFS FAIL"))
     throw new Error("Input law failed to reject treating a bottom prompt as a comment");
+
   console.log("Mutation rejected: bottom prompts cannot become comments");
   for (const file of ["LAWS.bend", "PROOF.bend"])
     copyFileSync(join(source, file), join(scratch, file));
@@ -220,6 +225,7 @@ try {
 
   if (broken === original)
     throw new Error("Agent law mutation did not change the cancellation transition");
+
   writeFileSync(join(scratch, "turn.bend"), broken);
   const mutation = Bun.spawnSync([bend, join(scratch, "PROOF.bend"), ...proofArgs], {
     env: { ...process.env, BEND_NO_TELEMETRY: "1" },
@@ -230,6 +236,7 @@ try {
 
   if (!output.includes("SOME PROOFS FAIL") || output.includes("ALL PROOFS CHECK"))
     throw new Error(`Agent law mutation was not rejected: ${output}`);
+
   console.log(
     "Mutation rejected: leaving cancellation set after readiness breaks the recovery proof",
   );

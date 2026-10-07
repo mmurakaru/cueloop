@@ -66,6 +66,7 @@ function createTestMod() {
     tool: {
       register: async ({ name, inputSchema }) => {
         registered.push(name);
+
         if (name === "open_thread") registeredWorkflows = inputSchema.properties.workflow?.enum;
 
         return {};
@@ -74,6 +75,7 @@ function createTestMod() {
     process: {
       run: async (argv, options) => {
         if (!options?.stdin) throw new Error("missing bridge request");
+
         const request = JSON.parse(options.stdin);
 
         if (malformedBridgeOutput !== null) {
@@ -83,14 +85,17 @@ function createTestMod() {
 
           return { exitCode: 0, stdout: output, stderr: "" };
         }
+
         if (bridgeUnavailable) {
           return { exitCode: 1, stdout: "", stderr: "cueloop harness bridge unavailable" };
         }
+
         if (request.operation === "ack" && failNextAck) {
           failNextAck = false;
 
           return { exitCode: 1, stdout: "", stderr: "temporary acknowledgement failure" };
         }
+
         const response = await runHarnessBridge(request, home);
 
         return { exitCode: 0, stdout: JSON.stringify(response), stderr: "" };
@@ -99,6 +104,7 @@ function createTestMod() {
     env: {
       get: async (name) => {
         if (name === "CLAUDE_CODE_ENABLE_FUNCTION_HOOKS") return functionHooks;
+
         if (name === "CUELOOP_DISABLE") return disabled ? "1" : undefined;
 
         return undefined;
@@ -138,9 +144,11 @@ function createTestMod() {
       if (name === "tool.call") {
         return { result: "passed" };
       }
+
       if ("cwd" in value) {
         return { cwd: value.cwd };
       }
+
       if ("sessionId" in value) {
         return { sessionId: value.sessionId };
       }
@@ -178,6 +186,7 @@ async function waitForDelivery(messageCount: number, submitted: string[]): Promi
     if (submitted.length >= messageCount) {
       return;
     }
+
     await Bun.sleep(10);
   }
   throw new Error("Claude Mod did not submit a Message");
@@ -210,6 +219,7 @@ describe("register Claude Mod", () => {
     expect(binding).toBeDefined();
     for (let attempt = 0; attempt < 100; attempt++) {
       if ((await client.deliveryPending(binding!.id)).length === 0) break;
+
       mod.tick();
       await Bun.sleep(10);
     }
@@ -242,7 +252,9 @@ describe("register Claude Mod", () => {
     );
 
     expect(opened.operation).toBe("open");
+
     if (opened.operation !== "open") throw new Error("expected an opened Thread");
+
     await client.sessionSendMessage(opened.threadId, "changes_requested", "Revise the greeting.");
     const mod = createTestMod();
 
@@ -283,6 +295,7 @@ describe("register Claude Mod", () => {
 
         return;
       }
+
       await Bun.sleep(10);
     }
     throw new Error("Claude Mod did not recover after bridge became available");

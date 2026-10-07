@@ -35,11 +35,13 @@ export function ScrollArea({
   );
   const attach = (node: ScrollBoxRenderable | null): void => {
     innerRef.current = node;
+
     if (scrollRef) scrollRef.current = node;
   };
 
   useLayoutEffect(() => {
     if (revealId === undefined) return;
+
     innerRef.current?.scrollChildIntoView(`tree-row-${revealId}`);
   }, [revealId]);
 

@@ -130,6 +130,7 @@ async function measure(head: Side, base: Side): Promise<Measurement> {
 
       for (const side of order) {
         if (side === base && baseError !== null) continue;
+
         const label = side === head ? "head" : "base";
 
         console.error(`gate: ${script} sample ${sample + 1}/${samples} ${label}`);
@@ -139,6 +140,7 @@ async function measure(head: Side, base: Side): Promise<Measurement> {
           collectSamples(side === head ? headSamples : baseSamples, script, metrics);
         } catch (error) {
           if (side === head) throw error;
+
           baseError = error instanceof Error ? error.message : String(error);
           console.error(`gate: base binary failed, comparing without a base: ${baseError}`);
         }
@@ -188,6 +190,7 @@ async function downloadBaseBinary(tag: string, target: string, directory: string
   if ((await proc.exited) !== 0) {
     throw new Error(`benchmark gate: could not download ${asset} from ${tag}`);
   }
+
   const path = join(directory, asset);
 
   chmodSync(path, 0o755);
@@ -212,6 +215,7 @@ async function runGate(options: GateOptions): Promise<boolean> {
       console.error("gate: regression found, confirming with a second independent pass");
       outcome = await compareOnce(options.head, base);
     }
+
     const { comparison, baseError, runs } = outcome;
     const accepted = comparison.failed && options.acceptReason !== null;
     const notes: string[] = [];
@@ -221,9 +225,11 @@ async function runGate(options: GateOptions): Promise<boolean> {
         `**No base measurements:** the ${base.version} binary failed to run (${baseError}).`,
       );
     }
+
     if (accepted) {
       notes.push(`**Regression accepted by the release operator:** ${options.acceptReason}`);
     }
+
     const markdown = `${formatComparisonMarkdown(comparison)}${notes.map((note) => `\n${note}\n`).join("")}`;
     const record = {
       target: options.target,
@@ -236,7 +242,9 @@ async function runGate(options: GateOptions): Promise<boolean> {
 
     mkdirSync(dirname(options.out), { recursive: true });
     writeFileSync(options.out, `${JSON.stringify(record, null, 2)}\n`);
+
     if (options.summary) writeFileSync(options.summary, markdown, { flag: "a" });
+
     console.log(markdown);
 
     return !comparison.failed || accepted;

@@ -42,14 +42,17 @@ export class Registry {
       registerVcsAdapter: (adapter) => {
         if (adapter.id === "git" || adapter.id === "jj")
           throw new Error(`Invalid or duplicate VCS adapter ID: ${adapter.id}`);
+
         const parsed = v.safeParse(VcsAdapterSchema, adapter);
 
         if (!parsed.success) throw new Error(`Invalid VCS adapter contract: ${adapter.id}`);
+
         if (
           record.vcsAdapters.has(adapter.id) ||
           this.extensions.some((extension) => extension.vcsAdapters.has(adapter.id))
         )
           throw new Error(`Invalid or duplicate VCS adapter ID: ${adapter.id}`);
+
         record.vcsAdapters.set(adapter.id, adapter);
       },
     };

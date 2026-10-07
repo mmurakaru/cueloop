@@ -94,6 +94,7 @@ export class FxAcpConnection {
     timeoutMs = 30_000,
   ): Promise<T> {
     if (this.closed) return Promise.reject(new Error("Fx ACP connection is closed"));
+
     const id = ++this.sequence;
 
     return new Promise((resolve, reject) => {
@@ -130,16 +131,19 @@ export class FxAcpConnection {
 
   private readFrames(chunk: string): void {
     this.buffer += chunk;
+
     if (Buffer.byteLength(this.buffer) > 8 * 1024 * 1024) {
       this.fail(new Error("Fx ACP frame exceeds 8 MiB"));
       this.child.kill();
 
       return;
     }
+
     for (;;) {
       const index = this.buffer.indexOf("\n");
 
       if (index < 0) return;
+
       const line = this.buffer.slice(0, index);
 
       this.buffer = this.buffer.slice(index + 1);
@@ -150,7 +154,9 @@ export class FxAcpConnection {
 
         if (waiting && !frame.method) {
           clearTimeout(waiting.timer);
+
           if (responseId.success) this.pending.delete(responseId.output);
+
           if (frame.error) waiting.reject(new Error(`Fx ACP error: ${frame.error.message}`));
           else waiting.resolve(frame);
         } else this.options.onFrame(frame);
@@ -165,6 +171,7 @@ export class FxAcpConnection {
 
   private fail(error: Error): void {
     if (this.closed) return;
+
     this.closed = true;
     for (const waiting of this.pending.values()) {
       clearTimeout(waiting.timer);

@@ -37,6 +37,7 @@ export const searchDocs: SearchDoc[] = Object.values(modules)
     const rawUrl = mod.url ?? "";
 
     if (!frontmatter.title || !rawUrl) return null;
+
     const href = rawUrl.endsWith("/") ? rawUrl : `${rawUrl}/`;
     const headings = (mod.getHeadings?.() ?? [])
       .filter((heading) => heading.depth >= 2 && heading.depth <= 3)

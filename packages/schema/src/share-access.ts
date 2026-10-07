@@ -7,7 +7,9 @@ export function isShareViewerAllowed(
   githubLogin: string | undefined,
 ): boolean {
   if (!policy.requireAuth) return true;
+
   if (githubLogin === undefined) return false;
+
   const login = githubLogin.toLowerCase();
 
   return policy.allowlist.some((allowed) => allowed.toLowerCase() === login);

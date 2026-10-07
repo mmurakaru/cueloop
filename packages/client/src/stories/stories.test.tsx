@@ -18,6 +18,7 @@ const stories = await loadStories();
 /** Hex of a painted color; undefined for unpainted (transparent) spans. */
 function hexOf(color: RGBA | null | undefined): string | undefined {
   if (!color) return undefined;
+
   const [red, green, blue] = color.toInts();
 
   return "#" + [red, green, blue].map((part) => part!.toString(16).padStart(2, "0")).join("");
@@ -52,6 +53,7 @@ describe("stories catalog", () => {
 
       // Assert
       expect(frame).toMatchSnapshot(`${moduleTitle}/${storyName}`);
+
       if (story.expectedColors?.length) {
         const seenColors = new Set<string>();
 
@@ -61,6 +63,7 @@ describe("stories catalog", () => {
             const backgroundHex = hexOf(span.bg);
 
             if (foregroundHex) seenColors.add(foregroundHex);
+
             if (backgroundHex) seenColors.add(backgroundHex);
           }
         }
@@ -68,6 +71,7 @@ describe("stories catalog", () => {
           expect(seenColors).toContain(expectedColor.toLowerCase());
         }
       }
+
       setup.renderer.destroy();
     });
   }

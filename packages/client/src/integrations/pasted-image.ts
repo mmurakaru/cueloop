@@ -37,6 +37,7 @@ function isControlCodePoint(codePoint: number): boolean {
 /** True when a paste is an image or other non-text binary payload and should collapse to a placeholder. */
 export function looksLikeBinaryPaste(bytes: Uint8Array): boolean {
   if (bytes.length === 0) return false;
+
   if (hasImageMagic(bytes)) return true;
 
   const decoded = PASTE_DECODER.decode(bytes);
@@ -48,6 +49,7 @@ export function looksLikeBinaryPaste(bytes: Uint8Array): boolean {
     const codePoint = character.codePointAt(0) ?? 0;
 
     if (codePoint === 0 || codePoint === 0xfffd) return true;
+
     if (isControlCodePoint(codePoint)) controlCount += 1;
   }
 

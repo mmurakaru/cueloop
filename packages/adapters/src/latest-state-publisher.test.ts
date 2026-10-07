@@ -32,6 +32,7 @@ test("a slow transport coalesces a thousand streaming updates and sends the newe
     const current = revision;
 
     if (!current) await blocked.promise;
+
     sent.push(current);
   });
   const drained = publish();

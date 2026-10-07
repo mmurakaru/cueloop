@@ -53,6 +53,7 @@ function newlinePrefixCounts(text: string): number[] {
 
   for (let index = 0; index < text.length; index++) {
     counts[index] = seen;
+
     if (text[index] === "\n") seen += 1;
   }
   counts[text.length] = seen;
@@ -96,6 +97,7 @@ export const MarkdownThreadEditor = forwardRef<MarkdownEditorHandle, MarkdownThr
       const editor = editorRef.current;
 
       if (!editor) return;
+
       editor.editBuffer.setSyntaxStyle(markdownEditorStyle(theme).style);
       paintMarkdown(editor);
       setPosition((prior) => ({ ...prior, lineCount: editor.editBuffer.getLineCount() }));
@@ -123,6 +125,7 @@ export const MarkdownThreadEditor = forwardRef<MarkdownEditorHandle, MarkdownThr
             const editor = editorRef.current;
 
             if (!editor) return;
+
             paintMarkdown(editor);
             setPosition((prior) => ({ ...prior, lineCount: editor.editBuffer.getLineCount() }));
           }}

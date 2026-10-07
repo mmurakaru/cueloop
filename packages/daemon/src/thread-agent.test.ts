@@ -416,6 +416,7 @@ test("a shared plain input does not consume the owner's pending comments", () =>
   const thread = createTestThread(home);
   const adapter: AgentHarnessAdapter = {
     id: "pi",
+    recovery: "durable",
     label: "pi",
     connect: () => ({
       start: () => new Promise(() => {}),
@@ -474,12 +475,19 @@ test("Pi recovery keeps the frozen harness input and submission identity after i
   let resumed = false;
   const adapter: AgentHarnessAdapter = {
     id: "pi",
+    recovery: "durable",
     label: "pi",
     connect: ({ onEvent }) => ({
       start: async () => "durable-session",
       prompt: async (text, id) => {
         prompts.push({ text, id });
-        if (!resumed) return new Promise(() => {});
+
+        if (!resumed) {
+          onEvent({ kind: "message", id: "durable-answer", text: "Partial reply", replace: true });
+
+          return new Promise(() => {});
+        }
+
         onEvent({ kind: "message", id: "durable-answer", text: "Recovered answer", replace: true });
 
         return { outcome: "completed" as const };
@@ -515,6 +523,7 @@ test("Pi recovery keeps the frozen harness input and submission identity after i
       await Bun.sleep(1);
     expect(prompts).toHaveLength(2);
     expect(prompts[1]).toEqual(prompts[0]);
+    expect(manager.get(thread.id).messages.at(-1)?.complete).toBe(true);
     expect(manager.get(thread.id).messages.map((message) => message.text)).toEqual([
       "Recover",
       "Recovered answer",
@@ -545,6 +554,7 @@ test("explicit shared comments execute the frozen payload and retain the origina
     enabled: true,
     adapter: {
       id: "pi",
+      recovery: "durable",
       label: "pi",
       connect: () => ({
         start: async () => "session",
@@ -592,6 +602,7 @@ test("a failed connection finishes asynchronous close before the next queued tur
     onChange() {},
     adapter: {
       id: "pi",
+      recovery: "durable",
       label: "pi",
       connect: () => {
         const first = ++connects === 1;
@@ -650,6 +661,7 @@ test("shutdown joins a failed turn that is already retiring its durable writer",
     onChange() {},
     adapter: {
       id: "pi",
+      recovery: "durable",
       label: "pi",
       connect: () => ({
         start: async () => "session",
@@ -699,6 +711,7 @@ test("shutdown seals admission so a later configuration cannot open a new harnes
     onChange() {},
     adapter: {
       id: "pi",
+      recovery: "durable",
       label: "pi",
       connect: () => {
         connects++;

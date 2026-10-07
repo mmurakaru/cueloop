@@ -9,13 +9,15 @@ function isStatementDeclaration(node: ESTree.Node): boolean {
   return false;
 }
 
-/** Separate declaration runs and returns without changing statement or comment ownership. */
+/** Separate declaration runs, branches, and returns without changing comment ownership. */
 export const statementPaddingRule = defineRule({
   meta: {
     type: "layout",
     fixable: "whitespace",
     schema: [],
-    messages: { padding: "Add a blank line after declarations and before return statements." },
+    messages: {
+      padding: "Add a blank line around if statements, after declarations, and before returns.",
+    },
   },
   createOnce(context) {
     const checkStatements = (statements: readonly ESTree.Node[]) => {
@@ -27,6 +29,8 @@ export const statementPaddingRule = defineRule({
 
         if (
           next.type !== "ReturnStatement" &&
+          next.type !== "IfStatement" &&
+          previous.type !== "IfStatement" &&
           !(isStatementDeclaration(previous) && !isStatementDeclaration(next))
         )
           continue;

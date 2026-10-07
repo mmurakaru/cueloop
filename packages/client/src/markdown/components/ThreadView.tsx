@@ -103,7 +103,9 @@ function blockStyle(block: DisplayBlock, tokens: Theme): BlockStyle {
 /** The read-only color of an inline markdown role: links accent, code and removals dim, insertions green. */
 function roleForeground(role: RunRole, baseFg: string, tokens: Theme): string {
   if (role === "link") return tokens.blue;
+
   if (role === "ins") return tokens.green;
+
   if (role === "code" || role === "del") return tokens.textDim;
 
   return baseFg;
@@ -112,7 +114,9 @@ function roleForeground(role: RunRole, baseFg: string, tokens: Theme): string {
 /** The text attributes an inline role adds over a block's base attributes. */
 function roleAttributes(role: RunRole, baseAttributes: number): number {
   if (role === "strong") return baseAttributes | BOLD;
+
   if (role === "em") return baseAttributes | ITALIC;
+
   if (role === "strike" || role === "del") return baseAttributes | CUT;
 
   return baseAttributes;
@@ -288,6 +292,7 @@ export function ThreadView({
     const block = display[index];
 
     if (!block) return 1;
+
     const usable = viewWidth > 0 ? Math.max(1, viewWidth - 6) : 40;
     const lines = Math.max(1, Math.ceil(displayText(block).length / usable));
 
@@ -378,6 +383,7 @@ export function ThreadView({
   // measurement never adds a row and shifts the blocks below it out from under a pending click
   const headingRule = (block: DisplayBlock): React.ReactNode => {
     if (block.kind !== "h1" && block.kind !== "h2") return null;
+
     const width = Math.max(1, (viewWidth > 6 ? viewWidth : 46) - 6);
 
     return (
@@ -398,6 +404,7 @@ export function ThreadView({
           {custom}
         </box>
       );
+
     const block = display[blockIndex]!;
     const { baseFg, baseAttributes, marker } = blockStyle(block, tokens);
     // list items of one list stay tight; every other block sits a blank row below its neighbour
@@ -472,8 +479,11 @@ export function ThreadView({
           cards.length > 0,
         ),
       );
+
       if (isLastLine) lineRows.push(headingRule(block));
+
       lineRows.push(...cards);
+
       if (cards.length > 0 && !isLastLine) {
         lineRows.push(<box key={`gap-${lineIndex}`} style={{ height: 1 }} />);
       }
@@ -508,14 +518,17 @@ export function ThreadView({
       for (let index = 0; index < display.length; index++) {
         nodes.push(blockNodeFor(index));
         mountedRows += estimateBlockRows(index);
+
         if (mountedRows > terminalHeight + OVERSCAN_BLOCKS) break;
       }
 
       return nodes;
     }
+
     if (firstItem.start > 0) {
       nodes.push(<box key="spacer-above" style={{ height: firstItem.start }} />);
     }
+
     for (const item of virtual.items) nodes.push(blockNodeFor(item.index));
     const below = virtual.totalSize - lastItem.end;
 

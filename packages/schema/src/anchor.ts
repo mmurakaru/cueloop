@@ -94,8 +94,11 @@ function contextScore(
   let score = 0;
 
   if (prefix === anchor.prefix) score += 2;
+
   if (suffix === anchor.suffix) score += 2;
+
   if (anchor.blockIndex === blockIndex) score += 1;
+
   if (anchor.blockIndex === blockIndex && anchor.start === start) score += 1;
 
   return score;
@@ -138,11 +141,13 @@ const FUZZY_CONTEXT_TIE_BREAK = 0.01;
 /** Block indices to scan, spiralling out from the anchor's hinted block: hint, hint+1, hint-1, ... */
 function blockScanOrder(hint: number | undefined, count: number): number[] {
   if (count <= 0) return [];
+
   const first = Number.isInteger(hint) ? Math.min(Math.max(hint!, 0), count - 1) : 0;
   const order = [first];
 
   for (const step of Array.from({ length: count - 1 }, (_unused, index) => index + 1)) {
     if (first + step < count) order.push(first + step);
+
     if (first - step >= 0) order.push(first - step);
   }
 
@@ -175,6 +180,7 @@ function findFuzzyCandidates(
 
       candidates.push({ blockIndex, start: match.start, end: match.end, score });
     }
+
     if (budget.remaining <= 0) break;
   }
 
@@ -184,6 +190,7 @@ function findFuzzyCandidates(
 /** Highest-scoring candidate, or null when there are none. */
 function pickBest(candidates: Candidate[]): Candidate | null {
   if (candidates.length === 0) return null;
+
   candidates.sort((left, right) => right.score - left.score);
 
   return candidates[0]!;
@@ -214,6 +221,7 @@ function joinBlocks(blocks: Block[]): JoinedDocument {
 
   blocks.forEach((block, blockIndex) => {
     if (blockIndex > 0) text += BLOCK_SEPARATOR;
+
     starts.push(text.length);
     text += block.text;
   });
@@ -241,11 +249,13 @@ function locateInBlocks(
   let blockIndex = starts.findLastIndex((start) => start <= offset);
 
   if (blockIndex < 0) blockIndex = 0;
+
   const blockEnd = starts[blockIndex]! + blocks[blockIndex]!.text.length;
 
   if (edge === "start" && offset >= blockEnd && blockIndex < blocks.length - 1) {
     return { blockIndex: blockIndex + 1, offset: 0 };
   }
+
   if (edge === "end" && offset === starts[blockIndex] && blockIndex > 0) {
     return {
       blockIndex: blockIndex - 1,
@@ -272,7 +282,9 @@ function documentScore(
   let score = 0;
 
   if (prefix === anchor.prefix) score += 2;
+
   if (suffix === anchor.suffix) score += 2;
+
   if (anchor.blockIndex === startBlockIndex) score += 1;
 
   return score;
@@ -369,6 +381,7 @@ function resolveSpanningAnchor(anchor: Anchor, blocks: Block[]): ResolvedAnchor 
 /** Resolve an anchor against the current blocks, or null when orphaned. */
 export function resolveAnchor(anchor: Anchor, blocks: Block[]): ResolvedAnchor | null {
   if (anchor.quote === "") return null;
+
   if (anchor.quote.includes(BLOCK_SEPARATOR)) return resolveSpanningAnchor(anchor, blocks);
 
   const exact = pickBest(findExactCandidates(anchor, blocks, anchor.quote));

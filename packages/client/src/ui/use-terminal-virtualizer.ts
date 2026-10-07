@@ -125,6 +125,7 @@ export function useTerminalVirtualizer(options: TerminalVirtualizerOptions): Ter
     const scrollbox = options.scrollbox.current;
 
     if (!scrollbox) return null;
+
     if (container.current?.scrollbox !== scrollbox) {
       container.current = { scrollbox, view: asElement(scrollContainerView(scrollbox)) };
     }
@@ -135,6 +136,7 @@ export function useTerminalVirtualizer(options: TerminalVirtualizerOptions): Ter
     const known = viewOfRenderable.current.get(renderable);
 
     if (known) return known;
+
     const view = asElement(rowView(renderable));
 
     viewOfRenderable.current.set(renderable, view);
@@ -168,9 +170,11 @@ export function useTerminalVirtualizer(options: TerminalVirtualizerOptions): Ter
         const scrollbox = options.scrollbox.current;
 
         if (!scrollbox) return;
+
         const next = { width: scrollbox.viewport.width, height: scrollbox.viewport.height };
 
         if (next.width === last.width && next.height === last.height) return;
+
         last = next;
         callback(next);
       });
@@ -184,6 +188,7 @@ export function useTerminalVirtualizer(options: TerminalVirtualizerOptions): Ter
         const scrollbox = options.scrollbox.current;
 
         if (!scrollbox || scrollbox.scrollTop === last) return;
+
         last = scrollbox.scrollTop;
         callback(last, false);
       };
@@ -242,6 +247,7 @@ export function useTerminalVirtualizer(options: TerminalVirtualizerOptions): Ter
     totalSize: virtualizer.getTotalSize(),
     measureRef: (index) => (renderable) => {
       if (!renderable) return;
+
       const view = viewFor(renderable);
 
       indexOfView.current.set(view, index);

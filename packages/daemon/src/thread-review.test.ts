@@ -308,7 +308,9 @@ describe("awaitMessage: one long-poll (the hook shape)", () => {
 
     // Assert
     expect(message).not.toBe("pending");
+
     if (message === "pending") throw new Error("unreachable");
+
     expect(message.allow).toBe(true);
     expect(message.message.body).toContain("Fine.");
     expect(message.session.message!.outcome).toBe("approved");
@@ -325,6 +327,7 @@ describe("awaitMessage: one long-poll (the hook shape)", () => {
 
     // Assert
     if (message === "pending") throw new Error("expected a message");
+
     expect(message.allow).toBe(false);
     expect(message.message.body).toContain("# Review: changes requested");
     expect(message.message.body).toContain("One stage only.");
@@ -362,6 +365,7 @@ describe("awaitMessage: chunked loop (the pi shape)", () => {
 
     // Assert
     if (message === "pending") throw new Error("expected a message");
+
     expect(message.allow).toBe(false);
     expect(message.session.annotations.length).toBe(1);
   }, 15_000);

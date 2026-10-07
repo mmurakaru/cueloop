@@ -36,7 +36,9 @@ describe("runHarnessBridge", () => {
     const first = await runHarnessBridge(request, home);
 
     expect(first.operation).toBe("open");
+
     if (first.operation !== "open") throw new Error("expected an opened Thread");
+
     expect(first.approvedRetry).toBeFalse();
     await client.sessionSendMessage(first.threadId, "approved", "Looks good.");
     const pending = await runHarnessBridge(
@@ -45,7 +47,9 @@ describe("runHarnessBridge", () => {
     );
 
     expect(pending.operation).toBe("pending");
+
     if (pending.operation !== "pending") throw new Error("expected pending Messages");
+
     expect(pending.deliveries).toHaveLength(1);
     expect(pending.deliveries[0]?.wakeText).toContain("Looks good.");
     const delivery = pending.deliveries[0]!;
@@ -65,17 +69,23 @@ describe("runHarnessBridge", () => {
     );
 
     expect(after.operation).toBe("pending");
+
     if (after.operation !== "pending") throw new Error("expected pending Messages");
+
     expect(after.deliveries).toEqual([]);
     const retry = await runHarnessBridge(request, home);
 
     expect(retry.operation).toBe("open");
+
     if (retry.operation !== "open") throw new Error("expected an opened Thread");
+
     expect(retry.approvedRetry).toBeTrue();
     const second = await runHarnessBridge(request, home);
 
     expect(second.operation).toBe("open");
+
     if (second.operation !== "open") throw new Error("expected an opened Thread");
+
     expect(second.approvedRetry).toBeFalse();
   });
 
@@ -96,7 +106,9 @@ describe("runHarnessBridge", () => {
         );
 
         expect(opened.operation).toBe("open");
+
         if (opened.operation !== "open") throw new Error("expected an opened Thread");
+
         await client.sessionDelete(opened.threadId);
         const pending = await runHarnessBridge(
           { operation: "pending", harness, harnessSessionId },
@@ -122,7 +134,9 @@ describe("runHarnessBridge", () => {
     );
 
     expect(opened.operation).toBe("open");
+
     if (opened.operation !== "open") throw new Error("expected an opened Thread");
+
     await client.sessionSendMessage(opened.threadId, "changes_requested", "Change the greeting.");
     const pending = await runHarnessBridge(
       { operation: "pending", harness: "codex", harnessSessionId: "codex-1" },
@@ -130,7 +144,9 @@ describe("runHarnessBridge", () => {
     );
 
     expect(pending.operation).toBe("pending");
+
     if (pending.operation !== "pending") throw new Error("expected pending Messages");
+
     const delivery = pending.deliveries[0]!;
 
     await expect(
@@ -161,7 +177,9 @@ describe("runHarnessBridge", () => {
     );
 
     expect(opened.operation).toBe("open");
+
     if (opened.operation !== "open") throw new Error("expected an opened Thread");
+
     await client.sessionSendMessage(opened.threadId, "comment", "Consider the greeting.");
     const pending = await runHarnessBridge(
       { operation: "pending", harness: "codex", harnessSessionId: "codex-comment" },
@@ -169,7 +187,9 @@ describe("runHarnessBridge", () => {
     );
 
     expect(pending.operation).toBe("pending");
+
     if (pending.operation !== "pending") throw new Error("expected pending Messages");
+
     expect(pending.pendingThreadIds).toEqual([opened.threadId]);
     expect(pending.deliveries).toHaveLength(1);
     expect(pending.deliveries[0]!.threadStatus).toBe("pending");
@@ -192,7 +212,9 @@ describe("runHarnessBridge", () => {
     );
 
     expect(after.operation).toBe("pending");
+
     if (after.operation !== "pending") throw new Error("expected pending Messages");
+
     expect(after.deliveries).toEqual([]);
     expect(after.pendingThreadIds).toEqual([opened.threadId]);
   });

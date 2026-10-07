@@ -69,6 +69,7 @@ export function wordIndexAt(text: string, char: number): number {
 
   for (let index = 0; index < words.length; index++) {
     if (char < words[index]!.start) return Math.max(0, index - 1);
+
     if (char < words[index]!.end) return index;
   }
 
@@ -91,6 +92,7 @@ export function wordRangeAt(text: string, char: number): CharRange | null {
  */
 export function positionAt(lines: LineGeometry[], x: number, y: number): TextPosition | null {
   if (lines.length === 0) return null;
+
   const ordered = lines.toSorted((left, right) => left.y - right.y || left.x - right.x);
   const onRow = ordered.find((line) => line.y === y);
 
@@ -99,9 +101,11 @@ export function positionAt(lines: LineGeometry[], x: number, y: number): TextPos
 
     return { blockIndex: onRow.blockIndex, char: onRow.start + column };
   }
+
   const above = ordered.findLast((line) => line.y < y);
 
   if (above) return { blockIndex: above.blockIndex, char: above.end };
+
   const first = ordered[0]!;
 
   return { blockIndex: first.blockIndex, char: first.start };
@@ -156,6 +160,7 @@ export function spanRangeInBlock(
   textLength: number,
 ): CharRange | null {
   if (blockIndex < span.start.blockIndex || blockIndex > span.end.blockIndex) return null;
+
   const start = blockIndex === span.start.blockIndex ? span.start.char : 0;
   const end = blockIndex === span.end.blockIndex ? Math.min(span.end.char, textLength) : textLength;
 
@@ -189,6 +194,7 @@ export function snapSpanToWords(span: TextSpan, textOf: (blockIndex: number) => 
       end: { blockIndex: span.end.blockIndex, char: snapped.end },
     };
   }
+
   const startText = textOf(span.start.blockIndex);
   const endText = textOf(span.end.blockIndex);
 

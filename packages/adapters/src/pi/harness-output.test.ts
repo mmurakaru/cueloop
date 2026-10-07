@@ -11,6 +11,7 @@ test("pi RPC text deltas are assistant text even when they quote startup notices
   });
 
   expect(output).toEqual({ kind: "event", event: { kind: "message", text } });
+
   if (output.kind === "event") expect(routeHarnessOutput(output.event).destination).toBe("thread");
 });
 
@@ -32,6 +33,7 @@ test("pi notifications and extension errors route outside conversation", () => {
     const output = normalizePiHarnessOutput(frame);
 
     expect(output.kind).toBe("event");
+
     if (output.kind === "event")
       expect(routeHarnessOutput(output.event).destination).toBe("diagnostics");
   }
@@ -106,6 +108,7 @@ test("unknown nested pi assistant events retain their payload diagnostically", (
   const output = parsePiHarnessOutput({ type: "message_update", assistantMessageEvent: event });
 
   expect(output.kind).toBe("event");
+
   if (output.kind === "event" && output.event.kind === "diagnostic")
     expect(JSON.parse(output.event.text)).toEqual(event);
   else throw new Error("Expected retained diagnostic");

@@ -84,6 +84,7 @@ test("deadlines, local abort and close reject outstanding requests without cance
 
             return;
           }
+
           socket.write(
             JSON.stringify({
               id: request.id,
@@ -154,6 +155,7 @@ test("malformed frames reject all pending requests as protocol failures", async 
 
             return;
           }
+
           socket.write(
             JSON.stringify({
               id: request.id,

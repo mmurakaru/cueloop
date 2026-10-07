@@ -139,6 +139,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
       // signs; the signed pass we verify against the presented key. ssh2 does
       // not verify for us, so skipping this would let anyone claim any key.
       if (ctx.method !== "publickey") return ctx.reject(["publickey"]);
+
       if (ctx.signature) {
         const key = utils.parseKey(ctx.key.data);
 
@@ -150,6 +151,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
           return ctx.reject();
         }
       }
+
       identity = { username: ctx.username, fingerprint: keyFingerprint(ctx.key.data) };
       ctx.accept();
     });
@@ -190,6 +192,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
 
     session.on("exec", (accept, reject, info) => {
       if (identity.username !== SHARE_UPLOAD_USER) return reject();
+
       const channel = accept();
 
       if (info.command === "cueloop-agent") handleAgent(channel, identity);
@@ -217,6 +220,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
 
       return end(channel, 1);
     }
+
     let session;
 
     try {
@@ -227,6 +231,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
 
         return end(channel, 1);
       }
+
       session = unpackGatewayShare(openBlob(options.masterKey, shareId, stored), shareId);
     } catch (err) {
       onError(err);
@@ -269,6 +274,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
           );
         }
       }
+
       // A private share renders only for an authenticated login on its allowlist; a public share is unchanged.
       if (
         session.shares?.[0]?.requireAuth &&
@@ -280,6 +286,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
 
         return end(channel, 1);
       }
+
       // Every viewer is a collaborator: they annotate, and each note unions
       // back into the stored blob stamped with their fingerprint. They cannot
       // edit the plan or submit a message (the App's collaborator role).
@@ -328,6 +335,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
 
       return end(channel, 1);
     }
+
     const startedAt = Date.now();
     let id: string;
 
@@ -390,6 +398,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
     });
     channel.on("data", (chunk: Buffer) => {
       buffer += decoder.decode(chunk, { stream: true });
+
       if (Buffer.byteLength(buffer) > 8 * 1024 * 1024) {
         close();
         fail(channel, "agent frame exceeds 8 MiB");
@@ -397,6 +406,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
 
         return;
       }
+
       let newline: number;
 
       while ((newline = buffer.indexOf("\n")) >= 0) {
@@ -406,6 +416,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
         buffer = buffer.slice(newline + 1);
         queuedBytes += bytes;
         queuedFrames++;
+
         if (queuedFrames > 32 || queuedBytes + Buffer.byteLength(buffer) > 8 * 1024 * 1024) {
           buffer = "";
           close();
@@ -414,20 +425,25 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
 
           return;
         }
+
         pending = pending
           .then(async () => {
             if (closed) return;
+
             const frame = v.parse(SharedAgentFrameSchema, JSON.parse(line));
 
             if (!shareId) {
               if (frame.type !== "hello" || !isShareId(frame.shareId))
                 throw new Error("Agent relay requires a share handshake");
+
               shareId = frame.shareId;
               detach = await agents.attach(shareId, identity.fingerprint, send);
+
               if (closed) await detach();
             } else {
               if (frame.type !== "state")
                 throw new Error("Only owner state is accepted on this channel");
+
               await agents.accept(shareId, identity.fingerprint, frame.state, frame.accepted, send);
             }
           })
@@ -452,13 +468,16 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
       const shareId = (await readCapped(channel, 256)).toString("utf8").trim();
 
       if (!isShareId(shareId)) return void fail(channel, "not a share id");
+
       const stored = await store.get(shareId);
 
       if (!stored) return void fail(channel, "this share was not found or has expired");
+
       const session = unpackGatewayShare(openBlob(options.masterKey, shareId, stored), shareId);
 
       if (session.shares?.[0]?.owner !== identity.fingerprint)
         return void fail(channel, "only the planner who shared this can pull it");
+
       channel.write(JSON.stringify(session));
       metrics.recordShare("pull", "ok", elapsed(startedAt));
       end(channel, 0);
@@ -480,10 +499,13 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
 
     try {
       shareId = (await readCapped(channel, 256)).toString("utf8").trim();
+
       if (!isShareId(shareId)) return void fail(channel, "not a share id");
+
       const stored = await store.get(shareId);
 
       if (!stored) return void fail(channel, "this share was not found or has expired");
+
       const session = unpackGatewayShare(openBlob(options.masterKey, shareId, stored), shareId);
 
       if (session.shares?.[0]?.owner !== identity.fingerprint)
@@ -501,6 +523,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
         .get(shareId)
         .then((bytes) => {
           if (!bytes) return finish();
+
           send({
             type: "session",
             session: unpackGatewayShare(openBlob(options.masterKey, shareId, bytes), shareId),
@@ -536,10 +559,13 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
 
       if (!shareId.success || !isShareId(shareId.output))
         return void fail(channel, "not a share id");
+
       if (!annotations.success) return void fail(channel, "annotations must be a list");
+
       const stored = await store.get(shareId.output);
 
       if (!stored) return void fail(channel, "this share was not found or has expired");
+
       const session = unpackGatewayShare(
         openBlob(options.masterKey, shareId.output, stored),
         shareId.output,
@@ -547,6 +573,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
 
       if (session.shares?.[0]?.owner !== identity.fingerprint)
         return void fail(channel, "only the planner who shared this can push to it");
+
       const merged = mergeOwnerAnnotations(session, annotations.output);
       const withPolicy = payload.policy
         ? { ...merged, shares: merged.shares?.map((link) => ({ ...link, ...payload.policy })) }
@@ -581,6 +608,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
       const shareId = (await readCapped(channel, 256)).toString("utf8").trim();
 
       if (!isShareId(shareId)) return void fail(channel, "not a share id");
+
       const stored = await store.get(shareId);
 
       if (stored) {
@@ -588,9 +616,11 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
 
         if (session.shares?.[0]?.owner !== identity.fingerprint)
           return void fail(channel, "only the planner who shared this can revoke it");
+
         await store.delete(shareId);
         await store.delete(shareId + ".agent");
       }
+
       metrics.recordShare("revoke", "ok", elapsed(startedAt));
       end(channel, 0);
     } catch (err) {
@@ -683,12 +713,14 @@ function readCapped(channel: ServerChannel, max: number): Promise<Buffer> {
 
     channel.on("data", (chunk: Buffer) => {
       total += chunk.length;
+
       if (total > max) {
         reject(new Error(`upload exceeds ${max} bytes`));
         channel.destroy();
 
         return;
       }
+
       chunks.push(chunk);
     });
     channel.on("end", () => resolve(Buffer.concat(chunks)));
@@ -724,6 +756,7 @@ export function isExpectedTransportError(cause: unknown): boolean {
   const result = v.safeParse(TransportErrorSchema, cause);
 
   if (!result.success) return false;
+
   const { level, code } = result.output;
 
   if (level === "handshake" || level === "authentication" || level === "protocol") return true;
@@ -749,10 +782,12 @@ function mergeOwnerAnnotations(
     const existing = byId.get(note.id);
 
     if (existing?.author) continue;
+
     // the owner's notes stay unauthored: strip any author so the pull filter and the delete guard hold
     const { author: _drop, ...rest } = note;
 
     byId.set(note.id, { ...rest, createdAt: existing?.createdAt ?? now });
+
     if (!existing)
       next = withEntry(next, { type: "comment", annotationId: note.id, createdAt: now });
   }

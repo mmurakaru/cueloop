@@ -41,7 +41,9 @@ type ScenarioSpec = v.InferOutput<typeof ScenarioSpecSchema>;
 /** The linux release arch for the current machine, as the installer names it. */
 export function currentReleaseArch(): "x64" | "arm64" {
   if (process.arch === "arm64") return "arm64";
+
   if (process.arch === "x64") return "x64";
+
   throw new Error(
     `install-vm: unsupported arch '${process.arch}', only x64 and arm64 boot Linux guests`,
   );
@@ -112,8 +114,11 @@ export async function preflight(): Promise<void> {
       "/dev/kvm is missing; run `sudo chmod a+rw /dev/kvm` on a KVM-capable Linux host",
     );
   }
+
   if (!existsSync("/dev/net/tun")) problems.push("/dev/net/tun is missing");
+
   if ((await run(["docker", "info"])) !== 0) problems.push("docker is not available");
+
   try {
     if ((await freeBytes(REPO_ROOT)) < MIN_FREE_BYTES) problems.push("less than 6 GB free");
   } catch {
@@ -144,7 +149,9 @@ async function writeFixtureRelease(
 
   mkdirSync(releaseDir, { recursive: true });
   await Bun.write(join(releaseDir, assetName), Bun.file(assetPath));
+
   if (checksumMode === "none") return;
+
   const hash =
     checksumMode === "wrong" ? "0".repeat(64) : await sha256OfFile(join(releaseDir, assetName));
 
@@ -222,6 +229,7 @@ export async function stageFixtures(fixturesDir: string): Promise<FixtureVersion
       "--dir",
       previousDir,
     ]);
+
     if (existsSync(join(previousDir, assetName))) {
       const hash = await sha256OfFile(join(previousDir, assetName));
 
@@ -311,6 +319,7 @@ async function main(): Promise<void> {
 
   if (selected.length === 0)
     throw new Error(`install-vm: unknown scenario '${parsed.values.scenario}'`);
+
   const outDir = parsed.values.out;
   const fixturesDir = join(outDir, "fixtures");
   const runsDir = join(outDir, "runs");
@@ -326,6 +335,7 @@ async function main(): Promise<void> {
   if (runnable.length < selected.length) {
     console.log("skipping upgrade: no previous published release to upgrade from");
   }
+
   if (runnable.length === 0) {
     console.log("install-vm: nothing to run");
 

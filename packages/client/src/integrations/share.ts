@@ -62,9 +62,11 @@ export async function publishShare(
 
   if (code !== 0)
     throw new Error(`gateway upload failed: ${stderr.trim() || `ssh exited ${code}`}`);
+
   const line = stdout.trim();
 
   if (!line.startsWith("ssh ")) throw new Error(`unexpected gateway reply: ${line || "(empty)"}`);
+
   const copied = await copyToClipboard(line);
 
   return { line, copied };
@@ -98,6 +100,7 @@ export function mergeFromShare(remote: Thread): SharedMerge {
   if (remote.shares?.length === 1) merge.shareId = remote.shares[0]!.id;
 
   if (remote.participants) merge.participants = remote.participants;
+
   if (remote.history) {
     merge.removals = removalEntries(remote.history).map((entry) => ({
       id: entry.id,
@@ -193,6 +196,7 @@ async function readLines(
     pending = lines.pop() ?? "";
     for (const line of lines) {
       if (line.trim() === "") continue;
+
       try {
         onLine(line);
       } catch {

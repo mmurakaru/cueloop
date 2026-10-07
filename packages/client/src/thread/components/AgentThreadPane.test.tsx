@@ -43,6 +43,33 @@ const empty: ThreadAgentState = {
   comments: [],
 };
 
+test("a failed harness turn displays its error below the conversation", async () => {
+  const failure = "OAuth auth derivation failed: missing provider module";
+  const { client } = createTestAgentClient({ ...empty, phase: { kind: "failed", error: failure } });
+  const setup = await testRender(
+    <AgentThreadPane
+      thread={thread}
+      client={client}
+      focused
+      theme={DARK}
+      onActiveChange={noop}
+      onOpenFile={noop}
+    >
+      {artifactView(thread)}
+    </AgentThreadPane>,
+    { width: 100, height: 24 },
+  );
+
+  try {
+    await waitForText(setup, "Original artifact");
+    await settle(setup);
+    expect(setup.captureCharFrame()).toContain(failure);
+    expect(setup.captureCharFrame()).not.toContain("Thinking");
+  } finally {
+    setup.renderer.destroy();
+  }
+});
+
 function createTestAgentClient(initial: ThreadAgentState) {
   let state = initial;
   const prompts: AgentPromptRequest[] = [];
@@ -56,6 +83,7 @@ function createTestAgentClient(initial: ThreadAgentState) {
     agentGet: async () => state,
     agentPrompt: async (params) => {
       prompts.push(params);
+
       if (params.text)
         state = {
           ...state,
@@ -287,6 +315,7 @@ test("three bottom prompts survive delayed acceptance and remain separate submis
 
   client.agentPrompt = async (params) => {
     prompts.push(params.text);
+
     if (prompts.length === 1)
       return new Promise((resolve) => {
         release = resolve;
@@ -868,6 +897,7 @@ test("an arriving reply preserves a bottom draft and submits it as the next prom
 
   client.agentPrompt = async (params) => {
     prompts.push(params);
+
     if (prompts.length === 1)
       return new Promise<ThreadAgentState>((resolve) => {
         finish = resolve;
@@ -1038,6 +1068,7 @@ test("a failed mutation flush restores the prompt alongside a newer visible draf
       onOpenFile={noop}
       flushMutations={() => {
         if (flushStarted) return Promise.resolve();
+
         flushStarted = true;
 
         return failedFlush;

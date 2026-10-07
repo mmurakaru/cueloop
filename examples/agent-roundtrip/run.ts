@@ -19,7 +19,9 @@ const opened = await runHarnessBridge({
 });
 
 if (opened.operation !== "open") throw new Error("example did not open a Thread");
+
 console.log(`Thread ${opened.threadId} is ready for review.`);
+
 if (opened.manualOpenCommand) console.log(opened.manualOpenCommand);
 
 for (;;) {
@@ -30,6 +32,7 @@ for (;;) {
   });
 
   if (pending.operation !== "pending") throw new Error("example could not read pending Messages");
+
   const delivery = pending.deliveries[0];
 
   if (delivery) {
@@ -43,5 +46,6 @@ for (;;) {
 
     break;
   }
+
   await Bun.sleep(250);
 }

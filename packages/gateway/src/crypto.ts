@@ -64,8 +64,10 @@ export function openBlob(master: Buffer, shareId: string, stored: Uint8Array): B
   } catch {
     throw new Error("stored blob is not a valid envelope");
   }
+
   if (envelope.v !== ENVELOPE_VERSION)
     throw new Error(`unsupported envelope version ${envelope.v}`);
+
   const key = deriveBlobKey(master, shareId);
   const decipher = createDecipheriv("aes-256-gcm", key, Buffer.from(envelope.nonce, "base64"));
 

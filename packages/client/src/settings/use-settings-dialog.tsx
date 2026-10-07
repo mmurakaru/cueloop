@@ -57,8 +57,10 @@ function moveNavZone(
       rowIndex: 0,
       zone: "nav",
     };
+
   if (UP_KEYS.has(name))
     return { categoryId: categories[Math.max(0, categoryIndex - 1)]!.id, rowIndex: 0, zone: "nav" };
+
   if (ENTER_BODY_KEYS.has(name))
     return { categoryId: categories[categoryIndex]!.id, rowIndex: 0, zone: "body" };
 
@@ -67,7 +69,9 @@ function moveNavZone(
 
 function moveBodyRow(name: string, nav: SettingsNav, rowCount: number): SettingsNav | null {
   if (DOWN_KEYS.has(name)) return { ...nav, rowIndex: Math.min(rowCount - 1, nav.rowIndex + 1) };
+
   if (UP_KEYS.has(name)) return { ...nav, rowIndex: Math.max(0, nav.rowIndex - 1) };
+
   if (BACK_TO_NAV_KEYS.has(name)) return { ...nav, zone: "nav" };
 
   return null;
@@ -94,6 +98,9 @@ export function useSettingsDialog(params: {
   reviewSkill: string;
   reviewWorkspace: ReviewWorkspaceMode;
   setReviewWorkspace: Dispatch<SetStateAction<ReviewWorkspaceMode>>;
+  threadHarness?: "pi" | "fx";
+  canSwitchHarness?: boolean;
+  onSwitchHarness?: (harness: "pi" | "fx") => void;
 }): SettingsDialogModel {
   const {
     theme,
@@ -116,6 +123,9 @@ export function useSettingsDialog(params: {
     reviewSkill,
     reviewWorkspace,
     setReviewWorkspace,
+    threadHarness,
+    canSwitchHarness,
+    onSwitchHarness,
   } = params;
 
   // open focused on the left nav, so up/down browses categories until l/tab/enter enters the body
@@ -134,6 +144,7 @@ export function useSettingsDialog(params: {
   const editActionPrompt = (index: number, prompt: string): void => {
     // a blank title fails the config schema and would vanish on reload, so never persist one
     if (prompt.trim().length === 0) return;
+
     commitActions(
       quickActions.map((action, actionIndex) =>
         actionIndex === index ? { ...action, prompt } : action,
@@ -214,6 +225,22 @@ export function useSettingsDialog(params: {
         },
       ],
     },
+    ...(canSwitchHarness
+      ? [
+          {
+            id: "thread",
+            name: "Thread",
+            rows: [
+              {
+                key: "threadHarness",
+                label: "Harness",
+                kind: "cycle" as const,
+                options: ["pi", "fx"],
+              },
+            ],
+          },
+        ]
+      : []),
     {
       id: "actions",
       name: "Actions",
@@ -252,9 +279,12 @@ export function useSettingsDialog(params: {
     syncGithub: "enter to sync",
     reviewSkill,
     reviewWorkspace,
+    threadHarness: threadHarness ?? "pi",
   };
   const cycleSetting = (rowKey: string): void => {
-    if (rowKey === "autoClose") {
+    if (rowKey === "threadHarness") {
+      onSwitchHarness?.(threadHarness === "fx" ? "pi" : "fx");
+    } else if (rowKey === "autoClose") {
       const next: AutoClose = autoClose === "off" ? 3 : autoClose === 3 ? 10 : "off";
 
       setAutoClose(next);
@@ -291,6 +321,7 @@ export function useSettingsDialog(params: {
   const onCategorySelect = (categoryId: string): void => {
     // ignore a select that names no real category, so the key handler never dereferences nothing
     if (!settingsCategories.some((category) => category.id === categoryId)) return;
+
     setActionsExpandedIndex(null);
     setSettingsNav({ categoryId, rowIndex: 0, zone: "body" });
   };
@@ -302,7 +333,9 @@ export function useSettingsDialog(params: {
 
       return;
     }
+
     if (name === "escape") return void setMenuDialog(null);
+
     const categoryIndex = settingsCategories.findIndex(
       (category) => category.id === settingsNav.categoryId,
     );
@@ -315,11 +348,13 @@ export function useSettingsDialog(params: {
 
       return;
     }
+
     // the Actions category is a list of quick actions plus a trailing "add" row
     if (category.id === "actions") {
       const moved = moveBodyRow(name, settingsNav, quickActions.length + 1);
 
       if (moved) return void setSettingsNav(moved);
+
       if (ACTIVATE_KEYS.has(name)) {
         if (settingsNav.rowIndex === quickActions.length) addAction();
         else {
@@ -330,9 +365,11 @@ export function useSettingsDialog(params: {
 
       return;
     }
+
     const moved = moveBodyRow(name, settingsNav, category.rows.length);
 
     if (moved) return void setSettingsNav(moved);
+
     if (name === "return" || name === "space")
       cycleSetting(category.rows[settingsNav.rowIndex]!.key);
   };

@@ -37,6 +37,7 @@ for (const name of new Set(names)) {
   console.log(
     `${succeeded ? "retagged" : "FAILED"} ${name}@${version} as ${preTag}${succeeded ? "" : ": " + result.stderr.toString().trim().split("\n").pop()}`,
   );
+
   if (!succeeded) failures++;
 }
 

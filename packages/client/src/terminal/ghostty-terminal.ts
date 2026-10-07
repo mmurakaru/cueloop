@@ -68,9 +68,11 @@ let ghosttyFactory: GhosttyTerminalFactory | null | undefined;
  */
 export function loadGhosttyTerminals(): GhosttyTerminalFactory | null {
   if (ghosttyFactory !== undefined) return ghosttyFactory;
+
   const path = nativeLibraryPath();
 
   if (!path) return (ghosttyFactory = null);
+
   try {
     const lib = dlopen(path, CVT_SYMBOLS);
 
@@ -121,19 +123,23 @@ export class GhosttyTerminal {
   /** Process a chunk of the child's PTY output into the screen state. */
   write(bytes: Uint8Array): void {
     if (this.freed || bytes.length === 0) return;
+
     this.lib.cvt_write(this.handle, ptr(bytes), BigInt(bytes.length));
   }
 
   /** Resize the screen (and the child's tty, via the caller) to cols x rows. */
   resize(cols: number, rows: number): void {
     if (this.freed) return;
+
     this.lib.cvt_resize(this.handle, cols, rows);
   }
 
   /** The rendered cell at viewport (x, y), or null when out of range. */
   readCell(x: number, y: number): GhosttyCell | null {
     if (this.freed) return null;
+
     if (this.lib.cvt_cell(this.handle, x, y, ptr(this.out)) !== 0) return null;
+
     const flags = this.out[13]!;
 
     return {
@@ -161,6 +167,7 @@ export class GhosttyTerminal {
       const cell = this.readCell(x, y);
 
       if (cell === null || cell.width === 2) continue;
+
       line += cell.codepoint === 0 ? " " : String.fromCodePoint(cell.codepoint);
     }
 
@@ -170,6 +177,7 @@ export class GhosttyTerminal {
   /** The cursor's current viewport position and visibility. */
   readCursor(): GhosttyCursor {
     if (this.freed) return { x: 0, y: 0, visible: false };
+
     this.lib.cvt_cursor(this.handle, ptr(this.cursorOut));
     const view = new DataView(this.cursorOut.buffer);
 
@@ -183,6 +191,7 @@ export class GhosttyTerminal {
   /** Release the terminal; further calls are no-ops. Call once on teardown. */
   free(): void {
     if (this.freed) return;
+
     this.freed = true;
     this.lib.cvt_free(this.handle);
   }
@@ -191,6 +200,7 @@ export class GhosttyTerminal {
 /** Decode the shim's (kind, r, g, b) color triple; palette carries its index in r. */
 function decodeColor(kind: number, r: number, g: number, b: number): GhosttyColor {
   if (kind === 2) return { kind: "rgb", r, g, b };
+
   if (kind === 1) return { kind: "palette", index: r };
 
   return { kind: "default" };

@@ -28,7 +28,9 @@ for (const line of checksumsText.trim().split("\n")) {
   const [sha, name] = line.trim().split(/\s+/);
 
   if (!sha || !name?.startsWith("cueloop-")) continue;
+
   if (!/^[0-9a-f]{64}$/.test(sha)) throw new Error(`invalid sha256 for ${name}: ${sha}`);
+
   shaByTarget.set(name.replace("cueloop-", ""), sha);
 }
 
@@ -45,9 +47,11 @@ const updated = (await Bun.file(formulaPath).text())
     const versionMatch = line.match(/^(\s*version )"[^"]*"/);
 
     if (versionMatch) return `${versionMatch[1]}"${version}"`;
+
     const urlMatch = line.match(/cueloop-(darwin-arm64|darwin-x64|linux-arm64|linux-x64)"/);
 
     if (urlMatch) currentTarget = urlMatch[1];
+
     const shaMatch = line.match(/^(\s*sha256 )"[^"]*"/);
 
     if (shaMatch && currentTarget) return `${shaMatch[1]}"${shaByTarget.get(currentTarget)}"`;

@@ -101,6 +101,7 @@ try {
       const row = frame.findIndex((line) => line.includes(thread.title));
 
       if (row < 0) continue;
+
       const x = frame[row]!.indexOf(thread.title) + 1;
       // eslint-disable-next-line no-await-in-loop
       const ms = await timeToFirstPaint(

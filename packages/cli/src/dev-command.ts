@@ -97,17 +97,22 @@ async function refreshDevSeed(client: DaemonClient, home: string): Promise<void>
   writeFileSync(versionFile, String(SEED_VERSION));
 }
 
-/** `cueloop dev`: seed an isolated dev home (refreshing a stale seed), then open the TUI on it. */
-export async function devCommand(): Promise<number> {
-  const home = (process.env.CUELOOP_HOME ??= threadAgentEnabled(process.cwd())
+export function configureDevHome(): string {
+  return (process.env.CUELOOP_HOME ??= threadAgentEnabled(process.cwd())
     ? join(process.cwd(), ".cueloop-dev")
     : join(homedir(), ".cueloop-dev"));
+}
+
+/** `cueloop dev`: seed an isolated dev home (refreshing a stale seed), then open the TUI on it. */
+export async function devCommand(): Promise<number> {
+  const home = configureDevHome();
 
   let sessionId: string | undefined;
   const client = await DaemonClient.connect({ autostart: true });
 
   try {
     await refreshDevSeed(client, home);
+
     if (threadAgentEnabled(process.cwd()))
       sessionId = (await client.sessionList()).find(
         (thread) => thread.artifact.meta.title === "Read the repository",

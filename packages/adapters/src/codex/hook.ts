@@ -28,11 +28,13 @@ export function runCodexHook(
       },
     };
   }
+
   if (input.hook_event_name === "SessionEnd") {
     sessions.deactivate(input.session_id);
 
     return;
   }
+
   if (input.tool_name !== "mcp__cueloop__open_thread") {
     return;
   }

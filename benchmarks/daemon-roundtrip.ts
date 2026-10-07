@@ -37,7 +37,9 @@ try {
       socket = server.start();
     }),
   );
+
   if (socket === null) throw new Error("daemon-roundtrip: another daemon owns the temp home");
+
   const connectStarted = performance.now();
   const client = await DaemonClient.connect({ home });
 

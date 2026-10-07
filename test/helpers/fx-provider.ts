@@ -36,6 +36,7 @@ export function createTestFxProvider(
     async fetch(request) {
       if (new URL(request.url).pathname !== "/v1/chat/completions")
         return new Response("Unexpected endpoint", { status: 500 });
+
       const body: unknown = await request.json();
       const modelRequest = v.parse(ModelRequestSchema, body);
 
@@ -61,6 +62,7 @@ export function createTestFxProvider(
         if (harnessTool) toolIndex++;
 
         if (options.writeFile) toolArguments.content = "export const retryDelay = 2000;\n";
+
         const chunks = [
           {
             id: "test-tool",
@@ -97,6 +99,7 @@ export function createTestFxProvider(
           { headers: { "content-type": "text/event-stream" } },
         );
       }
+
       const chunks = [
         {
           id: "test-chat",

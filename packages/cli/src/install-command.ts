@@ -34,6 +34,7 @@ function previousPackageSpec(installRoot: string, name: string): string | null {
   const path = join(installRoot, "node_modules", name, "package.json");
 
   if (!existsSync(path)) return null;
+
   try {
     const parsed = v.safeParse(
       v.object({ version: v.pipe(v.string(), v.minLength(1)) }),
@@ -59,6 +60,7 @@ export async function installExtensionCommand(
 
     return 2;
   }
+
   const name = match[1]!;
   const spec = source!.slice("npm:".length);
   const installRoot = options.installRoot ?? extensionInstallRoot();
@@ -74,6 +76,7 @@ export async function installExtensionCommand(
       JSON.stringify({ name: "cueloop-extensions", private: true }, null, 2),
     );
   }
+
   const { exitCode, stderr } = await runCommand([
     "add",
     "--ignore-scripts",
@@ -87,6 +90,7 @@ export async function installExtensionCommand(
 
     return 1;
   }
+
   const discovered = discoverInstalledExtensionPackages(installRoot);
   const installed = discovered.packages.find((entry) => entry.name === name);
 
@@ -107,6 +111,7 @@ export async function installExtensionCommand(
 
     return 1;
   }
+
   console.log(
     `Installed ${name}. Restart cueloop and run 'cueloop restart' to load daemon capabilities.`,
   );

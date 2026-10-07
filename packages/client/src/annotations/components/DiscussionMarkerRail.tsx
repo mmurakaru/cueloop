@@ -56,6 +56,7 @@ function ScrollMarkers({
   const isActive = (index: number): boolean => index === hoveredIndex || index === focusedIndex;
   const colorFor = (index: number): string => {
     if (isActive(index)) return tokens.text;
+
     if (hoveredIndex >= 0 && discussions.length >= 5 && Math.abs(index - hoveredIndex) === 1) {
       return tokens.textMuted;
     }
@@ -126,9 +127,11 @@ export function DiscussionMarkerRail({
 
   const preview = (): React.ReactNode => {
     if (hovered === null) return null;
+
     const discussion = discussions.find((candidate) => candidate.key === hovered.key);
 
     if (!discussion) return null;
+
     const quote = spanQuote(discussion.span);
     const lastComment = discussion.annotations.at(-1)!;
 

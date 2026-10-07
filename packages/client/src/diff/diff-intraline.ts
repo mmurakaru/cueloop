@@ -53,6 +53,7 @@ function intralineBlocks(rows: DiffRow[]): IntralineBlock[] {
       index++;
       continue;
     }
+
     const deletionStart = index;
 
     while (index < rows.length && rows[index]!.kind === "del") index++;
@@ -127,6 +128,7 @@ export function createIntralineResolver(rows: DiffRow[]): IntralineResolver {
       const blockIndex = blockContaining(blocks, rowIndex);
 
       if (blockIndex === undefined) return undefined;
+
       if (!computed.has(blockIndex)) {
         computed.add(blockIndex);
         for (const [row, runs] of blockRunEntries(rows, blocks[blockIndex]!))
@@ -161,6 +163,7 @@ function lineWordSetCache(): (text: string) => ReadonlySet<string> {
     const cached = cache.get(text);
 
     if (cached !== undefined) return cached;
+
     const words = new Set(text.toLowerCase().split(/\s+/).filter(Boolean));
 
     cache.set(text, words);
@@ -180,6 +183,7 @@ function linesSimilar(
   const newWords = wordsOf(newText);
 
   if (oldWords.size === 0 && newWords.size === 0) return true;
+
   let intersection = 0;
 
   for (const word of oldWords) if (newWords.has(word)) intersection++;
@@ -198,6 +202,7 @@ function linesSimilar(
  */
 function alignedPairs(deletionTexts: string[], additionTexts: string[]): Array<[number, number]> {
   if (deletionTexts.length === 1 && additionTexts.length === 1) return [[0, 0]];
+
   const pairs: Array<[number, number]> = [];
   let deletionOffset = 0;
   let additionOffset = 0;
@@ -227,6 +232,7 @@ function sideRuns(changes: WordChange[], side: "added" | "removed"): IntralineRu
 
   for (const change of changes) {
     if (change.kind !== "common" && change.kind !== side) continue;
+
     const changed = change.kind === side;
     const last = runs[runs.length - 1];
 

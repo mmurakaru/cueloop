@@ -19,6 +19,7 @@ const noop = (): void => {};
 
 function findById(node: Renderable, id: string): Renderable | undefined {
   if (node.id === id) return node;
+
   for (const child of node.getChildren()) {
     const found = findById(child, id);
 
@@ -102,12 +103,14 @@ describe("the diff sheet's scrollbar", () => {
 
     if (!(scroller instanceof ScrollBoxRenderable))
       throw new Error("diff-scroll is not a scrollbox");
+
     const countThumbRows = (): number =>
       setup.captureSpans().lines.filter((line) => {
         let column = 0;
 
         for (const span of line.spans) {
           column += span.text.length;
+
           if (column >= width) return span.bg !== undefined && hex(span.bg) === DARK.textDim;
         }
 

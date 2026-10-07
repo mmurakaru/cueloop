@@ -38,6 +38,7 @@ function ignoredDirectories(repoRoot: string): Set<string> {
   );
 
   if (!result || result.exitCode !== 0) return ignored;
+
   for (const line of result.stdout.toString().split("\n")) {
     const relative = line.trim().replace(/\/$/, "");
 
@@ -77,9 +78,11 @@ function resolveGitDirs(repoRoot: string): { gitDir: string; commonDir: string }
   const result = spawnGit(["rev-parse", "--absolute-git-dir", "--git-common-dir"], repoRoot);
 
   if (!result || result.exitCode !== 0) return null;
+
   const [gitDir, commonRaw] = result.stdout.toString().trim().split("\n");
 
   if (!gitDir) return null;
+
   const commonDir = commonRaw
     ? isAbsolute(commonRaw)
       ? commonRaw
@@ -117,10 +120,12 @@ export class DiffWatcher {
 
     if (existing) {
       existing.sessionIds.add(sessionId);
+
       if (vcs === "jj") this.startJjPoll(existing, repoRoot, sessionId);
 
       return;
     }
+
     const repoWatch: RepoWatch = {
       handles: [],
       sessionIds: new Set([sessionId]),
@@ -133,6 +138,7 @@ export class DiffWatcher {
     };
 
     this.repoWatches.set(repoRoot, repoWatch);
+
     if (vcs === "jj") this.startJjPoll(repoWatch, repoRoot, sessionId);
 
     // one watcher per non-ignored working-tree directory; a tracked-file change re-captures
@@ -157,6 +163,7 @@ export class DiffWatcher {
       this.watchInto(repoWatch.handles, join(gitDirs.commonDir, "refs"), { recursive: true }, () =>
         this.scheduleRepoRefresh(repoRoot),
       );
+
       if (gitDirs.commonDir !== gitDirs.gitDir)
         this.watchInto(repoWatch.handles, gitDirs.commonDir, { recursive: false }, (filename) => {
           if (isRefChange(filename)) this.scheduleRepoRefresh(repoRoot);
@@ -169,7 +176,9 @@ export class DiffWatcher {
 
   private startJjPoll(repoWatch: RepoWatch, repoRoot: string, sessionId: string): void {
     repoWatch.jjSessionIds.add(sessionId);
+
     if (repoWatch.jjPoll !== null) return;
+
     repoWatch.jjPoll = setInterval(() => this.scheduleRepoRefresh(repoRoot), 2000);
   }
 
@@ -183,7 +192,9 @@ export class DiffWatcher {
     const repoWatch = this.repoWatches.get(repoRoot);
 
     if (!repoWatch) return false;
+
     if (repoWatch.watchedDirs.has(dir)) return true;
+
     if (ALWAYS_IGNORED_DIRS.has(basename(dir)) || repoWatch.ignored.has(dir)) return true;
 
     const opened = this.watchInto(repoWatch.handles, dir, { recursive: false }, (filename) => {
@@ -193,6 +204,7 @@ export class DiffWatcher {
     });
 
     if (!opened) return false;
+
     repoWatch.watchedDirs.add(dir);
 
     let entries: Dirent[];
@@ -223,8 +235,11 @@ export class DiffWatcher {
       // the path is already gone (a transient temp dir); nothing to watch
       return;
     }
+
     if (ALWAYS_IGNORED_DIRS.has(basename(path))) return;
+
     if (isGitIgnored(repoRoot, path)) return;
+
     this.watchTree(repoRoot, path);
   }
 
@@ -233,11 +248,13 @@ export class DiffWatcher {
     const repoWatch = this.repoWatches.get(repoRoot);
 
     if (!repoWatch) return;
+
     if (!repoWatch.watchedDirs.has(dir)) {
       this.extendWatch(repoRoot, dir);
 
       return;
     }
+
     let entries: Dirent[];
 
     try {
@@ -245,9 +262,12 @@ export class DiffWatcher {
     } catch {
       return;
     }
+
     if (this.repoWatches.get(repoRoot) !== repoWatch) return;
+
     for (const entry of entries) {
       if (this.repoWatches.get(repoRoot) !== repoWatch) return;
+
       if (entry.isDirectory() && !entry.isSymbolicLink())
         // eslint-disable-next-line no-await-in-loop
         await this.reconcileWatchTree(repoRoot, join(dir, entry.name));
@@ -285,15 +305,21 @@ export class DiffWatcher {
     const repoWatch = this.repoWatches.get(repoRoot);
 
     if (!repoWatch) return;
+
     repoWatch.sessionIds.delete(sessionId);
     repoWatch.jjSessionIds.delete(sessionId);
+
     if (repoWatch.jjSessionIds.size === 0 && repoWatch.jjPoll !== null) {
       clearInterval(repoWatch.jjPoll);
       repoWatch.jjPoll = null;
     }
+
     if (repoWatch.sessionIds.size > 0) return;
+
     if (repoWatch.debounce !== null) clearTimeout(repoWatch.debounce);
+
     if (repoWatch.jjPoll !== null) clearInterval(repoWatch.jjPoll);
+
     for (const handle of repoWatch.handles) handle.close();
     this.repoWatches.delete(repoRoot);
   }
@@ -302,14 +328,19 @@ export class DiffWatcher {
     const repoWatch = this.repoWatches.get(repoRoot);
 
     if (!repoWatch) return;
+
     if (repoWatch.debounce !== null) clearTimeout(repoWatch.debounce);
+
     repoWatch.debounce = setTimeout(async () => {
       repoWatch.debounce = null;
+
       if (repoWatch.reconcilePending) {
         repoWatch.reconcilePending = false;
         await this.reconcileWatchTree(repoRoot, repoRoot);
       }
+
       if (this.repoWatches.get(repoRoot) !== repoWatch) return;
+
       this.onRepoChange(repoRoot);
     }, DIFF_REFRESH_DEBOUNCE_MS);
   }
@@ -318,7 +349,9 @@ export class DiffWatcher {
   close(): void {
     for (const repoWatch of this.repoWatches.values()) {
       if (repoWatch.debounce !== null) clearTimeout(repoWatch.debounce);
+
       if (repoWatch.jjPoll !== null) clearInterval(repoWatch.jjPoll);
+
       for (const handle of repoWatch.handles) handle.close();
     }
     this.repoWatches.clear();

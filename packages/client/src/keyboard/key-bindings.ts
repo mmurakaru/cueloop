@@ -405,11 +405,13 @@ export class KeyBindings {
         fragments.push(entry.text);
         continue;
       }
+
       const displays = entry.commands
         .map((command) => this.keyDisplayFor(command))
         .filter((display): display is string => display !== null);
 
       if (!displays.length) continue;
+
       const keyPart = displays.join("/");
 
       if (!entry.label) fragments.push(keyPart);
@@ -435,6 +437,7 @@ export class KeyBindings {
 
       for (const entry of HINT_TEMPLATES[mode]) {
         if ("text" in entry || !entry.label) continue;
+
         const keys = entry.commands
           .map((command) => this.keyDisplayFor(command))
           .filter((display): display is string => display !== null)

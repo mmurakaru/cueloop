@@ -72,6 +72,7 @@ test("renders tree-sitter colors, with the changed word in the diff color on top
   for (const line of setup.captureSpans().lines) {
     for (const span of line.spans) {
       if (span.text.includes("250")) changedColors.add(hex(span.fg));
+
       if (span.text.includes("100")) changedColors.add(hex(span.fg));
     }
   }

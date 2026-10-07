@@ -50,6 +50,7 @@ function initialPanes(options?: ChangesWorkbenchOptions): InitialPanes {
       zoomed: layout.zoomChanges && changesOpen,
     };
   }
+
   const welcomeSeed = options?.seed === "welcome";
 
   return {
@@ -96,13 +97,16 @@ export function useChangesWorkbench(options?: ChangesWorkbenchOptions): ChangesW
 
   const syncSession = (sessionId: string | undefined, isDiff: boolean): void => {
     if (sessionId === undefined || sessionId === seenSession.current) return;
+
     seenSession.current = sessionId;
     setProjectOpen(isDiff);
     setChangesOpen(isDiff);
     setProjectMode(isDiff ? (options?.layout?.projectMode ?? "changes") : "tree");
     rememberedChanges.current = isDiff;
+
     // a non-diff thread has no Changes editor; leaving zoom on would strand the hidden Thread pane
     if (!isDiff) setZoomed(false);
+
     setGrid(makeGroup([changesTab()]));
     setFocusedGroup(null);
   };
@@ -148,6 +152,7 @@ export function useChangesWorkbench(options?: ChangesWorkbenchOptions): ChangesW
 
         return makeGroup([changesTab()]);
       }
+
       // re-home focus when the closed group was pruned away, so the next open has a live target
       setFocusedGroup((current) =>
         current !== null && containsGroup(pruned, current) ? current : firstGroupId(pruned),

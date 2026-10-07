@@ -41,6 +41,7 @@ export async function renderReadyApp(
   options: TestRendererOptions,
 ): Promise<TestRendererSetup> {
   if (!isValidElement<AppProps>(element)) throw new Error("renderReadyApp needs an App element");
+
   const probe = appReadyProbe();
   const setup = await testRender(cloneElement(element, { onReady: probe.onReady }), options);
 
@@ -122,7 +123,9 @@ export async function settle(setup: TestRendererSetup): Promise<void> {
     const frame = paintedFrame(setup);
 
     quietTurns = frame === previous ? quietTurns + 1 : 0;
+
     if (quietTurns >= SETTLE_QUIET_TURNS) return;
+
     previous = frame;
   }
 }
@@ -137,6 +140,7 @@ export async function press(setup: TestRendererSetup, key: string): Promise<void
   else if (key === "up") setup.mockInput.pressKey("ARROW_UP");
   else if (key === "down") setup.mockInput.pressKey("ARROW_DOWN");
   else return typeText(setup, key);
+
   await settle(setup);
 }
 
@@ -164,6 +168,7 @@ export async function navCommand(setup: TestRendererSetup, key: string): Promise
   await press(setup, "escape");
   await new Promise((resolve) => setTimeout(resolve, 40));
   await settle(setup);
+
   // a single letter is a discrete keypress (nav command); named keys route through press
   if (key.length === 1) await pressKey(setup, key);
   else await press(setup, key);
@@ -280,11 +285,14 @@ async function waitForFramePredicate(
     const frame = setup.captureCharFrame();
 
     polls++;
+
     if (frame !== lastFrame) {
       frameChanges++;
       lastFrame = frame;
     }
+
     if (predicate(frame)) return frame;
+
     const now = Date.now();
 
     if (now > deadline) {
@@ -294,12 +302,14 @@ async function waitForFramePredicate(
         `waitFor ${label} timed out after ${now - start}ms (${polls} polls, ${frameChanges} frame changes${frozen}).\nlast frame:\n${frame}`,
       );
     }
+
     if (now - lastLog >= PROGRESS_LOG_MS) {
       lastLog = now;
       console.error(
         `[waitFor] still waiting for ${label} - ${now - start}ms, ${polls} polls, ${frameChanges} frame changes\n${frameTail(frame)}`,
       );
     }
+
     await yieldEventLoop();
   }
 }
@@ -320,15 +330,19 @@ export async function waitForState(
 
   for (;;) {
     if (predicate()) return;
+
     await setup.renderOnce();
     const frame = setup.captureCharFrame();
 
     polls++;
+
     if (frame !== lastFrame) {
       frameChanges++;
       lastFrame = frame;
     }
+
     if (predicate()) return;
+
     const now = Date.now();
 
     if (now > deadline) {
@@ -338,12 +352,14 @@ export async function waitForState(
         `waitForState ${label} timed out after ${now - start}ms (${polls} polls, ${frameChanges} frame changes${frozen}).\nlast frame:\n${frame}`,
       );
     }
+
     if (now - lastLog >= PROGRESS_LOG_MS) {
       lastLog = now;
       console.error(
         `[waitForState] still waiting for ${label} - ${now - start}ms, ${polls} polls, ${frameChanges} frame changes`,
       );
     }
+
     await yieldEventLoop();
   }
 }

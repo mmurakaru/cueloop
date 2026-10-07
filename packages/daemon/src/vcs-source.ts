@@ -71,6 +71,7 @@ const ExtensionModuleSchema = v.object({ default: v.function() });
 
 function readVcsToml(path: string): Partial<VcsConfig> {
   if (!existsSync(path)) return {};
+
   try {
     const parsed = v.safeParse(VcsConfigSchema, parseToml(readFileSync(path, "utf8")));
 
@@ -100,6 +101,7 @@ export class VcsSourceManager {
 
   private async adapters(): Promise<VcsAdapter[]> {
     if (!this.loaded) this.loaded = this.loadExtensions();
+
     await this.loaded;
 
     return [
@@ -131,6 +133,7 @@ export class VcsSourceManager {
       const parsed = v.safeParse(ExtensionModuleSchema, module);
 
       if (!parsed.success) throw new Error("VCS extension must export a default factory");
+
       const factory: ExtensionFactory = async (api) => {
         await parsed.output.default(api);
       };
@@ -177,6 +180,7 @@ export class VcsSourceManager {
 
       if (!selected && requested === "git" && detected.length === 0)
         return { adapter: gitVcsAdapter, repoRoot: cwd };
+
       if (!selected)
         throw new Error(
           `VCS adapter unavailable: ${requested}${this.extensionErrors.length > 0 ? ` (${this.extensionErrors.join("; ")})` : ""}`,
@@ -184,6 +188,7 @@ export class VcsSourceManager {
 
       return selected;
     }
+
     detected.sort((a, b) => {
       const rootDistance = b.repoRoot.length - a.repoRoot.length;
 
@@ -219,6 +224,7 @@ export class VcsSourceManager {
 
     if (!selected.adapter.captureChange)
       throw new Error(`VCS adapter ${provider} cannot follow a change ID`);
+
     const snapshot = v.parse(
       VcsDiffSnapshotSchema,
       await selected.adapter.captureChange(selected.repoRoot, changeId),

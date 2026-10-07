@@ -36,6 +36,7 @@ export function projectAgentTranscript(thread: Thread, state: ThreadAgentState) 
 
     display.push(...blocks);
     sources.push(...blocks.map((_, blockIndex) => ({ messageId: message.id, blockIndex })));
+
     if (message.role === "user") {
       const tools = state.tools.filter((tool) => tool.turnId === message.id);
 
@@ -176,6 +177,7 @@ export function projectThreadConversation(
         kind: "p",
         work: { kind: "p", text: "", lineStart: 0, lineEnd: 0 },
       });
+
     const offset = display.length;
     const annotation = {
       id: `mirror:${id}`,
@@ -216,6 +218,7 @@ export function projectThreadConversation(
         mirrors.set(replica.id, { commentId: reply.id });
       }
     }
+
     const localMarks = quote.trim()
       ? marksByDisplay(mirrorAnnotations, blocks)
       : new Map<number, Mark[]>([
@@ -246,6 +249,7 @@ export function projectThreadConversation(
       );
     }
     mirrors.set(annotation.id, { commentId, submissionId });
+
     if (submissionId) destinations.set(submissionId, offset);
   };
   const message = (entry: ThreadAgentState["messages"][number]): void => {
@@ -299,12 +303,14 @@ export function projectThreadConversation(
           revision: 1,
         });
       }
+
       for (const entry of state.messages.filter(
         (entry) => entry.role === "agent" && entry.submissionId === submission.id,
       ))
         message(entry);
     }
   } else for (const entry of state.messages) message(entry);
+
   const activityIndex = showActivity ? display.length : -1;
 
   if (showActivity) {
@@ -315,6 +321,7 @@ export function projectThreadConversation(
     });
     sources.push({ kind: "activity" });
   }
+
   const tailIndex = display.length;
 
   display.push({
