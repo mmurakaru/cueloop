@@ -35,7 +35,10 @@ Rules:
   packages each package may import and the number of imports a module may have;
   `bun run lint` runs `scripts/check-import-budgets.ts` and fails on a reach down
   or a module over budget. Raise a budget in that file, not by widening a layer.
-- `client` and `daemon` never import each other - they meet only at the socket protocol.
+- `client` imports the daemon's public client, protocol and review utilities;
+  session mutation still crosses the socket protocol. Daemon never imports client.
+- Package interfaces are their manifest exports, including public subpaths.
+  See [packages/README.md](./packages/README.md) before adding or importing one.
 - All session mutation goes through the daemon; the client never touches session files.
 - Renderers and panels are built-in components; the extension API exists for integrations to register exporters.
 - One planning layer per user-visible structure: blocks, layout map, and selection
@@ -46,6 +49,7 @@ Rules:
 ## commands
 
 - install deps: `bun install`
+- install architecture tooling: `bun run deps:install` (isolated from application TypeScript)
 - run from source: `bun run packages/cli/src/main.ts`
 - tests: `bun test ./packages`
 - one package: `bun test ./packages/schema`

@@ -3,7 +3,7 @@ import { expect, test } from "bun:test";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { DaemonServer } from "../../packages/daemon/src/server";
+import { DaemonServer } from "@cueloop/daemon";
 import { DaemonClient } from "../../packages/daemon/src/client";
 import { makeAnchor, parseBlocks } from "@cueloop/schema";
 import { createTestFxProvider } from "../helpers/fx-provider";

@@ -3,7 +3,7 @@ import { expect } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { DaemonServer } from "../../packages/daemon/src/server";
+import { DaemonServer } from "@cueloop/daemon";
 import { DaemonClient } from "../../packages/daemon/src/client";
 import { launchTuiSession } from "../helpers/pty-tui-session";
 import { createTestGitRepo } from "../helpers/git-repo";

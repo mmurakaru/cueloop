@@ -6,7 +6,7 @@ import { createModels, fauxProvider, fauxAssistantMessage } from "@earendil-work
 import type { ThreadAgentState } from "@cueloop/schema";
 import { createThreadHarness } from "../../packages/adapters/src/thread-harness";
 import { createFxHarness } from "../../packages/adapters/src/fx/harness";
-import { DaemonServer } from "../../packages/daemon/src/server";
+import { DaemonServer } from "@cueloop/daemon";
 import { DaemonClient } from "../../packages/daemon/src/client";
 
 function waitForTestAgent(
