@@ -1,5 +1,17 @@
 # @cueloop/adapters
 
+## 0.1.0-alpha.104
+
+### Patch Changes
+
+- [#573](https://github.com/mmurakaru/cueloop/pull/573) [`d972348`](https://github.com/mmurakaru/cueloop/commit/d9723485ebf595ce927ebf3fa4e2eb762bbe1b30) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Make new Thread model and reasoning effort defaults configurable in Settings and TOML. Prefer GPT-6.1 Sol at medium effort for pi and Grok 4.7 at medium effort for fx, and preserve restored conversation choices.
+
+  Show the harness, provider or subscription, model and supported reasoning effort in the Thread footer.
+
+- Updated dependencies [[`d972348`](https://github.com/mmurakaru/cueloop/commit/d9723485ebf595ce927ebf3fa4e2eb762bbe1b30), [`d972348`](https://github.com/mmurakaru/cueloop/commit/d9723485ebf595ce927ebf3fa4e2eb762bbe1b30), [`d972348`](https://github.com/mmurakaru/cueloop/commit/d9723485ebf595ce927ebf3fa4e2eb762bbe1b30)]:
+  - @cueloop/daemon@0.1.0-alpha.104
+  - @cueloop/schema@0.1.0-alpha.104
+
 ## 0.1.0-alpha.103
 
 ### Minor Changes
