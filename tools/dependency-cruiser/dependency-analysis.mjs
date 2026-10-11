@@ -34,8 +34,16 @@ export async function analyzeDependencySources(sources, configuration, runtimeOn
     sources,
     {
       ...configuration.options,
+      parser: runtimeOnly ? "acorn" : "tsc",
       tsPreCompilationDeps: runtimeOnly ? false : "specify",
-      ruleSet: configuration,
+      ruleSet: {
+        ...configuration,
+        forbidden: configuration.forbidden
+          .filter((rule) =>
+            runtimeOnly ? rule.name === "no-runtime-cycles" : rule.name !== "no-runtime-cycles",
+          )
+          .map((rule) => (runtimeOnly ? { ...rule, to: { circular: true } } : rule)),
+      },
       validate: true,
       outputType: "json",
     },
@@ -43,7 +51,29 @@ export async function analyzeDependencySources(sources, configuration, runtimeOn
     { tsConfig: parsed },
   );
 
-  return JSON.parse(result.output);
+  const graph = JSON.parse(result.output);
+
+  if (!runtimeOnly) {
+    // Cycle discovery must run without type edges: shorter mixed cycles can hide runtime rings.
+    const runtime = await analyzeDependencySources(sources, configuration, true);
+
+    graph.summary.violations.push(...runtime.summary.violations);
+    graph.summary.error += runtime.summary.error;
+
+    for (const violation of runtime.summary.violations) {
+      const module = graph.modules.find((entry) => entry.source === violation.from);
+      const dependency = module?.dependencies.find(
+        (entry) => entry.resolved === violation.to && !entry.preCompilationOnly,
+      );
+
+      if (dependency) {
+        dependency.valid = false;
+        dependency.rules = [...(dependency.rules ?? []), violation.rule];
+      }
+    }
+  }
+
+  return graph;
 }
 
 /** Exceptions expire when the exact verification import disappears. */

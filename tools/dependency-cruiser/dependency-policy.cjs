@@ -6,6 +6,10 @@ const ManifestSchema = v.object({
   name: v.string(),
   workspaces: v.optional(v.array(v.string())),
   exports: v.optional(v.record(v.string(), v.string())),
+  dependencies: v.optional(v.record(v.string(), v.string())),
+  peerDependencies: v.optional(v.record(v.string(), v.string())),
+  optionalDependencies: v.optional(v.record(v.string(), v.string())),
+  devDependencies: v.optional(v.record(v.string(), v.string())),
 });
 const AccessExceptionSchema = v.object({
   from: v.string(),
@@ -40,6 +44,12 @@ function discoverDependencyPackages(root) {
       return {
         name: workspace.name,
         directory,
+        dependencies: Object.keys({
+          ...workspace.dependencies,
+          ...workspace.peerDependencies,
+          ...workspace.optionalDependencies,
+        }),
+        devDependencies: Object.keys(workspace.devDependencies ?? {}),
         entryPoints: Object.values(workspace.exports ?? {}).map(
           (entry) => `${directory}/${entry.replace(/^\.\//, "")}`,
         ),
@@ -127,6 +137,23 @@ function createDependencyConfiguration(root, site = false) {
     if (!allowed) throw new Error(`Dependency policy: missing layer for ${home.name}`);
 
     const ownPath = `^${escapeDependencyPattern(home.directory)}/`;
+    const undeclared = packages.filter(
+      (target) => target.name !== home.name && !home.dependencies.includes(target.name),
+    );
+
+    for (const target of undeclared) {
+      const from = { path: ownPath };
+
+      if (home.devDependencies.includes(target.name)) from.pathNot = DEVELOPMENT_SOURCE;
+
+      forbidden.push({
+        name: `workspace-manifest-${home.name.replaceAll("@", "").replaceAll("/", "-")}-${target.name.replaceAll("@", "").replaceAll("/", "-")}`,
+        severity: "error",
+        from,
+        to: { path: `^${escapeDependencyPattern(target.directory)}/` },
+      });
+    }
+
     const deniedHomes = packages.filter(
       (target) => target.name !== home.name && !allowed.includes(target.name),
     );

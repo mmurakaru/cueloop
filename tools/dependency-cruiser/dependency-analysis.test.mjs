@@ -106,6 +106,46 @@ describe("dependency parser and public interfaces", () => {
       expect(dependencyRuleNames(await analyze())).toContain("no-runtime-cycles");
     }));
 
+  test("shorter mixed cycles cannot hide a runtime ring", () =>
+    withDependencyFixture(async (fixture, analyze) => {
+      for (const [name, next, reverse] of [
+        ["a", "b", "c"],
+        ["b", "c", "a"],
+        ["c", "a", "b"],
+      ]) {
+        fixture.write(
+          `packages/base/src/${name}.ts`,
+          `import { ${next} } from "./${next}";\nimport type { ${reverse} } from "./${reverse}";\nexport function ${name}(): typeof ${reverse} { return ${next}(); }\n`,
+        );
+      }
+
+      const graph = await analyze();
+
+      expect(graph.summary.error).toBeGreaterThan(0);
+      expect(dependencyRuleNames(graph)).toContain("no-runtime-cycles");
+    }));
+
+  test("runtime views omit every type import syntax and preserve dynamic imports", () =>
+    withDependencyFixture(async (fixture) => {
+      fixture.write(
+        "packages/consumer/src/index.ts",
+        'import type { Value } from "@fixture/base";\nexport type { Value as ClientValue } from "@fixture/base/client";\nexport type InlineValue = import("@fixture/base").Value;\nexport async function load() { return import("@fixture/base/client"); }\n',
+      );
+
+      const graph = await analyzeDependencySources(
+        ["packages", "test"],
+        policy.createDependencyConfiguration(fixture.directory),
+        true,
+      );
+      const dependencies = graph.modules.find(
+        (module) => module.source === "packages/consumer/src/index.ts",
+      ).dependencies;
+
+      expect(dependencies).toHaveLength(1);
+      expect(dependencies[0].dynamic).toBe(true);
+      expect(dependencies[0].resolved).toBe("packages/base/src/client.ts");
+    }));
+
   test("path aliases cannot bypass a private interface", () =>
     withDependencyFixture(async (fixture, analyze) => {
       fixture.json("tsconfig.json", {
@@ -120,6 +160,48 @@ describe("dependency parser and public interfaces", () => {
       fixture.write("packages/consumer/src/index.ts", 'export { value } from "private-alias";\n');
 
       expect(dependencyRuleNames(await analyze())).toContain("public-interface-fixture-base");
+    }));
+
+  test("aliases and relative imports require workspace manifest declarations", () =>
+    withDependencyFixture(async (fixture, analyze) => {
+      fixture.json("packages/consumer/package.json", {
+        name: "@fixture/consumer",
+        exports: { ".": "./src/index.ts" },
+      });
+      fixture.json("tsconfig.json", {
+        compilerOptions: {
+          module: "ESNext",
+          moduleResolution: "bundler",
+          paths: { "@fixture/base": ["./packages/base/src/index.ts"] },
+        },
+      });
+      fixture.write("packages/consumer/src/index.ts", 'export { value } from "@fixture/base";\n');
+
+      expect(dependencyRuleNames(await analyze())).toContain(
+        "workspace-manifest-fixture-consumer-fixture-base",
+      );
+
+      fixture.write(
+        "packages/consumer/src/index.ts",
+        'export { value } from "../../base/src/index";\n',
+      );
+
+      expect(dependencyRuleNames(await analyze())).toContain(
+        "workspace-manifest-fixture-consumer-fixture-base",
+      );
+
+      fixture.json("packages/consumer/package.json", {
+        name: "@fixture/consumer",
+        exports: { ".": "./src/index.ts" },
+        devDependencies: { "@fixture/base": "workspace:*" },
+      });
+      fixture.write(
+        "packages/consumer/src/index.test.ts",
+        'export { value } from "@fixture/base";\n',
+      );
+      fixture.write("packages/consumer/src/index.ts", "export const value = 1;\n");
+
+      expect((await analyze()).summary.error).toBe(0);
     }));
 
   test("production sources cannot claim verification exceptions", () =>
