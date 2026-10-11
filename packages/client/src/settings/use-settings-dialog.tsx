@@ -1,6 +1,7 @@
 import React, { useState, type Dispatch, type SetStateAction } from "react";
 import {
   DEFAULT_QUICK_ACTIONS,
+  persistThreadModelDefault,
   persistActions,
   persistAutoClose,
   persistDiffView,
@@ -18,6 +19,12 @@ import {
   type Appearance,
   type ThemeName,
 } from "../appearance/theme-presets";
+import {
+  AGENT_REASONING_EFFORTS,
+  type ThreadModelDefaults,
+  type AgentReasoningEffort,
+} from "@cueloop/schema";
+import { PromptDialog } from "../ui/components/PromptDialog";
 import type { Theme } from "../appearance/theme";
 import type { SettingsCategory } from "./components/SettingsDialog";
 import { QuickActionsEditor } from "./components/quick-actions-editor";
@@ -78,6 +85,8 @@ function moveBodyRow(name: string, nav: SettingsNav, rowCount: number): Settings
 }
 
 export function useSettingsDialog(params: {
+  threadDefaults: Record<"pi" | "fx", ThreadModelDefaults>;
+  setThreadDefaults: Dispatch<SetStateAction<Record<"pi" | "fx", ThreadModelDefaults>>>;
   theme: Theme;
   appearance: Appearance;
   autoClose: AutoClose;
@@ -127,6 +136,22 @@ export function useSettingsDialog(params: {
     canSwitchHarness,
     onSwitchHarness,
   } = params;
+
+  const { threadDefaults, setThreadDefaults } = params;
+  const [modelEditor, setModelEditor] = useState<{ harness: "pi" | "fx"; text: string } | null>(
+    null,
+  );
+
+  const saveModelDefault = (): void => {
+    if (!modelEditor?.text.trim()) return;
+
+    const { harness, text } = modelEditor;
+    const model = text.trim();
+
+    persistThreadModelDefault(harness, "model", model);
+    setThreadDefaults((defaults) => ({ ...defaults, [harness]: { ...defaults[harness], model } }));
+    setModelEditor(null);
+  };
 
   // open focused on the left nav, so up/down browses categories until l/tab/enter enters the body
   const [settingsNav, setSettingsNav] = useState<SettingsNav>({
@@ -237,7 +262,33 @@ export function useSettingsDialog(params: {
                 kind: "cycle" as const,
                 options: ["pi", "fx"],
               },
+              { key: "piModel", label: "pi default model", kind: "text" as const },
+              {
+                key: "piEffort",
+                label: "pi default effort",
+                kind: "cycle" as const,
+                options: [...AGENT_REASONING_EFFORTS],
+              },
+              { key: "fxModel", label: "fx default model", kind: "text" as const },
+              {
+                key: "fxEffort",
+                label: "fx default effort",
+                kind: "cycle" as const,
+                options: [...AGENT_REASONING_EFFORTS],
+              },
             ],
+            customBody: modelEditor ? (
+              <PromptDialog
+                isOpen
+                title=" Default model for new Threads "
+                label={`${modelEditor.harness} model (provider/model)`}
+                value={modelEditor.text}
+                onInput={(text) => setModelEditor({ ...modelEditor, text })}
+                onSave={saveModelDefault}
+                onCancel={() => setModelEditor(null)}
+                theme={theme}
+              />
+            ) : undefined,
           },
         ]
       : []),
@@ -280,9 +331,28 @@ export function useSettingsDialog(params: {
     reviewSkill,
     reviewWorkspace,
     threadHarness: threadHarness ?? "pi",
+    piModel: threadDefaults.pi.model.replace(/^[^/]+\//, ""),
+    piEffort: threadDefaults.pi.effort,
+    fxModel: threadDefaults.fx.model.replace(/^[^/]+\//, ""),
+    fxEffort: threadDefaults.fx.effort,
   };
   const cycleSetting = (rowKey: string): void => {
-    if (rowKey === "threadHarness") {
+    if (rowKey === "piModel" || rowKey === "fxModel") {
+      const harness = rowKey === "piModel" ? "pi" : "fx";
+
+      setModelEditor({ harness, text: threadDefaults[harness].model });
+    } else if (rowKey === "piEffort" || rowKey === "fxEffort") {
+      const harness = rowKey === "piEffort" ? "pi" : "fx";
+      const efforts = AGENT_REASONING_EFFORTS;
+      const effort: AgentReasoningEffort =
+        efforts[(efforts.indexOf(threadDefaults[harness].effort) + 1) % efforts.length]!;
+
+      persistThreadModelDefault(harness, "effort", effort);
+      setThreadDefaults((defaults) => ({
+        ...defaults,
+        [harness]: { ...defaults[harness], effort },
+      }));
+    } else if (rowKey === "threadHarness") {
       onSwitchHarness?.(threadHarness === "fx" ? "pi" : "fx");
     } else if (rowKey === "autoClose") {
       const next: AutoClose = autoClose === "off" ? 3 : autoClose === 3 ? 10 : "off";
@@ -327,6 +397,13 @@ export function useSettingsDialog(params: {
   };
 
   const handleSettingsKey = (name: string): void => {
+    if (modelEditor) {
+      if (name === "escape") setModelEditor(null);
+      else if (name === "return") saveModelDefault();
+
+      return;
+    }
+
     // an open system-prompt input owns typing; only esc (close it) escapes here
     if (actionsExpandedIndex !== null) {
       if (name === "escape") setActionsExpandedIndex(null);

@@ -15,7 +15,10 @@ import type {
   AgentHarnessOptions,
   AgentHarnessTools,
   AgentHarnessResult,
+  ThreadModelDefaults,
+  AgentConfigOption,
 } from "@cueloop/schema";
+import { THREAD_MODEL_DEFAULTS } from "@cueloop/schema";
 import { FxAcpConnection, type FxAcpFrame } from "./acp";
 import { FxLegacyStartupMessages } from "./startup-messages";
 
@@ -72,6 +75,7 @@ const PermissionSchema = v.object({
 export interface FxHarnessOptions {
   command?: string[];
   env?: NodeJS.ProcessEnv;
+  defaults?: (cwd: string) => ThreadModelDefaults;
 }
 
 /** Adapt fx ACP to provider-neutral message, tool, and permission events. */
@@ -100,7 +104,7 @@ class FxHarnessConnection implements AgentHarnessConnection {
   private permissionId?: number | string;
 
   constructor(
-    config: FxHarnessOptions,
+    private readonly config: FxHarnessOptions,
     private readonly options: AgentHarnessOptions,
   ) {
     this.sessionId = options.sessionId;
@@ -160,7 +164,9 @@ class FxHarnessConnection implements AgentHarnessConnection {
       );
 
       this.sessionId = result.sessionId;
-      this.options.onEvent({ kind: "config", options: result.configOptions ?? [] });
+      const options = await this.applySessionDefaults(result.configOptions ?? []);
+
+      this.options.onEvent({ kind: "config", options });
     }
 
     await this.connection.request(
@@ -171,6 +177,45 @@ class FxHarnessConnection implements AgentHarnessConnection {
     this.loading = false;
 
     return this.sessionId;
+  }
+
+  private async applySessionDefaults(options: AgentConfigOption[]): Promise<AgentConfigOption[]> {
+    if (!options.some((option) => option.id === "model")) return options;
+
+    const defaults = this.config.defaults?.(this.options.cwd) ?? THREAD_MODEL_DEFAULTS.fx;
+    const separator = defaults.model.indexOf("/");
+    const choices =
+      separator < 0
+        ? [
+            ["model", defaults.model],
+            ["effort", defaults.effort],
+          ]
+        : [
+            ["provider", defaults.model.slice(0, separator)],
+            ["model", defaults.model.slice(separator + 1)],
+            ["effort", defaults.effort],
+          ];
+
+    for (const [id, value] of choices) {
+      const option = options.find((option) => option.id === id);
+
+      if (!option) continue;
+
+      if (!option.options.some((choice) => choice.value === value))
+        throw new Error(`Fx Thread default ${id} is unavailable: ${value}`);
+
+      if (option.currentValue === value) continue;
+
+      const result = await this.connection.request(
+        "session/set_config_option",
+        { sessionId: this.sessionId!, configId: id!, value: value! },
+        ConfigResultSchema,
+      );
+
+      options = result.configOptions ?? [];
+    }
+
+    return options;
   }
 
   async prompt(text: string): Promise<AgentHarnessResult> {

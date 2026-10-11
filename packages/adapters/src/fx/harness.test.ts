@@ -260,3 +260,49 @@ test("switching to structured notices flushes a pending legacy prefix before its
     "[context] skill catalog shortened this is an answer",
   );
 });
+
+test("new fx sessions apply provider, model and effort defaults while loads preserve choices", async () => {
+  const home = mkdtempSync(join(tmpdir(), "cueloop-fx-model-defaults-"));
+  const log = join(home, "configuration.jsonl");
+  const events: import("@cueloop/schema").AgentHarnessEvent[] = [];
+  const adapter = createFxHarness({
+    command: [process.execPath, join(import.meta.dirname, "testing/fake-acp.ts")],
+    env: { ...process.env, CUELOOP_TEST_CONFIG_OPTIONS: "1", CUELOOP_TEST_CONFIG_LOG: log },
+  });
+  const options = {
+    cwd: home,
+    onEvent: (event: import("@cueloop/schema").AgentHarnessEvent) => events.push(event),
+    onExit() {},
+  };
+  let connection = adapter.connect(options);
+
+  homes.push(home);
+
+  try {
+    const sessionId = await connection.start();
+    const configured = readFileSync(log, "utf8");
+
+    expect(
+      configured
+        .trim()
+        .split("\n")
+        .map((line) => JSON.parse(line)),
+    ).toEqual([
+      { id: "provider", value: "grok" },
+      { id: "model", value: "grok-4.7" },
+      { id: "effort", value: "medium" },
+    ]);
+    expect(events.findLast((event) => event.kind === "config")).toMatchObject({
+      options: expect.arrayContaining([
+        expect.objectContaining({ id: "model", currentValue: "grok-4.7" }),
+        expect.objectContaining({ id: "effort", currentValue: "medium" }),
+      ]),
+    });
+    await connection.close();
+    connection = adapter.connect({ ...options, sessionId });
+    await connection.start();
+    expect(readFileSync(log, "utf8")).toBe(configured);
+  } finally {
+    await connection.close();
+  }
+});

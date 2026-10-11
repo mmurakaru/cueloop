@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -12,6 +12,7 @@ import {
   persistLayout,
   persistPins,
   persistReviewSkill,
+  persistThreadModelDefault,
   persistReviewWorkspace,
   persistTheme,
   quickActionBody,
@@ -713,5 +714,41 @@ test("a malformed Thread section does not discard other preferences", () => {
     }
   } finally {
     rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("Thread model defaults layer independently and persistence stays in the selected table", () => {
+  const directory = mkdtempSync(join(tmpdir(), "cueloop-model-defaults-"));
+  const user = join(directory, "user.toml");
+  const repository = join(directory, "repo");
+
+  try {
+    const defaults = loadConfig({ userConfigPath: user }).thread;
+
+    expect(defaults.pi).toEqual({ model: "openai-codex/gpt-6.1-sol", effort: "medium" });
+    expect(defaults.fx).toEqual({ model: "grok/grok-4.7", effort: "medium" });
+    writeFileSync(
+      user,
+      '[thread.pi]\nmodel = "openai-codex/custom"\neffort = "high"\n\n[thread.fx]\nmodel = "grok/custom"\neffort = "low"\n',
+    );
+    persistThreadModelDefault("pi", "effort", "medium", user);
+    persistThreadModelDefault("fx", "model", "grok/grok-4.7", user);
+
+    const config = loadConfig({ userConfigPath: user });
+
+    expect(config.thread.pi).toEqual({ model: "openai-codex/custom", effort: "medium" });
+    expect(config.thread.fx).toEqual({ model: "grok/grok-4.7", effort: "low" });
+    mkdirSync(join(repository, ".cueloop"), { recursive: true });
+    writeFileSync(
+      join(repository, ".cueloop/config.toml"),
+      '[thread.pi]\neffort = "high"\n[thread.fx]\nmodel = " "\neffort = "invalid"\n',
+    );
+
+    const layered = loadConfig({ userConfigPath: user, repoRoot: repository });
+
+    expect(layered.thread.pi).toEqual({ model: "openai-codex/custom", effort: "high" });
+    expect(layered.thread.fx).toEqual(config.thread.fx);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
   }
 });

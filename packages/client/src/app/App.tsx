@@ -1,3 +1,4 @@
+import { THREAD_MODEL_DEFAULTS } from "@cueloop/schema";
 import { useThreadHarnessSetting } from "../settings/use-thread-harness-setting";
 import React, {
   useCallback,
@@ -686,6 +687,7 @@ export function App({
   const [identity, setIdentity] = useState<IdentityConfig>({ provider: "typed" });
   const [quickActions, setQuickActions] = useState<QuickAction[]>(DEFAULT_QUICK_ACTIONS);
   const [skills, setSkills] = useState<SlashItem[]>([]);
+  const [threadModelDefaults, setThreadModelDefaults] = useState(THREAD_MODEL_DEFAULTS);
   const [reviewSkill, setReviewSkill] = useState("code-review");
   const [reviewWorkspace, setReviewWorkspace] = useState<ReviewWorkspaceMode>("worktree");
   const paletteNames = useMemo(
@@ -702,6 +704,7 @@ export function App({
     setPrototypePixels(config.experimental.prototypePixels);
     setThreadAgentEnabled(config.experimental.threadAgent);
     setThreadHarness(config.thread.harness);
+    setThreadModelDefaults({ pi: config.thread.pi, fx: config.thread.fx });
     keysRef.current = config.keys;
     keyBindings.setKeys(config.keys);
     setTheme(composeTheme(config.ui.theme, config.themeOverrides, appearance));
@@ -798,6 +801,8 @@ export function App({
     onCategorySelect,
     openSettings,
   } = useSettingsDialog({
+    threadDefaults: threadModelDefaults,
+    setThreadDefaults: setThreadModelDefaults,
     theme,
     appearance,
     autoClose,

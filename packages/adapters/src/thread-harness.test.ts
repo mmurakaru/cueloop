@@ -282,3 +282,74 @@ test("cancelling while the dispatch checkpoint is committing prevents native exe
     rmSync(home, { recursive: true, force: true });
   }
 });
+
+test("new Pi conversations choose the configured model and medium effort instead of catalog order", async () => {
+  const home = mkdtempSync(join(tmpdir(), "cueloop-pi-default-model-"));
+  const models = createModels();
+  const provider = fauxProvider({
+    provider: "openai-codex",
+    models: [{ id: "gpt-5.3-codex-spark" }, { id: "gpt-6.1-sol", reasoning: true }],
+  });
+  const requests: { model: string; effort?: string }[] = [];
+
+  models.setProvider(provider.provider);
+  provider.setResponses([
+    (_context, options, _state, model) => {
+      requests.push({ model: model.id, effort: options?.reasoning });
+
+      return fauxAssistantMessage("Hello");
+    },
+    (_context, options, _state, model) => {
+      requests.push({ model: model.id, effort: options?.reasoning });
+
+      return fauxAssistantMessage("Continued");
+    },
+  ]);
+  const options = { cwd: home, onEvent() {}, onExit() {} };
+  let connection = createThreadHarness({
+    home,
+    models,
+    defaults: () => ({ model: "openai-codex/gpt-6.1-sol", effort: "medium" }),
+  }).connect(options);
+
+  try {
+    const sessionId = await connection.start();
+
+    await connection.prompt("Hello", "default-model");
+    await connection.close();
+    connection = createThreadHarness({
+      home,
+      models,
+      defaults: () => ({ model: "openai-codex/gpt-5.3-codex-spark", effort: "high" }),
+    }).connect({ ...options, sessionId });
+    await connection.start();
+    await connection.prompt("Continue", "saved-model");
+    expect(requests).toEqual([
+      { model: "gpt-6.1-sol", effort: "medium" },
+      { model: "gpt-6.1-sol", effort: "medium" },
+    ]);
+  } finally {
+    await connection.close();
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("an unavailable configured Pi default fails explicitly instead of choosing the first model", async () => {
+  const home = mkdtempSync(join(tmpdir(), "cueloop-pi-unavailable-model-"));
+  const models = createModels();
+  const provider = fauxProvider();
+
+  models.setProvider(provider.provider);
+  const connection = createThreadHarness({
+    home,
+    models,
+    defaults: () => ({ model: "openai-codex/gpt-6.1-sol", effort: "medium" }),
+  }).connect({ cwd: home, onEvent() {}, onExit() {} });
+
+  try {
+    await expect(connection.start()).rejects.toThrow("Thread default model is not available");
+  } finally {
+    await connection.close();
+    rmSync(home, { recursive: true, force: true });
+  }
+});

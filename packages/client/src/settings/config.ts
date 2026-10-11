@@ -9,7 +9,13 @@ import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { OBSIDIAN_DEFAULTS, type ObsidianConfig } from "@cueloop/integration-obsidian";
-import { MESSAGE_OUTCOMES, type MessageOutcome } from "@cueloop/schema";
+import {
+  AGENT_REASONING_EFFORTS,
+  THREAD_MODEL_DEFAULTS,
+  type ThreadModelDefaults,
+  MESSAGE_OUTCOMES,
+  type MessageOutcome,
+} from "@cueloop/schema";
 import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import * as v from "valibot";
@@ -128,7 +134,7 @@ export interface CueloopConfig {
   actions: QuickAction[];
   skillsPath: string;
   review: ReviewConfig;
-  thread: { harness: "pi" | "fx" };
+  thread: { harness: "pi" | "fx"; pi: ThreadModelDefaults; fx: ThreadModelDefaults };
   integrations: IntegrationsConfig;
   experimental: ExperimentalConfig;
 }
@@ -180,6 +186,11 @@ function skillsPathFrom(
   return raw?.path?.trim() ? raw.path.trim() : fallback;
 }
 
+const ThreadModelDefaultsSchema = v.object({
+  model: v.fallback(v.optional(v.pipe(v.string(), v.trim(), v.minLength(1))), undefined),
+  effort: v.fallback(v.optional(v.picklist(AGENT_REASONING_EFFORTS)), undefined),
+});
+
 const ConfigDocumentSchema = v.object({
   actions: v.optional(v.array(v.unknown())),
   authors: v.optional(v.unknown()),
@@ -192,7 +203,13 @@ const ConfigDocumentSchema = v.object({
   skills: v.fallback(v.optional(SkillsSectionSchema), undefined),
   review: v.optional(v.unknown()),
   thread: v.fallback(
-    v.optional(v.object({ harness: v.fallback(v.optional(v.picklist(["pi", "fx"])), undefined) })),
+    v.optional(
+      v.object({
+        harness: v.fallback(v.optional(v.picklist(["pi", "fx"])), undefined),
+        pi: v.fallback(v.optional(ThreadModelDefaultsSchema), undefined),
+        fx: v.fallback(v.optional(ThreadModelDefaultsSchema), undefined),
+      }),
+    ),
     undefined,
   ),
 });
@@ -324,6 +341,21 @@ function applyReview(review: ReviewConfig, parsed: v.InferOutput<typeof ReviewSc
   if (parsed.workspace !== undefined) review.workspace = parsed.workspace;
 }
 
+function applyThreadDefaults(
+  thread: CueloopConfig["thread"],
+  parsed: v.InferOutput<typeof ConfigDocumentSchema>["thread"],
+): void {
+  if (parsed?.harness) thread.harness = parsed.harness;
+
+  for (const harness of ["pi", "fx"] as const) {
+    const defaults = parsed?.[harness];
+
+    if (defaults?.model) thread[harness].model = defaults.model;
+
+    if (defaults?.effort) thread[harness].effort = defaults.effort;
+  }
+}
+
 function layer(
   base: CueloopConfig,
   raw: v.InferOutput<typeof ConfigDocumentSchema>,
@@ -339,7 +371,7 @@ function layer(
     actions: [...base.actions],
     skillsPath: base.skillsPath,
     review: { ...base.review },
-    thread: { ...base.thread },
+    thread: { ...base.thread, pi: { ...base.thread.pi }, fx: { ...base.thread.fx } },
     integrations: { obsidian: { ...base.integrations.obsidian } },
     experimental: { ...base.experimental },
   };
@@ -390,7 +422,7 @@ function layer(
 
   if (review.success) applyReview(out.review, review.output);
 
-  if (raw.thread?.harness) out.thread.harness = raw.thread.harness;
+  applyThreadDefaults(out.thread, raw.thread);
 
   return out;
 }
@@ -414,7 +446,11 @@ export function loadConfig(
     actions: [...DEFAULT_QUICK_ACTIONS],
     skillsPath: join(homedir(), ".agents", "skills"),
     review: { skill: "code-review", workspace: "worktree" },
-    thread: { harness: "pi" },
+    thread: {
+      harness: "pi",
+      pi: { ...THREAD_MODEL_DEFAULTS.pi },
+      fx: { ...THREAD_MODEL_DEFAULTS.fx },
+    },
     integrations: { obsidian: { ...OBSIDIAN_DEFAULTS } },
     experimental: { prototypePixels: false, threadAgent: false },
   };
@@ -669,4 +705,14 @@ function applyExperimental(
 /** The preferred harness affects new Threads; existing Threads require a handoff. */
 export function persistThreadHarness(harness: "pi" | "fx", userConfigPath?: string): void {
   persistTableSetting("thread", "harness", tomlString(harness), userConfigPath);
+}
+
+/** Persist one harness's new-Thread defaults without altering other TOML tables. */
+export function persistThreadModelDefault(
+  harness: "pi" | "fx",
+  key: keyof ThreadModelDefaults,
+  value: string,
+  userConfigPath?: string,
+): void {
+  persistTableSetting(`thread.${harness}`, key, tomlString(value), userConfigPath);
 }

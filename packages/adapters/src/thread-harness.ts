@@ -28,10 +28,12 @@ import { openNodeJsonlStorage } from "@earendil-works/pi-durable/storage/jsonl/n
 import { createReadTool } from "@earendil-works/pi-durable/tools";
 import type {
   AgentHarnessAdapter,
+  ThreadModelDefaults,
   AgentHarnessOptions,
   AgentHarnessConnection,
   AgentHarnessResult,
 } from "@cueloop/schema";
+import { THREAD_MODEL_DEFAULTS } from "@cueloop/schema";
 import { PiAnswerProjection } from "./pi/answer-projection";
 import { ownerCredentialStore } from "./pi/owner-credentials";
 
@@ -39,6 +41,7 @@ export interface ThreadHarnessOptions {
   backend?: AgentHarnessAdapter;
   home: string;
   models?: Models;
+  defaults?: (cwd: string) => ThreadModelDefaults;
   registry?: () => ReturnType<typeof createRegistry>;
   credentialsPath?: string;
   sourceCredentialsPath?: string;
@@ -202,13 +205,7 @@ class ThreadHarnessConnection implements AgentHarnessConnection {
       return this.sessionId;
     }
 
-    const available = await this.models.getAvailable();
-    const current = (await this.conversation.agent(context)).model;
-    const selected =
-      current ??
-      (available[0] ? { provider: available[0].provider, modelId: available[0].id } : undefined);
-
-    if (selected && !current) await this.conversation.configure({ model: selected }, context);
+    const { available, selected } = await this.configureInitialModel();
 
     if (this.closing) throw new Error("Pi conversation is closed");
 
@@ -229,6 +226,30 @@ class ThreadHarnessConnection implements AgentHarnessConnection {
     });
 
     return this.sessionId;
+  }
+
+  private async configureInitialModel() {
+    const available = await this.models.getAvailable();
+    const current = (await this.conversation!.agent(context)).model;
+    const defaults = this.config.defaults?.(this.options.cwd) ?? THREAD_MODEL_DEFAULTS.pi;
+    const preferred = available.find((model) => `${model.provider}/${model.id}` === defaults.model);
+    const initial =
+      preferred ?? (this.config.models && !this.config.defaults ? available[0] : undefined);
+    const selected =
+      current ?? (initial ? { provider: initial.provider, modelId: initial.id } : undefined);
+
+    if (!current && !selected && available.length)
+      throw new Error(
+        `Thread default model is not available to the owner account: ${defaults.model}`,
+      );
+
+    if (selected && !current)
+      await this.conversation!.configure(
+        { model: selected, thinkingLevel: defaults.effort },
+        context,
+      );
+
+    return { available, selected };
   }
 
   async configure(id: string, value: string): Promise<void> {
