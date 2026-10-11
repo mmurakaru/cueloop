@@ -49,6 +49,7 @@ import {
   collaboratorAnnotations,
   mergeFromShare,
   publishShare,
+  snapshotThreadConversation,
   pullShare,
   pushShare,
   revokeShare,
@@ -1764,12 +1765,13 @@ class Controller implements ReviewController {
   }
 
   /** A workbench thread renders live locally; freeze its diff so a remote reviewer gets a stable snapshot. */
-  private freezeForShare(session: Thread): Promise<Thread> {
+  private async freezeForShare(session: Thread): Promise<Thread> {
     const repoDiff = this.client?.repoDiff;
+    const shared = repoDiff
+      ? await snapshotWorkbench(session, (root, vcs) => repoDiff.call(this.client, root, vcs))
+      : session;
 
-    return repoDiff
-      ? snapshotWorkbench(session, (root, vcs) => repoDiff.call(this.client, root, vcs))
-      : Promise.resolve(session);
+    return this.client ? snapshotThreadConversation(shared, this.client) : shared;
   }
 
   share(): void {

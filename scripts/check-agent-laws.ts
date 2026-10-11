@@ -11,12 +11,12 @@ import {
   type AgentTurnEvent,
 } from "../packages/daemon/src/agent-turn";
 
-import { agentInputTarget } from "../packages/schema/src/agent-input";
+import { agentInputTarget } from "@cueloop/schema";
 import {
   stepAgentSubmission,
   type AgentSubmissionStatus,
   type AgentSubmissionEvent,
-} from "../packages/schema/src/agent-submission";
+} from "@cueloop/schema";
 
 const proofArgs = process.env.CUELOOP_BEND_VERDICT === "0" ? [] : ["--verdict"];
 const bend = process.env.BEND_BIN ?? "bend";

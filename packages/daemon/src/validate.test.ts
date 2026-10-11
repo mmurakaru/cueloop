@@ -293,6 +293,13 @@ describe("wire pins", () => {
     handle: "abc",
   };
   const fullSession: Required<Thread> = {
+    agentSnapshot: {
+      threadId: "ses_1",
+      phase: { kind: "idle" },
+      messages: [],
+      comments: [],
+      tools: [],
+    },
     schemaVersion: SCHEMA_VERSION,
     id: "ses_1",
     workspace: fullWorkspace,

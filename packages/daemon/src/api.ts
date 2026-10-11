@@ -32,7 +32,6 @@ import {
   isBlockCut,
   restoreBlock,
   switchBranch,
-  messageAllows,
   type Annotation,
   type DiffFileStatus,
   type DiffFileContents,
@@ -73,6 +72,8 @@ import { listProjectFiles, readProjectFile } from "./project-files";
 import { resolveWorkspace } from "./thread-review";
 import { VcsSourceManager } from "./vcs-source";
 import { DaemonError } from "./errors";
+
+export { messageResponse } from "./thread-review";
 
 /** Reviewer-controlled fields that make an annotation new or edited for delivery. */
 function annotationDeliveryFingerprint(annotation: Annotation | undefined): string {
@@ -1589,11 +1590,4 @@ function isPrReviewSession(session: Thread): boolean {
     session.artifact.type === "diff" &&
     session.artifact.meta.pr !== undefined
   );
-}
-
-/** Convenience for adapters: map a resolved session to the agent contract. */
-export function messageResponse(session: Thread) {
-  if (!session.message) throw new DaemonError("pending", "session has no message");
-
-  return { allow: messageAllows(session.message.outcome), message: session.message };
 }

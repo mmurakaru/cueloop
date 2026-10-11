@@ -1,5 +1,6 @@
 import {
   isMarkdownArtifact,
+  messageAllows,
   newAnnotationId,
   type Annotation,
   type Artifact,
@@ -12,13 +13,16 @@ import {
 } from "@cueloop/schema";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { messageResponse } from "./api";
+import { DaemonError } from "./errors";
 import { ABORTED, pollUntilResolved, raceAbort } from "./interruptible-wait";
 import { VcsSourceManager } from "./vcs-source";
 
-// Adapters and CLI primitives reach the message mapping through this module too,
-// so a session obtained outside a ReviewHandle maps the same way.
-export { messageResponse };
+/** Map a resolved session to the agent message contract. */
+export function messageResponse(session: Thread) {
+  if (!session.message) throw new DaemonError("pending", "session has no message");
+
+  return { allow: messageAllows(session.message.outcome), message: session.message };
+}
 
 async function git(args: string[], cwd: string): Promise<string | null> {
   try {

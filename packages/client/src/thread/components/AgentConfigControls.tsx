@@ -18,10 +18,12 @@ export function AgentConfigControls({
 }): React.ReactNode {
   return (
     <box style={{ flexDirection: "row", gap: 2, marginRight: 2 }}>
+      {state.harness ? <text fg={theme.textMuted}>{state.harness.label}</text> : null}
       {state.configOptions
         ?.filter(
           (option) =>
             option.category === "thought_level" ||
+            option.id === "effort" ||
             option.id === "model" ||
             option.id === "provider",
         )
@@ -104,7 +106,11 @@ function AgentConfigMenu({
   return (
     <box
       ref={ref}
-      onMouseUp={disabled ? undefined : () => menu.toggleMenu(`agent-config:${option.id}`)}
+      onMouseUp={
+        disabled || option.options.length < 2
+          ? undefined
+          : () => menu.toggleMenu(`agent-config:${option.id}`)
+      }
     >
       <text fg={disabled ? theme.textDim : theme.textMuted}>
         {option.options.find((choice) => choice.value === option.currentValue)?.name ??

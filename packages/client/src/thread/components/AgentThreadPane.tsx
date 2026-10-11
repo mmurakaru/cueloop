@@ -398,6 +398,55 @@ export function AgentThreadPane(props: AgentThreadPaneProps): React.ReactNode {
 export function AgentThreadPrototype(
   props: AgentThreadPaneProps & { enabled: boolean; observer: boolean; pixelPrototype: boolean },
 ): React.ReactNode {
+  if (
+    (!props.enabled || props.observer) &&
+    props.thread.agentSnapshot &&
+    React.isValidElement<ThreadViewProps>(props.children) &&
+    props.children.type === ThreadView
+  ) {
+    const child = props.children.props;
+    const display =
+      child.display ??
+      buildDisplay(
+        props.thread.artifact.type === "diff"
+          ? (props.thread.artifact.meta.prBrief ?? "")
+          : (props.thread.workingCopy ?? props.thread.artifact.content),
+      );
+    const projection = projectThreadConversation(
+      props.thread,
+      props.thread.agentSnapshot,
+      display,
+      child.marks ?? marksByDisplay(props.thread.annotations, display),
+      false,
+    );
+
+    return (
+      <ThreadView
+        {...child}
+        session={projection.session}
+        display={projection.display}
+        marks={projection.marks}
+        canAnnotateBlock={(index) =>
+          projection.sources[index]?.kind === "artifact" &&
+          (child.canAnnotateBlock?.(index) ?? true)
+        }
+        isAnnotationReadOnly={(id) =>
+          !props.thread.annotations.some((entry) => entry.id === id) ||
+          Boolean(child.isAnnotationReadOnly?.(id))
+        }
+        onAnnotate={(span, body) => {
+          if (
+            projection.sources[span.start.blockIndex]?.kind !== "artifact" ||
+            projection.sources[span.end.blockIndex]?.kind !== "artifact"
+          )
+            return;
+
+          return child.onAnnotate(span, body);
+        }}
+      />
+    );
+  }
+
   if (!props.enabled || props.observer || props.pixelPrototype) return props.children;
 
   return <AgentThreadPane {...props} />;

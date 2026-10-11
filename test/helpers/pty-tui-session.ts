@@ -230,6 +230,26 @@ function offlineBinDirectory(home: string): string {
 /** What the stub `ssh` prints to stderr; share failure toasts quote it. */
 export const OFFLINE_SSH_MESSAGE = "test: network disabled";
 
+/** PTY click coordinates count terminal cells, including wide-glyph continuations, not UTF-16 indices. */
+export function ptyCellColumnForTextOffset(
+  cells: readonly (Pick<GhosttyCell, "codepoint" | "width"> | null)[],
+  offset: number,
+): number {
+  let textOffset = 0;
+
+  for (const [column, cell] of cells.entries()) {
+    if (!cell || cell.width === 2) continue;
+
+    const text = cell.codepoint === 0 ? " " : String.fromCodePoint(cell.codepoint);
+
+    if (textOffset + text.length > offset) return column;
+
+    textOffset += text.length;
+  }
+
+  throw new Error(`PTY text offset is outside the terminal row: ${offset}`);
+}
+
 /** A live TUI in a PTY with a Ghostty screen behind it. Always `close()` it in `afterAll`. */
 export class PtyTuiSession implements PtyScreenReader {
   captureTerminalFrames = false;
@@ -344,7 +364,10 @@ export class PtyTuiSession implements PtyScreenReader {
       throw new Error(`PTY text "${needle}" is not on screen:\n${screen}`);
     }
 
-    return location;
+    return {
+      ...location,
+      column: ptyCellColumnForTextOffset(this.cells(location.row), location.column),
+    };
   }
 
   /** Left-click the first on-screen occurrence of `needle` (SGR 1006 mouse encoding). */

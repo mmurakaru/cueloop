@@ -6,7 +6,12 @@ import { join } from "node:path";
 import { homedir } from "node:os";
 import * as v from "valibot";
 import type { Context } from "@earendil-works/chord";
-import { Type, type Models } from "@earendil-works/pi-ai";
+import {
+  Type,
+  getSupportedThinkingLevels,
+  clampThinkingLevel,
+  type Models,
+} from "@earendil-works/pi-ai";
 import { builtinModels } from "@earendil-works/pi-ai/providers/all";
 import { registerBunOAuthFlows } from "@earendil-works/pi-ai/bun-oauth";
 import {
@@ -28,10 +33,12 @@ import { openNodeJsonlStorage } from "@earendil-works/pi-durable/storage/jsonl/n
 import { createReadTool } from "@earendil-works/pi-durable/tools";
 import type {
   AgentHarnessAdapter,
+  ThreadModelDefaults,
   AgentHarnessOptions,
   AgentHarnessConnection,
   AgentHarnessResult,
 } from "@cueloop/schema";
+import { THREAD_MODEL_DEFAULTS } from "@cueloop/schema";
 import { PiAnswerProjection } from "./pi/answer-projection";
 import { ownerCredentialStore } from "./pi/owner-credentials";
 
@@ -39,6 +46,7 @@ export interface ThreadHarnessOptions {
   backend?: AgentHarnessAdapter;
   home: string;
   models?: Models;
+  defaults?: (cwd: string) => ThreadModelDefaults;
   registry?: () => ReturnType<typeof createRegistry>;
   credentialsPath?: string;
   sourceCredentialsPath?: string;
@@ -202,65 +210,121 @@ class ThreadHarnessConnection implements AgentHarnessConnection {
       return this.sessionId;
     }
 
-    const available = await this.models.getAvailable();
-    const current = (await this.conversation.agent(context)).model;
-    const selected =
-      current ??
-      (available[0] ? { provider: available[0].provider, modelId: available[0].id } : undefined);
-
-    if (selected && !current) await this.conversation.configure({ model: selected }, context);
+    await this.configureInitialModel();
 
     if (this.closing) throw new Error("Pi conversation is closed");
+
+    await this.publishConfiguration();
+
+    return this.sessionId;
+  }
+
+  private async configureInitialModel() {
+    const available = await this.models.getAvailable();
+    const current = (await this.conversation!.agent(context)).model;
+    const defaults = this.config.defaults?.(this.options.cwd) ?? THREAD_MODEL_DEFAULTS.pi;
+    const preferred = available.find((model) => `${model.provider}/${model.id}` === defaults.model);
+    const initial =
+      preferred ?? (this.config.models && !this.config.defaults ? available[0] : undefined);
+    const selected =
+      current ?? (initial ? { provider: initial.provider, modelId: initial.id } : undefined);
+
+    if (!current && !selected && available.length)
+      throw new Error(
+        `Thread default model is not available to the owner account: ${defaults.model}`,
+      );
+
+    if (selected && !current)
+      await this.conversation!.configure(
+        { model: selected, thinkingLevel: defaults.effort },
+        context,
+      );
+
+    return { available, selected };
+  }
+
+  private async publishConfiguration(): Promise<void> {
+    const available = await this.models.getAvailable();
+    const agent = await this.conversation!.agent(context);
+    const selected = available.find(
+      (model) => model.provider === agent.model?.provider && model.id === agent.model.modelId,
+    );
+    const provider = agent.model?.provider ?? "";
+    const providerName =
+      provider === "openai-codex"
+        ? "Codex subscription"
+        : (this.models.getProvider(provider)?.name ?? provider);
+    const levels = selected ? getSupportedThinkingLevels(selected) : [];
 
     this.options.onEvent({
       kind: "config",
       options: [
         {
+          id: "provider",
+          name: "Provider",
+          category: "model",
+          currentValue: provider,
+          options: [{ value: provider, name: providerName }],
+        },
+        {
           id: "model",
           name: "Model",
           category: "model",
-          currentValue: selected ? `${selected.provider}/${selected.modelId}` : "",
+          currentValue: agent.model ? `${provider}/${agent.model.modelId}` : "",
           options: available.map((model) => ({
             value: `${model.provider}/${model.id}`,
             name: model.name,
           })),
         },
+        ...(selected
+          ? [
+              {
+                id: "effort",
+                name: "Reasoning",
+                category: "thought_level",
+                currentValue: clampThinkingLevel(selected, agent.thinkingLevel),
+                options: levels.map((level) => ({ value: level, name: level })),
+              },
+            ]
+          : []),
       ],
     });
-
-    return this.sessionId;
   }
 
   async configure(id: string, value: string): Promise<void> {
     if (this.backend?.configure) return this.backend.configure(id, value);
 
-    if (!this.conversation || id !== "model")
-      throw new Error("Pi configuration option is unavailable");
+    if (!this.conversation) throw new Error("Pi configuration option is unavailable");
 
     const available = await this.models.getAvailable();
-    const model = available.find((model) => `${model.provider}/${model.id}` === value);
+    const agent = await this.conversation.agent(context);
 
-    if (!model) throw new Error("Pi model is not available to the owner account");
+    if (id === "model") {
+      const model = available.find((model) => `${model.provider}/${model.id}` === value);
 
-    await this.conversation.configure(
-      { model: { provider: model.provider, modelId: model.id } },
-      context,
-    );
-    this.options.onEvent({
-      kind: "config",
-      options: [
+      if (!model) throw new Error("Pi model is not available to the owner account");
+
+      await this.conversation.configure(
         {
-          id: "model",
-          name: "Model",
-          category: "model",
-          currentValue: value,
-          options: available.map((model) => ({
-            value: `${model.provider}/${model.id}`,
-            name: model.name,
-          })),
+          model: { provider: model.provider, modelId: model.id },
+          thinkingLevel: clampThinkingLevel(model, agent.thinkingLevel),
         },
-      ],
-    });
+        context,
+      );
+    } else if (id === "effort") {
+      const model = available.find(
+        (model) => model.provider === agent.model?.provider && model.id === agent.model.modelId,
+      );
+      const level = model && getSupportedThinkingLevels(model).find((level) => level === value);
+
+      if (!level) throw new Error("Pi reasoning effort is not available for the current model");
+
+      await this.conversation.configure({ thinkingLevel: level }, context);
+    } else {
+      throw new Error("Pi configuration option is unavailable");
+    }
+
+    await this.publishConfiguration();
   }
 
   async prompt(text: string, requestId = randomUUID()): Promise<AgentHarnessResult> {

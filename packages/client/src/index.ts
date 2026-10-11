@@ -23,6 +23,7 @@ export {
   collaboratorAnnotations,
   mergeFromShare,
   publishShare,
+  snapshotThreadConversation,
   pullShare,
   pushShare,
   shareIdFromLine,

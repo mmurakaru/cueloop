@@ -9,11 +9,12 @@ import {
 } from "@cueloop/schema";
 import { AgentThreadPane, AgentThreadPrototype } from "./AgentThreadPane";
 import { ThreadFooter } from "./ThreadFooter";
-import { ThreadView } from "../../markdown/components/ThreadView";
+import { ThreadView, type ThreadViewProps } from "../../markdown/components/ThreadView";
 import { buildDisplay, marksByDisplay } from "../../markdown/view-plan";
 import { DARK } from "../../appearance/theme";
 import {
   locateText,
+  dragText,
   waitForText,
   pressKey,
   typeText,
@@ -118,6 +119,8 @@ function artifactView(
   value: Thread,
   onReply: (id: string, body: string) => void = noop,
   onUpdateAnnotation: (id: string, body: string) => void = noop,
+  onAnnotate: ThreadViewProps["onAnnotate"] = noop,
+  observer = false,
 ) {
   const display = buildDisplay(value.artifact.content);
 
@@ -127,8 +130,8 @@ function artifactView(
       display={display}
       marks={marksByDisplay(value.annotations, display)}
       quickActions={[]}
-      observer={false}
-      onAnnotate={noop}
+      observer={observer}
+      onAnnotate={onAnnotate}
       onReply={onReply}
       onUpdateAnnotation={onUpdateAnnotation}
       onExit={noop}
@@ -1189,3 +1192,57 @@ test("shared viewers see pending activity without owner permission controls", as
     setup.renderer.destroy();
   }
 });
+
+for (const observer of [false, true]) {
+  test(`shared snapshot preserves artifact annotation permissions (observer=${observer})`, async () => {
+    const value = {
+      ...thread,
+      agentSnapshot: {
+        ...empty,
+        messages: [
+          {
+            id: "answer",
+            role: "agent" as const,
+            text: "Frozen conversation",
+            complete: true,
+            revision: 1,
+          },
+        ],
+      },
+    };
+    const annotations: string[] = [];
+    const setup = await testRender(
+      <AgentThreadPrototype
+        enabled={false}
+        observer={observer}
+        pixelPrototype={false}
+        thread={value}
+        focused
+        theme={DARK}
+        onActiveChange={noop}
+        onOpenFile={noop}
+      >
+        {artifactView(
+          value,
+          noop,
+          noop,
+          (_span, body) => {
+            annotations.push(body);
+          },
+          observer,
+        )}
+      </AgentThreadPrototype>,
+      { width: 100, height: 24, kittyKeyboard: true },
+    );
+
+    try {
+      await waitForText(setup, "Frozen conversation");
+      await dragText(setup, "Original artifact", "Original artifact", "Original artifact".length);
+      await typeText(setup, "Artifact feedback");
+      await pressKey(setup, "RETURN", { meta: true });
+      expect(annotations).toEqual(observer ? [] : ["Artifact feedback"]);
+    } finally {
+      setup.renderer.destroy();
+    }
+  });
+}

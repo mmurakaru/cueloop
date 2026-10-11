@@ -110,3 +110,44 @@ test("model and reasoning choices share the existing overlay and close after sel
     setup.renderer.destroy();
   }
 });
+
+for (const harness of ["pi", "fx"]) {
+  test(`${harness} footer identifies its harness, subscription, model and effort`, async () => {
+    const setup = await testRender(
+      <AgentConfigControls
+        theme={DARK}
+        onConfigure={() => {}}
+        state={{
+          ...initial,
+          harness: { id: harness, label: harness },
+          configOptions: [
+            {
+              id: "provider",
+              name: "Provider",
+              currentValue: harness,
+              options: [
+                {
+                  value: harness,
+                  name: harness === "pi" ? "Codex subscription" : "Grok subscription",
+                },
+              ],
+            },
+            ...initial.configOptions!,
+          ],
+        }}
+      />,
+      { width: 100, height: 3 },
+    );
+
+    try {
+      await waitForText(setup, "First model");
+      const frame = setup.captureCharFrame();
+
+      expect(frame).toContain(harness);
+      expect(frame).toContain(harness === "pi" ? "Codex subscription" : "Grok subscription");
+      expect(frame).toContain("Medium");
+    } finally {
+      setup.renderer.destroy();
+    }
+  });
+}

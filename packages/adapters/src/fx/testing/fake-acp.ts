@@ -1,3 +1,4 @@
+import { appendFileSync } from "node:fs";
 import { createInterface } from "node:readline";
 import * as v from "valibot";
 
@@ -6,6 +7,7 @@ interface FakeAcpResult {
   agentCapabilities?: { loadSession: boolean };
   sessionId?: string;
   stopReason?: string;
+  configOptions?: ReturnType<typeof configOptions>;
 }
 interface FakeAcpUpdate {
   sessionUpdate: string;
@@ -26,6 +28,8 @@ const InputSchema = v.object({
   params: v.optional(
     v.object({
       sessionId: v.optional(v.string()),
+      configId: v.optional(v.picklist(["provider", "model", "effort"])),
+      value: v.optional(v.string()),
       clientCapabilities: v.optional(
         v.object({ session: v.optional(v.object({ notices: v.optional(v.object({})) })) }),
       ),
@@ -33,6 +37,35 @@ const InputSchema = v.object({
     }),
   ),
 });
+
+const selected = { provider: "codex", model: "old-model", effort: "high" };
+
+function configOptions() {
+  if (!process.env.CUELOOP_TEST_CONFIG_OPTIONS) return [];
+
+  return [
+    {
+      id: "provider",
+      name: "Provider",
+      currentValue: selected.provider!,
+      options: ["codex", "grok"].map((value) => ({ value, name: value })),
+    },
+    {
+      id: "model",
+      name: "Model",
+      currentValue: selected.model!,
+      options: (selected.provider === "grok" ? ["grok-4.7", "grok-4.6"] : ["old-model"]).map(
+        (value) => ({ value, name: value }),
+      ),
+    },
+    {
+      id: "effort",
+      name: "Effort",
+      currentValue: selected.effort!,
+      options: ["low", "medium", "high"].map((value) => ({ value, name: value })),
+    },
+  ];
+}
 
 const input = createInterface({ input: process.stdin });
 let loaded = false;
@@ -70,8 +103,27 @@ input.on("line", (line) => {
       reply(frame.id!, { protocolVersion: 1, agentCapabilities: { loadSession: true } });
       break;
     case "session/new":
-      reply(frame.id!, { sessionId: "fx-test-session" });
+      reply(frame.id!, { sessionId: "fx-test-session", configOptions: configOptions() });
       break;
+    case "session/set_config_option": {
+      const id = frame.params!.configId!;
+      const value = frame.params!.value!;
+
+      if (
+        !configOptions()
+          .find((option) => option.id === id)
+          ?.options.some((option) => option.value === value)
+      )
+        throw new Error("Invalid test configuration choice");
+
+      selected[id] = value;
+
+      if (process.env.CUELOOP_TEST_CONFIG_LOG)
+        appendFileSync(process.env.CUELOOP_TEST_CONFIG_LOG, JSON.stringify({ id, value }) + "\n");
+
+      reply(frame.id!, { configOptions: configOptions() });
+      break;
+    }
     case "session/set_mode":
       reply(frame.id!, {});
       break;

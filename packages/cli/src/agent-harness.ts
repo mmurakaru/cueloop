@@ -21,7 +21,10 @@ export function threadAgentEnabled(repoRoot: string): boolean {
 
 export function installedAgentHarnesses() {
   return {
-    pi: createPiHarness({ home: cueloopHome() }),
+    pi: createPiHarness({
+      home: cueloopHome(),
+      defaults: (cwd) => loadConfig({ repoRoot: cwd }).thread.pi,
+    }),
     fx: fxHarness(),
   };
 }
@@ -29,6 +32,9 @@ export function installedAgentHarnesses() {
 function fxHarness(): AgentHarnessAdapter {
   return createThreadHarness({
     home: cueloopHome(),
-    backend: createFxHarness({ command: [process.env.CUELOOP_FX_EXECUTABLE ?? "fx", "acp"] }),
+    backend: createFxHarness({
+      command: [process.env.CUELOOP_FX_EXECUTABLE ?? "fx", "acp"],
+      defaults: (cwd) => loadConfig({ repoRoot: cwd }).thread.fx,
+    }),
   });
 }

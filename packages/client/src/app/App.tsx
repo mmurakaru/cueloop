@@ -1,3 +1,4 @@
+import { THREAD_MODEL_DEFAULTS } from "@cueloop/schema";
 import { useThreadHarnessSetting } from "../settings/use-thread-harness-setting";
 import React, {
   useCallback,
@@ -559,7 +560,11 @@ export function App({
   servedArtifact,
   extensionRegistry,
 }: AppProps): React.ReactNode {
-  const { observer, isOwner } = computeRoleCapabilities(readOnly, role);
+  const { observer, isOwner, canManageThreads } = computeRoleCapabilities(
+    readOnly,
+    role,
+    isSharedThreadConnection(openClient, shareTransport),
+  );
   const controller = useMemo(
     () =>
       createReviewController({
@@ -686,6 +691,7 @@ export function App({
   const [identity, setIdentity] = useState<IdentityConfig>({ provider: "typed" });
   const [quickActions, setQuickActions] = useState<QuickAction[]>(DEFAULT_QUICK_ACTIONS);
   const [skills, setSkills] = useState<SlashItem[]>([]);
+  const [threadModelDefaults, setThreadModelDefaults] = useState(THREAD_MODEL_DEFAULTS);
   const [reviewSkill, setReviewSkill] = useState("code-review");
   const [reviewWorkspace, setReviewWorkspace] = useState<ReviewWorkspaceMode>("worktree");
   const paletteNames = useMemo(
@@ -702,6 +708,7 @@ export function App({
     setPrototypePixels(config.experimental.prototypePixels);
     setThreadAgentEnabled(config.experimental.threadAgent);
     setThreadHarness(config.thread.harness);
+    setThreadModelDefaults({ pi: config.thread.pi, fx: config.thread.fx });
     keysRef.current = config.keys;
     keyBindings.setKeys(config.keys);
     setTheme(composeTheme(config.ui.theme, config.themeOverrides, appearance));
@@ -798,6 +805,8 @@ export function App({
     onCategorySelect,
     openSettings,
   } = useSettingsDialog({
+    threadDefaults: threadModelDefaults,
+    setThreadDefaults: setThreadModelDefaults,
     theme,
     appearance,
     autoClose,
@@ -1221,8 +1230,10 @@ export function App({
             onFocusPane={setFocusedPane}
             menuControl={menuControl}
             pinnedIds={pinnedIds}
-            onPin={togglePin}
-            onRename={(id, title) => setMode({ type: "renameThread", sessionId: id, text: title })}
+            onPin={enabledThreadAction(canManageThreads, togglePin)}
+            onRename={enabledThreadAction(canManageThreads, (id: string, title: string) =>
+              setMode({ type: "renameThread", sessionId: id, text: title }),
+            )}
             quickActions={quickActions}
             diffView={diffView}
             onWelcomeComposingChange={setWelcomeComposing}
@@ -1351,13 +1362,15 @@ export function App({
                     width={30}
                     onSelect={openThread}
                     onCreateThread={createEmptyThread}
-                    onPin={togglePin}
-                    onRename={(id, title) =>
-                      setMode({ type: "renameThread", sessionId: id, text: title })
-                    }
-                    onRequestDelete={(id, title) =>
-                      setMode({ type: "confirmDelete", sessionId: id, title })
-                    }
+                    onPin={enabledThreadAction(canManageThreads, togglePin)}
+                    onRename={enabledThreadAction(canManageThreads, (id: string, title: string) =>
+                      setMode({ type: "renameThread", sessionId: id, text: title }),
+                    )}
+                    onRequestDelete={enabledThreadAction(
+                      canManageThreads,
+                      (id: string, title: string) =>
+                        setMode({ type: "confirmDelete", sessionId: id, title }),
+                    )}
                     theme={theme}
                   />
                 </scrollbox>
@@ -1684,7 +1697,10 @@ export function App({
   );
 }
 
-function enabledThreadAction(enabled: boolean, action: () => void): (() => void) | undefined {
+function enabledThreadAction<Arguments extends unknown[]>(
+  enabled: boolean,
+  action: (...args: Arguments) => void,
+): ((...args: Arguments) => void) | undefined {
   return enabled ? action : undefined;
 }
 

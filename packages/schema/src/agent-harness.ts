@@ -1,5 +1,23 @@
 import type { AgentPermission, AgentTool, AgentConfigOption } from "./thread-agent";
 
+/** Reasoning effort choices shared by Thread defaults and their settings controls. */
+export const AGENT_REASONING_EFFORTS = ["low", "medium", "high", "xhigh"] as const;
+
+/** Reasoning effort stored in the new-conversation defaults. */
+export type AgentReasoningEffort = (typeof AGENT_REASONING_EFFORTS)[number];
+
+/** Model identity and effort supplied by the owner for new Thread conversations. */
+export interface ThreadModelDefaults {
+  model: string;
+  effort: AgentReasoningEffort;
+}
+
+/** Provider-qualified model defaults apply only when a Thread creates a conversation. */
+export const THREAD_MODEL_DEFAULTS: Record<"pi" | "fx", ThreadModelDefaults> = {
+  pi: { model: "openai-codex/gpt-6.1-sol", effort: "medium" },
+  fx: { model: "grok/grok-4.7", effort: "medium" },
+};
+
 /** Harness events carry transcript data without exposing a provider's wire protocol. */
 export type AgentHarnessEvent =
   | { kind: "message"; id?: string; text: string; replace?: boolean }

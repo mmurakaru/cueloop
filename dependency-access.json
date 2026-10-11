@@ -1,0 +1,182 @@
+[
+  {
+    "from": "benchmarks/artifact-parse.ts",
+    "to": "packages/client/src/diff/view-diff.ts",
+    "reason": "Measure this implementation directly without loading the full TUI public entry point."
+  },
+  {
+    "from": "benchmarks/artifact-parse.ts",
+    "to": "packages/client/src/markdown/view-plan.ts",
+    "reason": "Measure this implementation directly without loading the full TUI public entry point."
+  },
+  {
+    "from": "benchmarks/interaction-file-scroll.ts",
+    "to": "packages/client/src/appearance/theme.ts",
+    "reason": "Measure this implementation directly without loading the full TUI public entry point."
+  },
+  {
+    "from": "benchmarks/interaction-file-scroll.ts",
+    "to": "packages/client/src/diff/view-diff.ts",
+    "reason": "Measure this implementation directly without loading the full TUI public entry point."
+  },
+  {
+    "from": "benchmarks/interaction-file-scroll.ts",
+    "to": "packages/client/src/stories/story-fixtures.ts",
+    "reason": "Measure this implementation directly without loading the full TUI public entry point."
+  },
+  {
+    "from": "benchmarks/interaction-file-scroll.ts",
+    "to": "packages/client/src/testing/test-support.ts",
+    "reason": "Measure this implementation directly without loading the full TUI public entry point."
+  },
+  {
+    "from": "benchmarks/interaction-file-scroll.ts",
+    "to": "packages/client/src/workbench/components/GridTabContent.tsx",
+    "reason": "Measure this implementation directly without loading the full TUI public entry point."
+  },
+  {
+    "from": "benchmarks/interaction-mouse.ts",
+    "to": "packages/client/src/testing/test-support.ts",
+    "reason": "Measure this implementation directly without loading the full TUI public entry point."
+  },
+  {
+    "from": "benchmarks/lib/in-process-review.ts",
+    "to": "packages/client/src/app/App.tsx",
+    "reason": "Measure this implementation directly without loading the full TUI public entry point."
+  },
+  {
+    "from": "benchmarks/lib/in-process-review.ts",
+    "to": "packages/client/src/testing/test-support.ts",
+    "reason": "Measure this implementation directly without loading the full TUI public entry point."
+  },
+  {
+    "from": "benchmarks/nav-latency.ts",
+    "to": "packages/client/src/app/App.tsx",
+    "reason": "Measure this implementation directly without loading the full TUI public entry point."
+  },
+  {
+    "from": "benchmarks/nav-latency.ts",
+    "to": "packages/client/src/testing/test-support.ts",
+    "reason": "Measure this implementation directly without loading the full TUI public entry point."
+  },
+  {
+    "from": "benchmarks/thread-switch.ts",
+    "to": "packages/client/src/app/App.tsx",
+    "reason": "Measure this implementation directly without loading the full TUI public entry point."
+  },
+  {
+    "from": "benchmarks/thread-switch.ts",
+    "to": "packages/client/src/testing/test-support.ts",
+    "reason": "Measure this implementation directly without loading the full TUI public entry point."
+  },
+  {
+    "from": "examples/fx-thread/run.ts",
+    "to": "packages/client/src/app/run.ts",
+    "reason": "Integration verification exercises projection and key-routing implementation directly."
+  },
+  {
+    "from": "packages/adapters/src/fx/harness.test.ts",
+    "to": "packages/daemon/src/thread-agent.ts",
+    "reason": "The harness integration test drives daemon thread-agent coordination directly."
+  },
+  {
+    "from": "scripts/check-agent-laws.ts",
+    "to": "packages/daemon/src/agent-turn.ts",
+    "reason": "The agent behavior law check exercises the internal transition reducer."
+  },
+  {
+    "from": "snapshots/diff.ts",
+    "to": "packages/client/src/diff/view-diff.ts",
+    "reason": "Capture projection output directly in the development snapshot runner."
+  },
+  {
+    "from": "test/gateway/mirror/mirror-ssh.ts",
+    "to": "packages/client/src/terminal/ghostty-terminal.ts",
+    "reason": "PTY verification requires the actual terminal transport and readiness signal."
+  },
+  {
+    "from": "test/gateway/mirror/runner.ts",
+    "to": "packages/gateway/src/host-key.ts",
+    "reason": "Gateway integration verification drives private sharing and authentication contracts."
+  },
+  {
+    "from": "test/gateway/mirror/runner.ts",
+    "to": "packages/gateway/src/shared-agent.ts",
+    "reason": "Gateway integration verification drives private sharing and authentication contracts."
+  },
+  {
+    "from": "test/gateway/mirror/runner.ts",
+    "to": "packages/gateway/src/store.ts",
+    "reason": "Gateway integration verification drives private sharing and authentication contracts."
+  },
+  {
+    "from": "test/helpers/env.ts",
+    "to": "packages/client/src/testing/test-support.ts",
+    "reason": "Integration and benchmark harnesses share deterministic client test support."
+  },
+  {
+    "from": "test/helpers/github-device-flow-stubs.ts",
+    "to": "packages/gateway/src/github-device-flow.ts",
+    "reason": "Gateway integration verification drives private sharing and authentication contracts."
+  },
+  {
+    "from": "test/helpers/join-channel.ts",
+    "to": "packages/gateway/src/collaborator-join.ts",
+    "reason": "Gateway integration verification drives private sharing and authentication contracts."
+  },
+  {
+    "from": "test/helpers/pty-tui-session.test.ts",
+    "to": "packages/client/src/terminal/pty.ts",
+    "reason": "PTY verification requires the actual terminal transport and readiness signal."
+  },
+  {
+    "from": "test/helpers/pty-tui-session.ts",
+    "to": "packages/client/src/app/ready-signal.ts",
+    "reason": "PTY verification requires the actual terminal transport and readiness signal."
+  },
+  {
+    "from": "test/helpers/pty-tui-session.ts",
+    "to": "packages/client/src/terminal/ghostty-terminal.ts",
+    "reason": "PTY verification requires the actual terminal transport and readiness signal."
+  },
+  {
+    "from": "test/helpers/pty-tui-session.ts",
+    "to": "packages/client/src/terminal/pty.ts",
+    "reason": "PTY verification requires the actual terminal transport and readiness signal."
+  },
+  {
+    "from": "test/helpers/pty-tui-session.ts",
+    "to": "packages/client/src/testing/test-support.ts",
+    "reason": "Integration and benchmark harnesses share deterministic client test support."
+  },
+  {
+    "from": "test/pty/diff-scroll.test.ts",
+    "to": "packages/client/src/diff/view-diff.ts",
+    "reason": "Integration verification exercises projection and key-routing implementation directly."
+  },
+  {
+    "from": "test/pty/install.test.ts",
+    "to": "packages/client/src/terminal/pty.ts",
+    "reason": "PTY verification requires the actual terminal transport and readiness signal."
+  },
+  {
+    "from": "test/pty/keybindings.test.ts",
+    "to": "packages/client/src/keyboard/thread-chords.ts",
+    "reason": "Integration verification exercises projection and key-routing implementation directly."
+  },
+  {
+    "from": "test/session/harness-bridge-e2e.test.tsx",
+    "to": "packages/client/src/app/App.tsx",
+    "reason": "Virtual-terminal integration tests mount App without loading other public runtime exports."
+  },
+  {
+    "from": "test/session/harness-bridge-e2e.test.tsx",
+    "to": "packages/client/src/testing/test-support.ts",
+    "reason": "Integration and benchmark harnesses share deterministic client test support."
+  },
+  {
+    "from": "test/session/harness-selection.test.ts",
+    "to": "packages/cli/src/daemon-control.ts",
+    "reason": "Session integration teardown stops its isolated daemon without invoking the CLI executable."
+  }
+]

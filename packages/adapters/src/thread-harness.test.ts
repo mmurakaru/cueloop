@@ -282,3 +282,94 @@ test("cancelling while the dispatch checkpoint is committing prevents native exe
     rmSync(home, { recursive: true, force: true });
   }
 });
+
+test("new Pi conversations choose the configured model and medium effort instead of catalog order", async () => {
+  const home = mkdtempSync(join(tmpdir(), "cueloop-pi-default-model-"));
+  const models = createModels();
+  const provider = fauxProvider({
+    provider: "openai-codex",
+    models: [{ id: "gpt-5.3-codex-spark" }, { id: "gpt-6.1-sol", reasoning: true }],
+  });
+  const requests: { model: string; effort?: string }[] = [];
+
+  models.setProvider(provider.provider);
+  provider.setResponses([
+    (_context, options, _state, model) => {
+      requests.push({ model: model.id, effort: options?.reasoning });
+
+      return fauxAssistantMessage("Hello");
+    },
+    (_context, options, _state, model) => {
+      requests.push({ model: model.id, effort: options?.reasoning });
+
+      return fauxAssistantMessage("Continued");
+    },
+  ]);
+  const events: AgentHarnessEvent[] = [];
+  const options = {
+    cwd: home,
+    onEvent: (event: AgentHarnessEvent) => events.push(event),
+    onExit() {},
+  };
+  let connection = createThreadHarness({
+    home,
+    models,
+    defaults: () => ({ model: "openai-codex/gpt-6.1-sol", effort: "medium" }),
+  }).connect(options);
+
+  try {
+    const sessionId = await connection.start();
+
+    const config = events.findLast((event) => event.kind === "config");
+
+    expect(config?.kind === "config" && config.options).toContainEqual({
+      id: "provider",
+      name: "Provider",
+      category: "model",
+      currentValue: "openai-codex",
+      options: [{ value: "openai-codex", name: "Codex subscription" }],
+    });
+    expect(
+      config?.kind === "config" &&
+        config.options.find((option) => option.id === "effort")?.currentValue,
+    ).toBe("medium");
+    await expect(connection.configure!("effort", "invalid")).rejects.toThrow("Pi reasoning effort");
+    await connection.prompt("Hello", "default-model");
+    await connection.configure!("effort", "high");
+    await connection.close();
+    connection = createThreadHarness({
+      home,
+      models,
+      defaults: () => ({ model: "openai-codex/gpt-5.3-codex-spark", effort: "high" }),
+    }).connect({ ...options, sessionId });
+    await connection.start();
+    await connection.prompt("Continue", "saved-model");
+    expect(requests).toEqual([
+      { model: "gpt-6.1-sol", effort: "medium" },
+      { model: "gpt-6.1-sol", effort: "high" },
+    ]);
+  } finally {
+    await connection.close();
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("an unavailable configured Pi default fails explicitly instead of choosing the first model", async () => {
+  const home = mkdtempSync(join(tmpdir(), "cueloop-pi-unavailable-model-"));
+  const models = createModels();
+  const provider = fauxProvider();
+
+  models.setProvider(provider.provider);
+  const connection = createThreadHarness({
+    home,
+    models,
+    defaults: () => ({ model: "openai-codex/gpt-6.1-sol", effort: "medium" }),
+  }).connect({ cwd: home, onEvent() {}, onExit() {} });
+
+  try {
+    await expect(connection.start()).rejects.toThrow("Thread default model is not available");
+  } finally {
+    await connection.close();
+    rmSync(home, { recursive: true, force: true });
+  }
+});

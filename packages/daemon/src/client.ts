@@ -129,6 +129,7 @@ export interface ThreadClient {
   sessionCurate(id: string, rejections: HunkRejection[]): Promise<Thread>;
   sessionSetViewed(id: string, viewedPaths: string[]): Promise<Thread>;
   sessionSetTitle(id: string, title: string): Promise<Thread>;
+  agentGet?(id: string): Promise<ThreadAgentState>;
   projectFiles?(sessionId: string): Promise<string[]>;
   fileContents?(sessionId: string, path: string): Promise<string | null>;
   repoFiles?(cwd: string): Promise<string[]>;

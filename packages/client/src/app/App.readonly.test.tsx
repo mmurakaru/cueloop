@@ -5,6 +5,8 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import React from "react";
+import { DaemonClient } from "@cueloop/daemon/client";
+import { NERD } from "../ui/components/primitives/icons";
 import { DaemonServer } from "@cueloop/daemon";
 import { makeAnchor, parseBlocks, type Thread } from "@cueloop/schema";
 import { App } from "./App";
@@ -208,3 +210,64 @@ describe("observer navigation still works", () => {
     expect(snapshot().annotations).toBe(1);
   });
 });
+
+for (const role of ["collaborator", "observer"] as const) {
+  test(`${role} shared view shows a conversation snapshot and has no Thread actions menu`, async () => {
+    const client = await DaemonClient.connect({ home });
+    const shared = {
+      ...session,
+      artifact: { ...session.artifact, content: "" },
+      agentSnapshot: {
+        threadId: session.id,
+        phase: { kind: "idle" as const },
+        tools: [],
+        comments: [],
+        messages: [
+          {
+            id: "prompt",
+            role: "user" as const,
+            text: "Shared question",
+            complete: true,
+            revision: 1,
+          },
+          {
+            id: "answer",
+            role: "agent" as const,
+            text: "Shared conversation answer",
+            complete: true,
+            revision: 1,
+          },
+        ],
+      },
+    };
+
+    client.sessionGet = async () => shared;
+    client.sessionList = async () => [shared];
+    const setup = await renderReadyApp(
+      <App
+        home={home}
+        sessionId={shared.id}
+        role={role}
+        openClient={() => Promise.resolve(client)}
+      />,
+      { width: 120, height: 32 },
+    );
+
+    try {
+      await waitForText(setup, "Shared conversation answer");
+      expect(setup.captureCharFrame()).toContain("Shared question");
+      const row = setup
+        .captureCharFrame()
+        .split("\n")
+        .findIndex((line) => line.slice(0, 30).includes("Migration Plan"));
+
+      expect(row).toBeGreaterThanOrEqual(0);
+      await setup.mockMouse.moveTo(12, row);
+      expect(setup.captureCharFrame()).not.toContain(NERD.kebab);
+      expect(setup.captureCharFrame()).not.toContain(" edit ");
+    } finally {
+      setup.renderer.destroy();
+      client.close();
+    }
+  });
+}

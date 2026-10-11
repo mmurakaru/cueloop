@@ -14,7 +14,11 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.14
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
       - run: bun install --frozen-lockfile
+      - run: bun run deps:install
       - run: brew install jj
       - run: bun run typecheck
       - run: bun run lint
@@ -22,6 +26,37 @@ jobs:
       - run: bun run check:release
       - run: bun run check:publish -- --dev
       - run: bun run test
+
+  dependencies:
+    name: Dependency validation and reports
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: bun install --frozen-lockfile
+      - run: bun run deps:install
+      - run: bun install --cwd site --frozen-lockfile
+      - run: sudo apt-get update && sudo apt-get install -y graphviz
+      - run: bun run test:boundaries
+      - name: Generate complete workspace validation and reports
+        run: bun run deps:report -- --graphviz --changed "$DEPENDENCY_BASE"
+        env:
+          DEPENDENCY_BASE: ${{ github.event.pull_request.base.sha || 'HEAD~1' }}
+      - name: Validate supported site sources
+        if: success() || failure()
+        run: node tools/dependency-cruiser/dependency-analysis.mjs report --site
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: dependency-reports
+          path: dist/dependencies
 
   agent-laws:
     name: Agent behavior laws

@@ -5,7 +5,7 @@ import { join, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
 import * as v from "valibot";
 import { createModels, fauxAssistantMessage, fauxProvider } from "@earendil-works/pi-ai";
-import { DaemonServer } from "../../../packages/daemon/src/server";
+import { DaemonServer } from "@cueloop/daemon";
 import { DaemonClient } from "../../../packages/daemon/src/client";
 import { packSessionBlob } from "../../../packages/daemon/src/share-blob";
 import { ThreadRecordSchema } from "../../../packages/daemon/src/validate";
