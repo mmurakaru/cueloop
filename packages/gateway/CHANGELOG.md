@@ -1,5 +1,15 @@
 # @cueloop/gateway
 
+## 0.1.0-alpha.104
+
+### Patch Changes
+
+- [#573](https://github.com/mmurakaru/cueloop/pull/573) [`d972348`](https://github.com/mmurakaru/cueloop/commit/d9723485ebf595ce927ebf3fa4e2eb762bbe1b30) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Include a validated snapshot of the visible conversation when publishing a Thread, so shares of empty artifacts show their conversation. Preserve collaborator annotations on the original artifact and restrict the sidebar Thread actions menu to local owners.
+- Updated dependencies [[`d972348`](https://github.com/mmurakaru/cueloop/commit/d9723485ebf595ce927ebf3fa4e2eb762bbe1b30), [`d972348`](https://github.com/mmurakaru/cueloop/commit/d9723485ebf595ce927ebf3fa4e2eb762bbe1b30), [`d972348`](https://github.com/mmurakaru/cueloop/commit/d9723485ebf595ce927ebf3fa4e2eb762bbe1b30)]:
+  - @cueloop/daemon@0.1.0-alpha.104
+  - @cueloop/schema@0.1.0-alpha.104
+  - @cueloop/client@0.1.0-alpha.104
+
 ## 0.1.0-alpha.103
 
 ### Patch Changes
