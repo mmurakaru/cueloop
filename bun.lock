@@ -26,10 +26,10 @@
     },
     "packages/adapters": {
       "name": "@cueloop/adapters",
-      "version": "0.1.0-alpha.100",
+      "version": "0.1.0-alpha.103",
       "dependencies": {
-        "@cueloop/daemon": "0.1.0-alpha.100",
-        "@cueloop/schema": "0.1.0-alpha.100",
+        "@cueloop/daemon": "0.1.0-alpha.103",
+        "@cueloop/schema": "0.1.0-alpha.103",
         "@earendil-works/chord": "1.0.4",
         "@earendil-works/pi-ai": "1.0.4",
         "@earendil-works/pi-durable": "1.0.4",
@@ -38,16 +38,16 @@
     },
     "packages/cli": {
       "name": "cueloop",
-      "version": "0.1.0-alpha.100",
+      "version": "0.1.0-alpha.103",
       "bin": {
         "cueloop": "./src/main.ts",
       },
       "dependencies": {
-        "@cueloop/adapters": "0.1.0-alpha.98",
-        "@cueloop/client": "0.1.0-alpha.98",
-        "@cueloop/daemon": "0.1.0-alpha.98",
-        "@cueloop/extension-api": "0.1.0-alpha.98",
-        "@cueloop/schema": "0.1.0-alpha.98",
+        "@cueloop/adapters": "0.1.0-alpha.103",
+        "@cueloop/client": "0.1.0-alpha.103",
+        "@cueloop/daemon": "0.1.0-alpha.103",
+        "@cueloop/extension-api": "0.1.0-alpha.103",
+        "@cueloop/schema": "0.1.0-alpha.103",
         "@modelcontextprotocol/server": "2.1.0",
         "@valibot/to-json-schema": "1.8.0",
         "valibot": "^1.5.0",
@@ -55,17 +55,17 @@
     },
     "packages/client": {
       "name": "@cueloop/client",
-      "version": "0.1.0-alpha.100",
+      "version": "0.1.0-alpha.103",
       "dependencies": {
-        "@cueloop/daemon": "0.1.0-alpha.98",
-        "@cueloop/extension-api": "0.1.0-alpha.98",
-        "@cueloop/integration-obsidian": "0.1.0-alpha.98",
-        "@cueloop/schema": "0.1.0-alpha.98",
+        "@cueloop/daemon": "0.1.0-alpha.103",
+        "@cueloop/extension-api": "0.1.0-alpha.103",
+        "@cueloop/integration-obsidian": "0.1.0-alpha.103",
+        "@cueloop/schema": "0.1.0-alpha.103",
         "@opentui/core": "^0.5.14",
         "@opentui/keymap": "0.5.14",
         "@opentui/react": "^0.5.14",
         "@opentui/ssh": "0.5.14",
-        "@pierre/diffs": "^1.5.1",
+        "@pierre/diffs": "^1.5.2",
         "@tanstack/virtual-core": "^3.17.11",
         "diff": "^9",
         "puppeteer-core": "^25.12.0",
@@ -81,11 +81,11 @@
     },
     "packages/daemon": {
       "name": "@cueloop/daemon",
-      "version": "0.1.0-alpha.100",
+      "version": "0.1.0-alpha.103",
       "dependencies": {
-        "@cueloop/extension-api": "0.1.0-alpha.100",
-        "@cueloop/schema": "0.1.0-alpha.100",
-        "@pierre/diffs": "^1.5.1",
+        "@cueloop/extension-api": "0.1.0-alpha.103",
+        "@cueloop/schema": "0.1.0-alpha.103",
+        "@pierre/diffs": "^1.5.2",
         "effect": "^4.0.0",
         "smol-toml": "^1.9.0",
         "valibot": "^1.5.0",
@@ -93,9 +93,9 @@
     },
     "packages/extension-api": {
       "name": "@cueloop/extension-api",
-      "version": "0.1.0-alpha.100",
+      "version": "0.1.0-alpha.103",
       "dependencies": {
-        "@cueloop/schema": "0.1.0-alpha.100",
+        "@cueloop/schema": "0.1.0-alpha.103",
         "valibot": "^1.5.0",
       },
       "peerDependencies": {
@@ -105,14 +105,14 @@
     },
     "packages/gateway": {
       "name": "@cueloop/gateway",
-      "version": "0.1.0-alpha.100",
+      "version": "0.1.0-alpha.103",
       "bin": {
         "cueloop-gateway": "./src/main.ts",
       },
       "dependencies": {
-        "@cueloop/client": "0.1.0-alpha.98",
-        "@cueloop/daemon": "0.1.0-alpha.98",
-        "@cueloop/schema": "0.1.0-alpha.98",
+        "@cueloop/client": "0.1.0-alpha.103",
+        "@cueloop/daemon": "0.1.0-alpha.103",
+        "@cueloop/schema": "0.1.0-alpha.103",
         "@opentui/core": "^0.5.14",
         "@opentui/react": "^0.5.14",
         "react": "^19.3.0",
@@ -125,18 +125,18 @@
     },
     "packages/integrations/obsidian": {
       "name": "@cueloop/integration-obsidian",
-      "version": "0.1.0-alpha.100",
+      "version": "0.1.0-alpha.103",
       "dependencies": {
-        "@cueloop/extension-api": "0.1.0-alpha.98",
-        "@cueloop/schema": "0.1.0-alpha.98",
+        "@cueloop/extension-api": "0.1.0-alpha.103",
+        "@cueloop/schema": "0.1.0-alpha.103",
         "valibot": "^1.5.0",
       },
     },
     "packages/pi": {
       "name": "@cueloop/pi",
-      "version": "0.1.0-alpha.100",
+      "version": "0.1.0-alpha.103",
       "dependencies": {
-        "@cueloop/adapters": "0.1.0-alpha.100",
+        "@cueloop/adapters": "0.1.0-alpha.103",
       },
       "peerDependencies": {
         "@earendil-works/pi-coding-agent": "^0.86.0",
@@ -144,7 +144,7 @@
     },
     "packages/schema": {
       "name": "@cueloop/schema",
-      "version": "0.1.0-alpha.100",
+      "version": "0.1.0-alpha.103",
     },
   },
   "packages": {
@@ -424,7 +424,7 @@
 
     "@oxlint/plugins": ["@oxlint/plugins@1.85.0", "", {}, "sha512-qqHqML3ME3cxGgFvWJG8wwMnJc9ol5SMdtqkq0k8r7l0USmC+HRXYjzDacME4Dqkx4yqrUsBhj0JYvji8fHxJQ=="],
 
-    "@pierre/diffs": ["@pierre/diffs@1.5.1", "", { "dependencies": { "@pierre/theme": "2.0.0", "@pierre/theming": "1.0.1", "@shikijs/transformers": "^3.0.0 || ^4.0.0", "diff": "9.0.0", "hast-util-to-html": "9.0.5", "lru_map": "0.4.1", "shiki": "^3.0.0 || ^4.0.0" }, "peerDependencies": { "react": "^18.3.1 || ^19.0.0", "react-dom": "^18.3.1 || ^19.0.0" }, "optionalPeers": ["react", "react-dom"] }, "sha512-+EXNfz4ZXI6FHr7P6ToWEORwyYiPVfAmzhA70xF+0y/oNvj7gbNTLJJ6jNzkBjuMbRlu564TAmgYZLc5OyHURA=="],
+    "@pierre/diffs": ["@pierre/diffs@1.5.2", "", { "dependencies": { "@pierre/theme": "2.0.0", "@pierre/theming": "1.0.1", "@shikijs/transformers": "^3.0.0 || ^4.0.0", "diff": "9.0.0", "hast-util-to-html": "9.0.5", "lru_map": "0.4.1", "shiki": "^3.0.0 || ^4.0.0" }, "peerDependencies": { "react": "^18.3.1 || ^19.0.0", "react-dom": "^18.3.1 || ^19.0.0" }, "optionalPeers": ["react", "react-dom"] }, "sha512-QVxIWQEnNoko22k63maERzozd29+FtaUNpRrZiw603WMe5R1mFSED+jMtPkcVP3SDYS1DWg5K7sa7sJbr3xkNQ=="],
 
     "@pierre/theme": ["@pierre/theme@2.0.0", "", {}, "sha512-yNDd9GYLQl1mEUJR8AneJ5e4ohLIHQd/wZLWr4fagt78vS2RwwZNW530vVgHqXFAyFVcFlRmGUD5ramXH46OXw=="],
 
