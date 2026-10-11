@@ -1,6 +1,6 @@
 {
   "name": "@cueloop/adapters",
-  "version": "0.1.0-alpha.104",
+  "version": "0.1.0-alpha.105",
   "description": "cueloop adapters for coding agents: Claude Code, pi, and Codex",
   "homepage": "https://github.com/mmurakaru/cueloop#readme",
   "bugs": {
@@ -42,8 +42,8 @@
     "access": "public"
   },
   "dependencies": {
-    "@cueloop/daemon": "0.1.0-alpha.104",
-    "@cueloop/schema": "0.1.0-alpha.104",
+    "@cueloop/daemon": "0.1.0-alpha.105",
+    "@cueloop/schema": "0.1.0-alpha.105",
     "@earendil-works/chord": "1.0.4",
     "@earendil-works/pi-ai": "1.0.4",
     "@earendil-works/pi-durable": "1.0.4",
