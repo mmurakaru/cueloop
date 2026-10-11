@@ -4,6 +4,7 @@
  * dependencies beyond the history shapes.
  */
 
+import type { ThreadAgentState } from "./thread-agent";
 import type { SessionHistory } from "./history";
 
 export const SCHEMA_VERSION = "1";
@@ -320,6 +321,7 @@ export interface Thread {
   parentSessionId?: string;
   shares?: ShareLink[];
   participants?: Identity[];
+  agentSnapshot?: ThreadAgentState;
 }
 
 /** Whether a Message releases a harness gate. */

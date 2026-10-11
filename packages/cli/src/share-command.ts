@@ -13,6 +13,7 @@ import {
   pullShare,
   shareIdFromLine,
   snapshotWorkbench,
+  snapshotThreadConversation,
   type ShareResult,
   type ShareTarget,
 } from "@cueloop/client";
@@ -86,7 +87,8 @@ export async function shareSession(
   const shared = client.repoDiff
     ? await snapshotWorkbench(session, client.repoDiff.bind(client))
     : session;
-  const { line, copied } = await deps.publish(shared, { host: params.host, port: params.port });
+  const snapshot = await snapshotThreadConversation(shared, client);
+  const { line, copied } = await deps.publish(snapshot, { host: params.host, port: params.port });
   const shareId = shareIdFromLine(line);
 
   if (shareId)

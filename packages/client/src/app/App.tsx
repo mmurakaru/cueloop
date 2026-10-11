@@ -560,7 +560,11 @@ export function App({
   servedArtifact,
   extensionRegistry,
 }: AppProps): React.ReactNode {
-  const { observer, isOwner } = computeRoleCapabilities(readOnly, role);
+  const { observer, isOwner, canManageThreads } = computeRoleCapabilities(
+    readOnly,
+    role,
+    isSharedThreadConnection(openClient, shareTransport),
+  );
   const controller = useMemo(
     () =>
       createReviewController({
@@ -1226,8 +1230,10 @@ export function App({
             onFocusPane={setFocusedPane}
             menuControl={menuControl}
             pinnedIds={pinnedIds}
-            onPin={togglePin}
-            onRename={(id, title) => setMode({ type: "renameThread", sessionId: id, text: title })}
+            onPin={enabledThreadAction(canManageThreads, togglePin)}
+            onRename={enabledThreadAction(canManageThreads, (id: string, title: string) =>
+              setMode({ type: "renameThread", sessionId: id, text: title }),
+            )}
             quickActions={quickActions}
             diffView={diffView}
             onWelcomeComposingChange={setWelcomeComposing}
@@ -1356,13 +1362,15 @@ export function App({
                     width={30}
                     onSelect={openThread}
                     onCreateThread={createEmptyThread}
-                    onPin={togglePin}
-                    onRename={(id, title) =>
-                      setMode({ type: "renameThread", sessionId: id, text: title })
-                    }
-                    onRequestDelete={(id, title) =>
-                      setMode({ type: "confirmDelete", sessionId: id, title })
-                    }
+                    onPin={enabledThreadAction(canManageThreads, togglePin)}
+                    onRename={enabledThreadAction(canManageThreads, (id: string, title: string) =>
+                      setMode({ type: "renameThread", sessionId: id, text: title }),
+                    )}
+                    onRequestDelete={enabledThreadAction(
+                      canManageThreads,
+                      (id: string, title: string) =>
+                        setMode({ type: "confirmDelete", sessionId: id, title }),
+                    )}
                     theme={theme}
                   />
                 </scrollbox>
@@ -1689,7 +1697,10 @@ export function App({
   );
 }
 
-function enabledThreadAction(enabled: boolean, action: () => void): (() => void) | undefined {
+function enabledThreadAction<Arguments extends unknown[]>(
+  enabled: boolean,
+  action: (...args: Arguments) => void,
+): ((...args: Arguments) => void) | undefined {
   return enabled ? action : undefined;
 }
 

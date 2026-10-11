@@ -175,8 +175,8 @@ export function NoThreadShell(props: {
   /** App owns the one open-menu id, so the bare shell's menus share App's modal keyboard handling. */
   menuControl: MenuControlApi;
   pinnedIds: ReadonlySet<string>;
-  onPin: (id: string) => void;
-  onRename: (id: string, title: string) => void;
+  onPin?: (id: string) => void;
+  onRename?: (id: string, title: string) => void;
   /** Drives the "/" quick actions and skills in the welcome playground's composer. */
   quickActions: QuickAction[];
   diffView: DiffViewMode;

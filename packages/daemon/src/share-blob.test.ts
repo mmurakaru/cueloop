@@ -119,3 +119,24 @@ describe("unpack rejects bad input", () => {
     expect(() => unpackSessionBlob(notASession)).toThrow(/not a valid session/i);
   });
 });
+
+test("shared conversations survive blob validation and malformed snapshots are rejected", () => {
+  const thread = core.sessionCreate({ workspace: WS, artifact: { ...PLAN, content: "" } });
+  const shared = {
+    ...thread,
+    agentSnapshot: {
+      threadId: thread.id,
+      phase: { kind: "idle" as const },
+      tools: [],
+      comments: [],
+      messages: [
+        { id: "reply", role: "agent" as const, text: "Visible reply", revision: 1, complete: true },
+      ],
+    },
+  };
+
+  expect(unpackSessionBlob(packSessionBlob(shared)).agentSnapshot).toEqual(shared.agentSnapshot);
+  expect(() =>
+    unpackSessionBlob(gzipSync(JSON.stringify({ ...shared, agentSnapshot: { messages: "bad" } }))),
+  ).toThrow("not a valid session");
+});

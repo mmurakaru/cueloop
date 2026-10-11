@@ -10,6 +10,7 @@
  */
 
 import * as v from "valibot";
+import { ThreadAgentSchema } from "./thread-agent-validation";
 import {
   ARTIFACT_TYPES,
   MESSAGE_OUTCOMES,
@@ -517,6 +518,7 @@ export const ThreadRecordSchema = v.pipe(
     parentSessionId: v.optional(v.string()),
     shares: v.optional(v.array(ShareLinkSchema)),
     participants: v.optional(v.array(IdentitySchema)),
+    agentSnapshot: v.optional(ThreadAgentSchema),
   } satisfies EntriesOf<Thread>),
   v.rawCheck(({ dataset, addIssue }) => {
     if (!dataset.typed || !dataset.value.textCuts?.length) return;

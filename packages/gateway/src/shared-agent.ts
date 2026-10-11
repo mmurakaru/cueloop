@@ -87,13 +87,14 @@ export class SharedAgentRelay {
     const thread = await this.thread(id);
     const record = await this.read(id);
     const state: ThreadAgentState = structuredClone(
-      record.state ?? {
-        threadId: thread.id,
-        phase: { kind: "idle" },
-        messages: [],
-        tools: [],
-        comments: [],
-      },
+      record.state ??
+        thread.agentSnapshot ?? {
+          threadId: thread.id,
+          phase: { kind: "idle" },
+          messages: [],
+          tools: [],
+          comments: [],
+        },
     );
 
     if (!this.owners.has(id)) state.phase = { kind: "offline" };

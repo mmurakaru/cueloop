@@ -12,10 +12,13 @@ import type { BreadcrumbItem } from "./components/Breadcrumb";
 export function computeRoleCapabilities(
   readOnly: boolean,
   role: "owner" | "observer" | "collaborator",
+  shared = false,
 ) {
   const observer = readOnly || role === "observer";
 
-  return { observer, isOwner: !observer && role === "owner" };
+  const isOwner = !observer && role === "owner";
+
+  return { observer, isOwner, canManageThreads: isOwner && !shared };
 }
 
 export function deriveReviewFlags(session: Thread | null) {

@@ -305,7 +305,12 @@ test("new Pi conversations choose the configured model and medium effort instead
       return fauxAssistantMessage("Continued");
     },
   ]);
-  const options = { cwd: home, onEvent() {}, onExit() {} };
+  const events: AgentHarnessEvent[] = [];
+  const options = {
+    cwd: home,
+    onEvent: (event: AgentHarnessEvent) => events.push(event),
+    onExit() {},
+  };
   let connection = createThreadHarness({
     home,
     models,
@@ -315,7 +320,22 @@ test("new Pi conversations choose the configured model and medium effort instead
   try {
     const sessionId = await connection.start();
 
+    const config = events.findLast((event) => event.kind === "config");
+
+    expect(config?.kind === "config" && config.options).toContainEqual({
+      id: "provider",
+      name: "Provider",
+      category: "model",
+      currentValue: "openai-codex",
+      options: [{ value: "openai-codex", name: "Codex subscription" }],
+    });
+    expect(
+      config?.kind === "config" &&
+        config.options.find((option) => option.id === "effort")?.currentValue,
+    ).toBe("medium");
+    await expect(connection.configure!("effort", "invalid")).rejects.toThrow("Pi reasoning effort");
     await connection.prompt("Hello", "default-model");
+    await connection.configure!("effort", "high");
     await connection.close();
     connection = createThreadHarness({
       home,
@@ -326,7 +346,7 @@ test("new Pi conversations choose the configured model and medium effort instead
     await connection.prompt("Continue", "saved-model");
     expect(requests).toEqual([
       { model: "gpt-6.1-sol", effort: "medium" },
-      { model: "gpt-6.1-sol", effort: "medium" },
+      { model: "gpt-6.1-sol", effort: "high" },
     ]);
   } finally {
     await connection.close();

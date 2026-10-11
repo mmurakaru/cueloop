@@ -8,9 +8,16 @@ import {
   SHARE_RECONNECT_MIN_MS,
   type ShareTransport,
 } from "./thread-controller";
-import { mergeFromShare, type ShareWatchHandlers } from "../integrations/share";
+import {
+  snapshotThreadConversation,
+  mergeFromShare,
+  type ShareWatchHandlers,
+} from "../integrations/share";
 
-const publishShare = mock(async () => ({ line: "ssh p_abc123xy@cueloop.dev", copied: true }));
+const publishShare = mock(async (_session: Thread) => ({
+  line: "ssh p_abc123xy@cueloop.dev",
+  copied: true,
+}));
 let remote: Thread;
 const pullShare = mock(async () => remote);
 const pushShare = mock(
@@ -570,4 +577,42 @@ describe("revoke", () => {
     expect(revokeShare).toHaveBeenCalledWith("p_abc123xy");
     expect(client.sessionDelete).toHaveBeenCalledWith(session.id);
   });
+});
+
+test("share publication captures an empty artifact's separate conversation without execution records", async () => {
+  const thread = sessionFixture({ artifact: { type: "plan", content: "", meta: {} } });
+  const { controller, client } = await connectedController(thread);
+  const state = {
+    threadId: thread.id,
+    phase: { kind: "idle" as const },
+    harness: { id: "pi", label: "pi", sessionId: "private-session" },
+    messages: [
+      {
+        id: "answer",
+        role: "agent" as const,
+        text: "Visible conversation",
+        complete: true,
+        revision: 1,
+      },
+    ],
+    comments: [],
+    tools: [],
+    promptOperations: [
+      { operationId: "private-operation", fingerprint: "private-hash", result: [] },
+    ],
+  };
+
+  client.agentGet = async () => state;
+  publishShare.mockClear();
+  controller.share();
+  await tick();
+  await tick();
+  const shared = publishShare.mock.calls[0]![0];
+
+  expect(shared.agentSnapshot?.messages).toEqual(state.messages);
+  expect(shared.agentSnapshot?.harness).toEqual({ id: "pi", label: "pi" });
+  expect(shared.agentSnapshot?.promptOperations).toBeUndefined();
+  expect(thread.agentSnapshot).toBeUndefined();
+  expect(await snapshotThreadConversation(thread, {})).toBe(thread);
+  controller.close();
 });

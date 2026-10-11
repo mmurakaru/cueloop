@@ -19,9 +19,10 @@ import {
   type SharePolicy,
   type ShareLink,
   type Thread,
+  type ThreadAgentState,
 } from "@cueloop/schema";
 import { ThreadRecordSchema } from "@cueloop/daemon/validate";
-import type { SharedMerge } from "@cueloop/daemon/client";
+import type { ThreadClient, SharedMerge } from "@cueloop/daemon/client";
 import * as v from "valibot";
 import { copyToClipboard } from "./clipboard";
 
@@ -239,4 +240,44 @@ async function runShareSsh(
   ]);
 
   return { stdout, stderr, code };
+}
+
+/** Freeze the visible conversation without owner session IDs, execution data or delivery receipts. */
+export async function snapshotThreadConversation(
+  thread: Thread,
+  client: Pick<ThreadClient, "agentGet">,
+): Promise<Thread> {
+  if (!client.agentGet) return thread;
+
+  let state: ThreadAgentState;
+
+  try {
+    state = await client.agentGet(thread.id);
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith("Thread agent is disabled;"))
+      return thread;
+
+    throw error;
+  }
+
+  if (!state.messages.length && !state.submissions?.length) return thread;
+
+  return {
+    ...thread,
+    agentSnapshot: {
+      threadId: thread.id,
+      harness: state.harness ? { id: state.harness.id, label: state.harness.label } : undefined,
+      phase: { kind: "idle" },
+      messages: state.messages,
+      comments: state.comments,
+      tools: [],
+      submissions: state.submissions?.map(({ id, commentId, prompt, quote, status }) => ({
+        id,
+        commentId,
+        prompt,
+        quote,
+        status,
+      })),
+    },
+  };
 }

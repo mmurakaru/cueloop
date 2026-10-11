@@ -384,3 +384,28 @@ describe(pullSession, () => {
     expect(deps.pull).not.toHaveBeenCalled();
   });
 });
+
+test("CLI shares include the visible conversation of an empty artifact", async () => {
+  const thread = sessionFixture("ses_conversation", {
+    artifact: { type: "plan", content: "", meta: {} },
+  });
+  const client = fakeClient([thread]);
+  const messages = [
+    { id: "reply", role: "agent" as const, text: "Shared reply", complete: true, revision: 1 },
+  ];
+  const publish = mock(async (_shared: Thread) => ({
+    line: "ssh p_abc123xy@cueloop.dev",
+    copied: false,
+  }));
+
+  client.agentGet = async () => ({
+    threadId: thread.id,
+    phase: { kind: "idle" },
+    messages,
+    comments: [],
+    tools: [],
+  });
+  expect(await shareSession(client, { sessionId: thread.id }, depsSpy({ publish }))).toBe(0);
+  expect(publish.mock.calls[0]![0].agentSnapshot?.messages).toEqual(messages);
+  expect(thread.agentSnapshot).toBeUndefined();
+});
