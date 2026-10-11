@@ -1,10 +1,10 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { cruise, format } from "dependency-cruiser";
-import ts from "typescript";
+import typescript from "typescript";
 import policy from "./dependency-policy.cjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -24,12 +24,16 @@ const WORKSPACE_COLLAPSE = "^packages/(?:integrations/[^/]+|[^/]+)";
 /** Analyze complete source sets; report filters never weaken validation. */
 export async function analyzeDependencySources(sources, configuration, runtimeOnly = false) {
   const configPath = configuration.options.tsConfig.fileName;
-  const sourceConfig = ts.readConfigFile(configPath, ts.sys.readFile);
+  const sourceConfig = typescript.readConfigFile(configPath, typescript.sys.readFile);
 
   if (sourceConfig.error)
-    throw new Error(ts.flattenDiagnosticMessageText(sourceConfig.error.messageText, "\n"));
+    throw new Error(typescript.flattenDiagnosticMessageText(sourceConfig.error.messageText, "\n"));
 
-  const parsed = ts.parseJsonConfigFileContent(sourceConfig.config, ts.sys, dirname(configPath));
+  const parsed = typescript.parseJsonConfigFileContent(
+    sourceConfig.config,
+    typescript.sys,
+    dirname(configPath),
+  );
   const result = await cruise(
     sources,
     {
@@ -91,6 +95,19 @@ async function writeDependencyReport(graph, destination, outputType, options = {
   const { output } = await format(graph, { ...options, outputType });
 
   writeFileSync(destination, output);
+}
+
+/** Optional reports belong to the current invocation, even when no changed sources remain. */
+export function clearOptionalDependencyReports(directory, packages) {
+  const names = ["affected.mmd", "focus.mmd", "focus.html", "architecture.html", "runtime.html"];
+
+  for (const home of packages) {
+    names.push(`${home.directory.replace(/^packages\//, "").replaceAll("/", "-")}.html`);
+  }
+
+  for (const name of names) {
+    rmSync(resolve(directory, name), { force: true });
+  }
 }
 
 async function writeDependencyViews(graph, runtime, directory, packages, graphviz) {
@@ -191,6 +208,10 @@ async function runDependencyAnalysis() {
 
   const directory = resolve(root, values.output);
   const configuration = policy.createDependencyConfiguration(root, values.site);
+  const packages = policy.discoverDependencyPackages(root);
+
+  if (command === "report" && !values.site) clearOptionalDependencyReports(directory, packages);
+
   const sources = values.site ? ["site"] : ROOT_SOURCES;
   const start = performance.now();
   const graph = await analyzeDependencySources(sources, configuration);
@@ -229,13 +250,7 @@ async function runDependencyAnalysis() {
     } else {
       const runtime = await analyzeDependencySources(sources, configuration, true);
 
-      await writeDependencyViews(
-        graph,
-        runtime,
-        directory,
-        policy.discoverDependencyPackages(root),
-        values.graphviz,
-      );
+      await writeDependencyViews(graph, runtime, directory, packages, values.graphviz);
 
       if (values.focus) {
         await writeDependencyReport(graph, resolve(directory, "focus.mmd"), "mermaid", {

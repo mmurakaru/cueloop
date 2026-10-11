@@ -1,20 +1,20 @@
 const { globSync, readFileSync } = require("node:fs");
 const { dirname, resolve } = require("node:path");
-const v = require("valibot");
+const valibot = require("valibot");
 
-const ManifestSchema = v.object({
-  name: v.string(),
-  workspaces: v.optional(v.array(v.string())),
-  exports: v.optional(v.record(v.string(), v.string())),
-  dependencies: v.optional(v.record(v.string(), v.string())),
-  peerDependencies: v.optional(v.record(v.string(), v.string())),
-  optionalDependencies: v.optional(v.record(v.string(), v.string())),
-  devDependencies: v.optional(v.record(v.string(), v.string())),
+const ManifestSchema = valibot.object({
+  name: valibot.string(),
+  workspaces: valibot.optional(valibot.array(valibot.string())),
+  exports: valibot.optional(valibot.record(valibot.string(), valibot.string())),
+  dependencies: valibot.optional(valibot.record(valibot.string(), valibot.string())),
+  peerDependencies: valibot.optional(valibot.record(valibot.string(), valibot.string())),
+  optionalDependencies: valibot.optional(valibot.record(valibot.string(), valibot.string())),
+  devDependencies: valibot.optional(valibot.record(valibot.string(), valibot.string())),
 });
-const AccessExceptionSchema = v.object({
-  from: v.string(),
-  to: v.string(),
-  reason: v.pipe(v.string(), v.minLength(1)),
+const AccessExceptionSchema = valibot.object({
+  from: valibot.string(),
+  to: valibot.string(),
+  reason: valibot.pipe(valibot.string(), valibot.minLength(1)),
 });
 const DEVELOPMENT_SOURCE =
   "^(test|benchmarks|snapshots|examples|scripts|tools)/|\\.(test|stories)\\.[cm]?[jt]sx?$|/(testing|stories|examples)/|^site/scripts/";
@@ -29,7 +29,7 @@ function dependencyPathPattern(paths) {
 }
 
 function readDependencyManifest(path) {
-  return v.parse(ManifestSchema, JSON.parse(readFileSync(path, "utf8")));
+  return valibot.parse(ManifestSchema, JSON.parse(readFileSync(path, "utf8")));
 }
 
 /** Workspace identities come from manifests, including nested integrations. */
@@ -62,8 +62,8 @@ function discoverDependencyPackages(root) {
 function createDependencyConfiguration(root, site = false) {
   const packages = discoverDependencyPackages(root);
   const budgets = JSON.parse(readFileSync(resolve(root, "import-budgets.json"), "utf8"));
-  const exceptions = v.parse(
-    v.array(AccessExceptionSchema),
+  const exceptions = valibot.parse(
+    valibot.array(AccessExceptionSchema),
     JSON.parse(readFileSync(resolve(root, "dependency-access.json"), "utf8")),
   );
   const development = new RegExp(DEVELOPMENT_SOURCE);

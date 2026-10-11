@@ -1,7 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { createTestDependencyRepo } from "../../test/helpers/dependency-repo.mjs";
-import { analyzeDependencySources, unusedDependencyAccess } from "./dependency-analysis.mjs";
+import {
+  analyzeDependencySources,
+  clearOptionalDependencyReports,
+  unusedDependencyAccess,
+} from "./dependency-analysis.mjs";
 import policy from "./dependency-policy.cjs";
 
 async function withDependencyFixture(run) {
@@ -28,6 +32,34 @@ function dependencyRuleNames(graph) {
 }
 
 describe("dependency parser and public interfaces", () => {
+  test("a new report run removes stale optional views without deleting other artifacts", () =>
+    withDependencyFixture(async (fixture) => {
+      const optional = [
+        "affected.mmd",
+        "focus.mmd",
+        "focus.html",
+        "architecture.html",
+        "runtime.html",
+        "base.html",
+        "integrations-sample.html",
+      ];
+
+      for (const name of [...optional, "site.mmd", "dependencies.json", "custom.txt"]) {
+        fixture.write(`reports/${name}`, "previous report");
+      }
+
+      clearOptionalDependencyReports(
+        `${fixture.directory}/reports`,
+        policy.discoverDependencyPackages(fixture.directory),
+      );
+
+      for (const name of optional)
+        expect(existsSync(`${fixture.directory}/reports/${name}`)).toBe(false);
+
+      for (const name of ["site.mmd", "dependencies.json", "custom.txt"])
+        expect(existsSync(`${fixture.directory}/reports/${name}`)).toBe(true);
+    }));
+
   test("public subpaths, nested workspaces, own internals and Bun built-ins pass", () =>
     withDependencyFixture(async (fixture, analyze) => {
       fixture.write(
@@ -262,10 +294,14 @@ describe("dependency parser and public interfaces", () => {
     }));
 
   test("the isolated parser leaves the application's compiler on TypeScript 7", () => {
-    const app = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8"));
+    const applicationManifest = JSON.parse(
+      readFileSync(new URL("../../package.json", import.meta.url), "utf8"),
+    );
     const tooling = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8"));
 
-    expect(Number(app.devDependencies.typescript.match(/\d+/)[0])).toBeGreaterThanOrEqual(7);
+    expect(
+      Number(applicationManifest.devDependencies.typescript.match(/\d+/)[0]),
+    ).toBeGreaterThanOrEqual(7);
     expect(tooling.dependencies.typescript).toBe("6.0.3");
   });
 });
