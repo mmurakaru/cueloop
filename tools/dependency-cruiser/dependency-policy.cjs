@@ -11,6 +11,12 @@ const ManifestSchema = valibot.object({
   optionalDependencies: valibot.optional(valibot.record(valibot.string(), valibot.string())),
   devDependencies: valibot.optional(valibot.record(valibot.string(), valibot.string())),
 });
+const ImportLayerPolicySchema = valibot.object({
+  layers: valibot.record(
+    valibot.pipe(valibot.string(), valibot.minLength(1)),
+    valibot.array(valibot.pipe(valibot.string(), valibot.minLength(1))),
+  ),
+});
 const AccessExceptionSchema = valibot.object({
   from: valibot.string(),
   to: valibot.string(),
@@ -61,7 +67,10 @@ function discoverDependencyPackages(root) {
 /** Generate checks from the same package permissions and public exports used by the repo. */
 function createDependencyConfiguration(root, site = false) {
   const packages = discoverDependencyPackages(root);
-  const budgets = JSON.parse(readFileSync(resolve(root, "import-budgets.json"), "utf8"));
+  const budgets = valibot.parse(
+    ImportLayerPolicySchema,
+    JSON.parse(readFileSync(resolve(root, "import-budgets.json"), "utf8")),
+  );
   const exceptions = valibot.parse(
     valibot.array(AccessExceptionSchema),
     JSON.parse(readFileSync(resolve(root, "dependency-access.json"), "utf8")),

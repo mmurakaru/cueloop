@@ -32,6 +32,29 @@ function dependencyRuleNames(graph) {
 }
 
 describe("dependency parser and public interfaces", () => {
+  test("saved layer policies reject malformed permissions before generating rules", () =>
+    withDependencyFixture(async (fixture) => {
+      for (const document of [
+        {},
+        { layers: null },
+        { layers: { "@fixture/base": "fixture-consumer" } },
+        { layers: { "@fixture/base": [1] } },
+        { layers: { "": [] } },
+        { layers: { "@fixture/base": [""] } },
+      ]) {
+        fixture.write("import-budgets.json", JSON.stringify(document));
+        let validationError;
+
+        try {
+          policy.createDependencyConfiguration(fixture.directory);
+        } catch (error) {
+          validationError = error;
+        }
+
+        expect(validationError).toMatchObject({ name: "ValiError", issues: expect.any(Array) });
+      }
+    }));
+
   test("a new report run removes stale optional views without deleting other artifacts", () =>
     withDependencyFixture(async (fixture) => {
       const optional = [

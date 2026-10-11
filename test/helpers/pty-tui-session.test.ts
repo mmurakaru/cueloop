@@ -6,7 +6,12 @@
 
 import { describe, expect, test } from "bun:test";
 import type { ExitEvent } from "../../packages/client/src/terminal/pty";
-import { waitForPtyScreen, waitForPtyText, type PtyScreenReader } from "./pty-tui-session";
+import {
+  ptyCellColumnForTextOffset,
+  waitForPtyScreen,
+  waitForPtyText,
+  type PtyScreenReader,
+} from "./pty-tui-session";
 
 /** A scripted screen: each `text()` call advances through `frames`, then repeats the last. */
 function fakeReader(
@@ -93,4 +98,22 @@ describe("waitForPtyText", () => {
     await expect(waitForPtyText(reader, "Submit review")).resolves.toContain("Submit review");
     await expect(waitForPtyText(reader, /q\s+quit/)).resolves.toContain("quit");
   });
+});
+
+test("PTY text locations map wide glyphs and supplementary codepoints to mouse cells", () => {
+  const cells = [
+    { codepoint: 0xe000, width: 1 },
+    { codepoint: 0, width: 2 },
+    { codepoint: 32, width: 0 },
+    { codepoint: 0x1f600, width: 1 },
+    { codepoint: 0, width: 2 },
+    { codepoint: 32, width: 0 },
+    ...Array.from("changes", (character) => ({ codepoint: character.codePointAt(0)!, width: 0 })),
+  ];
+  const text = "\ue000 😀 changes";
+
+  expect(ptyCellColumnForTextOffset(cells, text.indexOf("changes"))).toBe(6);
+  expect(ptyCellColumnForTextOffset(cells, text.indexOf("😀"))).toBe(3);
+  expect(ptyCellColumnForTextOffset(cells, text.indexOf("changes") + 3)).toBe(9);
+  expect(() => ptyCellColumnForTextOffset(cells, 100)).toThrow("outside the terminal row");
 });
