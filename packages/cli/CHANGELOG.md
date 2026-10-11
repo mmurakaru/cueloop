@@ -1,5 +1,17 @@
 # cueloop
 
+## 0.1.0-alpha.105
+
+### Patch Changes
+
+- [#582](https://github.com/mmurakaru/cueloop/pull/582) [`a813b66`](https://github.com/mmurakaru/cueloop/commit/a813b6651bac79be14eef0667adea760d63f5412) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Update OpenTUI to 0.5.17, Effect to 4.0.2, the MCP server to 2.3.0, and the diff parser to 1.5.2. Update lint and formatting tools alongside their plugins.
+- Updated dependencies [[`a813b66`](https://github.com/mmurakaru/cueloop/commit/a813b6651bac79be14eef0667adea760d63f5412)]:
+  - @cueloop/client@0.1.0-alpha.105
+  - @cueloop/daemon@0.1.0-alpha.105
+  - @cueloop/adapters@0.1.0-alpha.105
+  - @cueloop/extension-api@0.1.0-alpha.105
+  - @cueloop/schema@0.1.0-alpha.105
+
 ## 0.1.0-alpha.104
 
 ### Patch Changes
