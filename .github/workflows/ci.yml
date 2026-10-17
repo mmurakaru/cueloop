@@ -52,7 +52,7 @@ jobs:
       - name: Validate supported site sources
         if: success() || failure()
         run: node tools/dependency-cruiser/dependency-analysis.mjs report --site
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: dependency-reports
@@ -100,7 +100,7 @@ jobs:
       - name: Build terminal screen reader
         run: sh packages/client/native/build.sh
       - run: bun run test:gateway-mirror
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: gateway-mirror-report
