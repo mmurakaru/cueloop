@@ -49,7 +49,7 @@
         "@cueloop/daemon": "0.1.0-alpha.105",
         "@cueloop/extension-api": "0.1.0-alpha.105",
         "@cueloop/schema": "0.1.0-alpha.105",
-        "@modelcontextprotocol/server": "2.3.0",
+        "@modelcontextprotocol/server": "2.3.1",
         "@valibot/to-json-schema": "1.8.0",
         "valibot": "^1.5.0",
       },
@@ -319,9 +319,9 @@
 
     "@manypkg/tools": ["@manypkg/tools@2.1.2", "", { "dependencies": { "jju": "^1.4.0", "tinyglobby": "^0.2.13", "yaml": "^2.9.0" } }, "sha512-6QEf6yqFbETdwGITKq57aYoPfX/3K8XFNwsAlx0C1M7o8cb79sv1M3w+tWuWvIcSbNqrLF7OD7YpZMVVz335hQ=="],
 
-    "@modelcontextprotocol/core": ["@modelcontextprotocol/core@2.3.0", "", { "dependencies": { "zod": "^4.2.0" } }, "sha512-09BHFaNVBe5pB2AhzCfLj0cqmsKLERvZQ4FblzP90UMGLaXVqdZPByFjURwsUYCmxonUW2yAwgTTvle+8O2/8w=="],
+    "@modelcontextprotocol/core": ["@modelcontextprotocol/core@2.3.1", "", { "dependencies": { "zod": "^4.2.0" } }, "sha512-laVmIhPGpWi7rG9q+0UigblRN0Hws/Yjlb6qLFtVqryXVLkc4h+yN8z731POD2LnAGQlFe7/tXhUm7Bi0YB91g=="],
 
-    "@modelcontextprotocol/server": ["@modelcontextprotocol/server@2.3.0", "", { "dependencies": { "@modelcontextprotocol/core": "2.3.0", "zod": "^4.2.0" } }, "sha512-+6b0LdsQLmHsvS7J6sQJ4weTpzUn61fU1JKS+321/+IyDYoHW5CR2Tgqcs6GgAAQvlesCo6yX3xttgmx+XGtJw=="],
+    "@modelcontextprotocol/server": ["@modelcontextprotocol/server@2.3.1", "", { "dependencies": { "@modelcontextprotocol/core": "2.3.1", "zod": "^4.2.0" } }, "sha512-e59MfWuSssj6DoQ96JCTqdW1AXT5/XtnTl0WWd6MU1Ka434fFUGGosCLJbGNySDhHGvxQWoRWK137FXYFkYNWw=="],
 
     "@opentui/core": ["@opentui/core@0.5.17", "", { "dependencies": { "bun-ffi-structs": "0.3.1", "diff": "9.0.0", "marked": "17.0.1", "string-width": "7.2.0", "strip-ansi": "7.1.2" }, "optionalDependencies": { "@opentui/core-darwin-arm64": "0.5.17", "@opentui/core-darwin-x64": "0.5.17", "@opentui/core-linux-arm64": "0.5.17", "@opentui/core-linux-arm64-musl": "0.5.17", "@opentui/core-linux-x64": "0.5.17", "@opentui/core-linux-x64-musl": "0.5.17", "@opentui/core-win32-arm64": "0.5.17", "@opentui/core-win32-x64": "0.5.17" }, "peerDependencies": { "web-tree-sitter": "0.25.10" } }, "sha512-75vMaKPKc6tnnUWEultPxiiSU0kqNSdAjbcsFGQecjCF4Z1Jrr4NZBiRo3SoMciai/nq24JCiYcVqPjaKtl/6Q=="],
 
