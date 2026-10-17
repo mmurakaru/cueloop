@@ -27,10 +27,10 @@
     },
     "packages/adapters": {
       "name": "@cueloop/adapters",
-      "version": "0.1.0-alpha.104",
+      "version": "0.1.0-alpha.105",
       "dependencies": {
-        "@cueloop/daemon": "0.1.0-alpha.104",
-        "@cueloop/schema": "0.1.0-alpha.104",
+        "@cueloop/daemon": "0.1.0-alpha.105",
+        "@cueloop/schema": "0.1.0-alpha.105",
         "@earendil-works/chord": "1.0.4",
         "@earendil-works/pi-ai": "1.0.4",
         "@earendil-works/pi-durable": "1.0.4",
@@ -39,16 +39,16 @@
     },
     "packages/cli": {
       "name": "cueloop",
-      "version": "0.1.0-alpha.104",
+      "version": "0.1.0-alpha.105",
       "bin": {
         "cueloop": "./src/main.ts",
       },
       "dependencies": {
-        "@cueloop/adapters": "0.1.0-alpha.104",
-        "@cueloop/client": "0.1.0-alpha.104",
-        "@cueloop/daemon": "0.1.0-alpha.104",
-        "@cueloop/extension-api": "0.1.0-alpha.104",
-        "@cueloop/schema": "0.1.0-alpha.104",
+        "@cueloop/adapters": "0.1.0-alpha.105",
+        "@cueloop/client": "0.1.0-alpha.105",
+        "@cueloop/daemon": "0.1.0-alpha.105",
+        "@cueloop/extension-api": "0.1.0-alpha.105",
+        "@cueloop/schema": "0.1.0-alpha.105",
         "@modelcontextprotocol/server": "2.3.0",
         "@valibot/to-json-schema": "1.8.0",
         "valibot": "^1.5.0",
@@ -56,12 +56,12 @@
     },
     "packages/client": {
       "name": "@cueloop/client",
-      "version": "0.1.0-alpha.104",
+      "version": "0.1.0-alpha.105",
       "dependencies": {
-        "@cueloop/daemon": "0.1.0-alpha.104",
-        "@cueloop/extension-api": "0.1.0-alpha.104",
-        "@cueloop/integration-obsidian": "0.1.0-alpha.104",
-        "@cueloop/schema": "0.1.0-alpha.104",
+        "@cueloop/daemon": "0.1.0-alpha.105",
+        "@cueloop/extension-api": "0.1.0-alpha.105",
+        "@cueloop/integration-obsidian": "0.1.0-alpha.105",
+        "@cueloop/schema": "0.1.0-alpha.105",
         "@opentui/core": "^0.5.17",
         "@opentui/keymap": "0.5.17",
         "@opentui/react": "^0.5.17",
@@ -82,10 +82,10 @@
     },
     "packages/daemon": {
       "name": "@cueloop/daemon",
-      "version": "0.1.0-alpha.104",
+      "version": "0.1.0-alpha.105",
       "dependencies": {
-        "@cueloop/extension-api": "0.1.0-alpha.104",
-        "@cueloop/schema": "0.1.0-alpha.104",
+        "@cueloop/extension-api": "0.1.0-alpha.105",
+        "@cueloop/schema": "0.1.0-alpha.105",
         "@pierre/diffs": "^1.5.2",
         "effect": "^4.0.2",
         "smol-toml": "^1.9.0",
@@ -94,9 +94,9 @@
     },
     "packages/extension-api": {
       "name": "@cueloop/extension-api",
-      "version": "0.1.0-alpha.104",
+      "version": "0.1.0-alpha.105",
       "dependencies": {
-        "@cueloop/schema": "0.1.0-alpha.104",
+        "@cueloop/schema": "0.1.0-alpha.105",
         "valibot": "^1.5.0",
       },
       "peerDependencies": {
@@ -106,14 +106,14 @@
     },
     "packages/gateway": {
       "name": "@cueloop/gateway",
-      "version": "0.1.0-alpha.104",
+      "version": "0.1.0-alpha.105",
       "bin": {
         "cueloop-gateway": "./src/main.ts",
       },
       "dependencies": {
-        "@cueloop/client": "0.1.0-alpha.104",
-        "@cueloop/daemon": "0.1.0-alpha.104",
-        "@cueloop/schema": "0.1.0-alpha.104",
+        "@cueloop/client": "0.1.0-alpha.105",
+        "@cueloop/daemon": "0.1.0-alpha.105",
+        "@cueloop/schema": "0.1.0-alpha.105",
         "@opentui/core": "^0.5.17",
         "@opentui/react": "^0.5.17",
         "react": "^19.3.0",
@@ -126,18 +126,18 @@
     },
     "packages/integrations/obsidian": {
       "name": "@cueloop/integration-obsidian",
-      "version": "0.1.0-alpha.104",
+      "version": "0.1.0-alpha.105",
       "dependencies": {
-        "@cueloop/extension-api": "0.1.0-alpha.104",
-        "@cueloop/schema": "0.1.0-alpha.104",
+        "@cueloop/extension-api": "0.1.0-alpha.105",
+        "@cueloop/schema": "0.1.0-alpha.105",
         "valibot": "^1.5.0",
       },
     },
     "packages/pi": {
       "name": "@cueloop/pi",
-      "version": "0.1.0-alpha.104",
+      "version": "0.1.0-alpha.105",
       "dependencies": {
-        "@cueloop/adapters": "0.1.0-alpha.100",
+        "@cueloop/adapters": "0.1.0-alpha.105",
       },
       "peerDependencies": {
         "@earendil-works/pi-coding-agent": "^0.86.0",
@@ -145,7 +145,7 @@
     },
     "packages/schema": {
       "name": "@cueloop/schema",
-      "version": "0.1.0-alpha.104",
+      "version": "0.1.0-alpha.105",
     },
   },
   "packages": {
