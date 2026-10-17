@@ -65,7 +65,7 @@ function spawnGit(args: string[], cwd: string): { exitCode: number; stdout: Buff
 }
 
 /** The git-metadata filenames whose change means `git diff HEAD` moved: a checkout, a commit, or a reset. */
-function isRefChange(filename: string): boolean {
+function isRefChange(filename: string | null): boolean {
   return filename === "HEAD" || filename === "packed-refs";
 }
 
@@ -198,9 +198,12 @@ export class DiffWatcher {
     if (ALWAYS_IGNORED_DIRS.has(basename(dir)) || repoWatch.ignored.has(dir)) return true;
 
     const opened = this.watchInto(repoWatch.handles, dir, { recursive: false }, (filename) => {
-      this.scheduleRepoRefresh(repoRoot);
       // a newly created subdirectory needs its own watch (a recursive watch got this for free)
-      this.extendWatch(repoRoot, join(dir, filename));
+      if (filename !== null) this.extendWatch(repoRoot, join(dir, filename));
+      // no name for the change: rescan the tree on the next refresh so a new directory is not missed
+      else repoWatch.reconcilePending = true;
+
+      this.scheduleRepoRefresh(repoRoot);
     });
 
     if (!opened) return false;
@@ -278,17 +281,18 @@ export class DiffWatcher {
    * Open one watcher and add it to `handles`; returns whether it opened. A
    * watcher error (the path is deleted mid-review) is swallowed - hot-reload is
    * best-effort and must never take down the daemon. The inherited EventEmitter
-   * `on` is absent from Bun's FSWatcher type.
+   * `on` is absent from Bun's FSWatcher type. The platform may omit the changed
+   * name (Bun on Linux passes undefined, Node passes null); `onFile` then gets null.
    */
   private watchInto(
     handles: FSWatcher[],
     path: string,
     options: { recursive: boolean },
-    onFile: (filename: string) => void,
+    onFile: (filename: string | null) => void,
   ): boolean {
     try {
       const handle = watch(path, options, (_event, filename) => {
-        if (filename !== null) onFile(filename.toString());
+        onFile(filename == null ? null : filename.toString());
       });
 
       handle.on("error", () => {});
