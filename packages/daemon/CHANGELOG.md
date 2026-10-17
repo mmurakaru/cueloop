@@ -1,5 +1,14 @@
 # @cueloop/daemon
 
+## 0.1.0-alpha.107
+
+### Patch Changes
+
+- [#587](https://github.com/mmurakaru/cueloop/pull/587) [`cd3a0be`](https://github.com/mmurakaru/cueloop/commit/cd3a0bea2b389590799324cd50437bc242ebd821) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Keep hot reload working on Linux when the file watcher reports a change without a file name, instead of crashing the watcher callback.
+- Updated dependencies []:
+  - @cueloop/extension-api@0.1.0-alpha.107
+  - @cueloop/schema@0.1.0-alpha.107
+
 ## 0.1.0-alpha.106
 
 ### Patch Changes
