@@ -1,5 +1,14 @@
 # @cueloop/daemon
 
+## 0.1.0-alpha.106
+
+### Patch Changes
+
+- [#585](https://github.com/mmurakaru/cueloop/pull/585) [`b6a9f9a`](https://github.com/mmurakaru/cueloop/commit/b6a9f9af6cbba4eb9492e8ffdd005e421cb8885c) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Update the MCP server to 2.3.1, Effect to 4.0.4, the TOML parser to 1.9.1, Puppeteer to 25.13.0, and the Pi agent libraries to 1.1.0. Update lint and formatting tools alongside their plugins.
+- Updated dependencies []:
+  - @cueloop/extension-api@0.1.0-alpha.106
+  - @cueloop/schema@0.1.0-alpha.106
+
 ## 0.1.0-alpha.105
 
 ### Patch Changes
