@@ -48,7 +48,7 @@
     "@types/react": "^19.3.0",
     "cueloop": "workspace:*",
     "effect": "^4.0.4",
-    "oxfmt": "^0.71.0",
+    "oxfmt": "^0.72.0",
     "oxlint": "^1.87.0",
     "react": "^19.3.0",
     "ssh2": "^1.17.0",
