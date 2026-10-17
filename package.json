@@ -27,7 +27,7 @@
     "format": "oxlint -A all -D statement-padding/blank-lines --fix && oxfmt packages test scripts site benchmarks hooks tools examples snapshots",
     "format:check": "oxlint -A all -D statement-padding/blank-lines && oxfmt --check packages test scripts site benchmarks hooks tools examples snapshots",
     "changeset": "changeset",
-    "version": "changeset version && bun run scripts/rewrite-internal-deps.ts && bun run scripts/sync-plugin-version.ts",
+    "version": "changeset version && bun run scripts/rewrite-internal-deps.ts && bun run scripts/sync-plugin-version.ts && bun run scripts/sync-lockfile-versions.ts",
     "ci:publish": "bun run check:publish && changeset publish",
     "check:release": "bun run scripts/check-release-integrity.ts",
     "check:publish": "bun run scripts/check-publish-integrity.ts",
