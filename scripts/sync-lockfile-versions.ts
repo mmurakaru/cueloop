@@ -3,7 +3,7 @@
  * wrote, so the Release PR carries the lockfile change instead of leaving main
  * with stale internal versions.
  *
- * Runs as part of `bun run version`, after the internal-deps rewrite. It first
+ * Runs as part of `bun run version`, after the internal dependency rewrite. It first
  * asks Bun to update the lockfile without installing anything. Some Bun versions
  * (including the one CI pins) leave a workspace's own version and its exact
  * internal pins untouched there, so any internal entry that still disagrees with
@@ -20,9 +20,13 @@ const install = Bun.spawnSync(["bun", "install", "--lockfile-only"], {
 
 if (install.exitCode !== 0) process.exit(install.exitCode ?? 1);
 
-type DepField = "dependencies" | "devDependencies" | "peerDependencies" | "optionalDependencies";
+type DependencyField =
+  | "dependencies"
+  | "devDependencies"
+  | "peerDependencies"
+  | "optionalDependencies";
 type Manifest = { name: string; version?: string } & Partial<
-  Record<DepField, Record<string, string>>
+  Record<DependencyField, Record<string, string>>
 >;
 
 const manifests = new Map<string, Manifest>();
@@ -32,20 +36,20 @@ for (const pattern of ["packages/*/package.json", "packages/integrations/*/packa
     manifests.set(path.slice(0, -"/package.json".length), await Bun.file(path).json());
 
 const internal = new Set([...manifests.values()].map((manifest) => manifest.name));
-const depFields = new Set<string>([
+const dependencyFields = new Set<string>([
   "dependencies",
   "devDependencies",
   "peerDependencies",
   "optionalDependencies",
 ]);
 
-function isDepField(name: string): name is DepField {
-  return depFields.has(name);
+function isDependencyField(name: string): name is DependencyField {
+  return dependencyFields.has(name);
 }
 
 const lines = (await Bun.file(lockPath).text()).split("\n");
 let workspace: Manifest | undefined;
-let field: DepField | undefined;
+let field: DependencyField | undefined;
 let inWorkspaces = false;
 let rewrites = 0;
 
@@ -74,7 +78,7 @@ for (let index = 0; index < lines.length; index++) {
   const section = line.match(/^ {6}"([^"]+)": \{$/);
 
   if (section) {
-    field = isDepField(section[1]) ? section[1] : undefined;
+    field = isDependencyField(section[1]) ? section[1] : undefined;
     continue;
   }
 
@@ -86,13 +90,13 @@ for (let index = 0; index < lines.length; index++) {
     continue;
   }
 
-  const dep = field ? line.match(/^( {8}"([^"]+)": )"([^"]*)",$/) : null;
+  const dependency = field ? line.match(/^( {8}"([^"]+)": )"([^"]*)",$/) : null;
 
-  if (dep && field && internal.has(dep[2])) {
-    const wanted = workspace[field]?.[dep[2]];
+  if (dependency && field && internal.has(dependency[2])) {
+    const wanted = workspace[field]?.[dependency[2]];
 
-    if (wanted !== undefined && wanted !== dep[3]) {
-      lines[index] = `${dep[1]}"${wanted}",`;
+    if (wanted !== undefined && wanted !== dependency[3]) {
+      lines[index] = `${dependency[1]}"${wanted}",`;
       rewrites++;
     }
   }
