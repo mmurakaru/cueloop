@@ -1,5 +1,16 @@
 # @cueloop/client
 
+## 0.1.0-alpha.108
+
+### Patch Changes
+
+- [#593](https://github.com/mmurakaru/cueloop/pull/593) [`8ee1fdd`](https://github.com/mmurakaru/cueloop/commit/8ee1fddaf1efb7254a260b838865ca706a113867) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Update Effect to 4.0.5 and React to 19.3.1.
+- Updated dependencies [[`8ee1fdd`](https://github.com/mmurakaru/cueloop/commit/8ee1fddaf1efb7254a260b838865ca706a113867)]:
+  - @cueloop/daemon@0.1.0-alpha.108
+  - @cueloop/extension-api@0.1.0-alpha.108
+  - @cueloop/integration-obsidian@0.1.0-alpha.108
+  - @cueloop/schema@0.1.0-alpha.108
+
 ## 0.1.0-alpha.107
 
 ### Patch Changes
