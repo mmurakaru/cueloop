@@ -19,6 +19,7 @@ function createTestSnapshot(partial: string): SnapshotEvent {
     entries: [],
     generation: { attempt: 2, message: fauxAssistantMessage(partial) },
     tools: [],
+    nestedTools: [],
     compactions: [],
     inbox: [],
     agent: {},

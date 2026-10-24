@@ -46,8 +46,8 @@
   "dependencies": {
     "@cueloop/extension-api": "0.1.0-alpha.108",
     "@cueloop/schema": "0.1.0-alpha.108",
-    "@pierre/diffs": "^1.5.2",
-    "effect": "^4.0.5",
+    "@pierre/diffs": "^1.6.1",
+    "effect": "^4.0.6",
     "smol-toml": "^1.9.1",
     "valibot": "^1.5.0"
   },
