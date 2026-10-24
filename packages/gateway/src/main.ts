@@ -34,6 +34,14 @@ async function main(): Promise<void> {
     port: Number(process.env.CUELOOP_GATEWAY_PORT ?? 22),
     host: process.env.CUELOOP_GATEWAY_HOST,
     publicHost: process.env.CUELOOP_PUBLIC_HOST,
+    limits: {
+      maxConnections: Number(process.env.CUELOOP_MAX_CONNECTIONS ?? 128),
+      maxConnectionsPerIp: Number(process.env.CUELOOP_MAX_CONNECTIONS_PER_IP ?? 16),
+      maxChannelsPerConnection: Number(process.env.CUELOOP_MAX_CHANNELS_PER_CONNECTION ?? 8),
+      maxViewers: Number(process.env.CUELOOP_MAX_VIEWERS ?? 32),
+      authenticationTimeoutMs: Number(process.env.CUELOOP_AUTH_TIMEOUT_MS ?? 15_000),
+      uploadTimeoutMs: Number(process.env.CUELOOP_UPLOAD_TIMEOUT_MS ?? 30_000),
+    },
     // Off unless CUELOOP_METRICS_PORT is set; binds loopback so it never faces the internet.
     metricsPort: process.env.CUELOOP_METRICS_PORT
       ? Number(process.env.CUELOOP_METRICS_PORT)

@@ -61,3 +61,37 @@ disconnects. The gateway's `p_<id>` uses an ephemeral key here, so ids do not
 survive a restart in memory mode - that is expected for the local demo.
 
 Automated coverage of the same loop is in `src/server.e2e.test.ts`.
+
+## Resource limits
+
+The gateway rejects excess TCP connections before parsing SSH, and counts connections
+that have not sent an identification string. Authentication has an absolute deadline.
+Established reviews and owner streams have no session expiry; SSH keepalives remove
+unresponsive peers. Session channels are bounded per connection, including channels
+that have not requested a shell or command. Viewer capacity includes storage reads
+and collaborator authentication before rendering begins.
+
+| Environment variable                  | Default | Bound                                          |
+| ------------------------------------- | ------- | ---------------------------------------------- |
+| `CUELOOP_MAX_CONNECTIONS`             | `128`   | concurrent TCP connections                     |
+| `CUELOOP_MAX_CONNECTIONS_PER_IP`      | `16`    | concurrent TCP connections per source IP       |
+| `CUELOOP_MAX_CHANNELS_PER_CONNECTION` | `8`     | concurrent SSH session channels per connection |
+| `CUELOOP_MAX_VIEWERS`                 | `32`    | concurrent viewers, including pending opens    |
+| `CUELOOP_AUTH_TIMEOUT_MS`             | `15000` | time from TCP accept to authenticated SSH      |
+| `CUELOOP_UPLOAD_TIMEOUT_MS`           | `30000` | total time to receive a bounded request body   |
+
+All overrides must be positive integers. Terminal dimensions are capped at 300 columns
+and 100 rows, including resize requests. Uploads remain capped at 1 MiB. The upload
+rate limiter tracks at most 10,000 source IPs and refuses new sources when full. It
+reclaims entries idle for at least 60 seconds on subsequent requests, after enough
+time for their tokens to refill completely.
+
+Source IP means the TCP peer. Behind a proxy, configure limits for that topology:
+this gateway does not parse PROXY protocol headers or trust forwarded IP claims.
+Per-source limits can group users behind NAT or a proxy; the global limits still apply.
+These limits bound process work and do not replace upstream network DDoS protection.
+
+The raw TCP ingress uses ssh2's socket injection API. A one-line dependency patch
+registers ssh2's TCP listener explicitly because Bun 1.3.14 does not dispatch
+constructor-supplied listeners for manually emitted connection events. Keep that
+patch when installing the gateway from source; the Docker mirror includes it.
