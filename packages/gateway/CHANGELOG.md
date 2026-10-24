@@ -1,5 +1,32 @@
 # @cueloop/gateway
 
+## 0.1.0-alpha.108
+
+### Patch Changes
+
+- Updated dependencies [[`8ee1fdd`](https://github.com/mmurakaru/cueloop/commit/8ee1fddaf1efb7254a260b838865ca706a113867)]:
+  - @cueloop/client@0.1.0-alpha.108
+  - @cueloop/daemon@0.1.0-alpha.108
+  - @cueloop/schema@0.1.0-alpha.108
+
+## 0.1.0-alpha.107
+
+### Patch Changes
+
+- Updated dependencies [[`cd3a0be`](https://github.com/mmurakaru/cueloop/commit/cd3a0bea2b389590799324cd50437bc242ebd821)]:
+  - @cueloop/daemon@0.1.0-alpha.107
+  - @cueloop/client@0.1.0-alpha.107
+  - @cueloop/schema@0.1.0-alpha.107
+
+## 0.1.0-alpha.106
+
+### Patch Changes
+
+- Updated dependencies [[`b6a9f9a`](https://github.com/mmurakaru/cueloop/commit/b6a9f9af6cbba4eb9492e8ffdd005e421cb8885c)]:
+  - @cueloop/client@0.1.0-alpha.106
+  - @cueloop/daemon@0.1.0-alpha.106
+  - @cueloop/schema@0.1.0-alpha.106
+
 ## 0.1.0-alpha.105
 
 ### Patch Changes

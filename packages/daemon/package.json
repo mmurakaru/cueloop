@@ -1,6 +1,6 @@
 {
   "name": "@cueloop/daemon",
-  "version": "0.1.0-alpha.105",
+  "version": "0.1.0-alpha.108",
   "description": "The cueloop session daemon and its client: socket protocol, atomic store, resumable waits",
   "homepage": "https://github.com/mmurakaru/cueloop#readme",
   "bugs": {
@@ -44,11 +44,11 @@
     "access": "public"
   },
   "dependencies": {
-    "@cueloop/extension-api": "0.1.0-alpha.105",
-    "@cueloop/schema": "0.1.0-alpha.105",
+    "@cueloop/extension-api": "0.1.0-alpha.108",
+    "@cueloop/schema": "0.1.0-alpha.108",
     "@pierre/diffs": "^1.5.2",
-    "effect": "^4.0.2",
-    "smol-toml": "^1.9.0",
+    "effect": "^4.0.5",
+    "smol-toml": "^1.9.1",
     "valibot": "^1.5.0"
   },
   "engines": {

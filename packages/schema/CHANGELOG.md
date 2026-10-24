@@ -1,5 +1,17 @@
 # @cueloop/schema
 
+## 0.1.0-alpha.108
+
+No changes in this release.
+
+## 0.1.0-alpha.107
+
+No changes in this release.
+
+## 0.1.0-alpha.106
+
+No changes in this release.
+
 ## 0.1.0-alpha.105
 
 No changes in this release.

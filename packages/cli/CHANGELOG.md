@@ -1,5 +1,40 @@
 # cueloop
 
+## 0.1.0-alpha.108
+
+### Patch Changes
+
+- [#593](https://github.com/mmurakaru/cueloop/pull/593) [`8ee1fdd`](https://github.com/mmurakaru/cueloop/commit/8ee1fddaf1efb7254a260b838865ca706a113867) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Update Effect to 4.0.5 and React to 19.3.1.
+- Updated dependencies [[`8ee1fdd`](https://github.com/mmurakaru/cueloop/commit/8ee1fddaf1efb7254a260b838865ca706a113867)]:
+  - @cueloop/client@0.1.0-alpha.108
+  - @cueloop/daemon@0.1.0-alpha.108
+  - @cueloop/adapters@0.1.0-alpha.108
+  - @cueloop/extension-api@0.1.0-alpha.108
+  - @cueloop/schema@0.1.0-alpha.108
+
+## 0.1.0-alpha.107
+
+### Patch Changes
+
+- Updated dependencies [[`cd3a0be`](https://github.com/mmurakaru/cueloop/commit/cd3a0bea2b389590799324cd50437bc242ebd821)]:
+  - @cueloop/daemon@0.1.0-alpha.107
+  - @cueloop/adapters@0.1.0-alpha.107
+  - @cueloop/client@0.1.0-alpha.107
+  - @cueloop/extension-api@0.1.0-alpha.107
+  - @cueloop/schema@0.1.0-alpha.107
+
+## 0.1.0-alpha.106
+
+### Patch Changes
+
+- [#585](https://github.com/mmurakaru/cueloop/pull/585) [`b6a9f9a`](https://github.com/mmurakaru/cueloop/commit/b6a9f9af6cbba4eb9492e8ffdd005e421cb8885c) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Update the MCP server to 2.3.1, Effect to 4.0.4, the TOML parser to 1.9.1, Puppeteer to 25.13.0, and the Pi agent libraries to 1.1.0. Update lint and formatting tools alongside their plugins.
+- Updated dependencies [[`b6a9f9a`](https://github.com/mmurakaru/cueloop/commit/b6a9f9af6cbba4eb9492e8ffdd005e421cb8885c)]:
+  - @cueloop/adapters@0.1.0-alpha.106
+  - @cueloop/client@0.1.0-alpha.106
+  - @cueloop/daemon@0.1.0-alpha.106
+  - @cueloop/extension-api@0.1.0-alpha.106
+  - @cueloop/schema@0.1.0-alpha.106
+
 ## 0.1.0-alpha.105
 
 ### Patch Changes

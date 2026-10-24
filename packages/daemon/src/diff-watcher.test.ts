@@ -117,3 +117,49 @@ test("replacing a watch during reconciliation stops the old directory traversal"
     fs.rmSync(repo, { recursive: true, force: true });
   }
 });
+
+/** A watch listener as the runtime calls it: Bun on Linux can pass an undefined filename. */
+type RuntimeWatchListener = (event: fs.WatchEventType, filename: string | null | undefined) => void;
+
+test("a change without a filename still refreshes and watches a new directory", async () => {
+  const repo = fs.mkdtempSync(join(tmpdir(), "cueloop-watch-unnamed-"));
+  const watch = fs.watch;
+  const listeners = new Map<string, RuntimeWatchListener>();
+  let refreshes = 0;
+  const startup = Promise.withResolvers<void>();
+  const change = Promise.withResolvers<void>();
+  const watcher = new DiffWatcher(() => {
+    refreshes++;
+
+    if (refreshes === 1) startup.resolve();
+    else change.resolve();
+  });
+  // SAFETY: DiffWatcher always calls the string-filename, three-argument watch overload; the
+  // listener is typed as the runtime calls it, which may pass an undefined filename.
+  const spy = spyOn(fs, "watch").mockImplementation(((
+    path: fs.PathLike,
+    options: fs.WatchOptions,
+    listener: RuntimeWatchListener,
+  ) => {
+    listeners.set(String(path), listener);
+
+    return watch(path, options, () => {});
+  }) as typeof fs.watch);
+
+  try {
+    watcher.trackDiffRepo(repo, "session");
+    await startup.promise;
+    const onRootChange = listeners.get(repo);
+
+    expect(onRootChange).toBeDefined();
+    fs.mkdirSync(join(repo, "fresh"));
+    expect(() => onRootChange?.("rename", undefined)).not.toThrow();
+    await change.promise;
+    expect(refreshes).toBe(2);
+    expect(listeners.has(join(repo, "fresh"))).toBe(true);
+  } finally {
+    watcher.close();
+    spy.mockRestore();
+    fs.rmSync(repo, { recursive: true, force: true });
+  }
+});
