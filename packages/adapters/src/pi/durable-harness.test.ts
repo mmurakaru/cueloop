@@ -1,3 +1,4 @@
+import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { afterEach, expect, test } from "bun:test";
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -172,7 +173,7 @@ test("closing during storage initialization waits and releases the writer withou
   await closing;
   expect(await rejected).toMatchObject({ message: "Pi conversation is closed" });
   expect(events).toEqual([]);
-  const context = { abortSignal: undefined, value: () => undefined, toString: () => "test" };
+  const context = BACKGROUND_CONTEXT;
   const reopened = await openNodeJsonlStorage(join(home, "conversation"), context);
 
   await reopened.close(context);
@@ -209,7 +210,7 @@ test("replaying an answered input still projects its answer after the active con
   const models = createModels();
   const provider = fauxProvider();
   const events: AgentHarnessEvent[] = [];
-  const context = { abortSignal: undefined, value: () => undefined, toString: () => "test" };
+  const context = BACKGROUND_CONTEXT;
 
   directories.push(home);
   models.setProvider(provider.provider);

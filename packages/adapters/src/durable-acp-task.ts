@@ -29,6 +29,7 @@ const AcpProgressDoc = defineDocFamily<{ events: string[]; bytes: number }, null
   history: "latest",
   fork: "initial",
   initial: () => ({ events: [], bytes: 0 }),
+  checkpointWhen: () => false,
 });
 
 export const AcpSessionDoc = defineDoc<{
@@ -42,6 +43,7 @@ export const AcpSessionDoc = defineDoc<{
   history: "latest",
   fork: "initial",
   initial: () => ({ sessionId: null, activeTask: null, operations: {} }),
+  checkpointWhen: () => true,
 });
 
 const TaskIdSchema = v.pipe(

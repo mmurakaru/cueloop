@@ -71,6 +71,7 @@ interface ScrollContainerView {
 /** A mounted row as the core measures it: its height under the `Element` member name. */
 interface RowView {
   readonly clientHeight: number;
+  readonly isConnected: boolean;
 }
 
 type CoreVirtualizer = Virtualizer<Element, Element>;
@@ -99,6 +100,9 @@ function rowView(renderable: BoxRenderable): RowView {
   return {
     get clientHeight() {
       return renderable.height;
+    },
+    get isConnected() {
+      return !renderable.isDestroyed;
     },
   };
 }

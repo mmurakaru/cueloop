@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import * as v from "valibot";
-import type { Context } from "@earendil-works/chord";
+import { BACKGROUND_CONTEXT, type Context } from "@earendil-works/chord/context";
 import {
   Type,
   getSupportedThinkingLevels,
@@ -55,11 +55,7 @@ export interface ThreadHarnessOptions {
   env?: (cwd: string) => ExecutionEnv;
 }
 
-const context: Context = {
-  abortSignal: undefined,
-  value: () => undefined,
-  toString: () => "cueloop owner harness",
-};
+const context: Context = BACKGROUND_CONTEXT;
 
 /** Each Thread owns its durable conversation; execution and model capabilities are host supplied. */
 export function createThreadHarness(config: ThreadHarnessOptions): AgentHarnessAdapter {
@@ -135,7 +131,7 @@ class ThreadHarnessConnection implements AgentHarnessConnection {
         parameters: Type.Unsafe<Record<string, string>>(definition.inputSchema),
         replay: "unsafe" as const,
         execute: async (args) => ({
-          content: [
+          output: [
             {
               type: "text" as const,
               text: await this.options.tools!.call(definition.name, JSON.stringify(args)),
