@@ -1,5 +1,17 @@
 # cueloop
 
+## 0.1.0-alpha.109
+
+### Patch Changes
+
+- [#598](https://github.com/mmurakaru/cueloop/pull/598) [`11cf6d8`](https://github.com/mmurakaru/cueloop/commit/11cf6d81422fd9765338dc66a81952c12e74e140) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Update the MCP server to 2.4.0, Effect to 4.0.6, the diff renderer to 1.6.1, the virtualizer to 3.19.7, Puppeteer to 25.16.0, Zustand to 5.0.16, and the Pi agent libraries to 1.4.0. Update lint, formatting, and architecture validation tools alongside their plugins.
+- Updated dependencies [[`11cf6d8`](https://github.com/mmurakaru/cueloop/commit/11cf6d81422fd9765338dc66a81952c12e74e140)]:
+  - @cueloop/adapters@0.1.0-alpha.109
+  - @cueloop/client@0.1.0-alpha.109
+  - @cueloop/daemon@0.1.0-alpha.109
+  - @cueloop/extension-api@0.1.0-alpha.109
+  - @cueloop/schema@0.1.0-alpha.109
+
 ## 0.1.0-alpha.108
 
 ### Patch Changes
