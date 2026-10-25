@@ -296,7 +296,7 @@ export function ThreadView({
     const usable = viewWidth > 0 ? Math.max(1, viewWidth - 6) : 40;
     const lines = Math.max(1, Math.ceil(displayText(block).length / usable));
 
-    return lines + (index === 0 ? 0 : 1);
+    return lines + 1;
   };
   const virtual = useTerminalVirtualizer({
     scrollbox: scrollRef,
@@ -400,7 +400,12 @@ export function ThreadView({
 
     if (custom !== undefined)
       return (
-        <box key={`custom-${blockIndex}`} ref={virtual.measureRef(blockIndex)}>
+        <box
+          key={`custom-${blockIndex}`}
+          ref={virtual.measureRef(blockIndex)}
+          style={{ flexDirection: "column" }}
+        >
+          {blockIndex === 0 ? <box key="lead-gap" style={{ height: 1 }} /> : null}
           {custom}
         </box>
       );
@@ -415,8 +420,7 @@ export function ThreadView({
       (block.kind === "li" || block.kind === "oli");
     // the leading gap rides inside the measured box (not marginTop, which sits outside it) so the
     // virtualizer's spacer math counts it
-    const leadingGap =
-      blockIndex === 0 || tight ? null : <box key="lead-gap" style={{ height: 1 }} />;
+    const leadingGap = tight ? null : <box key="lead-gap" style={{ height: 1 }} />;
     const measuredBox = (children: React.ReactNode): React.ReactNode => (
       <box
         key={isPromptBlock?.(blockIndex) ? "prompt-block" : `discussion-block-${blockIndex}`}
@@ -550,7 +554,7 @@ export function ThreadView({
         {/* the rail draws this box's scrollbar past the dots, so the built-in one stays hidden */}
         <scrollbox
           ref={scrollRef}
-          style={{ flexGrow: 1, paddingTop: 1 }}
+          style={{ flexGrow: 1 }}
           focused={false}
           verticalScrollbarOptions={{ visible: false }}
         >

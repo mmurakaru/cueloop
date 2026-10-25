@@ -294,11 +294,19 @@ async function waitForFramePredicate(
   let lastLog = start;
 
   for (;;) {
-    if (setup.renderer.isDestroyed) return lastFrame;
+    if (setup.renderer.isDestroyed) {
+      throw new Error(
+        `waitFor ${label} failed: renderer was destroyed before frame matched.\nlast frame:\n${lastFrame}`,
+      );
+    }
 
     await setup.renderOnce();
 
-    if (setup.renderer.isDestroyed) return lastFrame;
+    if (setup.renderer.isDestroyed) {
+      throw new Error(
+        `waitFor ${label} failed: renderer was destroyed before frame matched.\nlast frame:\n${lastFrame}`,
+      );
+    }
 
     const frame = setup.captureCharFrame();
 
@@ -347,11 +355,23 @@ export async function waitForState(
   let lastLog = start;
 
   for (;;) {
-    if (setup.renderer.isDestroyed) return;
+    if (setup.renderer.isDestroyed) {
+      if (predicate()) return;
+
+      throw new Error(
+        `waitForState ${label} failed: renderer was destroyed before condition matched.\nlast frame:\n${lastFrame}`,
+      );
+    }
 
     await setup.renderOnce();
 
-    if (setup.renderer.isDestroyed) return;
+    if (setup.renderer.isDestroyed) {
+      if (predicate()) return;
+
+      throw new Error(
+        `waitForState ${label} failed: renderer was destroyed before condition matched.\nlast frame:\n${lastFrame}`,
+      );
+    }
 
     const frame = setup.captureCharFrame();
 
