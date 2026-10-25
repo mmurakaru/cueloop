@@ -1,0 +1,7 @@
+diff --git a/lib/server.js b/lib/server.js
+index 306d6584c2514fd5238136049f02725fce09f91e..20426e4c840fd64730085d6e940f61a3096fbab6 100644
+--- a/lib/server.js
++++ b/lib/server.js
+@@ -328 +328 @@ class Server extends EventEmitter {
+-    this._srv = new netServer((socket) => {
++    this._srv = new netServer().on('connection', (socket) => {

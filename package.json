@@ -55,5 +55,8 @@
     "typescript": "^7.0.2",
     "valibot": "^1.5.0"
   },
-  "dependencies": {}
+  "dependencies": {},
+  "patchedDependencies": {
+    "ssh2@1.17.0": "patches/ssh2@1.17.0.patch"
+  }
 }

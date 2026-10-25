@@ -37,3 +37,24 @@ describe(TokenBucket, () => {
     expect(bucket.take("b")).toBe(true);
   });
 });
+
+test("refuses new sources at capacity without resetting exhausted sources", () => {
+  const bucket = new TokenBucket(1, 1, () => 0, 2);
+
+  expect(bucket.take("a")).toBe(true);
+  expect(bucket.take("b")).toBe(true);
+  expect(bucket.take("c")).toBe(false);
+  expect(bucket.take("a")).toBe(false);
+});
+
+test("reclaims idle sources only after their tokens could fully refill", () => {
+  let clock = 0;
+  const bucket = new TokenBucket(2, 1, () => clock, 1, 1000);
+
+  expect(bucket.take("a")).toBe(true);
+  expect(bucket.take("a")).toBe(true);
+  clock = 1000;
+  expect(bucket.take("b")).toBe(false);
+  clock = 2000;
+  expect(bucket.take("b")).toBe(true);
+});
