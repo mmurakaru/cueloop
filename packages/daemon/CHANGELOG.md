@@ -1,5 +1,14 @@
 # @cueloop/daemon
 
+## 0.1.0-alpha.110
+
+### Patch Changes
+
+- [#600](https://github.com/mmurakaru/cueloop/pull/600) [`6185960`](https://github.com/mmurakaru/cueloop/commit/61859609e30e41360c25139db60edd75dd767975) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Update OpenTUI to 0.6.8 across the terminal client, extension API, and gateway packages, and sort watched directory entries deterministically during diff reconciliation.
+- Updated dependencies [[`6185960`](https://github.com/mmurakaru/cueloop/commit/61859609e30e41360c25139db60edd75dd767975)]:
+  - @cueloop/extension-api@0.1.0-alpha.110
+  - @cueloop/schema@0.1.0-alpha.110
+
 ## 0.1.0-alpha.109
 
 ### Patch Changes
