@@ -11,6 +11,8 @@ import {
   infoStringToFiletype,
   extensionToFiletype,
   basenameToFiletype,
+  type NativeResourceOwner,
+  type ResourceContext,
 } from "@opentui/core";
 import type { Theme } from "../../appearance/theme";
 
@@ -86,16 +88,23 @@ function syntaxGroupStyles(theme: Theme): SyntaxGroupStyles {
   };
 }
 
-const syntaxStyleCache = new WeakMap<Theme, SyntaxStyle>();
+const syntaxStyleCache = new WeakMap<ResourceContext, WeakMap<Theme, SyntaxStyle>>();
 
-export function syntaxStyleFor(theme: Theme): SyntaxStyle {
-  const cached = syntaxStyleCache.get(theme);
+export function syntaxStyleFor(theme: Theme, owner: NativeResourceOwner): SyntaxStyle {
+  let byTheme = syntaxStyleCache.get(owner.resourceContext);
+
+  if (!byTheme) {
+    byTheme = new WeakMap<Theme, SyntaxStyle>();
+    syntaxStyleCache.set(owner.resourceContext, byTheme);
+  }
+
+  const cached = byTheme.get(theme);
 
   if (cached) return cached;
 
-  const style = SyntaxStyle.fromStyles(syntaxGroupStyles(theme));
+  const style = SyntaxStyle.fromStyles(syntaxGroupStyles(theme), owner);
 
-  syntaxStyleCache.set(theme, style);
+  byTheme.set(theme, style);
 
   return style;
 }
@@ -106,20 +115,27 @@ export interface ReferenceStyle {
   styleId: number;
 }
 
-const referenceStyleCache = new WeakMap<Theme, ReferenceStyle>();
+const referenceStyleCache = new WeakMap<ResourceContext, WeakMap<Theme, ReferenceStyle>>();
 
-export function referenceStyleFor(theme: Theme): ReferenceStyle {
-  const cached = referenceStyleCache.get(theme);
+export function referenceStyleFor(theme: Theme, owner: NativeResourceOwner): ReferenceStyle {
+  let byTheme = referenceStyleCache.get(owner.resourceContext);
+
+  if (!byTheme) {
+    byTheme = new WeakMap<Theme, ReferenceStyle>();
+    referenceStyleCache.set(owner.resourceContext, byTheme);
+  }
+
+  const cached = byTheme.get(theme);
 
   if (cached) return cached;
 
   const entry: ReferenceStyle = {
-    style: SyntaxStyle.fromStyles({ reference: { fg: theme.accent } }),
+    style: SyntaxStyle.fromStyles({ reference: { fg: theme.accent } }, owner),
     styleId: 0,
   };
 
   entry.styleId = entry.style.getStyleId("reference") ?? 0;
-  referenceStyleCache.set(theme, entry);
+  byTheme.set(theme, entry);
 
   return entry;
 }

@@ -415,6 +415,7 @@ describe("the four-pane workbench", () => {
       return header.includes("util.ts") && header.includes("README.md");
     });
     await setup.mockMouse.click(util.column, util.row);
+    await setup.renderOnce();
     const header = setup.captureCharFrame().split("\n")[HEADER_ROW]!;
 
     expect(header.match(/util\.ts/g)).toHaveLength(1);
@@ -694,6 +695,7 @@ describe("the bare-launch welcome shell", () => {
     const skill = locateText(setup, "custom-review");
 
     await setup.mockMouse.click(skill.column, skill.row);
+    await setup.renderOnce();
     expect(setup.captureCharFrame()).toContain("custom-review");
     setup.renderer.destroy();
   });
@@ -788,12 +790,12 @@ describe("the bare-launch welcome shell", () => {
 
     expect(frame).toContain("README.md");
     expect(frame).toContain(NERD.copy);
-    const title = locateText(setup, "README.md");
+    const title = locateText(setup, "│ README.md");
 
-    await setup.mockMouse.click(title.column, title.row);
+    await setup.mockMouse.click(title.column + 2, title.row);
     await waitForTextGone(setup, "edited in the working tree");
     expect(setup.captureCharFrame()).toContain("README.md");
-    await setup.mockMouse.click(title.column, title.row);
+    await setup.mockMouse.click(title.column + 2, title.row);
     await waitForText(setup, "edited in the working tree");
     setup.renderer.destroy();
   });

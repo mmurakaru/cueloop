@@ -111,6 +111,7 @@ test("Split is disabled at eight tiles and when a tile is too small", async () =
 
     expect(button).toBeDefined();
     await setup.mockMouse.click(button!.x, button!.y);
+    await setup.renderOnce();
     expect(setup.captureCharFrame()).not.toContain("right →");
     expect(splitCalls).toBe(0);
     setup.renderer.destroy();

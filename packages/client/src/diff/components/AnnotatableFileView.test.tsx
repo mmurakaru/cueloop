@@ -48,7 +48,6 @@ describe("AnnotatableFileView", () => {
     { path: "src/add.js", source: "const add = 1;", keyword: "const" },
   ]) {
     test(`highlights ${path} by its detected language`, async () => {
-      allowEventLoopUpdates();
       const setup = await testRender(
         <AnnotatableFileView
           path={path}
@@ -64,11 +63,14 @@ describe("AnnotatableFileView", () => {
         />,
         { width: 64, height: 12 },
       );
+
+      allowEventLoopUpdates();
       let highlighted = false;
 
       for (let attempt = 0; attempt < 60 && !highlighted; attempt++) {
         await setup.renderOnce();
         await new Promise((resolve) => setTimeout(resolve, 20));
+        await setup.renderOnce();
         highlighted = setup.captureSpans().lines.some((line) =>
           line.spans
             .filter((span) => colorHex(span.fg) === DARK.accent)
@@ -147,6 +149,7 @@ describe("AnnotatableFileView", () => {
       { width: 64, height: 12 },
     );
 
+    allowEventLoopUpdates();
     await waitForText(setup, "return a + b");
 
     // Assert - the current file shows, but the head-side note is not attached to it

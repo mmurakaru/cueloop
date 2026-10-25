@@ -217,7 +217,7 @@ export class DiffWatcher {
     } catch {
       return true;
     }
-    for (const entry of entries) {
+    for (const entry of entries.toSorted((left, right) => left.name.localeCompare(right.name))) {
       // a symlinked directory is skipped so the walk cannot loop
       if (entry.isDirectory() && !entry.isSymbolicLink())
         this.watchTree(repoRoot, join(dir, entry.name));
@@ -268,7 +268,7 @@ export class DiffWatcher {
 
     if (this.repoWatches.get(repoRoot) !== repoWatch) return;
 
-    for (const entry of entries) {
+    for (const entry of entries.toSorted((left, right) => left.name.localeCompare(right.name))) {
       if (this.repoWatches.get(repoRoot) !== repoWatch) return;
 
       if (entry.isDirectory() && !entry.isSymbolicLink())

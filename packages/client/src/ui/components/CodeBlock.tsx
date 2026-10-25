@@ -7,6 +7,7 @@
 
 import React from "react";
 import { createTextAttributes } from "@opentui/core";
+import { useRenderer } from "@opentui/react";
 import type { Theme } from "../../appearance/theme";
 import { useComponentTheme } from "../../appearance/components/theme-context";
 import { filetypeFor, syntaxStyleFor } from "./syntax-highlight";
@@ -38,6 +39,7 @@ export function CodeBlock({
   theme,
 }: CodeBlockProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
+  const renderer = useRenderer();
   const tagColor = changeTag === "new" ? tokens.green : tokens.accent;
 
   return (
@@ -69,7 +71,7 @@ export function CodeBlock({
           <code
             content={content}
             filetype={filetypeFor(language)}
-            syntaxStyle={syntaxStyleFor(tokens)}
+            syntaxStyle={syntaxStyleFor(tokens, renderer.nativeScene)}
             selectable={false}
             style={{ wrapMode: "none", fg: tokens.textMuted, bg: tokens.elevated }}
           />

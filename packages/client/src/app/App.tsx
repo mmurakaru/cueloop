@@ -944,12 +944,21 @@ export function App({
       return;
     }
 
-    renderer?.suspend();
-    try {
-      controller.edit();
-    } finally {
-      renderer?.resume();
-    }
+    void (async () => {
+      let suspended = false;
+
+      try {
+        await renderer?.suspend();
+        suspended = true;
+      } catch {
+        suspended = false;
+      }
+      try {
+        controller.edit();
+      } finally {
+        if (suspended) await renderer?.resume();
+      }
+    })();
   };
 
   // ── keyboard grammar: build state, reduce, dispatch ──

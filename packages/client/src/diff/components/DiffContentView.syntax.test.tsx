@@ -47,11 +47,13 @@ test("renders tree-sitter colors, with the changed word in the diff color on top
 
   // Act
   // syntax highlighting resolves off the render path; pump until a keyword paints
+  allowEventLoopUpdates();
   let keywordAccent = false;
 
   for (let attempt = 0; attempt < 60 && !keywordAccent; attempt++) {
     await setup.renderOnce();
     await new Promise((resolve) => setTimeout(resolve, 20));
+    await setup.renderOnce();
     // the caret cell splits the keyword's first character into its own span, so read the
     // accent-colored text of a whole line rather than one span
     for (const line of setup.captureSpans().lines) {

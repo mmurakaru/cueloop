@@ -7,7 +7,7 @@
  */
 
 import React, { useContext, useLayoutEffect, useRef, useState } from "react";
-import { usePaste } from "@opentui/react";
+import { usePaste, useRenderer } from "@opentui/react";
 import type {
   BoxRenderable,
   KeyBinding,
@@ -69,6 +69,7 @@ export function Composer({
   agentEnabled?: boolean;
   focusRequest?: number;
 }): React.ReactNode {
+  const renderer = useRenderer();
   const editorRef = useRef<TextareaRenderable | null>(null);
   const pastedImageCount = useRef(0);
   const [rows, setRows] = useState(1);
@@ -86,7 +87,7 @@ export function Composer({
   });
 
   const paintReferences = (editor: TextareaRenderable): void => {
-    const { styleId } = referenceStyleFor(tokens);
+    const { styleId } = referenceStyleFor(tokens, renderer.nativeScene);
 
     editor.editBuffer.clearAllHighlights();
     for (const range of skillReferenceRanges(editor.plainText, referenceNames)) {
@@ -103,7 +104,7 @@ export function Composer({
     if (!editor) return;
 
     editor.cursorOffset = seed.length;
-    editor.editBuffer.setSyntaxStyle(referenceStyleFor(tokens).style);
+    editor.editBuffer.setSyntaxStyle(referenceStyleFor(tokens, renderer.nativeScene).style);
     paintReferences(editor);
     setRows(composeRowCount(editor.plainText, editor.width));
     onReady(() => editorRef.current?.plainText ?? "");

@@ -13,6 +13,7 @@
 
 import React, { forwardRef, useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
 import type { KeyBinding, TextareaRenderable } from "@opentui/core";
+import { useRenderer } from "@opentui/react";
 import { type Theme } from "../../appearance/theme";
 import { markdownHighlightRanges } from "../markdown-highlight";
 import { markdownEditorStyle } from "../markdown-editor-syntax-style";
@@ -63,6 +64,7 @@ function newlinePrefixCounts(text: string): number[] {
 
 export const MarkdownThreadEditor = forwardRef<MarkdownEditorHandle, MarkdownThreadEditorProps>(
   function MarkdownThreadEditor({ initialText, theme, onExitEditor }, handleRef): React.ReactNode {
+    const renderer = useRenderer();
     const editorRef = useRef<TextareaRenderable | null>(null);
     const [position, setPosition] = useState<MarkdownEditorPosition>({
       line: 1,
@@ -76,7 +78,7 @@ export const MarkdownThreadEditor = forwardRef<MarkdownEditorHandle, MarkdownThr
     useImperativeHandle(handleRef, () => ({ requestExit: exitWithCurrentText }));
 
     const paintMarkdown = (editor: TextareaRenderable): void => {
-      const { styleIdFor } = markdownEditorStyle(theme);
+      const { styleIdFor } = markdownEditorStyle(theme, renderer.nativeScene);
       const text = editor.plainText;
       // addHighlightByCharRange counts offsets with newlines excluded, so map source offsets down by the
       // newlines before them - otherwise a highlight drifts one cell per preceding line
@@ -98,7 +100,7 @@ export const MarkdownThreadEditor = forwardRef<MarkdownEditorHandle, MarkdownThr
 
       if (!editor) return;
 
-      editor.editBuffer.setSyntaxStyle(markdownEditorStyle(theme).style);
+      editor.editBuffer.setSyntaxStyle(markdownEditorStyle(theme, renderer.nativeScene).style);
       paintMarkdown(editor);
       setPosition((prior) => ({ ...prior, lineCount: editor.editBuffer.getLineCount() }));
       // eslint-disable-next-line react-hooks/exhaustive-deps

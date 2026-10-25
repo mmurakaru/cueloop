@@ -263,6 +263,7 @@ for (const role of ["collaborator", "observer"] as const) {
 
       expect(row).toBeGreaterThanOrEqual(0);
       await setup.mockMouse.moveTo(12, row);
+      await setup.renderOnce();
       expect(setup.captureCharFrame()).not.toContain(NERD.kebab);
       expect(setup.captureCharFrame()).not.toContain(" edit ");
     } finally {

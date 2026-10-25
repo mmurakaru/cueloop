@@ -248,7 +248,7 @@ function PrototypeContentViewImpl({
 
     if (launchedRef.current || !region) return;
 
-    if (caps && caps.kitty_graphics === false) {
+    if (caps && Boolean(caps.terminal.name) && caps.kitty_graphics === false) {
       setStatus("unsupported");
 
       return;

@@ -150,6 +150,10 @@ export function useTerminalVirtualizer(options: TerminalVirtualizerOptions): Ter
 
   // the offset reporter the core registered, so a scroll the core asks for reports at once
   const reportOffset = useRef<(() => void) | null>(null);
+  const pendingScroll = useRef<{
+    index: number;
+    align: "auto" | "start" | "center" | "end";
+  } | null>(null);
 
   // a frame-event poll stands in for scroll and resize events: the renderer fires it after every
   // render, and the callbacks only fire the core when the value actually changed
@@ -241,6 +245,13 @@ export function useTerminalVirtualizer(options: TerminalVirtualizerOptions): Ter
         for (const element of virtualizer.elementsCache.values()) {
           virtualizer.measureElement(element);
         }
+
+        if (pendingScroll.current) {
+          const target = pendingScroll.current;
+
+          pendingScroll.current = null;
+          virtualizer.scrollToIndex(target.index, { align: target.align });
+        }
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [virtualizer, renderer],
@@ -262,8 +273,14 @@ export function useTerminalVirtualizer(options: TerminalVirtualizerOptions): Ter
         if (virtualizer.elementsCache.get(index) === view) virtualizer.elementsCache.delete(index);
       };
     },
-    scrollToIndex: (index, align = "auto") => virtualizer.scrollToIndex(index, { align }),
+    scrollToIndex: (index, align = "auto") => {
+      pendingScroll.current = { index, align };
+      virtualizer.scrollToIndex(index, { align });
+    },
     startOfIndex: (index) => virtualizer.getOffsetForIndex(index, "start")?.[0],
-    scrollToOffset: (offset) => virtualizer.scrollToOffset(offset, { align: "start" }),
+    scrollToOffset: (offset) => {
+      pendingScroll.current = null;
+      virtualizer.scrollToOffset(offset, { align: "start" });
+    },
   };
 }

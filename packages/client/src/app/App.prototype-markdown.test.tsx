@@ -66,6 +66,7 @@ describe("markdown prototype review", () => {
     for (let attempt = 0; attempt < 60 && !keywordHighlighted; attempt++) {
       await setup.renderOnce();
       await new Promise((resolve) => setTimeout(resolve, 20));
+      await setup.renderOnce();
       const accentText = setup
         .captureSpans()
         .lines.flatMap((line) =>

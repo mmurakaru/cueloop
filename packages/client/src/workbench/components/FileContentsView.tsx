@@ -7,6 +7,7 @@
 import { ScrollArea } from "../../ui/components/ScrollArea";
 import React, { useEffect, useRef, useState } from "react";
 import type { CodeRenderable } from "@opentui/core";
+import { useRenderer } from "@opentui/react";
 import type { Theme } from "../../appearance/theme";
 import { useComponentTheme } from "../../appearance/components/theme-context";
 import { filetypeForPath, syntaxStyleFor } from "../../ui/components/syntax-highlight";
@@ -29,6 +30,7 @@ export function FileContentsView({
   theme,
 }: FileContentsViewProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
+  const renderer = useRenderer();
   const [loaded, setLoaded] = useState<FileLoad | null>(null);
   // The gutter mirrors the code renderable's line info, so it needs the mounted
   // instance; a state-backed ref rebinds the target once the code renderable exists.
@@ -92,7 +94,7 @@ export function FileContentsView({
           ref={setCodeTarget}
           content={content}
           filetype={filetypeForPath(path)}
-          syntaxStyle={syntaxStyleFor(tokens)}
+          syntaxStyle={syntaxStyleFor(tokens, renderer.nativeScene)}
           selectable={false}
           style={{ wrapMode: "none", fg: tokens.text }}
         />
