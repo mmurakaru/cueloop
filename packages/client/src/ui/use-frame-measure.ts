@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { useRenderer } from "@opentui/react";
+import { flushSync, useRenderer } from "@opentui/react";
 
 type Renderer = NonNullable<ReturnType<typeof useRenderer>>;
 type Measure = () => void;
@@ -18,13 +18,24 @@ interface FrameSubscriptions {
 
 const subscribers = new WeakMap<Renderer, FrameSubscriptions>();
 
+declare global {
+  var IS_REACT_ACT_ENVIRONMENT: boolean | undefined;
+}
+
+function flushFrameMeasures(measures: ReadonlySet<Measure>): void {
+  globalThis.IS_REACT_ACT_ENVIRONMENT = false;
+  flushSync(() => {
+    for (const subscriber of measures) subscriber();
+  });
+}
+
 export function subscribeToFrames(renderer: Renderer, measure: Measure): () => void {
   let subscription = subscribers.get(renderer);
 
   if (!subscription) {
     const measures = new Set<Measure>();
     const notify = (): void => {
-      for (const subscriber of measures) subscriber();
+      flushFrameMeasures(measures);
     };
 
     subscription = { measures, notify };

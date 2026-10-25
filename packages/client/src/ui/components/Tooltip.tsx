@@ -2,7 +2,7 @@
 // surfaced at the screen root instead: controls report the hovered label and cursor cell, and this layer
 // paints it one row below, nudged left when it would run past the right edge.
 
-import React, { createContext, useContext, useMemo, useState } from "react";
+import React, { createContext, useContext, useMemo, useRef, useState } from "react";
 import { useTerminalDimensions } from "@opentui/react";
 import { DARK, type Theme } from "../../appearance/theme";
 
@@ -15,11 +15,13 @@ interface TooltipTarget {
 interface TooltipApi {
   showTooltip: (label: string, x: number, y: number) => void;
   hideTooltip: () => void;
+  dismissTooltip: (x: number, y: number) => void;
 }
 
 const TooltipContext = createContext<TooltipApi>({
   showTooltip: () => {},
   hideTooltip: () => {},
+  dismissTooltip: () => {},
 });
 
 /** Report or clear the hovered control's tooltip; a no-op outside a TooltipProvider. */
@@ -38,10 +40,29 @@ export function TooltipProvider({
   const tokens = theme ?? DARK;
   const { width, height } = useTerminalDimensions();
   const [target, setTarget] = useState<TooltipTarget | null>(null);
+  const suppressedCell = useRef<{ x: number; y: number } | null>(null);
   const api = useMemo<TooltipApi>(
     () => ({
-      showTooltip: (label, x, y) => setTarget({ label, x, y }),
-      hideTooltip: () => setTarget(null),
+      showTooltip: (label, x, y) => {
+        if (
+          suppressedCell.current &&
+          suppressedCell.current.x === x &&
+          suppressedCell.current.y === y
+        ) {
+          return;
+        }
+
+        suppressedCell.current = null;
+        setTarget({ label, x, y });
+      },
+      hideTooltip: () => {
+        suppressedCell.current = null;
+        setTarget(null);
+      },
+      dismissTooltip: (x, y) => {
+        suppressedCell.current = { x, y };
+        setTarget(null);
+      },
     }),
     [],
   );

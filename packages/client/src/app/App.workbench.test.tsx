@@ -788,7 +788,7 @@ describe("the bare-launch welcome shell", () => {
 
     expect(frame).toContain("README.md");
     expect(frame).toContain(NERD.copy);
-    const title = locateText(setup, "README.md");
+    const title = locateText(setup, "README.md                              +2 -2");
 
     await setup.mockMouse.click(title.column, title.row);
     await waitForTextGone(setup, "edited in the working tree");

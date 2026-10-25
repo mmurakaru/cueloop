@@ -45,6 +45,7 @@ export async function renderReadyApp(
   const probe = appReadyProbe();
   const setup = await testRender(cloneElement(element, { onReady: probe.onReady }), options);
 
+  allowEventLoopUpdates();
   await probe.ready;
 
   return setup;
@@ -117,9 +118,21 @@ export async function settle(setup: TestRendererSetup): Promise<void> {
   let quietTurns = 0;
 
   for (let turn = 0; turn < SETTLE_MAX_TURNS; turn++) {
+    if (setup.renderer.isDestroyed) return;
+
     await new Promise((resolve) => setTimeout(resolve, 0));
+
+    if (setup.renderer.isDestroyed) return;
+
     await setup.renderOnce();
     await setup.waitForVisualIdle();
+
+    if (setup.renderer.isDestroyed) return;
+
+    if (setup.renderer.getSchedulerState().isRendering) {
+      await setup.renderOnce();
+    }
+
     const frame = paintedFrame(setup);
 
     quietTurns = frame === previous ? quietTurns + 1 : 0;
@@ -281,7 +294,12 @@ async function waitForFramePredicate(
   let lastLog = start;
 
   for (;;) {
+    if (setup.renderer.isDestroyed) return lastFrame;
+
     await setup.renderOnce();
+
+    if (setup.renderer.isDestroyed) return lastFrame;
+
     const frame = setup.captureCharFrame();
 
     polls++;
@@ -329,9 +347,12 @@ export async function waitForState(
   let lastLog = start;
 
   for (;;) {
-    if (predicate()) return;
+    if (setup.renderer.isDestroyed) return;
 
     await setup.renderOnce();
+
+    if (setup.renderer.isDestroyed) return;
+
     const frame = setup.captureCharFrame();
 
     polls++;

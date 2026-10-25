@@ -6,7 +6,12 @@
  * hidden, since the editor shows raw source.
  */
 
-import { SyntaxStyle, type StyleDefinitionInput } from "@opentui/core";
+import {
+  SyntaxStyle,
+  type NativeResourceOwner,
+  type ResourceContext,
+  type StyleDefinitionInput,
+} from "@opentui/core";
 import { type Theme } from "../appearance/theme";
 import { MARKDOWN_HIGHLIGHT_GROUPS, type MarkdownHighlightGroup } from "./markdown-highlight";
 
@@ -25,16 +30,26 @@ function markdownGroupStyles(theme: Theme): Record<MarkdownHighlightGroup, Style
   };
 }
 
-const markdownEditorStyleCache = new WeakMap<Theme, MarkdownEditorStyle>();
+const markdownEditorStyleCache = new WeakMap<
+  ResourceContext,
+  WeakMap<Theme, MarkdownEditorStyle>
+>();
 
 /** Build (or reuse) the markdown editor's SyntaxStyle for a theme, with a group-to-styleId lookup. */
-export function markdownEditorStyle(theme: Theme): MarkdownEditorStyle {
-  const cached = markdownEditorStyleCache.get(theme);
+export function markdownEditorStyle(theme: Theme, owner: NativeResourceOwner): MarkdownEditorStyle {
+  let byTheme = markdownEditorStyleCache.get(owner.resourceContext);
+
+  if (!byTheme) {
+    byTheme = new WeakMap<Theme, MarkdownEditorStyle>();
+    markdownEditorStyleCache.set(owner.resourceContext, byTheme);
+  }
+
+  const cached = byTheme.get(theme);
 
   if (cached) return cached;
 
   const groupStyles = markdownGroupStyles(theme);
-  const style = SyntaxStyle.fromStyles(groupStyles);
+  const style = SyntaxStyle.fromStyles(groupStyles, owner);
   const styleIds = new Map<MarkdownHighlightGroup, number>();
 
   for (const group of MARKDOWN_HIGHLIGHT_GROUPS) {
@@ -45,7 +60,7 @@ export function markdownEditorStyle(theme: Theme): MarkdownEditorStyle {
     styleIdFor: (group) => styleIds.get(group) ?? 0,
   };
 
-  markdownEditorStyleCache.set(theme, entry);
+  byTheme.set(theme, entry);
 
   return entry;
 }

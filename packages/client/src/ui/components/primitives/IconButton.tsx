@@ -32,11 +32,11 @@ export function IconButton({
 }: IconButtonProps): React.ReactNode {
   const tokens = theme ?? DARK;
   const resolved = color ?? (disabled ? tokens.textDim : active ? tokens.accent : tokens.textMuted);
-  const { showTooltip, hideTooltip } = useTooltip();
+  const { showTooltip, hideTooltip, dismissTooltip } = useTooltip();
   // a button press is its own action - never let it bubble to a clickable row behind it
   const handleMouseUp = (event: TerminalMouseEvent): void => {
     event.stopPropagation();
-    hideTooltip();
+    dismissTooltip(event.x, event.y);
     onPress?.();
   };
 
