@@ -1,4 +1,4 @@
-import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { spawn } from "node:child_process";
 import * as v from "valibot";
 
 const RpcFrameSchema = v.object({
@@ -43,6 +43,23 @@ interface FxAcpOutbound {
   error?: { code: number; message: string };
 }
 
+/** Byte pipe used when the ACP process is not a child of this daemon. */
+export interface FxAcpChild {
+  stdin: {
+    write(chunk: string): void;
+    on(event: "error", listener: (error: Error) => void): void;
+  };
+  stdout: {
+    setEncoding(encoding: "utf8"): void;
+    on(event: "data", listener: (chunk: string) => void): void;
+  };
+  stderr: { resume(): void };
+  kill(): void;
+  detach?(): void;
+  on(event: "error", listener: (error: Error) => void): void;
+  on(event: "exit", listener: (code: number | null) => void): void;
+}
+
 /** Launch configuration is daemon-owned and never supplied over the review socket. */
 export interface FxAcpOptions {
   command?: string[];
@@ -50,12 +67,16 @@ export interface FxAcpOptions {
   cwd: string;
   onFrame: (frame: FxAcpFrame) => void;
   onExit: (error: Error) => void;
+  child?: FxAcpChild;
+  initialSequence?: number;
+  detachOnClose?: boolean;
+  onResponse?: (frame: FxAcpFrame) => void;
 }
 
 /** Own one fx ACP process; requests time out and process exit rejects every waiter. */
 export class FxAcpConnection {
-  private readonly child: ChildProcessWithoutNullStreams;
-  private sequence = 0;
+  private readonly child: FxAcpChild;
+  private sequence: number;
   private buffer = "";
   private closed = false;
   private pending = new Map<
@@ -70,11 +91,15 @@ export class FxAcpConnection {
   constructor(private readonly options: FxAcpOptions) {
     const [command, ...args] = options.command ?? ["fx", "acp"];
 
-    this.child = spawn(command!, args, {
+    this.sequence = options.initialSequence ?? 0;
+    // SAFETY: stdio "pipe" supplies stdin, stdout, and stderr, the FxAcpChild surface.
+    const spawned = spawn(command!, args, {
       cwd: options.cwd,
       env: options.env ?? process.env,
       stdio: "pipe",
-    });
+    }) as FxAcpChild;
+
+    this.child = options.child ?? spawned;
     this.child.stdout.setEncoding("utf8");
     this.child.stdout.on("data", (chunk: string) => this.readFrames(chunk));
     // Drain diagnostics, but do not copy potentially private stderr into the transcript.
@@ -126,7 +151,9 @@ export class FxAcpConnection {
   /** Closing a connection terminates its process and rejects unfinished requests. */
   close(): void {
     this.fail(new Error("Fx ACP connection closed"));
-    this.child.kill();
+
+    if (this.options.detachOnClose) this.child.detach?.();
+    else this.child.kill();
   }
 
   private readFrames(chunk: string): void {
@@ -159,7 +186,11 @@ export class FxAcpConnection {
 
           if (frame.error) waiting.reject(new Error(`Fx ACP error: ${frame.error.message}`));
           else waiting.resolve(frame);
-        } else this.options.onFrame(frame);
+        } else {
+          if (!frame.method) this.options.onResponse?.(frame);
+
+          this.options.onFrame(frame);
+        }
       } catch {
         this.fail(new Error("Fx ACP received an invalid frame"));
         this.child.kill();

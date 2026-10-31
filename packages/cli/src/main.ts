@@ -30,6 +30,13 @@ import { openReview } from "@cueloop/daemon/thread-review";
 // The CLI owns adapter composition; the daemon package still starts independently.
 process.env.CUELOOP_DAEMON_ENTRY = import.meta.path;
 
+if (process.argv[2] === "herdr-acp-relay") {
+  const { herdrAcpRelayCommand } = await import("./daemon-command");
+
+  await herdrAcpRelayCommand(process.argv.slice(3));
+  process.exit(0);
+}
+
 const harnessSelection = parseHarnessSelection(process.argv.slice(2));
 const argv = harnessSelection.args;
 

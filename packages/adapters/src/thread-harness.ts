@@ -37,6 +37,7 @@ import type {
   AgentHarnessOptions,
   AgentHarnessConnection,
   AgentHarnessResult,
+  AgentHarnessEvent,
 } from "@cueloop/schema";
 import { THREAD_MODEL_DEFAULTS } from "@cueloop/schema";
 import { PiAnswerProjection } from "./pi/answer-projection";
@@ -53,6 +54,13 @@ export interface ThreadHarnessOptions {
   removeStorage?: (sessionId: string) => Promise<void>;
   storage?: (sessionId: string, context: Context) => Promise<Storage>;
   env?: (cwd: string) => ExecutionEnv;
+  prepareAcp?: (processKey: string, cwd: string) => Promise<void>;
+  createAcp?: (
+    connection: () => Promise<AgentHarnessConnection>,
+    publish: (event: AgentHarnessEvent) => void,
+    processKey: string,
+  ) => ReturnType<typeof createDurableAcpTask>;
+  onRemove?: (sessionId: string) => Promise<void>;
 }
 
 const context: Context = BACKGROUND_CONTEXT;
@@ -76,6 +84,8 @@ export function createThreadHarness(config: ThreadHarnessOptions): AgentHarnessA
     recovery: "durable",
     connect: (options) => new ThreadHarnessConnection(config, models, options),
     remove: async (sessionId) => {
+      if (config.onRemove) await config.onRemove(sessionId);
+
       if (config.removeStorage) await config.removeStorage(sessionId);
       else if (!config.storage)
         await rm(conversationDirectory(config.home, sessionId), {
@@ -97,10 +107,7 @@ class ThreadHarnessConnection implements AgentHarnessConnection {
   private closing = false;
   private backend?: AgentHarnessConnection;
   private readonly backendReady = Promise.withResolvers<AgentHarnessConnection>();
-  private readonly acp = createDurableAcpTask(
-    () => this.backendReady.promise,
-    (event) => this.options.onEvent(event),
-  );
+  private readonly acp: ReturnType<typeof createDurableAcpTask>;
 
   constructor(
     private readonly config: ThreadHarnessOptions,
@@ -108,6 +115,12 @@ class ThreadHarnessConnection implements AgentHarnessConnection {
     private readonly options: AgentHarnessOptions,
   ) {
     this.sessionId = options.sessionId ?? randomUUID();
+    const publish = (event: AgentHarnessEvent) => options.onEvent(event);
+    const connection = () => this.backendReady.promise;
+
+    this.acp = config.createAcp
+      ? config.createAcp(connection, publish, this.sessionId)
+      : createDurableAcpTask(connection, publish);
     void this.backendReady.promise.catch(() => {});
   }
 
@@ -186,15 +199,21 @@ class ThreadHarnessConnection implements AgentHarnessConnection {
     this.conversation = await this.harness.root(context, { agent: { cwd: this.options.cwd } });
 
     if (this.config.backend) {
+      if (this.config.prepareAcp) await this.config.prepareAcp(this.sessionId, this.options.cwd);
+
       const saved = await this.harness.snapshot(AcpSessionDoc, this.conversation.id, context);
 
       if (saved) validateAcpSession(saved);
 
-      this.backend = this.config.backend.connect({
+      const harnessOptions: AgentHarnessOptions = {
         ...this.options,
         sessionId: saved?.sessionId ?? (!existed ? this.options.sessionId : undefined),
         onEvent: (event) => this.acp.onEvent(event),
-      });
+      };
+
+      if (this.config.prepareAcp) harnessOptions.agentProcessKey = this.sessionId;
+
+      this.backend = this.config.backend.connect(harnessOptions);
       const sessionId = await this.backend.start();
 
       this.backendReady.resolve(this.backend);

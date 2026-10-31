@@ -118,6 +118,8 @@ provider's supported environment credentials. Refreshes are persisted in
 cueloop's private `model-credentials.json`, leaving the imported source unchanged.
 Credentials are never included in share blobs or relay frames. Provider login remains a local operation.
 
+With `[experimental] herdr_acp = true` and a user-installed `hc` 0.1.15 or newer, the fx ACP process is started inside a herdr-core terminal. The daemon speaks ACP through a private relay socket, so a daemon restart can reattach to an in-flight prompt and let it finish. The flag defaults off. A missing or older `hc` keeps the ACP process as a child of the daemon. cueloop does not install or update `hc`. Set `CUELOOP_HERDR_ACP=0` to keep that child process even when the flag is on.
+
 With `[experimental] thread_agent = true`, the share wizard offers **Allow agent
 messages**, off by default. Enabled collaborators use the owner's conversation
 and model account. Ctrl+Enter submits agent input; Option+Enter keeps comments

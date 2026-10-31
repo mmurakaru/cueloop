@@ -19,7 +19,7 @@ import type {
   AgentConfigOption,
 } from "@cueloop/schema";
 import { THREAD_MODEL_DEFAULTS } from "@cueloop/schema";
-import { FxAcpConnection, type FxAcpFrame } from "./acp";
+import { FxAcpConnection, type FxAcpFrame, type FxAcpOptions } from "./acp";
 import { FxLegacyStartupMessages } from "./startup-messages";
 
 const ConfigOptionSchema = v.object({
@@ -76,6 +76,12 @@ export interface FxHarnessOptions {
   command?: string[];
   env?: NodeJS.ProcessEnv;
   defaults?: (cwd: string) => ThreadModelDefaults;
+  openAcp?: (options: FxAcpOptions & { agentProcessKey?: string }) => FxAcpConnection;
+  existingSession?: (processKey?: string) => string | undefined;
+  recoverPrompt?: (
+    processKey: string | undefined,
+    emit: (frame: FxAcpFrame) => void,
+  ) => Promise<{ stopReason: string } | { missing: true }>;
 }
 
 /** Adapt fx ACP to provider-neutral message, tool, and permission events. */
@@ -108,12 +114,17 @@ class FxHarnessConnection implements AgentHarnessConnection {
     private readonly options: AgentHarnessOptions,
   ) {
     this.sessionId = options.sessionId;
-    this.connection = new FxAcpConnection({
-      ...config,
+    const acpOptions: FxAcpOptions = {
+      command: config.command,
+      env: config.env,
       cwd: options.cwd,
       onFrame: (frame) => this.receive(frame),
       onExit: options.onExit,
-    });
+    };
+
+    this.connection = config.openAcp
+      ? config.openAcp({ ...acpOptions, agentProcessKey: options.agentProcessKey })
+      : new FxAcpConnection(acpOptions);
   }
 
   private get mcpServers() {
@@ -135,6 +146,17 @@ class FxHarnessConnection implements AgentHarnessConnection {
   }
 
   async start(): Promise<string> {
+    if (this.config.existingSession) {
+      const existing = this.config.existingSession(this.options.agentProcessKey);
+
+      if (existing) {
+        this.sessionId = existing;
+        this.loading = false;
+
+        return existing;
+      }
+    }
+
     const initialized = await this.connection.request(
       "initialize",
       {
@@ -236,14 +258,25 @@ class FxHarnessConnection implements AgentHarnessConnection {
         this.options.onEvent({ kind: "message", ...message });
     }
 
-    return {
-      outcome:
-        result.stopReason === "end_turn"
-          ? "completed"
-          : result.stopReason === "cancelled"
-            ? "cancelled"
-            : "incomplete",
-    };
+    return stopReasonResult(result.stopReason);
+  }
+
+  async resumePrompt(text: string): Promise<AgentHarnessResult> {
+    if (!this.config.recoverPrompt) throw new Error("Fx ACP prompt cannot be recovered");
+
+    if (!this.sessionId || this.loading)
+      return Promise.reject(new Error("Fx ACP session is not ready"));
+
+    const recovered = await this.config.recoverPrompt(this.options.agentProcessKey, (frame) =>
+      this.receive(frame),
+    );
+
+    if ("missing" in recovered) return this.prompt(text);
+
+    for (const message of this.startupMessages.finish())
+      this.options.onEvent({ kind: "message", ...message });
+
+    return stopReasonResult(recovered.stopReason);
   }
 
   cancel(): void {
@@ -452,4 +485,12 @@ class FxHarnessConnection implements AgentHarnessConnection {
       });
     }
   }
+}
+
+function stopReasonResult(stopReason: string): AgentHarnessResult {
+  if (stopReason === "end_turn") return { outcome: "completed" };
+
+  if (stopReason === "cancelled") return { outcome: "cancelled" };
+
+  return { outcome: "incomplete" };
 }

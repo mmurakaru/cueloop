@@ -19,7 +19,20 @@ type AcpReceipt = AgentHarnessResult;
 
 type AcpPendingOperation = { cancelled: boolean; taskId?: TaskId<AcpReceipt> };
 
-type AcpCheckpoint = { phase: "queued" } | { phase: "dispatched" };
+type AcpCheckpoint =
+  | { phase: "queued" }
+  | { phase: "dispatched"; cursor?: number; epoch?: string; key?: string };
+
+/** Optional reattach used only when an out-of-process ACP child can outlive the daemon. */
+export interface AcpDispatchRecovery {
+  checkpoint(): Extract<AcpCheckpoint, { phase: "dispatched" }>;
+  resume(input: {
+    text: string;
+    requestId: string;
+    cursor: number;
+    epoch?: string;
+  }): Promise<AcpReceipt>;
+}
 
 const AcpProgressDoc = defineDocFamily<{ events: string[]; bytes: number }, null>({
   kind: "cueloop.acp.progress",
@@ -98,6 +111,7 @@ function replayAcpProgress(
 export function createDurableAcpTask(
   connection: () => Promise<AgentHarnessConnection>,
   publish: (event: AgentHarnessEvent) => void,
+  recovery?: AcpDispatchRecovery,
 ) {
   let commitEvent: ((event: AgentHarnessEvent) => void) | undefined;
   let pending: AcpPendingOperation | undefined;
@@ -112,7 +126,10 @@ export function createDurableAcpTask(
         runtime.signal.throwIfAborted();
 
         await runtime.commit(
-          () => ({ status: "running", checkpoint: { phase: "dispatched" } }),
+          () => ({
+            status: "running",
+            checkpoint: recovery ? recovery.checkpoint() : { phase: "dispatched" },
+          }),
           context,
         );
         runtime.signal.throwIfAborted();
@@ -130,6 +147,8 @@ export function createDurableAcpTask(
         let progressError: unknown;
 
         commitEvent = (event) => {
+          const checkpoint = recovery ? recovery.checkpoint() : { phase: "dispatched" as const };
+
           progress = progress
             .then(async () => {
               await runtime.commit(async (tx) => {
@@ -150,7 +169,7 @@ export function createDurableAcpTask(
                 progress.events.push(serialized);
                 progress.bytes += bytes;
 
-                return { status: "running", checkpoint: { phase: "dispatched" } };
+                return { status: "running", checkpoint };
               }, context);
               publish(event);
             })
@@ -184,21 +203,101 @@ export function createDurableAcpTask(
           commitEvent = undefined;
         }
       },
-      dispatched: async (_current, runtime, context) => {
-        await runtime.commit(
-          () => ({
-            status: "terminal",
-            outcome: {
-              status: "failed",
-              error: {
-                code: "acp-interrupted",
-                message:
-                  "Fx execution was interrupted after dispatch. Inspect its effects before retrying.",
+      dispatched: async (current, runtime, context) => {
+        if (!recovery) {
+          await runtime.commit(
+            () => ({
+              status: "terminal",
+              outcome: {
+                status: "failed",
+                error: {
+                  code: "acp-interrupted",
+                  message:
+                    "Fx execution was interrupted after dispatch. Inspect its effects before retrying.",
+                },
               },
-            },
-          }),
-          context,
-        );
+            }),
+            context,
+          );
+
+          return;
+        }
+
+        let progress = Promise.resolve();
+        let progressError: unknown;
+
+        commitEvent = (event) => {
+          const checkpoint = recovery.checkpoint();
+
+          progress = progress
+            .then(async () => {
+              await runtime.commit(async (tx) => {
+                const document = await tx.doc(
+                  AcpProgressDoc,
+                  current.conversationId,
+                  String(current.id),
+                  null,
+                );
+
+                v.parse(AcpProgressSchema, document);
+                const serialized = JSON.stringify(event);
+                const bytes = Buffer.byteLength(serialized);
+
+                if (document.bytes + bytes > 8 * 1024 * 1024)
+                  throw new Error("ACP progress exceeds 8 MiB");
+
+                document.events.push(serialized);
+                document.bytes += bytes;
+
+                return { status: "running", checkpoint };
+              }, context);
+              publish(event);
+            })
+            .catch((error) => {
+              progressError = error;
+            });
+        };
+
+        try {
+          const checkpoint = current.state.checkpoint;
+          const result = await recovery.resume({
+            text: current.input.text,
+            requestId: String(current.id),
+            cursor: "cursor" in checkpoint ? (checkpoint.cursor ?? 0) : 0,
+            epoch: "epoch" in checkpoint ? checkpoint.epoch : undefined,
+          });
+
+          await progress;
+
+          if (progressError) throw progressError;
+
+          await runtime.commit(
+            () => ({
+              status: "terminal",
+              outcome: { status: "completed", result },
+            }),
+            context,
+          );
+        } catch (error) {
+          await runtime.commit(
+            () => ({
+              status: "terminal",
+              outcome: {
+                status: "failed",
+                error: {
+                  code: "acp-interrupted",
+                  message:
+                    error instanceof Error
+                      ? error.message
+                      : "Fx execution was interrupted after dispatch. Inspect its effects before retrying.",
+                },
+              },
+            }),
+            context,
+          );
+        } finally {
+          commitEvent = undefined;
+        }
       },
     },
     abort: async (_current, runtime, context) => {

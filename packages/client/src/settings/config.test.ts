@@ -661,6 +661,23 @@ describe("the /lgtm default quick action", () => {
   });
 });
 
+test("herdr ACP defaults off and requires a boolean experimental TOML flag", () => {
+  const dir = mkdtempSync(join(tmpdir(), "cueloop-herdr-config-"));
+  const path = join(dir, "config.toml");
+
+  try {
+    expect(loadConfig({ userConfigPath: path }).experimental.herdrAcp).toBe(false);
+    writeFileSync(path, "[experimental]\nherdr_acp = true\n");
+    expect(loadConfig({ userConfigPath: path }).experimental.herdrAcp).toBe(true);
+    writeFileSync(path, "[experimental]\nherdr_acp = true\nthread_agent = true\n");
+    expect(loadConfig({ userConfigPath: path }).experimental.threadAgent).toBe(true);
+    writeFileSync(path, '[experimental]\nherdr_acp = "true"\n');
+    expect(loadConfig({ userConfigPath: path }).experimental.herdrAcp).toBe(false);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("Thread agents default off and require a boolean experimental TOML flag", () => {
   const dir = mkdtempSync(join(tmpdir(), "cueloop-agent-config-"));
   const path = join(dir, "config.toml");
