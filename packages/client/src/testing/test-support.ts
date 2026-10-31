@@ -308,7 +308,9 @@ async function waitForFramePredicate(
       );
     }
 
-    const frame = setup.captureCharFrame();
+    // Retry while a render still holds the buffer lease.
+    // eslint-disable-next-line no-await-in-loop
+    const frame = await captureSettledFrame(setup);
 
     polls++;
 
@@ -337,6 +339,27 @@ async function waitForFramePredicate(
     }
 
     await yieldEventLoop();
+  }
+}
+
+/**
+ * Capture a frame, retrying while OpenTUI still holds the buffer lease.
+ * A render in progress answers the capture with OutputBusy.
+ */
+export async function captureSettledFrame(
+  setup: { captureCharFrame(): string },
+  deadline = Date.now() + 1_000,
+): Promise<string> {
+  try {
+    return setup.captureCharFrame();
+  } catch (error) {
+    const busy = error instanceof Error && error.message.includes("OutputBusy");
+
+    if (!busy || Date.now() >= deadline) throw error;
+
+    await new Promise((resolve) => setTimeout(resolve, 15));
+
+    return captureSettledFrame(setup, deadline);
   }
 }
 
@@ -373,7 +396,9 @@ export async function waitForState(
       );
     }
 
-    const frame = setup.captureCharFrame();
+    // Retry while a render still holds the buffer lease.
+    // eslint-disable-next-line no-await-in-loop
+    const frame = await captureSettledFrame(setup);
 
     polls++;
 
