@@ -1,7 +1,7 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { connect, createServer, type Server, type Socket } from "node:net";
 import { randomUUID } from "node:crypto";
-import { chmodSync, mkdirSync, openSync, rmSync, write } from "node:fs";
+import { chmodSync, mkdirSync, openSync, rmSync, write, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import * as v from "valibot";
 import { ClientOpSchema, type ClientOp, type RelayOp, type RelayState } from "./protocol";
@@ -127,6 +127,7 @@ class AcpRelay {
     await listen(server, this.args.socketPath);
     chmodSync(this.args.socketPath, 0o600);
     this.spawnChild();
+    this.writePidFile();
     await new Promise(() => {});
   }
 
@@ -174,6 +175,13 @@ class AcpRelay {
     this.queueLog(JSON.stringify(record) + "\n");
 
     if (direction === "out" && this.following) this.send({ op: "stdout", cursor: sequence, line });
+  }
+
+  private writePidFile(): void {
+    const path = `${this.args.socketPath}.pid`;
+
+    writeFileSync(path, `${process.pid}\n${this.child?.pid ?? 0}\n`, { mode: 0o600 });
+    chmodSync(path, 0o600);
   }
 
   private openLog(): void {
@@ -365,6 +373,7 @@ class AcpRelay {
     this.flushLog();
     void this.logChain.finally(() => {
       this.child?.kill();
+      rmSync(`${this.args.socketPath}.pid`, { force: true });
       this.removeTerminal();
       this.client?.end();
       process.exit(0);

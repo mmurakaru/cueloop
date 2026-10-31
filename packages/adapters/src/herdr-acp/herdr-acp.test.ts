@@ -22,6 +22,7 @@ import { detectHc } from "./detect";
 import { resolveHerdrAcp, type HerdrAcpIntegration } from "./index";
 import {
   hcVersionAtLeast,
+  herdrRelayPidPath,
   herdrSessionName,
   herdrSocketPath,
   herdrTranscriptPath,
@@ -352,14 +353,17 @@ test("a killed relay fails the prompt instead of waiting", async () => {
     const pending = opened.prompt("please hold this turn", "die-request");
 
     expect(await waitForFile(hold, "waiting")).toBe(true);
-    const pid = processWithArg(herdrSocketPath(home, "die-1"));
+    const pids = readRelayPids(home, "die-1");
 
-    if (pid === undefined) throw new Error("relay pid missing");
+    if (!pids) throw new Error("relay pid missing");
 
-    process.kill(pid, "SIGKILL");
+    process.kill(pids.relay, "SIGKILL");
     await expect(pending).rejects.toThrow(/exited|disconnected/);
   } finally {
-    killByMarker(hold);
+    const pids = readRelayPids(home, "die-1");
+
+    killPid(pids?.child ?? 0);
+    killPid(pids?.relay ?? 0);
     await shutdownSocket(join(home, "herdr-acp")).catch(() => undefined);
     rmSync(home, { recursive: true, force: true });
   }
@@ -379,7 +383,10 @@ test("deleting a thread stops a relay the daemon has not attached", async () => 
 
   try {
     await started.prepare("gone-1", home);
-    const pid = processWithArg(herdrSocketPath(home, "gone-1"));
+    const pids = readRelayPids(home, "gone-1");
+
+    if (!pids) throw new Error("relay pid missing");
+
     const restarted = resolveHerdrAcp({
       enabled: true,
       launch: "process",
@@ -390,10 +397,8 @@ test("deleting a thread stops a relay the daemon has not attached", async () => 
 
     if (!restarted) throw new Error("process launch should not need hc");
 
-    if (pid === undefined) throw new Error("relay pid missing");
-
     await restarted.remove("gone-1");
-    expect(await waitForExit(pid)).toBe(true);
+    expect(await waitForExit(pids.relay)).toBe(true);
     expect(existsSync(herdrTranscriptPath(home, "gone-1"))).toBe(false);
   } finally {
     await shutdownSocket(join(home, "herdr-acp")).catch(() => undefined);
@@ -698,55 +703,31 @@ function harnessWith(home: string, integration: HerdrAcpIntegration) {
   });
 }
 
-function processWithArg(text: string): number | undefined {
-  let pids: string[] = [];
-
+function readRelayPids(
+  home: string,
+  processKey: string,
+): { relay: number; child: number } | undefined {
   try {
-    pids = readdirSync("/proc").filter((name) => /^\d+$/.test(name));
+    const [relay, child] = readFileSync(herdrRelayPidPath(home, processKey), "utf8")
+      .trim()
+      .split("\n")
+      .map(Number);
+
+    if (!relay) return undefined;
+
+    return { relay, child: child || 0 };
   } catch {
     return undefined;
   }
-
-  for (const pid of pids) {
-    let command = "";
-
-    try {
-      command = readFileSync(`/proc/${pid}/cmdline`).toString();
-    } catch {
-      continue;
-    }
-
-    if (command.includes(text)) return Number(pid);
-  }
-
-  return undefined;
 }
 
-function killByMarker(marker: string): void {
-  let pids: string[] = [];
+function killPid(pid: number): void {
+  if (!pid) return;
 
   try {
-    pids = readdirSync("/proc").filter((name) => /^\d+$/.test(name));
+    process.kill(pid, "SIGKILL");
   } catch {
-    return;
-  }
-
-  for (const pid of pids) {
-    let text = "";
-
-    try {
-      text = readFileSync(`/proc/${pid}/environ`).toString();
-    } catch {
-      continue;
-    }
-
-    if (!text.includes(marker)) continue;
-
-    try {
-      process.kill(Number(pid), "SIGKILL");
-    } catch {
-      // The process already exited.
-    }
+    // The process already exited.
   }
 }
 

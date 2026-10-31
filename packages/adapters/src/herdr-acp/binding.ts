@@ -15,6 +15,7 @@ import { ensureRelay } from "./launch";
 import {
   herdrAcpDirectory,
   herdrEpochPath,
+  herdrRelayPidPath,
   herdrSessionName,
   herdrSocketPath,
   herdrTerminalName,
@@ -102,6 +103,7 @@ export function createHerdrAcp(options: HerdrAcpOptions): HerdrAcpIntegration {
 
       rmSync(herdrTranscriptPath(options.home, processKey), { force: true });
       rmSync(herdrEpochPath(options.home, processKey), { force: true });
+      rmSync(herdrRelayPidPath(options.home, processKey), { force: true });
     },
     createAcp(connection, publish, processKey) {
       const recovery: AcpDispatchRecovery = {

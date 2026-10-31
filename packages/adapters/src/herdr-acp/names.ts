@@ -16,6 +16,11 @@ export function herdrSocketPath(home: string, processKey: string): string {
   return join(herdrAcpDirectory(home), `${herdrTerminalName(processKey)}.sock`);
 }
 
+/** Relay and child pids. The test job runs on macOS, which has no /proc. */
+export function herdrRelayPidPath(home: string, processKey: string): string {
+  return `${herdrSocketPath(home, processKey)}.pid`;
+}
+
 export function herdrTranscriptPath(home: string, processKey: string): string {
   return join(herdrAcpDirectory(home), `${herdrTerminalName(processKey)}.ndjson`);
 }
