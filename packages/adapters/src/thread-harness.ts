@@ -196,10 +196,18 @@ class ThreadHarnessConnection implements AgentHarnessConnection {
 
     if (this.closing) throw new Error("Pi conversation is closed");
 
+    const preparing =
+      this.config.backend && this.config.prepareAcp
+        ? this.config.prepareAcp(this.sessionId, this.options.cwd)
+        : undefined;
+
+    // Root opens storage while the relay starts. A rejection is awaited below.
+    preparing?.catch(() => undefined);
+
     this.conversation = await this.harness.root(context, { agent: { cwd: this.options.cwd } });
 
     if (this.config.backend) {
-      if (this.config.prepareAcp) await this.config.prepareAcp(this.sessionId, this.options.cwd);
+      if (preparing) await preparing;
 
       const saved = await this.harness.snapshot(AcpSessionDoc, this.conversation.id, context);
 

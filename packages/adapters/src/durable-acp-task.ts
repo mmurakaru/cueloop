@@ -32,6 +32,8 @@ export interface AcpDispatchRecovery {
     cursor: number;
     epoch?: string;
   }): Promise<AcpReceipt>;
+  /** Cursor is durable. The relay may drop older replay lines. */
+  ack?(cursor: number): void;
 }
 
 const AcpProgressDoc = defineDocFamily<{ events: string[]; bytes: number }, null>({
@@ -125,13 +127,12 @@ export function createDurableAcpTask(
 
         runtime.signal.throwIfAborted();
 
-        await runtime.commit(
-          () => ({
-            status: "running",
-            checkpoint: recovery ? recovery.checkpoint() : { phase: "dispatched" },
-          }),
-          context,
-        );
+        const dispatched = recovery ? recovery.checkpoint() : { phase: "dispatched" as const };
+
+        await runtime.commit(() => ({ status: "running", checkpoint: dispatched }), context);
+
+        if (recovery && dispatched.cursor !== undefined) recovery.ack?.(dispatched.cursor);
+
         runtime.signal.throwIfAborted();
 
         if (pending?.taskId === current.id && pending.cancelled) {
@@ -171,6 +172,10 @@ export function createDurableAcpTask(
 
                 return { status: "running", checkpoint };
               }, context);
+
+              if (recovery && "cursor" in checkpoint && checkpoint.cursor !== undefined)
+                recovery.ack?.(checkpoint.cursor);
+
               publish(event);
             })
             .catch((error) => {
@@ -251,6 +256,9 @@ export function createDurableAcpTask(
 
                 return { status: "running", checkpoint };
               }, context);
+
+              if (checkpoint.cursor !== undefined) recovery.ack?.(checkpoint.cursor);
+
               publish(event);
             })
             .catch((error) => {

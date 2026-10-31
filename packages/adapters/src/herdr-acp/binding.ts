@@ -1,4 +1,4 @@
-import { mkdirSync } from "node:fs";
+import { mkdirSync, rmSync } from "node:fs";
 import * as v from "valibot";
 import type {
   AgentHarnessConnection,
@@ -14,11 +14,14 @@ import type { HcInstall } from "./detect";
 import { ensureRelay } from "./launch";
 import {
   herdrAcpDirectory,
+  herdrEpochPath,
+  herdrSessionName,
   herdrSocketPath,
   herdrTerminalName,
   herdrTranscriptPath,
 } from "./names";
-import type { StdoutLine } from "./protocol";
+import type { RelayState, StdoutLine } from "./protocol";
+import { promptStillOpen } from "./scan";
 
 const INTERRUPTED =
   "Fx execution was interrupted after dispatch. Inspect its effects before retrying.";
@@ -31,6 +34,8 @@ export interface HerdrAcpOptions {
   env?: NodeJS.ProcessEnv;
   hcSession?: string;
   xdgRuntimeDir?: string;
+  xdgStateHome?: string;
+  xdgConfigHome?: string;
 }
 
 interface LiveSession {
@@ -41,7 +46,7 @@ interface LiveSession {
   cursor: number;
   sequence: number;
   sessionId: string | null;
-  prompt: { id: number; stopReason: string | null } | null;
+  prompt: RelayState["prompt"];
   running: boolean;
 }
 
@@ -65,7 +70,7 @@ export interface HerdrAcpIntegration {
 export function createHerdrAcp(options: HerdrAcpOptions): HerdrAcpIntegration {
   const sessions = new Map<string, LiveSession>();
   const env = options.env ?? process.env;
-  const hcSession = options.hcSession ?? "cueloop";
+  const hcSession = herdrSessionName(env, options.hcSession);
 
   const requireSession = (processKey: string | undefined): LiveSession => {
     const session = processKey ? sessions.get(processKey) : undefined;
@@ -91,7 +96,12 @@ export function createHerdrAcp(options: HerdrAcpOptions): HerdrAcpIntegration {
       const session = sessions.get(processKey);
 
       sessions.delete(processKey);
-      session?.client.shutdown();
+
+      if (session) session.client.shutdown();
+      else await releaseRelay(herdrSocketPath(options.home, processKey));
+
+      rmSync(herdrTranscriptPath(options.home, processKey), { force: true });
+      rmSync(herdrEpochPath(options.home, processKey), { force: true });
     },
     createAcp(connection, publish, processKey) {
       const recovery: AcpDispatchRecovery = {
@@ -104,6 +114,9 @@ export function createHerdrAcp(options: HerdrAcpOptions): HerdrAcpIntegration {
             epoch: session.epoch,
             key: processKey,
           };
+        },
+        ack(cursor) {
+          sessions.get(processKey)?.client.acknowledge(cursor);
         },
         resume: async (input) => resumePrompt(requireSession(processKey), connection, input),
       };
@@ -138,6 +151,8 @@ async function prepareSession(
     hc: options.hc,
     hcSession,
     xdgRuntimeDir: options.xdgRuntimeDir,
+    xdgStateHome: options.xdgStateHome,
+    xdgConfigHome: options.xdgConfigHome,
     env,
   });
   const client = new HerdrRelayClient();
@@ -165,11 +180,28 @@ async function prepareSession(
     session.running = false;
     child.exited(null);
   };
+  client.onSocketClose = () => {
+    session.running = false;
+    child.exited(null);
+  };
   sessions.set(processKey, session);
+  const inFlight = state.prompt !== null && state.prompt.stopReason === null;
 
-  if (!state.sessionId && state.running) {
+  // A finished session has to stream the next prompt. Recovery holds output until replay.
+  if (state.running && !inFlight) {
     client.follow();
     child.release();
+  }
+}
+
+async function releaseRelay(socketPath: string): Promise<void> {
+  const client = new HerdrRelayClient();
+
+  try {
+    await client.connect(socketPath);
+    client.shutdown();
+  } catch {
+    // No relay is listening for this Thread.
   }
 }
 
@@ -203,7 +235,12 @@ async function recover(session: LiveSession): Promise<{ stopReason: string } | {
 
   if (!session.running) throw new Error(INTERRUPTED);
 
-  if (!prompt) return { missing: true };
+  if (!prompt || !promptStillOpen(prompt, session.cursor)) {
+    session.client.follow();
+    session.child.release();
+
+    return { missing: true };
+  }
 
   const waiter =
     prompt.stopReason === null

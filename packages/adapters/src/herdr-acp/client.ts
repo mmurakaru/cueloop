@@ -19,7 +19,9 @@ export class HerdrRelayClient {
   private historical: StdoutLine[] = [];
   private trailing: StdoutLine[] = [];
   private replayDone?: () => void;
+  private replayReject?: (error: Error) => void;
   private stateWait?: (state: RelayState) => void;
+  private stateReject?: (error: Error) => void;
   onStdout: LiveHandler = () => {};
   onChildExit: (code: number | null) => void = () => {};
   onSocketClose: () => void = () => {};
@@ -34,19 +36,22 @@ export class HerdrRelayClient {
       socket.once("connect", () => resolve());
       socket.once("error", reject);
       socket.on("data", (chunk: string) => this.read(chunk));
-      socket.on("close", () => this.onSocketClose());
+      socket.on("close", () => {
+        this.failWaiters();
+        this.onSocketClose();
+      });
     });
   }
 
   async attach(): Promise<RelayState> {
     const state = new Promise<RelayState>((resolve, reject) => {
       this.stateWait = resolve;
-      this.socket?.once("error", reject);
+      this.stateReject = reject;
     });
 
     this.send({ op: "attach" });
-
     this.state = await state;
+    this.stateReject = undefined;
 
     return this.state;
   }
@@ -61,6 +66,11 @@ export class HerdrRelayClient {
     this.send({ op: "write", line: line.endsWith("\n") ? line.slice(0, -1) : line });
   }
 
+  /** The cursor is durable. The relay may forget earlier lines. */
+  acknowledge(cursor: number): void {
+    this.send({ op: "ack", cursor });
+  }
+
   /**
    * Lines already stored with a cursor above `after`, then any lines that arrived while
    * that snapshot was being sent. Following turns on at the end of the snapshot.
@@ -70,8 +80,9 @@ export class HerdrRelayClient {
     this.replaySeenEnd = false;
     this.historical = [];
     this.trailing = [];
-    const done = new Promise<void>((resolve) => {
+    const done = new Promise<void>((resolve, reject) => {
       this.replayDone = resolve;
+      this.replayReject = reject;
     });
 
     this.send({ op: "replay", after });
@@ -141,6 +152,17 @@ export class HerdrRelayClient {
 
   private finishReplay(): void {
     this.replaySeenEnd = true;
+    this.replayReject = undefined;
     this.replayDone?.();
+    this.replayDone = undefined;
+  }
+
+  private failWaiters(): void {
+    const disconnected = new Error("herdr ACP relay disconnected");
+
+    this.stateReject?.(disconnected);
+    this.stateReject = undefined;
+    this.replayReject?.(disconnected);
+    this.replayReject = undefined;
   }
 }

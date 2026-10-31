@@ -3,6 +3,7 @@ import * as v from "valibot";
 export const RelayPromptSchema = v.object({
   id: v.pipe(v.number(), v.integer(), v.minValue(1)),
   stopReason: v.nullable(v.string()),
+  answeredAt: v.nullable(v.pipe(v.number(), v.integer(), v.minValue(1))),
 });
 
 export const RelayStateSchema = v.object({
@@ -26,6 +27,10 @@ export const ClientOpSchema = v.variant("op", [
     after: v.pipe(v.number(), v.integer(), v.minValue(0)),
   }),
   v.object({ op: v.literal("shutdown") }),
+  v.object({
+    op: v.literal("ack"),
+    cursor: v.pipe(v.number(), v.integer(), v.minValue(0)),
+  }),
 ]);
 
 export type ClientOp = v.InferOutput<typeof ClientOpSchema>;

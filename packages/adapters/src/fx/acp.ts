@@ -73,6 +73,17 @@ export interface FxAcpOptions {
   onResponse?: (frame: FxAcpFrame) => void;
 }
 
+function spawnAcpChild(options: FxAcpOptions): FxAcpChild {
+  const [command, ...args] = options.command ?? ["fx", "acp"];
+
+  // SAFETY: stdio "pipe" supplies stdin, stdout, and stderr, the FxAcpChild surface.
+  return spawn(command!, args, {
+    cwd: options.cwd,
+    env: options.env ?? process.env,
+    stdio: "pipe",
+  }) as FxAcpChild;
+}
+
 /** Own one fx ACP process; requests time out and process exit rejects every waiter. */
 export class FxAcpConnection {
   private readonly child: FxAcpChild;
@@ -89,17 +100,8 @@ export class FxAcpConnection {
   >();
 
   constructor(private readonly options: FxAcpOptions) {
-    const [command, ...args] = options.command ?? ["fx", "acp"];
-
     this.sequence = options.initialSequence ?? 0;
-    // SAFETY: stdio "pipe" supplies stdin, stdout, and stderr, the FxAcpChild surface.
-    const spawned = spawn(command!, args, {
-      cwd: options.cwd,
-      env: options.env ?? process.env,
-      stdio: "pipe",
-    }) as FxAcpChild;
-
-    this.child = options.child ?? spawned;
+    this.child = options.child ?? spawnAcpChild(options);
     this.child.stdout.setEncoding("utf8");
     this.child.stdout.on("data", (chunk: string) => this.readFrames(chunk));
     // Drain diagnostics, but do not copy potentially private stderr into the transcript.

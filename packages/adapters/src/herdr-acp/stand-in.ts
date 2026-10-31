@@ -102,7 +102,7 @@ input.on("line", (line) => {
     if (hold && text.includes("hold")) {
       update("Partial answer. ", "stand-in-answer");
       writeFileSync(hold, "waiting");
-      void finishWhenReleased(id, hold);
+      finishWhenReleased(id, hold);
 
       return;
     }
@@ -112,8 +112,8 @@ input.on("line", (line) => {
   }
 });
 
-async function finishWhenReleased(id: number, hold: string): Promise<void> {
-  for (;;) {
+function finishWhenReleased(id: number, hold: string): void {
+  const timer = setInterval(() => {
     let contents = "";
 
     try {
@@ -122,11 +122,10 @@ async function finishWhenReleased(id: number, hold: string): Promise<void> {
       contents = "";
     }
 
-    if (contents.includes("go")) break;
+    if (!contents.includes("go")) return;
 
-    await new Promise((resolve) => setTimeout(resolve, 20));
-  }
-
-  update("finished after restart.", "stand-in-answer");
-  reply(id, { stopReason: "end_turn" });
+    clearInterval(timer);
+    update("finished after restart.", "stand-in-answer");
+    reply(id, { stopReason: "end_turn" });
+  }, 20);
 }

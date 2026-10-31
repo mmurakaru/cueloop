@@ -14,6 +14,8 @@ export interface RelayLaunch {
   hc?: HcInstall;
   hcSession: string;
   xdgRuntimeDir?: string;
+  xdgStateHome?: string;
+  xdgConfigHome?: string;
   env: NodeJS.ProcessEnv;
 }
 
@@ -58,6 +60,15 @@ function relayEnvironment(options: RelayLaunch): NodeJS.ProcessEnv {
 
   if (options.xdgRuntimeDir) env.XDG_RUNTIME_DIR = options.xdgRuntimeDir;
 
+  if (options.xdgStateHome) env.XDG_STATE_HOME = options.xdgStateHome;
+
+  if (options.xdgConfigHome) env.XDG_CONFIG_HOME = options.xdgConfigHome;
+
+  if (options.hc && options.launch === "hc") {
+    env.CUELOOP_HC = options.hc.binary;
+    env.CUELOOP_HERDR_TERMINAL = options.name;
+  }
+
   return env;
 }
 
@@ -74,7 +85,20 @@ async function runHc(options: RelayLaunch, argv: string[], env: NodeJS.ProcessEn
 
   if (await socketAccepts(options.socketPath)) return;
 
-  throw new Error(result.stderr || result.stdout || `hc run exited ${result.status}`);
+  spawnSync(options.hc.binary, ["rm", options.name], { env, timeout: 5_000 });
+  const retry = spawnSync(
+    options.hc.binary,
+    ["run", "--bg", "--name", options.name, "--cwd", options.cwd, "--", ...argv],
+    { env, encoding: "utf8", timeout: 10_000 },
+  );
+
+  if (retry.status === 0) return;
+
+  if (await socketAccepts(options.socketPath)) return;
+
+  throw new Error(
+    retry.stderr || retry.stdout || result.stderr || `hc run exited ${result.status}`,
+  );
 }
 
 function spawnDetached(argv: string[], env: NodeJS.ProcessEnv, logPath: string): void {

@@ -47,3 +47,15 @@ export function hcVersionAtLeast(
 }
 
 export const MINIMUM_HC_VERSION: [number, number, number] = [0, 1, 15];
+
+/**
+ * Honor HC_SESSION when the user set one. Otherwise use a dedicated session so
+ * agent terminals stay out of the default herdr session.
+ */
+export function herdrSessionName(env: NodeJS.ProcessEnv, explicit?: string): string {
+  const chosen = (explicit ?? env.HC_SESSION)?.trim();
+
+  if (chosen) return chosen;
+
+  return "cueloop";
+}

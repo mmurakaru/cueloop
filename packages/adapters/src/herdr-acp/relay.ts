@@ -1,17 +1,44 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { connect, createServer, type Server, type Socket } from "node:net";
 import { randomUUID } from "node:crypto";
-import { appendFileSync, chmodSync, mkdirSync, rmSync } from "node:fs";
+import { chmodSync, mkdirSync, openSync, rmSync, write } from "node:fs";
 import { dirname } from "node:path";
 import * as v from "valibot";
+import { ClientOpSchema, type ClientOp, type RelayOp, type RelayState } from "./protocol";
 import {
-  ClientOpSchema,
-  RelayStateSchema,
-  type ClientOp,
-  type RelayOp,
-  type RelayState,
-} from "./protocol";
-import { emptyScan, foldRecord, type AcpScan, type TranscriptRecord } from "./scan";
+  answeredRequestSequences,
+  emptyScan,
+  foldRecord,
+  type AcpScan,
+  type TranscriptRecord,
+} from "./scan";
+
+const LOG_FLUSH_BYTES = 64 * 1024;
+const LOG_FLUSH_MS = 8;
+const DEFAULT_IDLE_MS = 60_000;
+const DEFAULT_ABANDON_MS = 10 * 60_000;
+
+/** Drop lines the daemon has already checkpointed. Later cursors stay for replay. */
+export function recordsAfter(
+  records: readonly TranscriptRecord[],
+  cursor: number,
+): TranscriptRecord[] {
+  const start = records.findIndex((record) => record.sequence > cursor);
+
+  if (start < 0) return [];
+
+  if (start === 0) return records.slice();
+
+  return records.slice(start);
+}
+
+function positiveMs(value: string | undefined, fallback: number): number {
+  const parsed = Number(value);
+
+  if (!Number.isFinite(parsed) || parsed < 1) return fallback;
+
+  return parsed;
+}
 
 interface RelayArgs {
   socketPath: string;
@@ -70,10 +97,19 @@ class AcpRelay {
   private scan: AcpScan = emptyScan();
   private sequence = 0;
   private child?: ChildProcessWithoutNullStreams;
+  private server?: Server;
   private following = false;
   private client?: Socket;
   private buffer = "";
   private closed = false;
+  private logFd = 0;
+  private logBuffer = "";
+  private logTimer?: ReturnType<typeof setTimeout>;
+  private logChain: Promise<void> = Promise.resolve();
+  private idleTimer?: ReturnType<typeof setTimeout>;
+  private acked = 0;
+  private readonly idleMs = positiveMs(process.env.HERDR_ACP_IDLE_MS, DEFAULT_IDLE_MS);
+  private readonly abandonMs = positiveMs(process.env.HERDR_ACP_ABANDON_MS, DEFAULT_ABANDON_MS);
 
   constructor(private readonly args: RelayArgs) {}
 
@@ -84,8 +120,10 @@ class AcpRelay {
 
     rmSync(this.args.socketPath, { force: true });
     rmSync(this.args.transcriptPath, { force: true });
+    this.openLog();
     const server = createServer((socket) => this.accept(socket));
 
+    this.server = server;
     await listen(server, this.args.socketPath);
     chmodSync(this.args.socketPath, 0o600);
     this.spawnChild();
@@ -127,18 +165,57 @@ class AcpRelay {
     }
   }
 
-  private record(dir: "in" | "out", line: string): void {
-    const seq = ++this.sequence;
-    const record = { seq, dir, line };
+  private record(direction: "in" | "out", line: string): void {
+    const sequence = ++this.sequence;
+    const record = { sequence, direction, line };
 
     this.records.push(record);
     this.scan = foldRecord(this.scan, record);
-    appendFileSync(this.args.transcriptPath, JSON.stringify(record) + "\n");
+    this.queueLog(JSON.stringify(record) + "\n");
 
-    if (dir === "out" && this.following) this.send({ op: "stdout", cursor: seq, line });
+    if (direction === "out" && this.following) this.send({ op: "stdout", cursor: sequence, line });
+  }
+
+  private openLog(): void {
+    this.logFd = openSync(this.args.transcriptPath, "a", 0o600);
+    chmodSync(this.args.transcriptPath, 0o600);
+  }
+
+  private queueLog(line: string): void {
+    this.logBuffer += line;
+
+    if (this.logBuffer.length >= LOG_FLUSH_BYTES) {
+      this.flushLog();
+
+      return;
+    }
+
+    if (this.logTimer) return;
+
+    this.logTimer = setTimeout(() => this.flushLog(), LOG_FLUSH_MS);
+  }
+
+  private flushLog(): void {
+    if (this.logTimer) {
+      clearTimeout(this.logTimer);
+      this.logTimer = undefined;
+    }
+
+    if (!this.logBuffer || !this.logFd) return;
+
+    const chunk = this.logBuffer;
+
+    this.logBuffer = "";
+    this.logChain = this.logChain.then(
+      () =>
+        new Promise((resolve) => {
+          write(this.logFd, chunk, () => resolve());
+        }),
+    );
   }
 
   private accept(socket: Socket): void {
+    this.clearIdle();
     this.client?.destroy();
     this.client = socket;
     this.buffer = "";
@@ -150,7 +227,38 @@ class AcpRelay {
   }
 
   private drop(socket: Socket): void {
-    if (this.client === socket) this.client = undefined;
+    if (this.client !== socket) return;
+
+    this.client = undefined;
+
+    if (this.closed) {
+      this.shutdown();
+
+      return;
+    }
+
+    this.armIdle();
+  }
+
+  private clearIdle(): void {
+    if (!this.idleTimer) return;
+
+    clearTimeout(this.idleTimer);
+    this.idleTimer = undefined;
+  }
+
+  private armIdle(): void {
+    this.clearIdle();
+    const waiting =
+      !this.closed && this.scan.prompt !== null && this.scan.prompt.stopReason === null;
+    const delay = waiting ? this.abandonMs : this.idleMs;
+
+    this.idleTimer = setTimeout(() => {
+      if (this.client) return;
+
+      this.shutdown();
+    }, delay);
+    this.idleTimer.unref();
   }
 
   private readClient(chunk: string): void {
@@ -188,7 +296,25 @@ class AcpRelay {
     else if (operation.op === "follow") this.following = true;
     else if (operation.op === "write") this.writeChild(operation.line);
     else if (operation.op === "replay") this.replay(operation.after);
+    else if (operation.op === "ack") this.acknowledge(operation.cursor);
     else if (operation.op === "shutdown") this.shutdown();
+  }
+
+  private acknowledge(cursor: number): void {
+    if (cursor <= this.acked) return;
+
+    this.acked = cursor;
+    const start = this.records.findIndex((record) => record.sequence > cursor);
+
+    if (start < 0) {
+      this.records.length = 0;
+
+      return;
+    }
+
+    if (start === 0) return;
+
+    this.records.splice(0, start);
   }
 
   private writeChild(line: string): void {
@@ -197,10 +323,14 @@ class AcpRelay {
   }
 
   private replay(after: number): void {
-    const lines = this.records.filter((record) => record.dir === "out" && record.seq > after);
+    const answered = answeredRequestSequences(this.records);
+    const lines = this.records.filter(
+      (record) =>
+        record.direction === "out" && record.sequence > after && !answered.has(record.sequence),
+    );
 
     for (const record of lines) {
-      this.send({ op: "stdout", cursor: record.seq, line: record.line });
+      this.send({ op: "stdout", cursor: record.sequence, line: record.line });
     }
 
     this.send({ op: "replay-end", cursor: this.scan.cursor });
@@ -208,7 +338,7 @@ class AcpRelay {
   }
 
   private state(): RelayState {
-    return v.parse(RelayStateSchema, {
+    return {
       epoch: this.epoch,
       sessionId: this.scan.sessionId,
       sequence: this.scan.sequence,
@@ -216,18 +346,50 @@ class AcpRelay {
       prompt: this.scan.prompt,
       running: this.child?.exitCode === null && !this.closed,
       pid: this.child?.pid ?? 0,
-    });
+    };
   }
 
   private finish(code: number | null): void {
+    if (this.closed) return;
+
     this.closed = true;
     this.send({ op: "exit", code });
+    this.server?.close();
+    rmSync(this.args.socketPath, { force: true });
+
+    if (!this.client) this.shutdown();
   }
 
   private shutdown(): void {
-    this.child?.kill();
-    this.client?.end();
-    process.exit(0);
+    this.clearIdle();
+    this.flushLog();
+    void this.logChain.finally(() => {
+      this.child?.kill();
+      this.removeTerminal();
+      this.client?.end();
+      process.exit(0);
+    });
+  }
+
+  private removeTerminal(): void {
+    const binary = process.env.CUELOOP_HC;
+    const name = process.env.CUELOOP_HERDR_TERMINAL;
+
+    if (!binary || !name) return;
+
+    const cleaner = spawn(
+      "/bin/sh",
+      [
+        "-c",
+        'sleep 0.2; i=0; while [ "$i" -lt 10 ]; do "$1" rm "$2" >/dev/null 2>&1 && exit 0; i=$((i+1)); sleep 0.2; done',
+        "sh",
+        binary,
+        name,
+      ],
+      { detached: true, stdio: "ignore", env: process.env },
+    );
+
+    cleaner.unref();
   }
 
   private send(message: RelayOp): void {
