@@ -1,5 +1,17 @@
 # cueloop
 
+## 0.1.0-alpha.113
+
+### Patch Changes
+
+- [#618](https://github.com/mmurakaru/cueloop/pull/618) [`5951ce6`](https://github.com/mmurakaru/cueloop/commit/5951ce667c955fbcea9d6428afaa44194ac4cef1) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Keep visible selections in place when a comment input opens. Scroll only when the input needs to be brought into view.
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.113
+  - @cueloop/client@0.1.0-alpha.113
+  - @cueloop/daemon@0.1.0-alpha.113
+  - @cueloop/extension-api@0.1.0-alpha.113
+  - @cueloop/schema@0.1.0-alpha.113
+
 ## 0.1.0-alpha.112
 
 ### Patch Changes
