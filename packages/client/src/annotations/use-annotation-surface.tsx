@@ -139,6 +139,7 @@ export interface AnnotationSurface {
   head: TextPosition;
   compose: ComposeState | null;
   composerRef: React.RefObject<BoxRenderable | null>;
+  composerPaletteRef: React.RefObject<BoxRenderable | null>;
   navMode: boolean;
   focusedDiscussion: string | null;
   revealBlockIndex: number;
@@ -319,6 +320,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
   const [slashIndex, setSlashIndex] = useState(0);
   const composerReady = useRef(false);
   const composerRef = useRef<BoxRenderable | null>(null);
+  const composerPaletteRef = useRef<BoxRenderable | null>(null);
   const readComposerText = useRef<(() => string) | null>(null);
   const composeRef = useRef<ComposeState | null>(null);
   const promptDraft = useRef("");
@@ -1036,6 +1038,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
   const paletteNode = (
     <ComposerPalette
       key="composer-palette"
+      containerRef={composerPaletteRef}
       slashActive={slashActive}
       slashItems={slashItems}
       slashIndex={slashIndex}
@@ -1352,6 +1355,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     head,
     compose,
     composerRef,
+    composerPaletteRef,
     navMode,
     focusedDiscussion,
     revealBlockIndex,

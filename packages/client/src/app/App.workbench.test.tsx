@@ -785,7 +785,11 @@ describe("the bare-launch welcome shell", () => {
     const welcome = locateText(setup, "Welcome");
 
     await setup.mockMouse.click(welcome.column + 8, welcome.row);
-    await setup.mockMouse.click(diffToggleColumn(setup), HEADER_ROW);
+    const header = (await captureSettledFrame(setup)).split("\n")[HEADER_ROW]!;
+    const changesColumn = header.lastIndexOf("changes");
+
+    expect(changesColumn).toBeGreaterThanOrEqual(0);
+    await setup.mockMouse.click(changesColumn, HEADER_ROW);
     await waitForText(setup, "edited in the working tree");
     const frame = setup.captureCharFrame();
 

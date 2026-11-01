@@ -550,9 +550,75 @@ test("a visible new comment stays in place above a long existing discussion", as
     await typeText(setup, "new comment");
     expect(setup.captureCharFrame()).toContain("● new comment");
     expect(scrollbox.scrollTop).toBe(before);
-    scrollbox.scrollBy(12);
+    scrollbox.scrollBy(30);
     await settle(setup);
-    expect(scrollbox.scrollTop).toBe(before + 12);
+    expect(scrollbox.scrollTop).toBe(before + 30);
+  } finally {
+    setup.renderer.destroy();
+  }
+});
+
+test("typing reveals a held selection whose virtual row was scrolled out", async () => {
+  const rows = diffRows(tallPatch(100));
+  const setup = await testRender(
+    <DiffContentView
+      rows={rows}
+      session={fixtureDiffSession()}
+      marks={marksByRows([], rows)}
+      quickActions={[]}
+      observer={false}
+      onAnnotate={noop}
+      onReply={noop}
+      onUpdateAnnotation={noop}
+      onExit={noop}
+    />,
+    { width: 80, height: 20 },
+  );
+
+  try {
+    await settle(setup);
+    await dragText(setup, "line 04", "line 06", "line 06".length);
+    const scrollbox = findById(setup.renderer.root, "diff-scroll");
+
+    if (!(scrollbox instanceof ScrollBoxRenderable)) throw new Error("diff scrollbox missing");
+
+    scrollbox.scrollBy(70);
+    await settle(setup);
+    expect(setup.captureCharFrame()).not.toContain("line 06");
+    await typeText(setup, "held selection draft");
+    expect(setup.captureCharFrame()).toContain("● held selection draft");
+  } finally {
+    setup.renderer.destroy();
+  }
+});
+
+test("opening slash choices at the bottom reveals the input and its action list", async () => {
+  const rows = diffRows(tallPatch(24));
+  const setup = await testRender(
+    <DiffContentView
+      rows={rows}
+      session={fixtureDiffSession()}
+      marks={marksByRows([], rows)}
+      quickActions={[{ prompt: "Explain" }, { prompt: "Review" }, { prompt: "Test" }]}
+      observer={false}
+      onAnnotate={noop}
+      onReply={noop}
+      onUpdateAnnotation={noop}
+      onExit={noop}
+    />,
+    { width: 60, height: 10 },
+  );
+
+  try {
+    await settle(setup);
+    for (let step = 0; step < rows.length + 2; step++) {
+      await press(setup, "down");
+    }
+    await typeText(setup, "/");
+    expect(setup.captureCharFrame()).toContain("● /");
+    expect(setup.captureCharFrame()).toContain("explain");
+    expect(setup.captureCharFrame()).toContain("review");
+    expect(setup.captureCharFrame()).toContain("test");
   } finally {
     setup.renderer.destroy();
   }

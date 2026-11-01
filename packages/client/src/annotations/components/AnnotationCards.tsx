@@ -202,16 +202,18 @@ export function ComposerPalette({
   slashItems,
   slashIndex,
   tokens,
+  containerRef,
 }: {
   slashActive: boolean;
   slashItems: SlashItem[];
   slashIndex: number;
   tokens: Theme;
+  containerRef?: React.RefObject<BoxRenderable | null>;
 }): React.ReactNode {
   if (!slashActive) return null;
 
   return (
-    <box style={{ flexDirection: "column", marginLeft: 3 }}>
+    <box ref={containerRef} style={{ flexDirection: "column", marginLeft: 3 }}>
       <SlashList
         items={slashItems}
         selected={Math.min(slashIndex, Math.max(0, slashItems.length - 1))}

@@ -697,9 +697,13 @@ export function DiffContentView({
   const revealItem = layout.itemOfRow[surface.revealBlockIndex];
 
   useEffect(() => {
-    if (revealItem === undefined || surface.compose || !surface.focusedDiscussion) return;
+    if (revealItem === undefined) return;
 
-    virtual.scrollToIndex(revealItem, "auto");
+    if (surface.compose) {
+      if (!surface.composerRef.current) virtual.scrollToIndex(revealItem, "start");
+    } else if (surface.focusedDiscussion) {
+      virtual.scrollToIndex(revealItem, "auto");
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [surface.revealBlockIndex, surface.compose, surface.focusedDiscussion]);
 
@@ -711,10 +715,20 @@ export function DiffContentView({
   } | null>(
     () => {
       const composer = surface.composerRef.current;
+      const palette = surface.composerPaletteRef.current;
 
-      return composer && composer.height > 0
-        ? { node: composer, top: composer.y, bottom: composer.y + composer.height - 1 }
-        : null;
+      if (!composer || composer.height <= 0) return null;
+
+      const composerBottom = composer.y + composer.height - 1;
+
+      return {
+        node: composer,
+        top: composer.y,
+        bottom:
+          palette && palette.height > 0
+            ? Math.max(composerBottom, palette.y + palette.height - 1)
+            : composerBottom,
+      };
     },
     (left, right) =>
       left?.node === right?.node && left?.top === right?.top && left?.bottom === right?.bottom,
