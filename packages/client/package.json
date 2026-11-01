@@ -36,7 +36,7 @@
     "@opentui/react": "^0.6.8",
     "@opentui/ssh": "0.6.8",
     "@pierre/diffs": "^1.6.1",
-    "@tanstack/virtual-core": "^3.19.7",
+    "@tanstack/virtual-core": "^3.19.9",
     "diff": "^9",
     "puppeteer-core": "25.16.0",
     "react": "^19.3.1",
