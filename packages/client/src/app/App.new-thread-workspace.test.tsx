@@ -16,21 +16,22 @@ import {
 
 test("New Thread opens in the launch workspace after an old temporary workspace disappears", async () => {
   const home = mkdtempSync(join(tmpdir(), "cueloop-new-thread-workspace-"));
-  const restore = isolateUserConfig(home);
   const server = new DaemonServer({ home, idleExitMs: 0 });
-
-  writeFileSync(isolatedUserConfigPath(home), "[experimental]\nthread_agent = true\n");
-  server.start();
-  const thread = server.core.sessionCreate({
-    workspace: { repoRoot: join(home, "deleted-job"), branch: "detached" },
-    artifact: { type: "plan", content: "# Old job", meta: { title: "Old job" } },
-  });
-  const setup = await renderReadyApp(<App home={home} cwd={home} sessionId={thread.id} />, {
-    width: 120,
-    height: 32,
-  });
+  const restore = isolateUserConfig(home);
+  let setup: Awaited<ReturnType<typeof renderReadyApp>> | undefined;
 
   try {
+    writeFileSync(isolatedUserConfigPath(home), "[experimental]\nthread_agent = true\n");
+    server.start();
+    const thread = server.core.sessionCreate({
+      workspace: { repoRoot: join(home, "deleted-job"), branch: "detached" },
+      artifact: { type: "plan", content: "# Old job", meta: { title: "Old job" } },
+    });
+
+    setup = await renderReadyApp(<App home={home} cwd={home} sessionId={thread.id} />, {
+      width: 120,
+      height: 32,
+    });
     await waitForText(setup, "Old job");
     await setup.mockMouse.click(4, 0);
     await waitForText(setup, "+");
@@ -45,7 +46,7 @@ test("New Thread opens in the launch workspace after an old temporary workspace 
     expect(setup.captureCharFrame()).toContain("New Thread");
     expect(server.core.sessionGet(thread.id).workspace.repoRoot).toBe(join(home, "deleted-job"));
   } finally {
-    setup.renderer.destroy();
+    setup?.renderer.destroy();
     server.stop();
     restore();
     rmSync(home, { recursive: true, force: true });
