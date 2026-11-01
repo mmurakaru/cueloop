@@ -24,6 +24,7 @@ import {
   press,
   pressKey,
   typeText,
+  captureSettledFrame,
   waitForState,
   waitForText,
   waitForTextGone,
@@ -212,7 +213,7 @@ describe("the four-pane workbench", () => {
     await waitForState(setup, () => diffToggleColumn(setup) === -1);
     await setup.mockMouse.click(railToggleColumn(setup), HEADER_ROW);
 
-    expect(changedFileVisibleInRightTree(setup.captureCharFrame(), "store.ts")).toBe(false);
+    expect(changedFileVisibleInRightTree(await captureSettledFrame(setup), "store.ts")).toBe(false);
     setup.renderer.destroy();
   });
 

@@ -142,6 +142,7 @@ export interface CueloopConfig {
 export interface ExperimentalConfig {
   prototypePixels: boolean;
   threadAgent: boolean;
+  herdrAcp: boolean;
 }
 
 /** Where a display name came from: typed by the user, or verified from a GitHub login. */
@@ -264,6 +265,7 @@ const IntegrationsSchema = v.object({ obsidian: v.optional(ObsidianSchema) });
 const ExperimentalSchema = v.object({
   prototype_pixels: v.fallback(v.optional(v.boolean()), undefined),
   thread_agent: v.fallback(v.optional(v.boolean()), undefined),
+  herdr_acp: v.fallback(v.optional(v.boolean()), undefined),
 });
 const ReviewSchema = v.object({
   skill: v.fallback(v.optional(v.string()), undefined),
@@ -452,7 +454,7 @@ export function loadConfig(
       fx: { ...THREAD_MODEL_DEFAULTS.fx },
     },
     integrations: { obsidian: { ...OBSIDIAN_DEFAULTS } },
-    experimental: { prototypePixels: false, threadAgent: false },
+    experimental: { prototypePixels: false, threadAgent: false, herdrAcp: false },
   };
   // Theme name and per-token overrides are separate concerns, composed once
   // after all layers: the last file to set [ui] theme wins, and every [theme]
@@ -700,6 +702,8 @@ function applyExperimental(
   if (raw.prototype_pixels !== undefined) config.prototypePixels = raw.prototype_pixels;
 
   if (raw.thread_agent !== undefined) config.threadAgent = raw.thread_agent;
+
+  if (raw.herdr_acp !== undefined) config.herdrAcp = raw.herdr_acp;
 }
 
 /** The preferred harness affects new Threads; existing Threads require a handoff. */

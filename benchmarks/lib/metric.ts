@@ -91,8 +91,26 @@ export function emitLatencyMetrics(prefix: string, samples: number[]): void {
  */
 export function emitMemoryMetrics(stage: string): void {
   Bun.gc(true);
-  const usage = process.memoryUsage();
+  const usage = readMemoryUsage();
 
   emitMetric(`${stage}_heap`, usage.heapUsed);
   emitMetric(`${stage}_rss_bytes`, usage.rss);
+}
+
+/** `memoryUsage` can fail with EINTR after a collection. Retry that read. */
+function readMemoryUsage(): NodeJS.MemoryUsage {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      return process.memoryUsage();
+    } catch (error) {
+      const interrupted =
+        error instanceof Error &&
+        "errno" in error &&
+        Object.getOwnPropertyDescriptor(error, "errno")?.value === 4;
+
+      if (!interrupted || attempt === 4) throw error;
+    }
+  }
+
+  throw new Error("memory usage unavailable");
 }

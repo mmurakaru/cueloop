@@ -43,6 +43,7 @@ export interface AgentHarnessResult {
 export interface AgentHarnessConnection {
   start(): Promise<string>;
   prompt(text: string, requestId?: string): Promise<AgentHarnessResult>;
+  resumePrompt?(text: string, requestId?: string): Promise<AgentHarnessResult>;
   cancel(): void;
   permission(requestId: string, optionId?: string): void;
   close(): void | Promise<void>;
@@ -53,6 +54,7 @@ export interface AgentHarnessConnection {
 export interface AgentHarnessOptions {
   cwd: string;
   sessionId?: string;
+  agentProcessKey?: string;
   tools?: AgentHarnessTools;
   onEvent: (event: AgentHarnessEvent) => void;
   onExit: (error: Error) => void;

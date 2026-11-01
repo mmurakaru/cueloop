@@ -1,4 +1,11 @@
 import { OwnerAgentRelay } from "@cueloop/adapters/owner-agent-relay";
+
+/** Long-lived ACP relay. hc keeps this process up while the daemon is down. */
+export async function herdrAcpRelayCommand(argv: string[]): Promise<void> {
+  const { runHerdrAcpRelay } = await import("@cueloop/adapters/herdr-acp");
+
+  await runHerdrAcpRelay(argv);
+}
 /** Compose the local daemon with its installed harness adapters at the CLI boundary. */
 export async function daemonCommand(argv: string[]): Promise<number> {
   const { DaemonServer } = await import("@cueloop/daemon");
