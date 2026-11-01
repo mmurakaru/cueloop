@@ -261,3 +261,36 @@ describe("tree primitives", () => {
     expect(shared.controller.getSnapshot().toast?.title).toBe("fork shared - link copied");
   });
 });
+
+for (const existingWorkspace of [false, true]) {
+  test(`New Thread ${existingWorkspace ? "retains an existing workspace" : "uses the launch directory when the selected workspace was removed"}`, async () => {
+    const session = sessionFixture();
+
+    if (existingWorkspace) session.workspace = { repoRoot: process.cwd(), branch: "main" };
+
+    const client = {
+      ...fakeClient(session),
+      sessionCreate: mock(async (workspace: Thread["workspace"]) => ({
+        ...session,
+        id: "new",
+        workspace,
+      })),
+    };
+    const controller = createReviewController({
+      sessionId: session.id,
+      cwd: process.cwd(),
+      openClient: async () => client,
+      shareTransport,
+    });
+
+    controller.connect();
+    await tick();
+    await controller.createEmptyThread();
+    expect(client.sessionCreate.mock.calls[0]?.[0]).toEqual({
+      repoRoot: process.cwd(),
+      branch: existingWorkspace ? "main" : "detached",
+    });
+    expect(controller.getSnapshot().session?.id).toBe("new");
+    controller.close();
+  });
+}

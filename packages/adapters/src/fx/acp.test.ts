@@ -40,3 +40,17 @@ test("a supplied ACP child is used and the command is not spawned", async () => 
 
   expect(existsSync(marker)).toBe(false);
 });
+
+test("a deleted working directory reports the workspace rather than a missing fx executable", () => {
+  const cwd = `/tmp/cueloop-missing-workspace-${crypto.randomUUID()}`;
+
+  expect(
+    () =>
+      new FxAcpConnection({
+        cwd,
+        command: [process.execPath, "--version"],
+        onFrame: ignore,
+        onExit: ignore,
+      }),
+  ).toThrow(`Fx ACP working directory is unavailable: ${cwd}`);
+});

@@ -8,6 +8,7 @@
  */
 
 import { SystemClock, type Clock, type TimerHandle } from "@opentui/core";
+import { statSync } from "node:fs";
 import { createStore, type StoreApi } from "zustand/vanilla";
 import { DaemonClient, type ThreadClient } from "@cueloop/daemon/client";
 import {
@@ -933,12 +934,17 @@ class Controller implements ReviewController {
   async createEmptyThread(): Promise<void> {
     if (this.readOnly || !this.client?.sessionCreate) return;
 
-    const workspace = this.snapshot.session?.workspace ?? {
-      repoRoot: this.options.cwd ?? process.cwd(),
-      branch: "detached",
-    };
-
     try {
+      const selectedWorkspace = this.snapshot.session?.workspace;
+      const workspace =
+        selectedWorkspace &&
+        statSync(selectedWorkspace.repoRoot, { throwIfNoEntry: false })?.isDirectory()
+          ? selectedWorkspace
+          : {
+              repoRoot: this.options.cwd ?? process.cwd(),
+              branch: "detached",
+            };
+
       const thread = await this.client.sessionCreate(workspace, {
         type: "plan",
         content: "",
