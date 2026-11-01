@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, mock, test } from "bun:test";
 import React, { useEffect, useState } from "react";
 import { testRender } from "@opentui/react/test-utils";
 import { GridTabContent } from "./GridTabContent";
@@ -28,6 +28,7 @@ function createTestFilePatch(secondName: string): string {
 test("a file tab follows file switches and fresh rows after cursor updates", async () => {
   const initialRows = diffRows(createTestFilePatch("secondOld"));
   const session = fixtureDiffSession();
+  const cursorChanges = mock((_rowIndex: number) => {});
   const noop = () => {};
   let changePath: (path: string) => void = noop;
   let changeRows: (rows: DiffRow[]) => void = noop;
@@ -53,7 +54,10 @@ test("a file tab follows file switches and fresh rows after cursor updates", asy
           session,
           quickActions: [],
           observer: false,
-          onCursorChange: setCursor,
+          onCursorChange: (rowIndex) => {
+            cursorChanges(rowIndex);
+            setCursor(rowIndex);
+          },
           onAnnotate: noop,
           onReply: noop,
           onUpdateAnnotation: noop,
@@ -73,6 +77,9 @@ test("a file tab follows file switches and fresh rows after cursor updates", asy
     await waitForText(setup, "firstOld");
     await press(setup, "down");
     await press(setup, "down");
+    expect(cursorChanges).toHaveBeenLastCalledWith(
+      initialRows.findIndex((row) => row.text.includes("firstLast")),
+    );
     expect(setup.captureCharFrame()).toContain("firstLast");
     changePath("second.ts");
     await waitForText(setup, "secondOld");
