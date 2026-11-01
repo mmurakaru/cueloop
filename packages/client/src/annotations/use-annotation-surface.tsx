@@ -220,16 +220,11 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
   // character-precise: `head` is the caret, `anchor` the other end of a held
   // selection (the same position when collapsed); both are full positions, so
   // the cursor block (cards, folding) can move without conjuring a selection
-  const [caret, setCaretState] = useState<{ head: TextPosition; anchor: TextPosition }>(() => {
+  const [caret, setCaret] = useState<{ head: TextPosition; anchor: TextPosition }>(() => {
     const start = { blockIndex: firstAnnotatable(source), char: 0 };
 
     return { head: start, anchor: start };
   });
-  const caretRef = useRef(caret);
-  const setCaret = (next: typeof caret): void => {
-    caretRef.current = next;
-    setCaretState(next);
-  };
   const focusRequested = useEffectEvent(() => onFocusAnnotation?.(undefined));
 
   useEffect(() => {
@@ -874,7 +869,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     );
   };
 
-  const moveCaretVertical = useEffectEvent((key: KeyEvent, vertical: -1 | 1): void => {
+  const moveCaretVertical = (key: KeyEvent, vertical: -1 | 1): void => {
     const nextBlock = nearestAnnotatable(source, cursor, vertical);
     const visualTarget = verticalTextPosition(head, vertical);
 
@@ -893,15 +888,12 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     });
     setFocusedDiscussion(null);
     setCursor(nextHead.blockIndex);
-  });
+  };
 
   const handleCaretKey = (key: KeyEvent): boolean => {
     const vertical = verticalCaretDelta(key);
 
     if (vertical !== 0) {
-      // A burst can arrive before React commits the previous caret step.
-      if (caretRef.current !== caret) flushSync(() => setCaretState(caretRef.current));
-
       moveCaretVertical(key, vertical);
 
       return true;

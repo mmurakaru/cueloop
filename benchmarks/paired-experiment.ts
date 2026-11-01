@@ -1,4 +1,5 @@
 /** Compare one source change with its frozen revision, using identical fixtures and alternating order. */
+/* eslint-disable no-await-in-loop -- Paired measurements must run sequentially. */
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve, join, dirname } from "node:path";
@@ -20,6 +21,9 @@ const pairs = Number(values.pairs);
 
 if (!Number.isInteger(pairs) || pairs < 5 || !values.script?.length || !values.out)
   throw new Error("Benchmark experiment requires --script, --out and at least five --pairs");
+
+if (process.env.CUELOOP_TEST_EXECUTABLE)
+  throw new Error("Paired source experiments cannot replace source inside a compiled executable");
 
 const directory = mkdtempSync(join(tmpdir(), "cueloop-experiment-"));
 const replacements: Record<string, string> = {};

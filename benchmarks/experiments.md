@@ -55,8 +55,10 @@ regression test reproduces this. Unconditional synchronous commits pass the
 test but regress p95 by 25.5 percent, so that trial was reverted. A conditional
 commit resolves only pending caret state before the next arrow. In 11 pairs,
 all candidate bursts preserve every step; baseline bursts lose 8-15 steps.
-Its latency interval crosses one, so this is a correctness repair, not a
-claimed latency improvement. Ref-only and row-geometry trials were rejected. Timing uses
+Its isolated latency interval crosses one. The final original-baseline
+comparison found a 9.3 percent p95 cost (1.7 ms), with an interval above one.
+The repair and its new regression test were removed from the first release;
+the reproduction and trial patch remain recorded for the scroll follow-up. Ref-only and row-geometry trials were rejected. Timing uses
 individual settled arrows, while burst correctness is checked separately, so
 losing input cannot count as a faster result.
 
@@ -77,3 +79,29 @@ Local raw files are ignored under `benchmarks/results/`:
 
 Final verification results and remaining targets are recorded after the final
 comparison. The 30 percent target has not yet been established in every workflow.
+
+## First release scope
+
+Only socket framing, agent-event filtering and benchmark instrumentation are
+retained. Renderer target, input frame cap, conversation marks, identical Thread
+revalidation and caret-commit trials were rejected. The caret reproduction
+remains open under #612; the 30 percent navigation, Thread-switch and scrolling
+targets are not achieved. Do not describe the first release as completing #614.
+
+The original-baseline comparison measured streaming draft p95 11.07 -> 6.43 ms,
+a 42.0 percent gain (ratio interval 0.5227-0.6027). Navigation and Thread-switch
+changes were below the retained-improvement threshold. Scroll is rechecked
+without the rejected caret repair before shipping.
+
+The 20-pair scroll recheck without the caret trial measured median 10.69 ->
+10.73 ms (ratio interval 0.9885-1.0671) and p95 17.00 -> 19.23 ms (interval
+0.9959-1.2719). This does not establish an improvement or equivalence. It does
+not confirm a slowdown at the selected interval; the scrolling target remains
+open. No input or rendering change is included in the first release.
+
+## Local shipping checks
+
+After installing the same `jj` prerequisite as CI, the complete suite passed:
+2,083 pass, 42 optional skips, zero failures, 122 snapshots. The complete PTY
+tier passed all 37 tests with 546 assertions. Typecheck, lint, import boundaries
+and formatting passed. Existing lint and type-cycle warnings remain.

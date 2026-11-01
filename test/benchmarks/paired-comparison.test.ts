@@ -12,7 +12,10 @@ test("a consistent improvement clears the paired interval and minimum gain", () 
 test("unchanged, slower and small improvements are not retained", () => {
   for (const candidate of [100, 120, 97]) {
     expect(
-      comparePairedTimings([100, 100, 100, 100, 100], Array(5).fill(candidate)).measurable,
+      comparePairedTimings(
+        [100, 100, 100, 100, 100],
+        Array.from({ length: 5 }, () => candidate),
+      ).measurable,
     ).toBe(false);
   }
 });

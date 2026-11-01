@@ -1,4 +1,5 @@
 /** Drive a real daemon agent stream while the complete App accepts a draft. */
+/* eslint-disable no-await-in-loop -- Each stream update must paint before the next input. */
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";

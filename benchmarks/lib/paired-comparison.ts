@@ -8,7 +8,7 @@ export interface PairedImprovement {
 }
 
 function medianSample(values: readonly number[]): number {
-  const sorted = [...values].sort((left, right) => left - right);
+  const sorted = values.toSorted((left, right) => left - right);
 
   return sorted[Math.floor(sorted.length / 2)]!;
 }
@@ -45,8 +45,8 @@ export function comparePairedTimings(
     }
     bootstrapRatios.push(medianSample(sampledCandidate) / medianSample(sampledBaseline));
   }
-  bootstrapRatios.sort((left, right) => left - right);
-  const ratioInterval95: [number, number] = [bootstrapRatios[249]!, bootstrapRatios[9749]!];
+  const sortedRatios = bootstrapRatios.toSorted((left, right) => left - right);
+  const ratioInterval95: [number, number] = [sortedRatios[249]!, sortedRatios[9749]!];
 
   return {
     baselineMedian,
