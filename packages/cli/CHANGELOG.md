@@ -1,5 +1,17 @@
 # cueloop
 
+## 0.1.0-alpha.112
+
+### Patch Changes
+
+- [#615](https://github.com/mmurakaru/cueloop/pull/615) [`ce6ab47`](https://github.com/mmurakaru/cueloop/commit/ce6ab4741bb17b86336410442a0cd57a5054eda0) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Keep agent transcript updates from refetching unrelated review data and split large socket frames without repeatedly scanning incomplete text. Add paired performance experiments, streaming review coverage, and calibrated terminal paint checks.
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.112
+  - @cueloop/client@0.1.0-alpha.112
+  - @cueloop/daemon@0.1.0-alpha.112
+  - @cueloop/extension-api@0.1.0-alpha.112
+  - @cueloop/schema@0.1.0-alpha.112
+
 ## 0.1.0-alpha.111
 
 ### Minor Changes
