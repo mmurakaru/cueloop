@@ -1,5 +1,20 @@
 # cueloop
 
+## 0.1.0-alpha.111
+
+### Minor Changes
+
+- [#604](https://github.com/mmurakaru/cueloop/pull/604) [`b4e3f23`](https://github.com/mmurakaru/cueloop/commit/b4e3f238ba47b5a2c437b7e43231b661b79c9cff) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Add an opt-in herdr-core backend for fx ACP tasks. With `[experimental] herdr_acp = true` and a user-installed `hc` 0.1.15 or newer, the agent process stays up across a daemon restart and the in-flight prompt can be reattached. The flag defaults off, and a missing `hc` keeps today's child process.
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.111
+  - @cueloop/client@0.1.0-alpha.111
+  - @cueloop/daemon@0.1.0-alpha.111
+  - @cueloop/extension-api@0.1.0-alpha.111
+  - @cueloop/schema@0.1.0-alpha.111
+
 ## 0.1.0-alpha.110
 
 ### Patch Changes
