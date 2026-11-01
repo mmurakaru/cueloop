@@ -119,3 +119,23 @@ collection. Missing metrics, invalid timings and incomplete requested counts
 fail instead of producing misaligned paired samples. Lifecycle verification
 opens the sidebar after the timed region and waits for the renamed and newly
 created Threads to paint.
+
+## File-tab row projection follow-up
+
+A separate candidate reuses a file tab's row indices and row array while its
+source and selected file remain unchanged. Frame tests cover cursor updates,
+file switches, refreshed rows and contents/diff transitions.
+
+The final 20-pair comparison against `ce6ab474` measured file-scroll p95
+58.69 -> 38.46 ms, a 34.5 percent improvement, ratio interval 0.6436-0.6730.
+However, median latency rose 30.19 -> 30.79 ms, ratio interval 1.0148-1.0259.
+This candidate is not accepted on the p95 result alone. An unchanged-code
+control is recorded separately to assess noise. File-open and initial-render
+results did not establish a retained improvement. Raw results are in
+`final-file-row-projection.json`; the control is `control-file-row-projection.json`.
+
+The 20-pair unchanged-source control measured median ratio interval
+0.9962-1.0080 and p95 interval 0.9828-1.0307. The candidate median cost
+exceeds this observed noise. Decision: revert the product change. Keep its
+regression test and register the existing file-scroll benchmark for later work.
+The p95 gain is evidence for further investigation, not a shipped gain.
