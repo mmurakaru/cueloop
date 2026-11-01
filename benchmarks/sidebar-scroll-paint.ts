@@ -68,6 +68,8 @@ if (!ptyTuiAvailable()) {
     emitMetric(`sidebar_${mode}_frames_per_press`, frames / MEASURED_PRESSES);
     emitMetric(`sidebar_${mode}_missing_selected_rows`, missingSelectedRows);
     emitLatencyMetrics(`sidebar_${mode}_row_paint`, paintMs);
+
+    if (missingSelectedRows) throw new Error("Sidebar scroll benchmark lost its selected row");
   }
 
   try {

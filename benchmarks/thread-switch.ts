@@ -27,7 +27,7 @@ Object.assign(process.env, HERMETIC_TERMINAL_ENV);
 const PLAN_SECTIONS = 48;
 const DIFF_FILES = 60;
 const DIFF_LINES = 80;
-const LAPS = 2;
+const LAPS = 8;
 
 const repo = createTestGitRepo(manyFilesChange(DIFF_FILES, DIFF_LINES));
 

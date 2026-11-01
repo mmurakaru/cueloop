@@ -479,6 +479,9 @@ class Controller implements ReviewController {
 
         this.client = client;
         client.onEvent((event) => {
+          // Agent transcripts have their own observer; they do not change Thread records or the inbox.
+          if (event.event === "agent.updated") return;
+
           // another controller/observer changed state: re-fetch the active session's content
           const session = this.snapshot.session;
 

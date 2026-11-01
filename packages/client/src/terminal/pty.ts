@@ -27,6 +27,7 @@ export interface PtyForkOptions {
   rows?: number;
   cwd?: string;
   env?: Record<string, string>;
+  readPollMaxMs?: number;
 }
 
 export interface ExitEvent {
@@ -127,6 +128,7 @@ class Pty implements IPty {
   private processId: number;
   private columns: number;
   private rowCount: number;
+  private readonly readPollMaxMs: number;
   private closing = false;
   private reading = false;
   private readonly decoder = new TextDecoder("utf-8");
@@ -139,6 +141,11 @@ class Pty implements IPty {
     args: string[],
     options: PtyForkOptions,
   ) {
+    this.readPollMaxMs = options.readPollMaxMs ?? READ_IDLE_MAX_MS;
+
+    if (!Number.isFinite(this.readPollMaxMs) || this.readPollMaxMs < 1)
+      throw new Error("PTY read poll limit must be at least one millisecond");
+
     this.columns = options.cols ?? DEFAULT_COLS;
     this.rowCount = options.rows ?? DEFAULT_ROWS;
     const cwd = options.cwd ?? process.cwd();
@@ -236,7 +243,7 @@ class Pty implements IPty {
         this.closing = true;
         this.exitEvent.fire({ exitCode });
       } else {
-        const delay = Math.min(READ_IDLE_MAX_MS, READ_IDLE_MS * 2 ** Math.min(idlePolls, 5));
+        const delay = Math.min(this.readPollMaxMs, READ_IDLE_MS * 2 ** Math.min(idlePolls, 5));
 
         idlePolls += 1;
         await new Promise((resolve) => setTimeout(resolve, delay));

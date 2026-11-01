@@ -110,6 +110,7 @@ if (!ptyTuiAvailable()) {
     let fastColorSamples = 0;
     let fastColorMismatches = 0;
     let fastFaintCells = 0;
+    const beforeBurst = Number(/row(\d+)/.exec(caretLine(session.text()))?.[1]);
 
     session.onTerminalFrame = (frame, cellAt) => {
       const rows = frame.split("\n").flatMap((line, y) => {
@@ -163,6 +164,32 @@ if (!ptyTuiAvailable()) {
       "diff_scroll_fast_incomplete_rows",
       session.terminalFrames.reduce((total, frame) => total + incompleteRows(frame), 0),
     );
+    const fastIncomplete = session.terminalFrames.some((frame) => incompleteRows(frame) > 0);
+    const finalRow = Number(/row(\d+)/.exec(caretLine(session.text()))?.[1]);
+
+    emitMetric("diff_scroll_fast_lost_key_steps", beforeBurst + BURST_PRESSES - finalRow);
+
+    if (
+      incompleteCaretFrames ||
+      incomplete ||
+      missingVisibleRows ||
+      fastColorMismatches ||
+      fastFaintCells ||
+      fastIncomplete
+    )
+      throw new Error(
+        `Diff scroll benchmark lost a key, row, caret or terminal color: ${JSON.stringify({
+          incompleteCaretFrames,
+          incomplete,
+          missingVisibleRows,
+          fastColorMismatches,
+          fastFaintCells,
+          fastIncomplete,
+          beforeBurst,
+          finalRow,
+        })}`,
+      );
+
     emitMetric(
       "diff_scroll_fast_missing_visible_rows",
       session.terminalFrames.reduce(

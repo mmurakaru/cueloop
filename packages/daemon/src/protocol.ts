@@ -53,16 +53,27 @@ export function parseInboundFrame(line: string): Frame {
 /** Incremental NDJSON splitter; tolerates partial writes. */
 export class LineBuffer {
   private buffered = "";
+  private fragments: string[] = [];
 
   push(chunk: string, onLine: (line: string) => void): void {
     this.buffered += chunk;
     for (;;) {
       const newlineIndex = this.buffered.indexOf("\n");
 
-      if (newlineIndex === -1) return;
+      if (newlineIndex === -1) {
+        if (this.buffered) this.fragments.push(this.buffered);
 
-      const line = this.buffered.slice(0, newlineIndex).trim();
+        this.buffered = "";
 
+        return;
+      }
+
+      const fragment = this.buffered.slice(0, newlineIndex);
+      const line = this.fragments.length
+        ? [...this.fragments, fragment].join("").trim()
+        : fragment.trim();
+
+      this.fragments = [];
       this.buffered = this.buffered.slice(newlineIndex + 1);
 
       if (line) onLine(line);
