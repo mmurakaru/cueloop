@@ -12,6 +12,7 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "re
 import {
   MacOSScrollAccel,
   createTextAttributes,
+  type BoxRenderable,
   type KeyEvent,
   type ScrollBoxRenderable,
 } from "@opentui/core";
@@ -693,17 +694,65 @@ export function DiffContentView({
     return distance > 1;
   };
 
-  // An opening card or focused discussion reveals its owning item. Ordinary caret
-  // movement reveals the exact visual line, since an item's first wrapped line may
-  // sit above the viewport while the caret is already on screen.
   const revealItem = layout.itemOfRow[surface.revealBlockIndex];
 
   useEffect(() => {
-    if (revealItem === undefined || (!surface.compose && !surface.focusedDiscussion)) return;
+    if (revealItem === undefined || surface.compose || !surface.focusedDiscussion) return;
 
-    virtual.scrollToIndex(revealItem, surface.compose ? "end" : "auto");
+    virtual.scrollToIndex(revealItem, "auto");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [surface.revealBlockIndex, surface.compose, surface.focusedDiscussion]);
+
+  const revealedComposer = useRef<{ node: BoxRenderable; height: number } | null>(null);
+  const composerBounds = useFrameMeasure<{
+    node: BoxRenderable;
+    top: number;
+    bottom: number;
+  } | null>(
+    () => {
+      const composer = surface.composerRef.current;
+
+      return composer && composer.height > 0
+        ? { node: composer, top: composer.y, bottom: composer.y + composer.height - 1 }
+        : null;
+    },
+    (left, right) =>
+      left?.node === right?.node && left?.top === right?.top && left?.bottom === right?.bottom,
+    null,
+    Boolean(surface.compose),
+  );
+
+  useLayoutEffect(() => {
+    const scrollbox = scrollRef.current;
+
+    if (
+      !surface.compose ||
+      !composerBounds ||
+      !scrollbox ||
+      composerBounds.node !== surface.composerRef.current
+    )
+      return;
+
+    const height = composerBounds.bottom - composerBounds.top + 1;
+
+    // Only mounting or resizing the input can override a manual scroll.
+    if (
+      revealedComposer.current?.node === composerBounds.node &&
+      revealedComposer.current.height === height
+    )
+      return;
+
+    revealedComposer.current = { node: composerBounds.node, height };
+    const top = scrollbox.viewport.y;
+    const bottom = top + scrollbox.viewport.height - 1;
+
+    if (composerBounds.bottom > bottom) scrollbox.scrollBy(composerBounds.bottom - bottom);
+    else if (
+      composerBounds.top < top &&
+      composerBounds.bottom - composerBounds.top < scrollbox.viewport.height
+    )
+      scrollbox.scrollBy(composerBounds.top - top);
+  }, [surface.compose, surface.composerRef, composerBounds]);
 
   useLayoutEffect(() => {
     if (revealItem === undefined || surface.compose || surface.focusedDiscussion) return;

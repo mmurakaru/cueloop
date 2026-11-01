@@ -58,6 +58,7 @@ export function Composer({
   placeholder,
   agentEnabled = false,
   focusRequest,
+  containerRef,
 }: {
   seed: string;
   glyph: string | null;
@@ -68,6 +69,7 @@ export function Composer({
   placeholder?: string;
   agentEnabled?: boolean;
   focusRequest?: number;
+  containerRef?: React.RefObject<BoxRenderable | null>;
 }): React.ReactNode {
   const renderer = useRenderer();
   const editorRef = useRef<TextareaRenderable | null>(null);
@@ -115,7 +117,7 @@ export function Composer({
   }, [focusRequest]);
 
   return (
-    <box style={{ flexDirection: "row" }}>
+    <box ref={containerRef} style={{ flexDirection: "row" }}>
       {glyph !== null ? (
         <text selectable={false} fg={tokens.text} style={{ flexShrink: 0 }}>{`${glyph} `}</text>
       ) : null}
