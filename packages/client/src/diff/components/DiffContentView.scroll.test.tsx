@@ -9,7 +9,7 @@ import { DiffContentView } from "./DiffContentView";
 import { diffRows, marksByRows } from "../view-diff";
 import { DARK } from "../../appearance/theme";
 import { annotationPaletteFor } from "../../annotations/annotation-palette";
-import { press, settle, typeText } from "../../testing/test-support";
+import { dragText, press, settle, typeText } from "../../testing/test-support";
 import { fixtureDiffSession } from "../../stories/story-fixtures";
 
 const noop = (): void => {};
@@ -380,6 +380,17 @@ test("opening a comment on the diff's last line reveals its composer", async () 
   await typeText(setup, "bottom comment");
 
   expect(setup.captureCharFrame()).toContain("● bottom comment");
+  const scrollbox = findById(setup.renderer.root, "diff-scroll");
+
+  if (!(scrollbox instanceof ScrollBoxRenderable)) throw new Error("diff scrollbox missing");
+
+  const before = scrollbox.scrollTop;
+
+  await press(setup, "enter");
+  await typeText(setup, "second draft line");
+  expect(setup.captureCharFrame()).toContain("● bottom comment");
+  expect(setup.captureCharFrame()).toContain("second draft line");
+  expect(scrollbox.scrollTop).toBe(before + 1);
   setup.renderer.destroy();
 }, 25000);
 
@@ -440,4 +451,175 @@ test("Up keeps the caret on the first screen row while wrapped lines scroll", as
   }
   expect(scrolled).toBe(true);
   setup.renderer.destroy();
+});
+
+test("opening and typing a comment preserves a visible selection's screen position", async () => {
+  const rows = diffRows(tallPatch(100));
+  const setup = await testRender(
+    <DiffContentView
+      rows={rows}
+      session={fixtureDiffSession()}
+      marks={marksByRows([], rows)}
+      quickActions={[]}
+      observer={false}
+      onAnnotate={noop}
+      onReply={noop}
+      onUpdateAnnotation={noop}
+      onExit={noop}
+    />,
+    { width: 80, height: 20 },
+  );
+
+  try {
+    await settle(setup);
+    for (let step = 0; step < 60; step++) {
+      await press(setup, "down");
+    }
+    const scrollbox = findById(setup.renderer.root, "diff-scroll");
+
+    if (!(scrollbox instanceof ScrollBoxRenderable)) throw new Error("diff scrollbox missing");
+
+    const firstVisible = setup.captureCharFrame().match(/line (\d{2})/);
+
+    if (!firstVisible) throw new Error("diff rows missing");
+
+    const first = Number(firstVisible[1]);
+    const startText = `line ${String(first + 2).padStart(2, "0")}`;
+    const endText = `line ${String(first + 5).padStart(2, "0")}`;
+
+    expect(scrollbox.scrollTop).toBeGreaterThan(0);
+    await dragText(setup, startText, endText, endText.length);
+    const before = scrollbox.scrollTop;
+    const selectionRow = setup
+      .captureCharFrame()
+      .split("\n")
+      .findIndex((line) => line.includes(startText));
+
+    await typeText(setup, "h");
+    expect(setup.captureCharFrame()).toContain("● h");
+    expect(scrollbox.scrollTop).toBe(before);
+    await typeText(setup, "ello world");
+    expect(setup.captureCharFrame()).toContain("● hello world");
+    expect(scrollbox.scrollTop).toBe(before);
+    expect(
+      setup
+        .captureCharFrame()
+        .split("\n")
+        .findIndex((line) => line.includes(startText)),
+    ).toBe(selectionRow);
+  } finally {
+    setup.renderer.destroy();
+  }
+}, 25000);
+
+test("a visible new comment stays in place above a long existing discussion", async () => {
+  const rows = diffRows(tallPatch(60));
+  const annotation: Annotation = {
+    id: "long-discussion",
+    kind: "comment",
+    body: "Existing discussion text that wraps across many lines. ".repeat(80),
+    anchor: { quote: "line 20", prefix: "", suffix: "" },
+    createdAt: "2026-01-01T00:00:00Z",
+  };
+  const setup = await testRender(
+    <DiffContentView
+      rows={rows}
+      session={fixtureDiffSession({ annotations: [annotation] })}
+      marks={marksByRows([annotation], rows)}
+      quickActions={[]}
+      observer={false}
+      onAnnotate={noop}
+      onReply={noop}
+      onUpdateAnnotation={noop}
+      onExit={noop}
+    />,
+    { width: 80, height: 20 },
+  );
+
+  try {
+    await settle(setup);
+    const scrollbox = findById(setup.renderer.root, "diff-scroll");
+
+    if (!(scrollbox instanceof ScrollBoxRenderable)) throw new Error("diff scrollbox missing");
+
+    scrollbox.scrollBy(14);
+    await settle(setup);
+    await dragText(setup, "line 16", "line 20", "line 20".length);
+    const before = scrollbox.scrollTop;
+
+    await typeText(setup, "new comment");
+    expect(setup.captureCharFrame()).toContain("● new comment");
+    expect(scrollbox.scrollTop).toBe(before);
+    scrollbox.scrollBy(30);
+    await settle(setup);
+    expect(scrollbox.scrollTop).toBe(before + 30);
+  } finally {
+    setup.renderer.destroy();
+  }
+});
+
+test("typing reveals a held selection whose virtual row was scrolled out", async () => {
+  const rows = diffRows(tallPatch(100));
+  const setup = await testRender(
+    <DiffContentView
+      rows={rows}
+      session={fixtureDiffSession()}
+      marks={marksByRows([], rows)}
+      quickActions={[]}
+      observer={false}
+      onAnnotate={noop}
+      onReply={noop}
+      onUpdateAnnotation={noop}
+      onExit={noop}
+    />,
+    { width: 80, height: 20 },
+  );
+
+  try {
+    await settle(setup);
+    await dragText(setup, "line 04", "line 06", "line 06".length);
+    const scrollbox = findById(setup.renderer.root, "diff-scroll");
+
+    if (!(scrollbox instanceof ScrollBoxRenderable)) throw new Error("diff scrollbox missing");
+
+    scrollbox.scrollBy(70);
+    await settle(setup);
+    expect(setup.captureCharFrame()).not.toContain("line 06");
+    await typeText(setup, "held selection draft");
+    expect(setup.captureCharFrame()).toContain("● held selection draft");
+  } finally {
+    setup.renderer.destroy();
+  }
+});
+
+test("opening slash choices at the bottom reveals the input and its action list", async () => {
+  const rows = diffRows(tallPatch(24));
+  const setup = await testRender(
+    <DiffContentView
+      rows={rows}
+      session={fixtureDiffSession()}
+      marks={marksByRows([], rows)}
+      quickActions={[{ prompt: "Explain" }, { prompt: "Review" }, { prompt: "Test" }]}
+      observer={false}
+      onAnnotate={noop}
+      onReply={noop}
+      onUpdateAnnotation={noop}
+      onExit={noop}
+    />,
+    { width: 60, height: 10 },
+  );
+
+  try {
+    await settle(setup);
+    for (let step = 0; step < rows.length + 2; step++) {
+      await press(setup, "down");
+    }
+    await typeText(setup, "/");
+    expect(setup.captureCharFrame()).toContain("● /");
+    expect(setup.captureCharFrame()).toContain("explain");
+    expect(setup.captureCharFrame()).toContain("review");
+    expect(setup.captureCharFrame()).toContain("test");
+  } finally {
+    setup.renderer.destroy();
+  }
 });

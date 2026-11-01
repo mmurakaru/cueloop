@@ -13,7 +13,12 @@
  */
 
 import React, { useContext, useEffect, useEffectEvent, useRef, useState } from "react";
-import type { KeyEvent, MouseEvent as TerminalMouseEvent, TextRenderable } from "@opentui/core";
+import type {
+  BoxRenderable,
+  KeyEvent,
+  MouseEvent as TerminalMouseEvent,
+  TextRenderable,
+} from "@opentui/core";
 import { flushSync } from "@opentui/react";
 import { useSharedKeyboard } from "../keyboard/use-shared-keyboard";
 import { agentInputTarget, type Annotation, type Thread } from "@cueloop/schema";
@@ -133,6 +138,8 @@ export interface AnnotationSurface {
   cursor: number;
   head: TextPosition;
   compose: ComposeState | null;
+  composerRef: React.RefObject<BoxRenderable | null>;
+  composerPaletteRef: React.RefObject<BoxRenderable | null>;
   navMode: boolean;
   focusedDiscussion: string | null;
   revealBlockIndex: number;
@@ -312,6 +319,8 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
   const [caretOffset, setCaretOffset] = useState(0);
   const [slashIndex, setSlashIndex] = useState(0);
   const composerReady = useRef(false);
+  const composerRef = useRef<BoxRenderable | null>(null);
+  const composerPaletteRef = useRef<BoxRenderable | null>(null);
   const readComposerText = useRef<(() => string) | null>(null);
   const composeRef = useRef<ComposeState | null>(null);
   const promptDraft = useRef("");
@@ -1008,6 +1017,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
   const composerNode = compose ? (
     <Composer
       key={compose.seed}
+      containerRef={composerRef}
       seed={compose.seed}
       glyph={compose.kind === "prompt" ? null : "●"}
       tokens={tokens}
@@ -1028,6 +1038,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
   const paletteNode = (
     <ComposerPalette
       key="composer-palette"
+      containerRef={composerPaletteRef}
       slashActive={slashActive}
       slashItems={slashItems}
       slashIndex={slashIndex}
@@ -1343,6 +1354,8 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     cursor,
     head,
     compose,
+    composerRef,
+    composerPaletteRef,
     navMode,
     focusedDiscussion,
     revealBlockIndex,
