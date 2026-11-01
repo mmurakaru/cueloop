@@ -27,9 +27,9 @@ results. A p95 row contains each process's within-run p95.
 | Change                                            | Declared metric                  | Baseline  | Candidate | Evidence                               | Decision                         |
 | ------------------------------------------------- | -------------------------------- | --------- | --------- | -------------------------------------- | -------------------------------- |
 | Chunked socket frame accumulation                 | Large real-socket response p95   | 494.71 ms | 50.52 ms  | 11 pairs; ratio interval 0.0987-0.1043 | Retain; 89.8 percent improvement |
-| Ignore transcript events in the review controller | Streaming draft paint p95        | 10.90 ms  | 6.41 ms   | 20 pairs; ratio interval 0.5646-0.7001 | Retain; 41.2 percent improvement |
+| Ignore transcript events in the review controller | Streaming draft paint p95        | 9.55 ms   | 6.38 ms   | 20 pairs; ratio interval 0.5701-0.7489 | Retain; 33.1 percent improvement |
 | Renderer target 60 FPS                            | Calibrated diff scroll paint p95 | 17.30 ms  | 20.60 ms  | 5 pairs; ratio interval 0.9179-1.2555  | Revert; no measurable gain       |
-| Skip anchor projection for uncommented messages   | Long-answer draft paint p95      | 14.60 ms  | 13.62 ms  | 20 pairs; ratio interval 0.8428-1.0244 | Revert; no reliable p95 gain     |
+| Skip anchor projection for uncommented messages   | Long-answer draft paint p95      | 14.11 ms  | 13.59 ms  | 20 pairs; ratio interval 0.8638-1.0201 | Revert; no reliable p95 gain     |
 
 The framing experiment did not establish a navigation or Thread-switch gain.
 Its strongest result is the complete, content-checked, large socket response.
@@ -52,11 +52,11 @@ comparisons use the corrected observer.
 The real-terminal burst check also exposed dropped caret steps: 70 arrows at
 5 ms spacing reached row 62 in an unwrapped diff instead of row 70. A new PTY
 regression test reproduces this. Unconditional synchronous commits pass the
-test but regress p95 by 25.5 percent, so that trial was reverted. A conditional
+test but regress p95 by 24.2 percent, so that trial was reverted. A conditional
 commit resolves only pending caret state before the next arrow. In 11 pairs,
 all candidate bursts preserve every step; baseline bursts lose 8-15 steps.
 Its isolated latency interval crosses one. The final original-baseline
-comparison found a 9.3 percent p95 cost (1.7 ms), with an interval above one.
+comparison found a 6.9 percent p95 cost (1.2 ms), with an interval above one.
 The repair and its new regression test were removed from the first release;
 the reproduction and trial patch remain recorded for the scroll follow-up. Ref-only and row-geometry trials were rejected. Timing uses
 individual settled arrows, while burst correctness is checked separately, so
@@ -88,14 +88,14 @@ revalidation and caret-commit trials were rejected. The caret reproduction
 remains open under #612; the 30 percent navigation, Thread-switch and scrolling
 targets are not achieved. Do not describe the first release as completing #614.
 
-The original-baseline comparison measured streaming draft p95 11.07 -> 6.43 ms,
-a 42.0 percent gain (ratio interval 0.5227-0.6027). Navigation and Thread-switch
+The original-baseline comparison measured streaming draft p95 11.03 -> 6.43 ms,
+a 41.7 percent gain (ratio interval 0.5262-0.6087). Navigation and Thread-switch
 changes were below the retained-improvement threshold. Scroll is rechecked
 without the rejected caret repair before shipping.
 
 The 20-pair scroll recheck without the caret trial measured median 10.69 ->
-10.73 ms (ratio interval 0.9885-1.0671) and p95 17.00 -> 19.23 ms (interval
-0.9959-1.2719). This does not establish an improvement or equivalence. It does
+10.73 ms (ratio interval 0.9885-1.0671) and p95 16.99 -> 19.22 ms (interval
+0.9922-1.2212). This does not establish an improvement or equivalence. It does
 not confirm a slowdown at the selected interval; the scrolling target remains
 open. No input or rendering change is included in the first release.
 
@@ -105,3 +105,17 @@ After installing the same `jj` prerequisite as CI, the complete suite passed:
 2,083 pass, 42 optional skips, zero failures, 122 snapshots. The complete PTY
 tier passed all 37 tests with 546 assertions. Typecheck, lint, import boundaries
 and formatting passed. Existing lint and type-cycle warnings remain.
+
+## Review corrections
+
+The paired tool now reuses the existing sampler's nearest-rank median for
+point estimates and bootstrap resamples. Early local summaries used the upper
+middle value for even counts. Raw samples were preserved; a separate
+`shipping-summary.json` recalculates the accepted evidence under the existing
+sampler convention. The keep/revert decisions do not change.
+
+Process pairs are validated together against the warmup metric names before
+collection. Missing metrics, invalid timings and incomplete requested counts
+fail instead of producing misaligned paired samples. Lifecycle verification
+opens the sidebar after the timed region and waits for the renamed and newly
+created Threads to paint.

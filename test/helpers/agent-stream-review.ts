@@ -14,8 +14,8 @@ import {
   waitForText,
   locateText,
   settle,
-  waitForState,
 } from "../../packages/client/src/testing/test-support";
+import { NERD } from "../../packages/client/src/ui/components/primitives/icons";
 
 /** A deterministic stream uses an explicit event and painted-text barrier for every character. */
 export async function runTestAgentStreamReview(options: { paragraphs?: number } = {}) {
@@ -78,7 +78,6 @@ export async function runTestAgentStreamReview(options: { paragraphs?: number } 
   const control = await DaemonClient.connect({ home });
   let listReads = 0;
   let threadReads = 0;
-  let observedTitle: string | undefined;
   const originalList = client.sessionList.bind(client);
   const originalGet = client.sessionGet.bind(client);
 
@@ -87,13 +86,10 @@ export async function runTestAgentStreamReview(options: { paragraphs?: number } 
 
     return originalList(filter);
   };
-  client.sessionGet = async (id) => {
+  client.sessionGet = (id) => {
     threadReads++;
-    const result = await originalGet(id);
 
-    observedTitle = result.artifact.meta.title;
-
-    return result;
+    return originalGet(id);
   };
   const setup = await renderReadyApp(
     createElement(App, { home, sessionId: thread.id, initialClient: client }),
@@ -155,19 +151,18 @@ export async function runTestAgentStreamReview(options: { paragraphs?: number } 
 
     finish?.({ outcome: "completed" });
     await control.agentGet(thread.id);
-    await control.sessionSetTitle(thread.id, "Renamed after streaming");
-    await waitForState(
-      setup,
-      () => observedTitle === "Renamed after streaming",
-      "Thread rename refreshes the active record",
-    );
-    const readsBeforeCreate = listReads;
+    const toggle = locateText(setup, NERD.sidebarLeftOff);
+
+    await setup.mockMouse.click(toggle.column, toggle.row, 0, { delayMs: 0 });
+    await waitForText(setup, "Other review 0");
+    await control.sessionSetTitle(thread.id, "Stream renamed");
+    await waitForText(setup, "Stream renamed");
 
     await control.sessionCreate(
       { repoRoot: home, branch: "main" },
-      { type: "plan", content: "Created after streaming", meta: {} },
+      { type: "plan", content: "New stream review", meta: { title: "New stream review" } },
     );
-    await waitForState(setup, () => listReads > readsBeforeCreate, "new Thread refreshes inbox");
+    await waitForText(setup, "New stream review");
 
     return {
       samples,

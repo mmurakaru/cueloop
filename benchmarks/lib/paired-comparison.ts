@@ -1,3 +1,5 @@
+import { percentile } from "./result";
+
 /** A paired bootstrap interval compares process results without treating presses as independent runs. */
 export interface PairedImprovement {
   baselineMedian: number;
@@ -5,12 +7,6 @@ export interface PairedImprovement {
   improvementPercent: number;
   ratioInterval95: [number, number];
   measurable: boolean;
-}
-
-function medianSample(values: readonly number[]): number {
-  const sorted = values.toSorted((left, right) => left - right);
-
-  return sorted[Math.floor(sorted.length / 2)]!;
 }
 
 /** Compare positive paired timings; a retained gain needs 5 percent and an interval below one. */
@@ -30,8 +26,8 @@ export function comparePairedTimings(
 
     return Math.floor((seed / 0x1_0000_0000) * baseline.length);
   };
-  const baselineMedian = medianSample(baseline);
-  const candidateMedian = medianSample(candidate);
+  const baselineMedian = percentile([...baseline], 0.5);
+  const candidateMedian = percentile([...candidate], 0.5);
   const ratio = candidateMedian / baselineMedian;
   const bootstrapRatios: number[] = [];
 
@@ -43,7 +39,7 @@ export function comparePairedTimings(
       sampledBaseline.push(baseline[index]!);
       sampledCandidate.push(candidate[index]!);
     }
-    bootstrapRatios.push(medianSample(sampledCandidate) / medianSample(sampledBaseline));
+    bootstrapRatios.push(percentile(sampledCandidate, 0.5) / percentile(sampledBaseline, 0.5));
   }
   const sortedRatios = bootstrapRatios.toSorted((left, right) => left - right);
   const ratioInterval95: [number, number] = [sortedRatios[249]!, sortedRatios[9749]!];

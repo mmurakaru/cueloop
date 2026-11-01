@@ -7,6 +7,7 @@ import { parseArgs } from "node:util";
 import { sampleScript } from "./lib/sampler";
 import { comparePairedTimings, type PairedImprovement } from "./lib/paired-comparison";
 import { runHeader } from "./run";
+import { validateBenchmarkPair } from "./lib/benchmark-pair";
 
 const { values } = parseArgs({
   options: {
@@ -87,18 +88,31 @@ try {
 
   for (const script of values.script) {
     console.error(`experiment: ${script}, warmup then ${pairs} alternating pairs`);
-    await measure(script, true);
-    await measure(script, false);
+    const warmBaseline = await measure(script, true);
+    const warmCandidate = await measure(script, false);
+    const expectedNames = validateBenchmarkPair(warmBaseline, warmCandidate).map(
+      (metric) => metric.name,
+    );
+
     for (let pair = 0; pair < pairs; pair++) {
+      let baselinePair: Map<string, number> | undefined;
+      let candidatePair: Map<string, number> | undefined;
+
       for (const original of pair % 2 === 0 ? [true, false] : [false, true]) {
         const metrics = await measure(script, original);
-        const destination = original ? baseline : candidate;
 
-        for (const [name, value] of metrics) {
-          const key = `${script}/${name}`;
+        if (original) baselinePair = metrics;
+        else candidatePair = metrics;
+      }
 
-          (destination[key] ??= []).push(value);
-        }
+      if (!baselinePair || !candidatePair)
+        throw new Error("Benchmark process pair did not complete");
+
+      for (const metric of validateBenchmarkPair(baselinePair, candidatePair, expectedNames)) {
+        const key = `${script}/${metric.name}`;
+
+        (baseline[key] ??= []).push(metric.baseline);
+        (candidate[key] ??= []).push(metric.candidate);
       }
       saveProgress(false);
       console.error(`experiment: ${script} pair ${pair + 1}/${pairs}`);
@@ -106,8 +120,15 @@ try {
   }
   const comparisons = Object.fromEntries(
     Object.entries(baseline)
-      .filter(([name, samples]) => name.endsWith("_ms") && samples.every((value) => value > 0))
-      .map(([name, samples]) => [name, comparePairedTimings(samples, candidate[name] ?? [])]),
+      .filter(([name]) => name.endsWith("_ms"))
+      .map(([name, samples]) => {
+        const headSamples = candidate[name] ?? [];
+
+        if (samples.length !== pairs || headSamples.length !== pairs)
+          throw new Error(`Benchmark process pair count is incomplete: ${name}`);
+
+        return [name, comparePairedTimings(samples, headSamples)];
+      }),
   );
 
   saveProgress(true, comparisons);

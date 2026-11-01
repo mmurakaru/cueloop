@@ -9,6 +9,13 @@ test("a consistent improvement clears the paired interval and minimum gain", () 
   expect(result.measurable).toBe(true);
 });
 
+test("paired estimates use the same nearest-rank median as the existing sampler", () => {
+  const result = comparePairedTimings([100, 110, 120, 130, 140, 150], [50, 60, 70, 80, 90, 100]);
+
+  expect(result.baselineMedian).toBe(120);
+  expect(result.candidateMedian).toBe(70);
+});
+
 test("unchanged, slower and small improvements are not retained", () => {
   for (const candidate of [100, 120, 97]) {
     expect(
