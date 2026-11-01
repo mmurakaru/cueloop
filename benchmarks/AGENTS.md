@@ -10,4 +10,4 @@
 - A retained change needs at least 5 percent improvement in its declared metric and a paired 95 percent bootstrap interval below a ratio of one. Report end-to-end effects separately.
 - The overall target is at least 30 percent lower p95 in diff navigation, Thread switching, scrolling and typing during agent streaming. Do not weaken the target when experiments fail.
 - Correctness is a hard gate: output content, selection, anchors, Unicode, resize, cancellation, reconnect and lifecycle behavior must stay correct. No observed regression is not proof that regressions are impossible.
-- Adapt Ghostty's methods: pre-generated input, setup outside timing, isolated stages, no-op controls, representative execution, repeated comparisons and end-to-end validation. Do not add a second benchmark framework.
+- Use pre-generated input, setup outside timing, isolated stages, no-op controls, representative execution, repeated comparisons and end-to-end validation. Do not add a second benchmark framework.

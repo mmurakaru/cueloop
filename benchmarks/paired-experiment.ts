@@ -34,7 +34,32 @@ const preload = [`--preload=${join(import.meta.dir, "lib/source-baseline.ts")}`]
 const baselineManifest = join(directory, "baseline.json");
 const candidateManifest = join(directory, "candidate.json");
 
+const header = await runHeader(pairs);
+const sourceDiff = Bun.spawnSync(["git", "diff", values["baseline-ref"], "--", ...values.file]);
+const saveProgress = (complete: boolean, comparisons: Record<string, PairedImprovement> = {}) => {
+  mkdirSync(dirname(values.out!), { recursive: true });
+  writeFileSync(
+    values.out!,
+    JSON.stringify(
+      {
+        ...header,
+        baselineRef: values["baseline-ref"],
+        files: values.file,
+        sourceDiff: sourceDiff.stdout.toString(),
+        complete,
+        baseline,
+        candidate,
+        comparisons,
+      },
+      null,
+      2,
+    ) + "\n",
+  );
+};
+
 try {
+  saveProgress(false);
+
   for (const [index, file] of values.file.entries()) {
     const source = Bun.spawnSync(["git", "show", `${values["baseline-ref"]}:${file}`]);
 
@@ -60,29 +85,6 @@ try {
         CUELOOP_BENCH_PRELOAD: join(import.meta.dir, "lib/source-baseline.ts"),
       },
       preload,
-    );
-  };
-
-  const header = await runHeader(pairs);
-  const sourceDiff = Bun.spawnSync(["git", "diff", values["baseline-ref"], "--", ...values.file]);
-  const saveProgress = (complete: boolean, comparisons: Record<string, PairedImprovement> = {}) => {
-    mkdirSync(dirname(values.out!), { recursive: true });
-    writeFileSync(
-      values.out!,
-      JSON.stringify(
-        {
-          ...header,
-          baselineRef: values["baseline-ref"],
-          files: values.file,
-          sourceDiff: sourceDiff.stdout.toString(),
-          complete,
-          baseline,
-          candidate,
-          comparisons,
-        },
-        null,
-        2,
-      ) + "\n",
     );
   };
 
