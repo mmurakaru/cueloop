@@ -1,5 +1,14 @@
 # @cueloop/adapters
 
+## 0.1.0-alpha.114
+
+### Patch Changes
+
+- [#620](https://github.com/mmurakaru/cueloop/pull/620) [`dbf7453`](https://github.com/mmurakaru/cueloop/commit/dbf745378ba6de90125030a396ab4639314d00f1) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Create new Threads in the launch directory when the selected Thread's workspace no longer exists. Report unavailable fx working directories with the path and recovery steps instead of a misleading missing-executable error.
+- Updated dependencies []:
+  - @cueloop/daemon@0.1.0-alpha.114
+  - @cueloop/schema@0.1.0-alpha.114
+
 ## 0.1.0-alpha.113
 
 ### Patch Changes
