@@ -91,7 +91,9 @@ try {
   const planFirstByte: number[] = [];
   const diffFirstByte: number[] = [];
   // the title shows once in the sidebar; a second occurrence is the breadcrumb of the opened pane
-  const opened = (title: string) => (frame: string) => frame.split(title).length - 1 >= 2;
+  const opened = (thread: ThreadRow) => (frame: string) =>
+    frame.split(thread.title).length - 1 >= 2 &&
+    frame.includes(thread.kind === "diff" ? "module1Line" : "Phase 1");
 
   // navigate the way a user does: each thread in turn, twice over, so the metric covers a first open
   // and a return, across projects
@@ -108,7 +110,7 @@ try {
         setup,
         // delayMs 0: the default click inserts ~30ms of setTimeout delays that would swamp the metric
         () => setup.mockMouse.click(x, row, 0, { delayMs: 0 }),
-        opened(thread.title),
+        opened(thread),
       );
 
       (thread.kind === "plan" ? planFirstByte : diffFirstByte).push(ms);

@@ -110,6 +110,16 @@
     "reason": "Gateway integration verification drives private sharing and authentication contracts."
   },
   {
+    "from": "test/helpers/agent-stream-review.ts",
+    "to": "packages/client/src/app/App.tsx",
+    "reason": "Measure typing and transcript updates through the complete App with a real isolated daemon."
+  },
+  {
+    "from": "test/helpers/agent-stream-review.ts",
+    "to": "packages/client/src/testing/test-support.ts",
+    "reason": "Measure typing and transcript updates through the complete App with a real isolated daemon."
+  },
+  {
     "from": "test/helpers/env.ts",
     "to": "packages/client/src/testing/test-support.ts",
     "reason": "Integration and benchmark harnesses share deterministic client test support."

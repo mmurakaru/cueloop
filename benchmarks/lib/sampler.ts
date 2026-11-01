@@ -60,6 +60,8 @@ async function runScriptProcess(
       if (metric) metrics.set(metric.name, metric.value);
     }
 
+    if (metrics.size === 0) throw new Error(`benchmark ${script} emitted no metrics`);
+
     return metrics;
   } finally {
     rmSync(home, { recursive: true, force: true });
@@ -70,8 +72,9 @@ async function runScriptProcess(
 export function sampleScript(
   script: string,
   extraEnv: Record<string, string> = {},
+  bunFlags: readonly string[] = [],
 ): Promise<Map<string, number>> {
-  return runScriptProcess(script, extraEnv, []);
+  return runScriptProcess(script, extraEnv, bunFlags);
 }
 
 export interface ScriptProfile {

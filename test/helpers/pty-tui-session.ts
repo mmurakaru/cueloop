@@ -194,13 +194,19 @@ export function launchTuiSession(options: LaunchTuiSessionOptions): PtyTuiSessio
     : process.execPath;
   const args = executable
     ? options.args
-    : (options.sourceArgs ?? ["run", CLI_ENTRY, ...options.args]);
+    : [
+        ...(process.env.CUELOOP_BENCH_PRELOAD
+          ? [`--preload=${process.env.CUELOOP_BENCH_PRELOAD}`]
+          : []),
+        ...(options.sourceArgs ?? ["run", CLI_ENTRY, ...options.args]),
+      ];
   const pty = spawn(command, args, {
     name: environment.TERM,
     cols,
     rows,
     cwd: options.cwd ?? REPO_ROOT,
     env: environment,
+    readPollMaxMs: 1,
   });
 
   return new PtyTuiSession(pty, terminal, readyFile);

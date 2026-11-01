@@ -158,3 +158,35 @@ it cycles create, get, and delete 55 times against a live daemon, drops 5
 warmup cycles, fits a line through the retained heap after a full collection
 on each remaining cycle, and fails when total growth exceeds 96 MiB or the
 slope exceeds 768 KiB per cycle. It is the one check in that job that fails.
+
+## Single-change experiments
+
+Use the same benchmark code for both sides. `paired-experiment.ts` freezes only the
+listed product files from a Git revision and loads that source before application
+imports on the baseline side. It does not create a checkout or alter working
+source. Candidate runs use the current source. Each script gets one warmup per
+side and alternating sequential process pairs. A missing source override or an
+empty metric output fails the run.
+
+```sh
+bun run benchmarks/paired-experiment.ts --baseline-ref HEAD \
+  --file packages/daemon/src/protocol.ts \
+  --script socket-frames --script nav-latency \
+  --pairs 20 --out benchmarks/results/socket-fragments.json
+```
+
+Run unchanged source first to measure noise. The JSON retains process samples,
+source diff, runtime, baseline revision and a deterministic paired bootstrap
+95 percent interval for the ratio of candidate and baseline medians. A gain is
+`measurable` only at 5 percent or more with the interval wholly below one.
+An internal-stage gain is not an end-to-end gain. Keep the original baseline
+for the final comparison; a later experiment must not hide earlier regressions.
+Profile separately, never during a timed comparison. See `AGENTS.md` for the
+experiment contract.
+
+PTY observer calibration: the test harness caps its native PTY read poll at
+1 ms. Product PTYs retain their 100 ms idle backoff. Earlier local paint
+measurements included observer backoff, so do not count a lower number from
+this harness correction as a product improvement. Compare both binaries with
+the same current harness. Source experiments propagate the frozen-source loader
+into the real PTY child and verify that the requested source was loaded there.
