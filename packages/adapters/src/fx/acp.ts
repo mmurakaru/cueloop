@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { statSync } from "node:fs";
 import * as v from "valibot";
 
 const RpcFrameSchema = v.object({
@@ -74,6 +75,11 @@ export interface FxAcpOptions {
 }
 
 function spawnAcpChild(options: FxAcpOptions): FxAcpChild {
+  if (!statSync(options.cwd, { throwIfNoEntry: false })?.isDirectory())
+    throw new Error(
+      `Fx ACP working directory is unavailable: ${options.cwd}. Restore the directory or create a new Thread from an existing workspace.`,
+    );
+
   const [command, ...args] = options.command ?? ["fx", "acp"];
 
   // SAFETY: stdio "pipe" supplies stdin, stdout, and stderr, the FxAcpChild surface.
