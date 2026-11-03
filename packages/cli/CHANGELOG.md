@@ -1,5 +1,17 @@
 # cueloop
 
+## 0.1.0-alpha.115
+
+### Patch Changes
+
+- [#622](https://github.com/mmurakaru/cueloop/pull/622) [`5ac72c4`](https://github.com/mmurakaru/cueloop/commit/5ac72c4ca8dd56100836e5b6c3ad1095659a56c4) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Update Effect to 4.0.7 and the diff renderer to 1.6.2. Update the lint tool and its plugins to 1.90.0.
+- Updated dependencies [[`5ac72c4`](https://github.com/mmurakaru/cueloop/commit/5ac72c4ca8dd56100836e5b6c3ad1095659a56c4)]:
+  - @cueloop/client@0.1.0-alpha.115
+  - @cueloop/daemon@0.1.0-alpha.115
+  - @cueloop/adapters@0.1.0-alpha.115
+  - @cueloop/extension-api@0.1.0-alpha.115
+  - @cueloop/schema@0.1.0-alpha.115
+
 ## 0.1.0-alpha.114
 
 ### Patch Changes
