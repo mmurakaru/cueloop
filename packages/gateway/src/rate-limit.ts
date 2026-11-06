@@ -7,16 +7,35 @@
 export class TokenBucket {
   private readonly buckets = new Map<string, { tokens: number; updatedAt: number }>();
 
+  private nextSweepAt = 0;
+
   constructor(
     private readonly capacity: number,
     private readonly refillPerSecond: number,
     private readonly now: () => number = () => Date.now(),
+    private readonly maxSources = 10_000,
+    private readonly idleTtlMs = 60_000,
   ) {}
 
   /** Spend one token for `key`; false when the bucket is empty. */
   take(key: string): boolean {
     const at = this.now();
-    const bucket = this.buckets.get(key) ?? { tokens: this.capacity, updatedAt: at };
+
+    if (at >= this.nextSweepAt) {
+      this.nextSweepAt = at + 1000;
+      const expiryMs = Math.max(this.idleTtlMs, (this.capacity / this.refillPerSecond) * 1000);
+
+      for (const [source, bucket] of this.buckets) {
+        if (at - bucket.updatedAt >= expiryMs) this.buckets.delete(source);
+      }
+    }
+
+    const existing = this.buckets.get(key);
+
+    // Refuse new sources when full rather than evicting an attacker's exhausted bucket.
+    if (!existing && this.buckets.size >= this.maxSources) return false;
+
+    const bucket = existing ?? { tokens: this.capacity, updatedAt: at };
     const refilled = Math.min(
       this.capacity,
       bucket.tokens + ((at - bucket.updatedAt) / 1000) * this.refillPerSecond,

@@ -1,3 +1,9 @@
+import {
+  createGatewayIngress,
+  gatewayResourceLimits,
+  gatewayTerminalSize,
+  type GatewayResourceLimits,
+} from "./resource-limits";
 import { SharedAgentRelay } from "./shared-agent";
 import { SharedAgentFrameSchema } from "@cueloop/daemon/shared-agent-protocol";
 import { unpackGatewayShare } from "./gateway-share-blob";
@@ -88,6 +94,7 @@ export interface GatewayOptions {
   host?: string;
   publicHost?: string;
   maxUploadBytes?: number;
+  limits?: Partial<GatewayResourceLimits>;
   metricsPort?: number;
   metricsHost?: string;
   onError?: (cause: unknown) => void;
@@ -107,6 +114,8 @@ interface Identity {
 }
 
 export async function startGateway(options: GatewayOptions): Promise<GatewayHandle> {
+  const limits = gatewayResourceLimits(options.limits);
+  let viewers = 0;
   const publicHost = options.publicHost ?? DEFAULT_SHARE_HOST;
   const maxUploadBytes = options.maxUploadBytes ?? MAX_BLOB_BYTES;
   const onError = options.onError ?? ((cause: unknown) => console.error("[gateway]", cause));
@@ -124,62 +133,94 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
       : null;
 
   const clients = new Set<Connection>();
-  const server = new Server({ hostKeys: [hostKey] }, (client, info) => {
-    const remoteIp = info.ip;
-    let identity: Identity | null = null;
+  const ssh = new Server(
+    { hostKeys: [hostKey], keepaliveInterval: 30_000, keepaliveCountMax: 3 },
+    (client, info) => {
+      const remoteIp = info.ip;
+      let identity: Identity | null = null;
+      let channels = 0;
+      const connectionCleanup = new Set<() => void>();
 
-    clients.add(client);
-    client.on("close", () => clients.delete(client));
+      clients.add(client);
+      client.on("close", () => {
+        clients.delete(client);
 
-    client.on("authentication", (ctx: AuthContext) => {
-      // Accept any key, but require one and PROVE ownership: the fingerprint is
-      // the zero-signup identity (ADR 0003), so it must be spoof-proof.
-      // Rejecting `none` guarantees we always capture a key. Public-key auth is
-      // two passes: the probe carries no signature - accept it so the client
-      // signs; the signed pass we verify against the presented key. ssh2 does
-      // not verify for us, so skipping this would let anyone claim any key.
-      if (ctx.method !== "publickey") return ctx.reject(["publickey"]);
+        for (const cleanup of connectionCleanup) cleanup();
 
-      if (ctx.signature) {
-        const key = utils.parseKey(ctx.key.data);
-
-        if (
-          key instanceof Error ||
-          !ctx.blob ||
-          !key.verify(ctx.blob, ctx.signature, ctx.hashAlgo)
-        ) {
-          return ctx.reject();
-        }
-      }
-
-      identity = { username: ctx.username, fingerprint: keyFingerprint(ctx.key.data) };
-      ctx.accept();
-    });
-
-    client.on("ready", () => {
-      client.on("session", (accept) => {
-        if (identity) handleSession(accept(), identity, remoteIp);
+        connectionCleanup.clear();
       });
-    });
-    client.on("error", (err) => {
-      // Scanners on the open :22 fail the handshake constantly; keep those to one
-      // terse line and reserve the loud path for genuinely unexpected errors.
-      if (isExpectedTransportError(err))
-        console.warn(`[gateway] dropped ${remoteIp}: ${errorMessage(err)}`);
-      else onError(err);
-    });
-  });
 
-  function handleSession(session: Session, identity: Identity, remoteIp: string): void {
+      client.on("authentication", (ctx: AuthContext) => {
+        // Accept any key, but require one and PROVE ownership: the fingerprint is
+        // the zero-signup identity (ADR 0003), so it must be spoof-proof.
+        // Rejecting `none` guarantees we always capture a key. Public-key auth is
+        // two passes: the probe carries no signature - accept it so the client
+        // signs; the signed pass we verify against the presented key. ssh2 does
+        // not verify for us, so skipping this would let anyone claim any key.
+        if (ctx.method !== "publickey") return ctx.reject(["publickey"]);
+
+        if (ctx.signature) {
+          const key = utils.parseKey(ctx.key.data);
+
+          if (
+            key instanceof Error ||
+            !ctx.blob ||
+            !key.verify(ctx.blob, ctx.signature, ctx.hashAlgo)
+          ) {
+            return ctx.reject();
+          }
+        }
+
+        identity = { username: ctx.username, fingerprint: keyFingerprint(ctx.key.data) };
+        ctx.accept();
+      });
+
+      client.on("ready", () => {
+        client.on("session", (accept, reject) => {
+          if (!identity || channels >= limits.maxChannelsPerConnection) return reject();
+
+          const session = accept();
+          let released = false;
+          const release = () => {
+            if (released) return;
+
+            released = true;
+            channels--;
+            connectionCleanup.delete(release);
+          };
+
+          channels++;
+          session.once("close", release);
+          connectionCleanup.add(release);
+          handleSession(session, identity, remoteIp, release, connectionCleanup);
+        });
+      });
+      client.on("error", (err) => {
+        // Scanners on the open :22 fail the handshake constantly; keep those to one
+        // terse line and reserve the loud path for genuinely unexpected errors.
+        if (isExpectedTransportError(err))
+          console.warn(`[gateway] dropped ${remoteIp}: ${errorMessage(err)}`);
+        else onError(err);
+      });
+    },
+  );
+
+  function handleSession(
+    session: Session,
+    identity: Identity,
+    remoteIp: string,
+    release: () => void,
+    connectionCleanup: Set<() => void>,
+  ): void {
     let pty: PtySize = { cols: 80, rows: 24 };
     let render: ChannelRender | null = null;
 
     session.on("pty", (accept, _reject, info) => {
-      pty = { cols: info.cols, rows: info.rows };
+      pty = gatewayTerminalSize(info.cols, info.rows, limits);
       accept?.();
     });
     session.on("window-change", (accept, _reject, info) => {
-      pty = { cols: info.cols, rows: info.rows };
+      pty = gatewayTerminalSize(info.cols, info.rows, limits);
       render?.resize(pty);
       accept?.();
     });
@@ -187,13 +228,54 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
     session.on("shell", (accept) => {
       const channel = accept();
 
-      void handleView(channel, identity, pty, (handle) => (render = handle));
+      channel.once("close", release);
+
+      if (viewers >= limits.maxViewers) {
+        fail(channel, "viewer capacity reached, try again shortly");
+
+        return;
+      }
+
+      viewers++;
+      let closed = false;
+      let opening = true;
+      let released = false;
+      const releaseViewer = () => {
+        closed = true;
+        render?.destroy();
+
+        // A disconnected viewer still owns its pending storage/authentication work.
+        if (opening || released) return;
+
+        released = true;
+        viewers--;
+        connectionCleanup.delete(releaseViewer);
+      };
+
+      channel.once("close", releaseViewer);
+      connectionCleanup.add(releaseViewer);
+      void handleView(
+        channel,
+        identity,
+        pty,
+        (handle) => {
+          if (closed) handle.destroy();
+          else render = handle;
+        },
+        () => closed,
+      ).finally(() => {
+        opening = false;
+
+        if (closed) releaseViewer();
+      });
     });
 
     session.on("exec", (accept, reject, info) => {
       if (identity.username !== SHARE_UPLOAD_USER) return reject();
 
       const channel = accept();
+
+      channel.once("close", release);
 
       if (info.command === "cueloop-agent") handleAgent(channel, identity);
       else if (info.command === "cueloop-pull") void handlePull(channel, identity);
@@ -209,6 +291,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
     identity: Identity,
     pty: PtySize,
     keepRender: (handle: ChannelRender) => void,
+    isClosed: () => boolean,
   ): Promise<void> {
     const startedAt = Date.now();
     const shareId = identity.username;
@@ -240,6 +323,9 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
 
       return end(channel, 1);
     }
+
+    if (isClosed()) return;
+
     try {
       const clientId = githubClientId();
       let participantName: string | undefined;
@@ -290,6 +376,8 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
       // Every viewer is a collaborator: they annotate, and each note unions
       // back into the stored blob stamped with their fingerprint. They cannot
       // edit the plan or submit a message (the App's collaborator role).
+      if (isClosed()) return;
+
       const client = new BlobThreadClient(session, {
         store,
         masterKey: options.masterKey,
@@ -340,7 +428,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
     let id: string;
 
     try {
-      const bytes = await readCapped(channel, maxUploadBytes);
+      const bytes = await readCapped(channel, maxUploadBytes, limits.uploadTimeoutMs);
       const uploaded = unpackSessionBlob(bytes);
 
       if (uploaded.shares?.length !== 1) throw new Error("share upload requires exactly one link");
@@ -465,7 +553,9 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
     const startedAt = Date.now();
 
     try {
-      const shareId = (await readCapped(channel, 256)).toString("utf8").trim();
+      const shareId = (await readCapped(channel, 256, limits.uploadTimeoutMs))
+        .toString("utf8")
+        .trim();
 
       if (!isShareId(shareId)) return void fail(channel, "not a share id");
 
@@ -498,7 +588,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
     let shareId: string;
 
     try {
-      shareId = (await readCapped(channel, 256)).toString("utf8").trim();
+      shareId = (await readCapped(channel, 256, limits.uploadTimeoutMs)).toString("utf8").trim();
 
       if (!isShareId(shareId)) return void fail(channel, "not a share id");
 
@@ -552,7 +642,9 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
     try {
       const payload = v.parse(
         PushPayloadSchema,
-        JSON.parse((await readCapped(channel, maxUploadBytes)).toString("utf8")),
+        JSON.parse(
+          (await readCapped(channel, maxUploadBytes, limits.uploadTimeoutMs)).toString("utf8"),
+        ),
       );
       const shareId = v.safeParse(v.string(), payload.shareId);
       const annotations = v.safeParse(v.array(AnnotationSchema), payload.annotations);
@@ -605,7 +697,9 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
     const startedAt = Date.now();
 
     try {
-      const shareId = (await readCapped(channel, 256)).toString("utf8").trim();
+      const shareId = (await readCapped(channel, 256, limits.uploadTimeoutMs))
+        .toString("utf8")
+        .trim();
 
       if (!isShareId(shareId)) return void fail(channel, "not a share id");
 
@@ -630,13 +724,15 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
     }
   }
 
+  const ingress = createGatewayIngress(ssh, limits);
+  const server = ingress.server;
   const port = options.port ?? 22;
   const host = options.host ?? "0.0.0.0";
   const listened = await new Promise<{ host: string; port: number }>((resolve, reject) => {
     server.on("error", reject);
-    server.listen(port, host, function (this: Server) {
+    server.listen(port, host, function () {
       server.off("error", reject);
-      const address = this.address();
+      const address = server.address();
 
       resolve({ host, port: address instanceof Object ? address.port : port });
     });
@@ -652,6 +748,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
       new Promise<void>((resolve) => {
         for (const client of clients) client.end();
         clients.clear();
+        ingress.destroy();
         server.close();
         metricsServer?.stop();
         resolve();
@@ -706,25 +803,47 @@ function keyFingerprint(keyData: Buffer): string {
 }
 
 /** Drain an exec channel's stdin, failing fast past the byte cap. */
-function readCapped(channel: ServerChannel, max: number): Promise<Buffer> {
+function readCapped(channel: ServerChannel, max: number, timeoutMs: number): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
     let total = 0;
-
-    channel.on("data", (chunk: Buffer) => {
+    const cleanup = () => {
+      clearTimeout(timer);
+      channel.removeListener("data", onData);
+      channel.removeListener("end", onEnd);
+      channel.removeListener("error", onError);
+      channel.removeListener("close", onClose);
+    };
+    const onError = (cause: Error) => {
+      cleanup();
+      reject(cause);
+    };
+    const onClose = () => onError(new Error("upload channel closed before completion"));
+    const onEnd = () => {
+      cleanup();
+      resolve(Buffer.concat(chunks));
+    };
+    const onData = (chunk: Buffer) => {
       total += chunk.length;
 
       if (total > max) {
-        reject(new Error(`upload exceeds ${max} bytes`));
+        onError(new Error(`upload exceeds ${max} bytes`));
         channel.destroy();
 
         return;
       }
 
       chunks.push(chunk);
-    });
-    channel.on("end", () => resolve(Buffer.concat(chunks)));
-    channel.on("error", reject);
+    };
+    const timer = setTimeout(() => {
+      onError(new Error("upload deadline exceeded"));
+      channel.destroy();
+    }, timeoutMs);
+
+    channel.on("data", onData);
+    channel.once("end", onEnd);
+    channel.once("error", onError);
+    channel.once("close", onClose);
   });
 }
 

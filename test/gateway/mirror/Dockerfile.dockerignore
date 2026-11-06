@@ -2,6 +2,8 @@
 !package.json
 !bun.lock
 !tsconfig.json
+!patches
+!patches/**
 !packages
 !packages/**
 !scripts

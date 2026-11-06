@@ -5,6 +5,7 @@ COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 RUN setcap cap_net_bind_service=+ep /usr/local/bin/bun && mkdir -p /home/ubuntu/cueloop /state && chown -R ubuntu:ubuntu /home/ubuntu /state
 WORKDIR /home/ubuntu/cueloop
 COPY package.json bun.lock tsconfig.json ./
+COPY patches ./patches
 COPY packages ./packages
 COPY scripts ./scripts
 COPY hooks ./hooks
