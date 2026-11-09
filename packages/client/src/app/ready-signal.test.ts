@@ -4,10 +4,11 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createElement, useState } from "react";
+import { createElement, useEffect, useState } from "react";
 import { testRender } from "@opentui/react/test-utils";
+import { useRenderer } from "@opentui/react";
 import { READY_FILE_ENV, useReadySignal } from "./ready-signal";
-import { settle } from "../testing/test-support";
+import { allowEventLoopUpdates, settle } from "../testing/test-support";
 
 const homes: string[] = [];
 
@@ -31,7 +32,7 @@ function ReadyProbe(props: {
 }
 
 describe("useReadySignal", () => {
-  test("fires once on the first frame after ready turns true", async () => {
+  test("fires once after the usable frame settles", async () => {
     // Arrange - not ready yet
     let fired = 0;
     let setReady: ((ready: boolean) => void) | null = null;
@@ -82,4 +83,73 @@ describe("useReadySignal", () => {
     expect(existsSync(readyFile)).toBe(true);
     setup.renderer.destroy();
   });
+});
+
+type TestReadySchedulerState = ReturnType<ReturnType<typeof useRenderer>["getSchedulerState"]>;
+
+function TestReadyAfterPresentation(props: { onReady: (state: TestReadySchedulerState) => void }) {
+  const renderer = useRenderer();
+
+  useReadySignal(true, () => props.onReady(renderer.getSchedulerState()));
+
+  return createElement("text", null, "A usable screen");
+}
+
+test("readiness waits until the frame has finished rendering and queued output has settled", async () => {
+  const observed: TestReadySchedulerState[] = [];
+  const setup = await testRender(
+    createElement(TestReadyAfterPresentation, {
+      onReady: (state) => observed.push(state),
+    }),
+    { width: 30, height: 3 },
+  );
+
+  try {
+    await settle(setup);
+    expect(observed).toHaveLength(1);
+    expect(observed[0]?.isRendering).toBe(false);
+    expect(observed[0]?.hasScheduledRender).toBe(false);
+  } finally {
+    setup.renderer.destroy();
+  }
+});
+
+function TestLiveReadiness(props: { onReady: (state: TestReadySchedulerState) => void }) {
+  const renderer = useRenderer();
+
+  useEffect(() => {
+    renderer.requestLive();
+
+    return () => renderer.dropLive();
+  }, [renderer]);
+  useReadySignal(true, () => {
+    props.onReady(renderer.getSchedulerState());
+    renderer.dropLive();
+  });
+
+  return createElement("text", null, "A live usable screen");
+}
+
+test("a continuously rendered screen announces readiness after its presented frame", async () => {
+  const observed = Promise.withResolvers<TestReadySchedulerState>();
+  const setup = await testRender(createElement(TestLiveReadiness, { onReady: observed.resolve }), {
+    width: 30,
+    height: 3,
+  });
+
+  allowEventLoopUpdates();
+  const timer = setTimeout(
+    () => observed.reject(new Error("Live screen did not announce readiness")),
+    1000,
+  );
+
+  try {
+    const state = await observed.promise;
+
+    expect(state.isRunning).toBe(true);
+    expect(state.isRendering).toBe(false);
+  } finally {
+    clearTimeout(timer);
+    setup.renderer.destroy();
+  }
 });
