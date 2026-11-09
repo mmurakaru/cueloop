@@ -140,6 +140,7 @@ export interface CueloopConfig {
 }
 
 export interface ExperimentalConfig {
+  sync: boolean;
   prototypePixels: boolean;
   threadAgent: boolean;
   herdrAcp: boolean;
@@ -263,6 +264,7 @@ const ObsidianSchema = v.object({
 });
 const IntegrationsSchema = v.object({ obsidian: v.optional(ObsidianSchema) });
 const ExperimentalSchema = v.object({
+  sync: v.fallback(v.optional(v.boolean()), undefined),
   prototype_pixels: v.fallback(v.optional(v.boolean()), undefined),
   thread_agent: v.fallback(v.optional(v.boolean()), undefined),
   herdr_acp: v.fallback(v.optional(v.boolean()), undefined),
@@ -454,7 +456,7 @@ export function loadConfig(
       fx: { ...THREAD_MODEL_DEFAULTS.fx },
     },
     integrations: { obsidian: { ...OBSIDIAN_DEFAULTS } },
-    experimental: { prototypePixels: false, threadAgent: false, herdrAcp: false },
+    experimental: { sync: false, prototypePixels: false, threadAgent: false, herdrAcp: false },
   };
   // Theme name and per-token overrides are separate concerns, composed once
   // after all layers: the last file to set [ui] theme wins, and every [theme]
@@ -699,11 +701,17 @@ function applyExperimental(
   config: ExperimentalConfig,
   raw: v.InferOutput<typeof ExperimentalSchema>,
 ): void {
+  if (raw.sync !== undefined) config.sync = raw.sync;
+
   if (raw.prototype_pixels !== undefined) config.prototypePixels = raw.prototype_pixels;
 
   if (raw.thread_agent !== undefined) config.threadAgent = raw.thread_agent;
 
   if (raw.herdr_acp !== undefined) config.herdrAcp = raw.herdr_acp;
+}
+
+export function persistExperimentalSync(enabled: boolean, userConfigPath?: string): void {
+  persistTableSetting("experimental", "sync", String(enabled), userConfigPath);
 }
 
 /** The preferred harness affects new Threads; existing Threads require a handoff. */

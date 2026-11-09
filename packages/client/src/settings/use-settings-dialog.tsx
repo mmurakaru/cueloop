@@ -1,6 +1,7 @@
 import React, { useState, type Dispatch, type SetStateAction } from "react";
 import {
   DEFAULT_QUICK_ACTIONS,
+  persistExperimentalSync,
   persistThreadModelDefault,
   persistActions,
   persistAutoClose,
@@ -85,6 +86,8 @@ function moveBodyRow(name: string, nav: SettingsNav, rowCount: number): Settings
 }
 
 export function useSettingsDialog(params: {
+  syncEnabled: boolean;
+  setSyncEnabled: Dispatch<SetStateAction<boolean>>;
   threadDefaults: Record<"pi" | "fx", ThreadModelDefaults>;
   setThreadDefaults: Dispatch<SetStateAction<Record<"pi" | "fx", ThreadModelDefaults>>>;
   theme: Theme;
@@ -138,6 +141,7 @@ export function useSettingsDialog(params: {
   } = params;
 
   const { threadDefaults, setThreadDefaults } = params;
+  const { syncEnabled, setSyncEnabled } = params;
   const [modelEditor, setModelEditor] = useState<{ harness: "pi" | "fx"; text: string } | null>(
     null,
   );
@@ -316,12 +320,25 @@ export function useSettingsDialog(params: {
       ),
     },
     {
+      id: "experimental",
+      name: "Experimental",
+      rows: [
+        {
+          key: "multiplayerSync",
+          label: "Multiplayer sync",
+          kind: "cycle",
+          options: ["Off", "On"],
+        },
+      ],
+    },
+    {
       id: "keybinds",
       name: "Keybinds",
       rows: [],
     },
   ];
   const settingsValues = {
+    multiplayerSync: syncEnabled ? "On" : "Off",
     autoClose: autoClose === "off" ? "off" : `${autoClose}s`,
     diffView: diffView === "split" ? "Split" : "Stacked",
     theme: THEME_LABELS[themeName],
@@ -380,6 +397,17 @@ export function useSettingsDialog(params: {
       setReviewWorkspace(next);
       persistReviewWorkspace(next);
     }
+  };
+
+  const activateSetting = (rowKey: string): void => {
+    if (rowKey === "multiplayerSync") {
+      persistExperimentalSync(!syncEnabled);
+      setSyncEnabled(!syncEnabled);
+
+      return;
+    }
+
+    cycleSetting(rowKey);
   };
 
   const openSettings = (): void => {
@@ -448,7 +476,7 @@ export function useSettingsDialog(params: {
     if (moved) return void setSettingsNav(moved);
 
     if (name === "return" || name === "space")
-      cycleSetting(category.rows[settingsNav.rowIndex]!.key);
+      activateSetting(category.rows[settingsNav.rowIndex]!.key);
   };
 
   return {
@@ -457,7 +485,7 @@ export function useSettingsDialog(params: {
     setActionsExpandedIndex,
     settingsCategories,
     settingsValues,
-    cycleSetting,
+    cycleSetting: activateSetting,
     handleSettingsKey,
     onCategorySelect,
     openSettings,

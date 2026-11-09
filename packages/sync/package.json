@@ -1,0 +1,41 @@
+{
+  "name": "@cueloop/sync",
+  "version": "0.1.0-alpha.115",
+  "description": "General-purpose sync for terminals",
+  "homepage": "https://github.com/mmurakaru/cueloop#readme",
+  "bugs": {
+    "url": "https://github.com/mmurakaru/cueloop/issues"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mmurakaru/cueloop.git",
+    "directory": "packages/sync"
+  },
+  "bin": {
+    "cueloop-sync": "./bin/cueloop-sync.js"
+  },
+  "files": [
+    "src",
+    "bin",
+    "README.md"
+  ],
+  "type": "module",
+  "exports": {
+    ".": "./src/sync-client.ts",
+    "./server": "./src/sync-authority.ts",
+    "./serve": "./src/sync-server.ts",
+    "./cli": "./src/sync-cli.ts"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@rocicorp/zero": "1.11.4",
+    "valibot": "^1.5.0"
+  },
+  "engines": {
+    "bun": ">=1.4.4",
+    "node": ">=24"
+  }
+}

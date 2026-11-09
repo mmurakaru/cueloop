@@ -1,6 +1,7 @@
 {
   "layers": {
     "@cueloop/schema": [],
+    "@cueloop/sync": [],
     "@cueloop/extension-api": [
       "@cueloop/schema"
     ],
@@ -23,7 +24,8 @@
       "@cueloop/daemon",
       "@cueloop/client",
       "@cueloop/extension-api",
-      "@cueloop/adapters"
+      "@cueloop/adapters",
+      "@cueloop/sync"
     ],
     "@cueloop/gateway": [
       "@cueloop/schema",
@@ -40,7 +42,7 @@
   },
   "moduleImportBudget": 20,
   "moduleBudgets": {
-    "packages/cli/src/main.ts": 24,
+    "packages/cli/src/main.ts": 25,
     "packages/client/src/app/App.tsx": 53,
     "packages/client/src/app/app-screens.tsx": 36,
     "packages/client/src/diff/components/DiffContentView.tsx": 21,
