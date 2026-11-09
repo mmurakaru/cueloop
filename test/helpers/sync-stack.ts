@@ -3,13 +3,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomBytes, randomUUID } from "node:crypto";
 import * as v from "valibot";
+import { createTestSyncMutationProxy } from "./sync-mutation-proxy";
 
 const POSTGRES_IMAGE =
   "postgres@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42";
 const ZERO_IMAGE =
   "rocicorp/zero@sha256:da55baa417adf670d07dd882ec90b9d9591f274a13347205cd2f71956433c057";
 
-export async function createTestSyncStack() {
+export async function createTestSyncStack(options: { interceptMutations?: boolean } = {}) {
   const directory = mkdtempSync(join(tmpdir(), "cueloop-sync-stack-"));
   const name = `cueloop-sync-test-${randomUUID()}`;
   const postgresName = `${name}-postgres`;
@@ -18,6 +19,7 @@ export async function createTestSyncStack() {
   const token = randomBytes(24).toString("hex");
   const userIdentifier = "sync_test_reader";
   let authority: Bun.Subprocess<"ignore", "pipe", "pipe"> | undefined;
+  let mutationProxy: ReturnType<typeof createTestSyncMutationProxy> | undefined;
 
   function redact(output: string): string {
     return output.replaceAll(password, "[redacted]").replaceAll(token, "[redacted]");
@@ -42,6 +44,7 @@ export async function createTestSyncStack() {
   }
 
   async function close() {
+    await mutationProxy?.close();
     authority?.kill("SIGTERM");
     await authority?.exited;
     await docker(["rm", "--force", zeroName]).catch(() => {});
@@ -101,6 +104,25 @@ export async function createTestSyncStack() {
       }
     }
 
+    await docker(
+      [
+        "exec",
+        "-i",
+        postgresName,
+        "psql",
+        "-v",
+        "ON_ERROR_STOP=1",
+        "-U",
+        "sync_test",
+        "-d",
+        "sync_test",
+      ],
+      readFileSync(
+        new URL(import.meta.resolve("@cueloop/sync/migrations/001-operation-receipt.sql")),
+        "utf8",
+      ),
+    );
+
     const migrationDirectory = new URL("../../examples/sync-workspace/", import.meta.url);
 
     for (const migration of readdirSync(migrationDirectory)
@@ -146,41 +168,52 @@ export async function createTestSyncStack() {
       SYNC_STORAGE_KEY: name,
     };
 
-    authority = Bun.spawn(
-      [
-        process.execPath,
-        "packages/sync/bin/cueloop-sync.js",
-        "serve",
-        "--application",
-        "examples/sync-workspace/authority.ts",
-        "--host",
-        "0.0.0.0",
-        "--port",
-        "0",
-      ],
-      { env: environment, stdin: "ignore", stdout: "pipe", stderr: "pipe" },
-    );
-    const reader = authority.stdout.getReader();
-    let startup = "";
+    async function startAuthority(authorityPort: number) {
+      authority = Bun.spawn(
+        [
+          process.execPath,
+          "packages/sync/bin/cueloop-sync.js",
+          "serve",
+          "--application",
+          "examples/sync-workspace/authority.ts",
+          "--host",
+          "0.0.0.0",
+          "--port",
+          String(authorityPort),
+        ],
+        { env: environment, stdin: "ignore", stdout: "pipe", stderr: "pipe" },
+      );
+      const reader = authority.stdout.getReader();
+      let startup = "";
 
-    try {
-      for (;;) {
-        const { value, done } = await reader.read();
+      try {
+        for (;;) {
+          const { value, done } = await reader.read();
 
-        if (done) throw new Error("Sync test authority exited before readiness");
+          if (done) throw new Error("Sync test authority exited before readiness");
 
-        startup += new TextDecoder().decode(value);
+          startup += new TextDecoder().decode(value);
 
-        if (startup.includes("\n")) break;
+          if (startup.includes("\n")) break;
+        }
+      } finally {
+        reader.releaseLock();
       }
-    } finally {
-      reader.releaseLock();
+
+      const ready = v.parse(
+        v.object({ event: v.literal("sync.authority.ready"), port: v.number() }),
+        JSON.parse(startup.trim()),
+      );
+
+      return ready.port;
     }
 
-    const ready = v.parse(
-      v.object({ event: v.literal("sync.authority.ready"), port: v.number() }),
-      JSON.parse(startup.trim()),
-    );
+    const authorityPort = await startAuthority(0);
+    const authorityURL = `http://127.0.0.1:${authorityPort}`;
+
+    if (options.interceptMutations) mutationProxy = createTestSyncMutationProxy(authorityURL);
+
+    const mutationPort = mutationProxy?.port ?? authorityPort;
 
     const upstream = `postgres://sync_test:${password}@${postgresName}:5432/sync_test`;
     const zeroEnvironment = [
@@ -192,8 +225,8 @@ export async function createTestSyncStack() {
       "ZERO_ALLOW_LEGACY_QUERIES=false",
       "ZERO_ENABLE_CRUD_MUTATIONS=false",
       `ZERO_ADMIN_PASSWORD=${randomBytes(24).toString("hex")}`,
-      `ZERO_QUERY_URL=http://host.docker.internal:${ready.port}/query`,
-      `ZERO_MUTATE_URL=http://host.docker.internal:${ready.port}/mutate`,
+      `ZERO_QUERY_URL=http://host.docker.internal:${authorityPort}/query`,
+      `ZERO_MUTATE_URL=http://host.docker.internal:${mutationPort}/mutate`,
     ].join("\n");
 
     writeFileSync(join(directory, "zero.env"), zeroEnvironment, { mode: 0o600 });
@@ -237,11 +270,22 @@ export async function createTestSyncStack() {
 
     return {
       cacheURL,
+      authorityURL,
+      pauseNextMutation: () => {
+        if (!mutationProxy) throw new Error("Sync test mutation interception is not enabled");
+
+        return mutationProxy.pauseNextMutation();
+      },
+      restartAuthority: async () => {
+        authority?.kill("SIGTERM");
+        await authority?.exited;
+        await startAuthority(authorityPort);
+      },
       auth: token,
       userID: userIdentifier,
       storageKey: name,
       directory,
-      environment: { ...environment, SYNC_CACHE_URL: cacheURL },
+      environment: { ...environment, SYNC_CACHE_URL: cacheURL, SYNC_AUTHORITY_URL: authorityURL },
       close,
     };
   } catch (error) {

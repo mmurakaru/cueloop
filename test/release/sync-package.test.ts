@@ -10,7 +10,9 @@ test("the packed sync SDK and CLI run from node_modules under Node", async () =>
 
   mkdirSync(installed, { recursive: true });
   symlinkSync(resolve("node_modules/@rocicorp"), join(modules, "@rocicorp"), "dir");
-  symlinkSync(resolve("node_modules/valibot"), join(modules, "valibot"), "dir");
+  for (const dependency of ["valibot", "uuid", "canonicalize"]) {
+    symlinkSync(resolve("node_modules", dependency), join(modules, dependency), "dir");
+  }
 
   try {
     const pack = Bun.spawn(["npm", "pack", "--silent", "--pack-destination", directory], {
@@ -39,7 +41,21 @@ test("the packed sync SDK and CLI run from node_modules under Node", async () =>
     ]);
 
     expect(await extract.exited).toBe(0);
-    const source = `import {createSyncClient} from '@cueloop/sync'; import {createSchema, table, string} from '@cueloop/sync/schema'; const schema=createSchema({tables:[table('record').columns({id:string()}).primaryKey('id')]}); const client=createSyncClient({schema,cacheURL:null,kvStore:'mem'}); await client.close(); console.log('Packed SDK closed');`;
+    const source = `
+      import {createSyncClient} from '@cueloop/sync';
+      import {createSchema, table, string} from '@cueloop/sync/schema';
+      import {defineSyncOperation, parseSyncOperation} from '@cueloop/sync/operations';
+      import {readFileSync} from 'node:fs';
+      import * as v from 'valibot';
+      const schema=createSchema({tables:[table('record').columns({id:string()}).primaryKey('id')]});
+      const client=createSyncClient({schema,cacheURL:null,kvStore:'mem'});
+      await client.close();
+      const definition=defineSyncOperation({name:'comment.add',version:1,arguments:v.object({body:v.string()})});
+      const operation=definition.create({workspaceIdentifier:'019a6650-0000-7000-8000-000000000001',arguments:{body:'Packed request'}});
+      if (parseSyncOperation(JSON.parse(JSON.stringify(operation))).arguments.body !== 'Packed request') throw new Error('Packed operation lost its arguments');
+      readFileSync(new URL(import.meta.resolve('@cueloop/sync/migrations/001-operation-receipt.sql')));
+      console.log('Packed SDK closed');
+    `;
     const consumer = Bun.spawn(["node", "--input-type=module", "-e", source], {
       cwd: directory,
       stdout: "pipe",

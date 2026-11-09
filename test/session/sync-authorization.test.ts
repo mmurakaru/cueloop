@@ -217,7 +217,7 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
         cacheURL: stack.cacheURL,
         userID: stack.userID,
         auth: stack.auth,
-        storageKey: stack.storageKey,
+        storageKey: `${stack.storageKey}-unchecked`,
         schema: sharedRecordSchema,
         mutators: uncheckedMutators,
         context: { userIdentifier: "forged-owner" },

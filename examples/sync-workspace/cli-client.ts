@@ -2,6 +2,7 @@ import { parseArgs } from "node:util";
 import * as v from "valibot";
 import { createSharedRecordClient } from "./client.ts";
 import { watchSharedRecords } from "./watch-records.ts";
+import { connectSharedOperation } from "./operation-client.ts";
 import type { SyncClientOutcome } from "@cueloop/sync/serve";
 import {
   sharedRecordMutators,
@@ -19,6 +20,8 @@ export async function connectSharedRecord(arguments_: string[]): Promise<void | 
       "after-identifier": { type: "string" },
       content: { type: "string" },
       watch: { type: "boolean" },
+      operation: { type: "string" },
+      "operation-status": { type: "boolean" },
     },
   });
   const queryArguments = v.parse(sharedRecordQueryArgumentsSchema, {
@@ -46,6 +49,26 @@ export async function connectSharedRecord(arguments_: string[]): Promise<void | 
   const query = sharedRecordQueries.records(queryArguments);
 
   try {
+    if (values.operation !== undefined) {
+      const authorityURL = process.env.SYNC_AUTHORITY_URL;
+
+      if (!authorityURL) throw new Error("Sync operation client requires SYNC_AUTHORITY_URL");
+
+      if (values.watch || values.content !== undefined)
+        throw new Error("Sync operation client requires an operation-only command");
+
+      return await connectSharedOperation({
+        client,
+        operationPath: values.operation,
+        statusOnly: values["operation-status"] ?? false,
+        authorityURL,
+        auth,
+      });
+    }
+
+    if (values["operation-status"])
+      throw new Error("Sync operation status requires --operation <file>");
+
     if (values.watch) {
       if (values.content !== undefined) throw new Error("Sync watch requires a read-only query");
 
