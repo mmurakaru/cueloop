@@ -31,10 +31,10 @@
     "@cueloop/extension-api": "0.1.0-alpha.115",
     "@cueloop/integration-obsidian": "0.1.0-alpha.115",
     "@cueloop/schema": "0.1.0-alpha.115",
-    "@opentui/core": "^0.8.1",
-    "@opentui/keymap": "0.8.1",
-    "@opentui/react": "^0.8.1",
-    "@opentui/ssh": "0.8.1",
+    "@opentui/core": "^0.8.3",
+    "@opentui/keymap": "0.8.3",
+    "@opentui/react": "^0.8.3",
+    "@opentui/ssh": "0.8.3",
     "@pierre/diffs": "^1.6.2",
     "@tanstack/virtual-core": "^3.19.7",
     "diff": "^9",
@@ -49,6 +49,6 @@
     "ssh2": "^1.17.0"
   },
   "engines": {
-    "bun": ">=1.3.0"
+    "bun": ">=1.4.4"
   }
 }
