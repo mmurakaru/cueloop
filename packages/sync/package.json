@@ -35,7 +35,9 @@
     "./serve": "./dist/sync-server.js",
     "./cli": "./dist/sync-cli.js",
     "./migrations/001-operation-receipt.sql": "./migrations/001-operation-receipt.sql",
-    "./text": "./dist/sync-text.js"
+    "./text": "./dist/sync-text.js",
+    "./presence": "./dist/sync-presence-client.js",
+    "./presence/server": "./dist/sync-presence-authority.js"
   },
   "publishConfig": {
     "access": "public"

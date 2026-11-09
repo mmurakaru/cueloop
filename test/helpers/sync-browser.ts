@@ -5,6 +5,7 @@ import * as v from "valibot";
 export async function withTestSyncBrowser<Result>(
   run: (page: Page, moduleUrl: string) => Promise<Result>,
   entrypoint = "examples/sync-workspace/browser-client.ts",
+  handleRequest?: (request: Request) => Response | Promise<Response>,
 ) {
   const build = await Bun.build({
     entrypoints: [entrypoint],
@@ -19,7 +20,9 @@ export async function withTestSyncBrowser<Result>(
     fetch: (request) =>
       new URL(request.url).pathname === "/client.js"
         ? new Response(bundle, { headers: { "Content-Type": "text/javascript" } })
-        : new Response("<!doctype html><title>Sync compatibility</title>"),
+        : new URL(request.url).pathname !== "/" && handleRequest
+          ? handleRequest(request)
+          : new Response("<!doctype html><title>Sync compatibility</title>"),
   });
 
   try {

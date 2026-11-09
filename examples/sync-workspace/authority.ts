@@ -1,3 +1,4 @@
+import { createSyncPresenceAuthority } from "@cueloop/sync/presence/server";
 import { mustGetMutator, mustGetQuery } from "@rocicorp/zero";
 import { zeroPostgresJS } from "@rocicorp/zero/server/adapters/postgresjs";
 import {
@@ -56,6 +57,24 @@ const authenticate = async (request: Request) => {
       }
     : null;
 };
+const presence = createSyncPresenceAuthority({
+  authenticate: async (request) => {
+    const principal = await authenticate(request);
+
+    return principal ? { actorIdentifier: principal.userIdentifier } : null;
+  },
+  authorize: async (access) => {
+    if (!connection) return [];
+
+    const rows =
+      await connection`SELECT membership.user_identifier FROM sync_workspace_member AS membership JOIN sync_workspace AS workspace ON workspace.id = membership.workspace_identifier WHERE workspace.id = ${access.workspaceIdentifier} AND membership.user_identifier = ANY(${access.actorIdentifiers}) AND membership.deleted_at IS NULL AND workspace.deleted_at IS NULL`;
+
+    return v
+      .parse(v.array(v.object({ user_identifier: v.string() })), rows)
+      .map((row) => row.user_identifier);
+  },
+});
+
 const handleSync = database
   ? createSyncAuthority({
       schema: sharedRecordSchema,
@@ -76,6 +95,8 @@ const handleSync = database
 
 async function fetch(request: Request): Promise<Response> {
   const path = new URL(request.url).pathname;
+
+  if (path === "/presence") return presence.fetch(request);
 
   if (path !== "/operation" && path !== "/text") return handleSync(request);
 
@@ -138,5 +159,8 @@ export const syncApplication = {
   fetch,
   connect: connectSharedRecord,
   openText: openSharedTextEditor,
-  close: () => connection?.end(),
+  close: async () => {
+    presence.close();
+    await connection?.end();
+  },
 };

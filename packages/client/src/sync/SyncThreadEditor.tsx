@@ -1,3 +1,4 @@
+import { SyncPresenceIndicator } from "./SyncPresenceIndicator";
 import React, {
   useCallback,
   useLayoutEffect,
@@ -54,8 +55,13 @@ export function SyncThreadEditor({
   const previousState = useRef(snapshot.textState);
   const [error, setError] = useState<string>();
   const mapCursor = useCallback(
-    (index: number) =>
-      mapSyncTextPosition({ fromState: previousState.current, toState: snapshot.textState, index }),
+    (index: number, association?: -1 | 0) =>
+      mapSyncTextPosition({
+        fromState: previousState.current,
+        toState: snapshot.textState,
+        index,
+        association,
+      }),
     [snapshot.textState],
   );
   const orphaned = useMemo(
@@ -123,6 +129,14 @@ export function SyncThreadEditor({
           fg={theme.text}
         >{`Shared plan  ${CONNECTION_LABELS[snapshot.connection]}  ${FRESHNESS_LABELS[snapshot.freshness]}  ${draftLabel}`}</text>
       </box>
+      {snapshot.presence ? (
+        <SyncPresenceIndicator
+          presence={snapshot.presence}
+          textState={snapshot.textState}
+          documentIdentifier={snapshot.documentIdentifier}
+          theme={theme}
+        />
+      ) : null}
       {revision?.type === "revision" && revision.author ? (
         <box style={{ height: 1, flexShrink: 0, paddingLeft: 2 }}>
           <text fg={theme.textMuted}>{`Last saved by ${revision.author}`}</text>
@@ -147,6 +161,7 @@ export function SyncThreadEditor({
           setError(undefined);
           session.change(value);
         }}
+        onSelectionChange={(selection) => session.select?.(selection)}
         editable={snapshot.editable}
         mapCursor={mapCursor}
         theme={theme}

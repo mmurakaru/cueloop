@@ -358,6 +358,54 @@ export function mapSyncTextPosition(options: {
   }
 }
 
+/** A serialized text position contains item identities, not the selected text. */
+export function createSyncTextPosition(options: {
+  state: string;
+  index: number;
+  association?: -1 | 0;
+}): string {
+  const document = openSyncTextDocument(options.state);
+
+  try {
+    const text = document.getText("content");
+
+    if (
+      !Number.isSafeInteger(options.index) ||
+      options.index < 0 ||
+      options.index > text.length ||
+      !isSyncTextBoundary(text.toString(), options.index)
+    )
+      throw new Error("Sync text position must be a Unicode boundary within the document");
+
+    return encodeSyncTextBytes(
+      Y.encodeRelativePosition(
+        Y.createRelativePositionFromTypeIndex(text, options.index, options.association ?? -1),
+      ),
+    );
+  } finally {
+    document.destroy();
+  }
+}
+
+/** Missing items and invalid text positions remain explicitly unavailable. */
+export function resolveSyncTextPosition(options: {
+  state: string;
+  position: string;
+}): number | undefined {
+  const document = openSyncTextDocument(options.state);
+
+  try {
+    const relative = Y.decodeRelativePosition(decodeSyncTextBytes(options.position, 768));
+    const absolute = Y.createAbsolutePositionFromRelativePosition(relative, document);
+
+    return absolute?.type === document.getText("content") ? absolute.index : undefined;
+  } catch {
+    return undefined;
+  } finally {
+    document.destroy();
+  }
+}
+
 export type {
   SyncTextEditorSnapshot,
   SyncTextEditorSession,

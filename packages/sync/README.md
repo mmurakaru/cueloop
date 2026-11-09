@@ -93,6 +93,12 @@ Applications authorize updates and commit accepted text, shared state, history, 
 Disconnected input stays a local draft until explicit submission.
 See the [text guide](./docs/text.md) for the API and experimental terminal editor.
 
+## Show collaborators
+
+`@cueloop/sync/presence` reports live collaborators, typing, and text-aware selections.
+Presence checks current workspace access, expires after missed heartbeats, and stays outside durable history.
+See the [presence guide](./docs/presence.md) for the authority, client, and standalone inspection commands.
+
 ## Host an authority
 
 `createSyncAuthority` from `@cueloop/sync/server` accepts your schema, database adapter, authentication callback, and named query and mutation handlers.
