@@ -1,4 +1,5 @@
 import { once } from "node:events";
+import { createSyncQuerySubscription } from "@cueloop/sync/queries";
 import type { createSharedRecordClient } from "./client.ts";
 import type { sharedRecordQueries } from "./shared-record.ts";
 import type { SyncClientOutcome } from "@cueloop/sync/serve";
@@ -9,82 +10,52 @@ export async function watchSharedRecords(
   client: ReturnType<typeof createSharedRecordClient>,
   query: ReturnType<typeof sharedRecordQueries.records>,
 ): Promise<SyncClientOutcome> {
-  const view = client.materialize(query);
   const cancellation = new AbortController();
-  let changed = Promise.withResolvers<void>();
-  let pending: string | undefined;
-  let stopped = false;
   let signal: "SIGINT" | "SIGTERM" | undefined;
-  let failure: Error | undefined;
-  let unsubscribe: (() => void) | undefined;
-  const stop = () => {
-    stopped = true;
-    cancellation.abort();
-    changed.resolve();
-  };
-
   const interrupt = () => {
     signal = "SIGINT";
-    stop();
+    cancellation.abort();
   };
   const terminate = () => {
     signal = "SIGTERM";
-    stop();
+    cancellation.abort();
   };
 
   process.on("SIGINT", interrupt);
   process.on("SIGTERM", terminate);
+  const subscription = createSyncQuerySubscription({
+    client,
+    view: client.materialize(query),
+    signal: cancellation.signal,
+  });
 
   try {
-    unsubscribe = view.addListener((records, freshness, error) => {
-      if (freshness === "error") {
-        failure = new Error(`Sync watch query failed: ${error?.message ?? "Unknown query error"}`);
-        stop();
+    for await (const snapshot of subscription) {
+      const output =
+        JSON.stringify({
+          records: snapshot.data,
+          freshness: snapshot.freshness,
+          connection: snapshot.connection,
+          lifecycle: snapshot.lifecycle,
+        }) + "\n";
 
-        return;
+      if (Buffer.byteLength(output) > MAXIMUM_SNAPSHOT_BYTES) {
+        throw new Error("Sync watch snapshot exceeds 8 MiB; reduce --limit");
       }
 
-      const snapshot = JSON.stringify({ records, freshness }) + "\n";
-
-      if (Buffer.byteLength(snapshot) > MAXIMUM_SNAPSHOT_BYTES) {
-        failure = new Error("Sync watch snapshot exceeds 8 MiB; reduce --limit");
-        stop();
-
-        return;
-      }
-
-      pending = snapshot;
-      changed.resolve();
-    });
-
-    while (!stopped) {
-      if (pending === undefined) {
-        await changed.promise;
-        changed = Promise.withResolvers<void>();
-        continue;
-      }
-
-      const snapshot = pending;
-
-      pending = undefined;
-
-      if (!process.stdout.write(snapshot)) {
+      if (!process.stdout.write(output)) {
         try {
-          await once(process.stdout, "drain", { signal: cancellation.signal });
+          await once(process.stdout, "drain", { signal: subscription.signal });
         } catch (error) {
-          if (!stopped) throw error;
+          if (!subscription.signal.aborted) throw error;
         }
       }
     }
-
-    if (failure) throw failure;
 
     return signal ? { status: "interrupted", signal } : { status: "completed" };
   } finally {
     process.off("SIGINT", interrupt);
     process.off("SIGTERM", terminate);
-    cancellation.abort();
-    unsubscribe?.();
-    view.destroy();
+    subscription.close();
   }
 }

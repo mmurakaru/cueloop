@@ -20,9 +20,13 @@ import { appendFileSync, writeFileSync } from 'node:fs';
 import { watchSharedRecords } from ${JSON.stringify(watcherUrl)};
 const record = event => appendFileSync(${JSON.stringify(cleanup)}, event + '\\n');
 let onChange;
+let currentData;
 const client = {
+  connection: {state: {current: {name:'connected'}, subscribe: listener => {listener({name:'connected'}); return () => {};}}},
+  lifecycle: {current: {status:'active'}, subscribe: listener => {listener({status:'active'}); return () => {};}},
   materialize: () => ({
-    addListener: listener => { onChange = listener; listener(${JSON.stringify(signal)} === 'small-query-error' ? [{content:'Small snapshot'}] : Array.from({length:64}, () => ({content:'x'.repeat(100000)})), 'complete'); return () => {}; },
+    get data() {return currentData;},
+    addListener: listener => { onChange = (data, freshness, error) => {currentData = data; listener(data, freshness, error);}; onChange(${JSON.stringify(signal)} === 'small-query-error' ? [{content:'Small snapshot'}] : Array.from({length:64}, () => ({content:'x'.repeat(100000)})), 'complete'); return () => {}; },
     destroy: () => record('view'),
   }),
   close: () => record('client'),

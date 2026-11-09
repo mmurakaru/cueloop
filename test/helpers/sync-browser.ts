@@ -2,11 +2,12 @@ import { chromium, type Page } from "playwright";
 import { expect } from "bun:test";
 import * as v from "valibot";
 
-async function withTestSyncBrowser<Result>(
+export async function withTestSyncBrowser<Result>(
   run: (page: Page, moduleUrl: string) => Promise<Result>,
+  entrypoint = "examples/sync-workspace/browser-client.ts",
 ) {
   const build = await Bun.build({
-    entrypoints: ["examples/sync-workspace/browser-client.ts"],
+    entrypoints: [entrypoint],
     target: "browser",
   });
 
@@ -112,5 +113,42 @@ export async function verifyTestBrowserQuery(options: {
     for (const content of options.expectedContent) expect(received).toContain(content);
 
     for (const content of options.forbiddenContent) expect(received).not.toContain(content);
+  });
+}
+
+export async function verifyTestBrowserDraftStorage() {
+  await withTestSyncBrowser(async (page, moduleUrl) => {
+    const scope = {
+      authorityIdentifier: `browser-test-${crypto.randomUUID()}`,
+      userIdentifier: "browser-owner",
+    };
+    const saved = await page.evaluate(
+      async (configuration) => {
+        const module: typeof import("../../examples/sync-workspace/browser-client.ts") =
+          await import(configuration.moduleUrl);
+
+        return module.verifyBrowserDraftStorage({ ...configuration.scope, phase: "save" });
+      },
+      { scope, moduleUrl },
+    );
+
+    await page.reload();
+    const recovered = await page.evaluate(
+      async (configuration) => {
+        const module: typeof import("../../examples/sync-workspace/browser-client.ts") =
+          await import(configuration.moduleUrl);
+
+        return module.verifyBrowserDraftStorage({ ...configuration.scope, phase: "read" });
+      },
+      { scope, moduleUrl },
+    );
+    const records = v.parse(
+      v.array(v.object({ status: v.literal("draft"), content: v.object({ body: v.string() }) })),
+      recovered,
+    );
+
+    expect(records).toHaveLength(1);
+    expect(records[0]?.content.body).toBe("Browser draft retained across reload");
+    expect(recovered).toEqual(saved);
   });
 }
