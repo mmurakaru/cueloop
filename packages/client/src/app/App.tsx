@@ -702,7 +702,7 @@ export function App({
   const [prototypePixels, setPrototypePixels] = useState(false);
   const [threadAgentEnabled, setThreadAgentEnabled] = useState(false);
   const [syncEnabled, setSyncEnabled] = useState(false);
-  const repoRoot = session?.workspace.repoRoot;
+  const repoRoot = controller.workspaceRoot();
 
   useEffect(() => {
     const config = loadConfig({ repoRoot });
