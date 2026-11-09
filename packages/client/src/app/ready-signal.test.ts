@@ -6,7 +6,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createElement, useEffect, useState } from "react";
 import { testRender } from "@opentui/react/test-utils";
-import { useRenderer } from "@opentui/react";
+import { createRoot, flushSync, useRenderer } from "@opentui/react";
+import { NativeSession } from "@opentui/core";
+import { Socket } from "node:net";
+import * as v from "valibot";
+import { createTestRenderer, ManualClock } from "@opentui/core/testing";
 import { READY_FILE_ENV, useReadySignal } from "./ready-signal";
 import { allowEventLoopUpdates, settle } from "../testing/test-support";
 
@@ -151,5 +155,194 @@ test("a continuously rendered screen announces readiness after its presented fra
   } finally {
     clearTimeout(timer);
     setup.renderer.destroy();
+  }
+});
+
+function TestPendingReadiness(props: { onReady: () => void; onFrame: () => void }) {
+  const { onReady, onFrame } = props;
+  const renderer = useRenderer();
+
+  useEffect(() => {
+    const queueFrame = () => {
+      renderer.requestRender();
+      onFrame();
+    };
+
+    renderer.once("frame", queueFrame);
+
+    return () => {
+      renderer.off("frame", queueFrame);
+    };
+  }, [renderer, onFrame]);
+  useReadySignal(true, onReady);
+
+  return createElement("text", null, "A frame with queued output");
+}
+
+class TestTerminalOutput extends Socket implements NodeJS.WriteStream {
+  columns = 30;
+  rows = 3;
+  isTTY = true;
+
+  override _write(
+    _chunk: Uint8Array,
+    _encoding: BufferEncoding,
+    complete: (error?: Error | null) => void,
+  ): void {
+    complete();
+  }
+
+  clearLine(_direction: -1 | 0 | 1, complete?: () => void): boolean {
+    complete?.();
+
+    return true;
+  }
+
+  clearScreenDown(complete?: () => void): boolean {
+    complete?.();
+
+    return true;
+  }
+
+  cursorTo(_column: number, rowOrComplete?: number | (() => void), complete?: () => void): boolean {
+    const callback = complete ?? (v.is(v.function(), rowOrComplete) ? rowOrComplete : undefined);
+
+    callback?.();
+
+    return true;
+  }
+
+  moveCursor(_columns: number, _rows: number, complete?: () => void): boolean {
+    complete?.();
+
+    return true;
+  }
+
+  getColorDepth(): number {
+    return 24;
+  }
+
+  hasColors(): boolean {
+    return true;
+  }
+
+  getWindowSize(): [number, number] {
+    return [this.columns, this.rows];
+  }
+}
+
+interface TestReadyNativeOutput {
+  session: NativeSession;
+  output: TestTerminalOutput;
+}
+
+async function createTestPendingReadiness(
+  onReady: () => void,
+  nativeOutput?: TestReadyNativeOutput,
+) {
+  const clock = new ManualClock();
+  const setup = await createTestRenderer({
+    width: 30,
+    height: 3,
+    clock,
+    nativeSession: nativeOutput?.session,
+    stdout: nativeOutput?.output,
+    bufferedOutput: nativeOutput ? "stdout" : "memory",
+  });
+  const root = createRoot(setup.renderer);
+  const frame = Promise.withResolvers<void>();
+  const baselineListeners = setup.renderer.listenerCount("frame");
+
+  const timeout = setTimeout(
+    () => frame.reject(new Error("Readiness test did not present its controlled frame")),
+    1000,
+  );
+
+  try {
+    allowEventLoopUpdates();
+    flushSync(() =>
+      root.render(createElement(TestPendingReadiness, { onReady, onFrame: frame.resolve })),
+    );
+    await new Promise((resolve) => setImmediate(resolve));
+    clock.advance(20);
+    await setup.renderOnce();
+    await frame.promise;
+    expect(setup.renderer.getSchedulerState().hasScheduledRender).toBe(true);
+
+    return { setup, root, clock, baselineListeners };
+  } catch (cause) {
+    root.unmount();
+    setup.renderer.destroy();
+
+    throw cause;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+test("cancelling readiness while output is queued removes its listener and never announces readiness", async () => {
+  const home = mkdtempSync(join(tmpdir(), "cueloop-cancel-ready-"));
+  const readyFile = join(home, "ready");
+  let fired = 0;
+
+  homes.push(home);
+  process.env[READY_FILE_ENV] = readyFile;
+  const { setup, root, clock, baselineListeners } = await createTestPendingReadiness(() => {
+    fired += 1;
+  });
+
+  try {
+    expect(fired).toBe(0);
+    expect(setup.renderer.listenerCount("frame")).toBe(baselineListeners + 1);
+    root.unmount();
+    expect(setup.renderer.listenerCount("frame")).toBe(baselineListeners);
+    clock.advance(100);
+    await setup.renderOnce();
+    await setup.renderer.idle();
+    expect(fired).toBe(0);
+    expect(existsSync(readyFile)).toBe(false);
+  } finally {
+    root.unmount();
+    setup.renderer.destroy();
+  }
+});
+
+test("a rejected output wait after cancellation cannot announce readiness or leak its listener", async () => {
+  const home = mkdtempSync(join(tmpdir(), "cueloop-rejected-ready-"));
+  const readyFile = join(home, "ready");
+  const output = new TestTerminalOutput();
+  const nativeSession = new NativeSession(output);
+  const sessionClosed = nativeSession.closed.catch(() => {});
+  let fired = 0;
+
+  homes.push(home);
+  process.env[READY_FILE_ENV] = readyFile;
+  const { setup, root, baselineListeners } = await createTestPendingReadiness(
+    () => {
+      fired += 1;
+    },
+    { session: nativeSession, output },
+  );
+  const wait = setup.renderer.idle().then(
+    () => ({ status: "resolved" as const }),
+    () => ({ status: "rejected" as const }),
+  );
+
+  try {
+    expect(fired).toBe(0);
+    root.unmount();
+    nativeSession.dispose();
+    setup.renderer.destroy();
+    expect(await wait).toEqual({ status: "rejected" });
+    await sessionClosed;
+    await setup.renderer.closed.catch(() => {});
+    expect(fired).toBe(0);
+    expect(existsSync(readyFile)).toBe(false);
+    expect(setup.renderer.listenerCount("frame")).toBe(baselineListeners);
+  } finally {
+    root.unmount();
+    setup.renderer.destroy();
+    nativeSession.dispose();
+    output.destroy();
   }
 });
