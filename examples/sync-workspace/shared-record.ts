@@ -75,6 +75,9 @@ export const sharedRecordMutators = defineMutatorsWithType<typeof sharedRecordSc
         if (![...membership].length) throw new Error("Shared record editing is not permitted");
       }
 
+      if (record.textState !== null)
+        throw new Error("Shared record uses collaborative text operations");
+
       await tx.mutate.shared_record.update(args);
     },
   ),

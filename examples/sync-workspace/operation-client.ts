@@ -1,14 +1,17 @@
+import { lookupSharedOperationReceipt } from "./operation-receipt-client.ts";
 import { readFile } from "node:fs/promises";
 import * as v from "valibot";
 import {
   parseSyncOperation,
   submitSyncOperation,
-  SyncOperationReceiptSchema,
-  SyncOperationConflict,
   type SyncOperation,
   type SyncOperationOutcome,
 } from "@cueloop/sync/operations";
-import { sharedCommentOperations, sharedWorkspaceMutators } from "./shared-workspace.ts";
+import {
+  sharedCommentOperations,
+  sharedTextOperations,
+  sharedWorkspaceMutators,
+} from "./shared-workspace.ts";
 import { sharedRecordQueries } from "./shared-record.ts";
 import type { createSharedRecordClient } from "./client.ts";
 
@@ -20,29 +23,12 @@ export async function connectSharedOperation(options: {
   auth: string;
 }): Promise<void> {
   const operation = parseSyncOperation(JSON.parse(await readFile(options.operationPath, "utf8")));
-  const lookup = async (request: SyncOperation) => {
-    const response = await fetch(
-      new URL("operation", `${options.authorityURL.replace(/\/$/, "")}/`),
-      {
-        method: "POST",
-        headers: { authorization: `Bearer ${options.auth}`, "content-type": "application/json" },
-        body: JSON.stringify(request),
-        signal: AbortSignal.timeout(30000),
-      },
-    );
-
-    if (response.status === 409) throw new SyncOperationConflict();
-
-    if (!response.ok)
-      throw new Error(`Sync operation receipt lookup failed with HTTP ${response.status}`);
-
-    const result = v.parse(
-      v.object({ receipt: v.nullable(SyncOperationReceiptSchema) }),
-      await response.json(),
-    );
-
-    return result.receipt ?? undefined;
-  };
+  const lookup = (request: SyncOperation) =>
+    lookupSharedOperationReceipt({
+      authorityURL: options.authorityURL,
+      auth: options.auth,
+      operation: request,
+    });
   let outcome: SyncOperationOutcome;
 
   if (options.statusOnly) {
@@ -57,6 +43,8 @@ export async function connectSharedOperation(options: {
         sharedCommentOperations.add.schema,
         sharedCommentOperations.edit.schema,
         sharedCommentOperations.remove.schema,
+        sharedTextOperations.initialize.schema,
+        sharedTextOperations.edit.schema,
       ]),
       operation,
     );
@@ -83,6 +71,18 @@ export async function connectSharedOperation(options: {
         if (request.name === "comment.remove") {
           return options.client.mutate(
             sharedWorkspaceMutators.comment.remove(sharedCommentOperations.remove.parse(request)),
+          );
+        }
+
+        if (request.name === "text.initialize") {
+          return options.client.mutate(
+            sharedWorkspaceMutators.text.initialize(sharedTextOperations.initialize.parse(request)),
+          );
+        }
+
+        if (request.name === "text.edit") {
+          return options.client.mutate(
+            sharedWorkspaceMutators.text.edit(sharedTextOperations.edit.parse(request)),
           );
         }
 

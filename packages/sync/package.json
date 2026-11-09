@@ -34,7 +34,8 @@
     "./server": "./dist/sync-authority.js",
     "./serve": "./dist/sync-server.js",
     "./cli": "./dist/sync-cli.js",
-    "./migrations/001-operation-receipt.sql": "./migrations/001-operation-receipt.sql"
+    "./migrations/001-operation-receipt.sql": "./migrations/001-operation-receipt.sql",
+    "./text": "./dist/sync-text.js"
   },
   "publishConfig": {
     "access": "public"
@@ -48,7 +49,8 @@
     "canonicalize": "5.1.0",
     "idb": "8.0.4",
     "uuid": "14.0.3",
-    "valibot": "^1.5.0"
+    "valibot": "^1.5.0",
+    "yjs": "13.6.33"
   },
   "engines": {
     "bun": ">=1.4.4",

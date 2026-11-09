@@ -5,12 +5,15 @@ import {
   sharedCommentQueryDefinitions,
 } from "./shared-comment.ts";
 
+import { sharedTextMutatorDefinitions, sharedTextQueryDefinitions } from "./shared-text.ts";
+
+export { sharedTextOperations } from "./shared-text.ts";
 export { sharedCommentOperations } from "./shared-comment.ts";
 export const sharedWorkspaceMutators = defineMutatorsWithType<typeof sharedRecordSchema>()(
   sharedRecordMutators,
-  sharedCommentMutatorDefinitions,
+  { ...sharedCommentMutatorDefinitions, ...sharedTextMutatorDefinitions },
 );
 export const sharedWorkspaceQueries = defineQueriesWithType<typeof sharedRecordSchema>()(
   sharedRecordQueries,
-  sharedCommentQueryDefinitions,
+  { ...sharedCommentQueryDefinitions, ...sharedTextQueryDefinitions },
 );

@@ -1,3 +1,4 @@
+import type { SyncTextEditorSession } from "./sync-text-session.ts";
 import {
   serveSyncApplication,
   type SyncApplication,
@@ -31,6 +32,20 @@ function syncFlag(arguments_: string[], name: string): string | undefined {
   return value;
 }
 
+function syncAuthorityOptions(arguments_: string[]) {
+  const port = Number(syncFlag(arguments_, "--port") ?? "4849");
+
+  if (!Number.isInteger(port) || port < 0 || port > 65535) {
+    throw new Error("Sync authority port must be an integer between 0 and 65535");
+  }
+
+  return {
+    port,
+    host: syncFlag(arguments_, "--host"),
+    publicOrigin: syncFlag(arguments_, "--public-origin"),
+  };
+}
+
 async function connectSyncApplication(
   application: SyncApplication,
   clientArguments: string[],
@@ -51,16 +66,55 @@ async function connectSyncApplication(
   return outcome?.status === "interrupted" ? (outcome.signal === "SIGINT" ? 130 : 143) : 0;
 }
 
-export async function runSyncCli(arguments_: string[]): Promise<number> {
+async function editSyncApplication(
+  application: SyncApplication,
+  clientArguments: string[],
+  render: (session: SyncTextEditorSession) => Promise<void | SyncClientOutcome>,
+): Promise<number> {
+  try {
+    if (!application.openText) throw new Error("Sync application does not provide a text editor");
+
+    const applicationIndex = clientArguments.indexOf("--application");
+
+    clientArguments.splice(applicationIndex, 2);
+    const session = await application.openText(clientArguments);
+
+    try {
+      const outcome = await render(session);
+
+      return outcome?.status === "interrupted" ? (outcome.signal === "SIGINT" ? 130 : 143) : 0;
+    } finally {
+      await session.close();
+    }
+  } finally {
+    await application.close?.();
+  }
+}
+
+export async function runSyncCli(
+  arguments_: string[],
+  options: {
+    renderTextEditor?: (session: SyncTextEditorSession) => Promise<void | SyncClientOutcome>;
+  } = {},
+): Promise<number> {
   if (arguments_.length === 0 || arguments_.includes("--help")) {
-    process.stdout.write(SYNC_HELP);
+    process.stdout.write(
+      SYNC_HELP +
+        (options.renderTextEditor
+          ? "  edit      Edit shared plan text with explicit submission\n"
+          : ""),
+    );
 
     return 0;
   }
 
   const command = arguments_[0];
 
-  if (command !== "serve" && command !== "connect") {
+  if (
+    command !== "serve" &&
+    command !== "connect" &&
+    (command !== "edit" || !options.renderTextEditor)
+  ) {
     throw new Error(`Sync command is unknown: ${command}`);
   }
 
@@ -68,15 +122,13 @@ export async function runSyncCli(arguments_: string[]): Promise<number> {
 
   if (!applicationPath) throw new Error("Sync command requires --application <module>");
 
-  const port = command === "serve" ? Number(syncFlag(arguments_, "--port") ?? "4849") : 0;
-  const host = command === "serve" ? syncFlag(arguments_, "--host") : undefined;
-  const publicOrigin = command === "serve" ? syncFlag(arguments_, "--public-origin") : undefined;
-
-  if (!Number.isInteger(port) || port < 0 || port > 65535) {
-    throw new Error("Sync authority port must be an integer between 0 and 65535");
-  }
+  const authorityOptions = command === "serve" ? syncAuthorityOptions(arguments_) : {};
 
   const application = await loadSyncApplication(applicationPath);
+
+  if (command === "edit" && options.renderTextEditor) {
+    return editSyncApplication(application, arguments_.slice(1), options.renderTextEditor);
+  }
 
   if (command === "connect") {
     return connectSyncApplication(application, arguments_.slice(1));
@@ -85,7 +137,7 @@ export async function runSyncCli(arguments_: string[]): Promise<number> {
   let server: Awaited<ReturnType<typeof serveSyncApplication>>;
 
   try {
-    server = await serveSyncApplication(application, { host, port, publicOrigin });
+    server = await serveSyncApplication(application, authorityOptions);
   } catch (error) {
     await application.close?.();
 

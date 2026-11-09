@@ -10,5 +10,11 @@ export async function syncCommand(arguments_: string[]): Promise<number> {
 
   const { runSyncCli } = await import("@cueloop/sync/cli");
 
-  return runSyncCli(arguments_);
+  return runSyncCli(arguments_, {
+    renderTextEditor: async (session) => {
+      const { runSyncTextEditor } = await import("@cueloop/client/sync-editor");
+
+      return runSyncTextEditor(session, { repoRoot });
+    },
+  });
 }

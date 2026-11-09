@@ -24,6 +24,7 @@ export type SessionEntry =
   | (EntryBase & {
       type: "revision";
       by: EntryAuthor;
+      author?: string;
       content: string;
       /** Exact character Cuts that produced a reviewer revision. */
       textCuts?: TextCut[];

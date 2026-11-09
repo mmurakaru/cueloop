@@ -11,13 +11,15 @@
     ],
     "@cueloop/daemon": [
       "@cueloop/schema",
-      "@cueloop/extension-api"
+      "@cueloop/extension-api",
+      "@cueloop/sync"
     ],
     "@cueloop/client": [
       "@cueloop/schema",
       "@cueloop/daemon",
       "@cueloop/extension-api",
-      "@cueloop/integration-obsidian"
+      "@cueloop/integration-obsidian",
+      "@cueloop/sync"
     ],
     "cueloop": [
       "@cueloop/schema",

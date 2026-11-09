@@ -193,5 +193,15 @@
     "from": "test/session/harness-selection.test.ts",
     "to": "packages/cli/src/daemon-control.ts",
     "reason": "Session integration teardown stops its isolated daemon without invoking the CLI executable."
+  },
+  {
+    "from": "test/session/sync-text-editor.test.ts",
+    "to": "packages/client/src/appearance/theme.ts",
+    "reason": "Verify real-service collaborative editing through the virtual terminal with the shared test theme and interaction helpers."
+  },
+  {
+    "from": "test/session/sync-text-editor.test.ts",
+    "to": "packages/client/src/testing/test-support.ts",
+    "reason": "Verify real-service collaborative editing through the virtual terminal with the shared test theme and interaction helpers."
   }
 ]
