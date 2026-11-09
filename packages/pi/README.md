@@ -1,11 +1,36 @@
 # cueloop for pi
 
-```bash
+Open cueloop Threads from pi and return review Messages to the active conversation.
+
+## Install
+
+```sh
 pi install npm:@cueloop/pi
 ```
 
-The package opens cueloop Threads in the configured terminal surface and delivers Messages back into the active pi conversation.
+## Use
 
-Use `/cueloop:plan`, `/cueloop:diff`, `/cueloop:pair`, `/cueloop:review`, `/cueloop:reply`, `/cueloop:prototype`, or `/cueloop:refine` to start a workflow. Each command loads the corresponding shared cueloop skill. The review skill uses the CLI to attach line anchored findings; the pair skill opens a live workbench and follows its events; the other workflow skills use `open_thread` when available.
+```text
+/cueloop:plan
+/cueloop:diff
+/cueloop:pair
+/cueloop:review
+/cueloop:reply
+/cueloop:prototype
+/cueloop:refine
+```
 
-Pi reports available package updates on startup. If cueloop reports a version mismatch, run `cueloop restart`, then update the older component if needed: `cueloop update` or `pi update npm:@cueloop/pi`.
+Each command loads a shared cueloop skill.
+Review attaches findings to diff lines through the CLI.
+Pair follows live workbench events.
+Other workflows use `open_thread` when available.
+Threads open in the configured terminal.
+
+> [!NOTE]
+> Pi checks for package updates at startup.
+> If versions differ, run `cueloop restart`, then update the older component:
+
+```sh
+cueloop update
+pi update npm:@cueloop/pi
+```

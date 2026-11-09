@@ -1,135 +1,115 @@
-# Harness adapters
+# @cueloop/adapters
 
-Cueloop owns the Thread and review lifecycle. Claude Code, Codex, and pi only
-connect their session lifecycle and native messaging to it.
+Connect Claude Code, Codex, and pi to cueloop Threads and review Messages.
 
 ```text
-Harness lifecycle event
-        |
-        v
-Harness adapter
-  - identify and bind the harness session
-  - submit or revise the artifact
-  - open cueloop threads
-  - subscribe for Messages
-  - send Messages through the harness
-        |
-        v
-Shared cueloop Thread + UX core
-  - canonical Thread state
-  - review lifecycle
-  - Message routing and durable delivery
-        |
-        v
-Existing cueloop TUI
-  - thread panel: plan, reply, prototype
-  - changes panel: diff, review
+Harness lifecycle → adapter → shared Thread controller → daemon → TUI
+Review Message   → daemon  → adapter → harness conversation
 ```
 
-## Controller contract
+> [!IMPORTANT]
+> The daemon owns Thread state, review history, bindings, and deliveries.
+> Adapters use the shared controller and TUI.
+> Keep harness session identity and native messaging in the adapter.
 
-`createHarnessThreadController().openWorkflow` is the entry point for all six
-workflows. Plan, reply, and prototype submit Markdown to the thread panel. Diff
-submits a working-tree patch to the changes panel. Review imports a PR diff,
-opens the changes panel, and posts its Message to the forge. Refine analyzes the
-Thread corpus before submitting agent-drafted proposals as a plan Thread.
-Review and refine are workflows, not new artifact types.
+## Workflows
 
-The daemon alone owns Thread state, revisions, annotations, Messages, bindings,
-and deliveries. Adapters must not persist a second review model, parse their own
-copy of an artifact, or render a harness-specific review UI. A new adapter
-implements session identity, lifecycle interception, Thread submission through
-the controller, native Message injection, and reload reconciliation. It uses
-the same TUI, controller contract tests, and Message ID for duplicate
-suppression. Claude Code uses the required Mod API, Codex uses plugin hooks and
-MCP, and pi uses its extension API.
+`createHarnessThreadController().openWorkflow` handles plan, reply, prototype, diff, review, and refine.
+Plan, reply, and prototype submit Markdown.
+Diff opens a working-tree patch.
+Review imports a PR diff and posts its Message to the forge.
+Refine analyzes the Thread corpus and submits proposals as a plan Thread.
 
-## Thread surface
+New adapters provide session binding, lifecycle interception, submission, Message injection, and reload recovery.
+Use the shared controller contract tests.
+Claude Code uses the Mod API, Codex uses hooks and MCP, and pi uses its extension API.
 
-The surface port opens the built-in panel. Terminal and multiplexer launch
-implementations belong to their integrations.
+## Open Threads
 
-`createTerminalThreadSurfacePort` selects Herdr when nested inside Ghostty and
-otherwise uses Ghostty on macOS. Personal config accepts
-`[integrations.herdr] thread_surface = "tab" | "pane" | "none"`; tab is the
-default. Ghostty accepts `[integrations.ghostty] thread_surface = "tab" | "pane" |
-"window" | "none"`, also defaulting to tab. Repository config cannot trigger
-terminal automation. A pane opens on the right at 50 percent width. Native
-handles live in daemon adapter scratch, not in the Thread. If opening fails,
-the controller leaves the Thread pending
-and returns `Open cueloop threads: cueloop <thread-id>` to the harness.
+`createTerminalThreadSurfacePort` selects Herdr inside Ghostty and Ghostty elsewhere on macOS.
+Configure terminal automation in personal config:
 
-## Message delivery
+```toml
+[integrations.herdr]
+thread_surface = "tab" # tab, pane, none
 
-The daemon persists bindings and deliveries outside the Thread. It routes a
-Message to the submitting binding by default and retries an unacknowledged
-delivery after restart. Once an approved Message is acknowledged, the same
-plan may pass through the shared controller unchanged one time. An adapter sends
-the Message through its harness API, deduplicates by Message ID with
-`createDeliveredMessageStore`, then acknowledges the delivery. Native injection
-uses the Message ID as an idempotency key when the harness supports one. Forge
-post-back also needs a Message ID journal. A crash between an external side
-effect and recording the ID can repeat it; delivery itself is at least once.
-The same Thread can later route Messages to another bound harness without
-changing the TUI.
+[integrations.ghostty]
+thread_surface = "tab" # tab, pane, window, none
+```
 
-## Thread agent harness prototype
+Panes open on the right at half width.
+Repository config cannot trigger terminal automation.
+If opening fails, the Thread stays pending and the harness receives `cueloop <thread-id>` to open it manually.
+Native terminal handles stay in daemon adapter scratch.
 
-The fx harness adapter (`src/fx/harness.ts`) translates ACP into the schema's `AgentHarnessAdapter` contract. The CLI supplies it to the daemon; the daemon never imports this package. Provider session IDs stay paired with their adapter ID. See [the prototype instructions](../../examples/fx-thread) for opt-in development and [the lifecycle experiment](../../examples/agent-lifecycle) for checked recovery laws. Harness-advertised model/reasoning choices and cueloop tool calls pass through the same contract; JSON tool arguments are parsed at the daemon boundary. [Submission laws](../../examples/agent-submission) check queueing, immutable accepted input, and retry behavior.
+## Deliver Messages
 
-### Thread agent diagnostic routing
+The daemon retries unacknowledged deliveries after restart.
+Adapters deduplicate with `createDeliveredMessageStore`, inject the Message, then acknowledge it.
+Use the Message ID as the native idempotency key when supported.
+Forge posting also needs a Message ID journal.
+An acknowledged approval permits one unchanged plan pass through the controller.
 
-Harness adapters emit `AgentHarnessEvent`. `routeHarnessOutput` sends diagnostic
-notices to a private bounded log at
-`<cueloop-home>/thread-agents/<encoded-thread-id>.diagnostics.ndjson`, outside
-Thread history and subsequent model context. Unknown diagnostic severities stay
-intact. An advisory notice, including one with severity `error`, does not determine
-the turn outcome; prompt results and transport failures still do.
+> [!IMPORTANT]
+> Delivery is at least once.
+> A crash between an external action and recording its Message ID can repeat that action.
 
-The fx adapter advertises ACP v1 session notices and handles structured `notice`
-updates. After observing a structured notice, it preserves assistant chunks
-without text matching for that connection. The inspected fx 0.0.12 transport does
-not supply notice provenance. `FxLegacyStartupMessages` is an isolated fallback
-for its known complete startup lines, with at most 128 tracked IDs and 32 KiB per pending notice. It never classifies
-an entire message ID: later HTTP errors under the same ID remain visible. Changed
-or unfinished notice wording is preserved. An exact assistant quotation of a
-legacy notice can still be misclassified; upstream structured provenance is
-required to remove that ambiguity.
+## Run Thread agents
 
-Pi consumers can import `parsePiHarnessOutput` from
-`@cueloop/adapters/pi/harness-output` at their RPC or SDK boundary. It validates
-frames, retains assistant text without prefix matching, separates notices and
-extension errors, and distinguishes cancellation, failure, activity, and
-`agent_settled`. Callers assign message identities and track turn outcomes across
-retries; neither a prompt acknowledgement nor `agent_end` means the turn settled.
-This provides the output normalization seam, not a new pi subprocess harness.
+Pi Durable owns new Thread conversations under `<cueloop-home>/pi-conversations/<session-id>`.
+The owner supplies models, credentials, storage, and execution.
+The supplied execution environment runs on the owner machine and is not a sandbox.
+Set `CUELOOP_AGENT_HARNESS=fx` to select the fx ACP adapter for new conversations.
+Provider session identities stay paired with their adapter identities.
 
-### Owner-hosted durable conversations
+The Pi adapter reads `~/.pi/agent/auth.json` and supported provider environment credentials.
+Refreshes go to private `model-credentials.json`.
+Credentials stay out of share blobs and relay frames.
 
-New Thread agents use the Pi Durable adapter. One Harness owns each Thread's
-conversation in `<cueloop-home>/pi-conversations/<session-id>`. Models,
-credentials, durable Storage, and ExecutionEnv are separate host dependencies.
-The supplied environment runs on the owner machine; it is not a sandbox.
-Existing fx conversations retain their adapter and session identity. Set
-`CUELOOP_AGENT_HARNESS=fx` to select fx for new conversations.
+See the [fx example](../../examples/fx-thread), [lifecycle checks](../../examples/agent-lifecycle), and [submission checks](../../examples/agent-submission).
 
-The Pi adapter reads the owner's `~/.pi/agent/auth.json` credentials and the
-provider's supported environment credentials. Refreshes are persisted in
-cueloop's private `model-credentials.json`, leaving the imported source unchanged.
-Credentials are never included in share blobs or relay frames. Provider login remains a local operation.
+### Recover fx processes
 
-With `[experimental] herdr_acp = true` and a user-installed `hc` 0.1.15 or newer, the fx ACP process is started inside a herdr-core terminal. The daemon speaks ACP through a private relay socket, so a daemon restart can reattach to an in-flight prompt and let it finish. The flag defaults off. A missing or older `hc` keeps the ACP process as a child of the daemon. cueloop does not install or update `hc`. Set `CUELOOP_HERDR_ACP=0` to keep that child process even when the flag is on. When `HC_SESSION` is set, cueloop uses that herdr session. Otherwise it uses the session name `cueloop`, so agent terminals stay out of the default session. Removing the Thread shuts the relay down. With no client attached, a finished relay exits after 60 seconds (`HERDR_ACP_IDLE_MS`) and an in-flight prompt is kept for 10 minutes (`HERDR_ACP_ABANDON_MS`) so a restarted daemon can reattach. Finished `hc` terminals are removed. The relay transcript is mode `0600`.
+```toml
+[experimental]
+herdr_acp = true
+```
 
-With `[experimental] thread_agent = true`, the share wizard offers **Allow agent
-messages**, off by default. Enabled collaborators use the owner's conversation
-and model account. Ctrl+Enter submits agent input; Option+Enter keeps comments
-inline and editable. A disabled link still supports ordinary comment threads.
+Requires a user-installed `hc` 0.1.15 or later.
+A private relay lets the daemon reattach to an in-flight ACP prompt after restart.
+A missing or older `hc`, or `CUELOOP_HERDR_ACP=0`, uses a daemon child process.
+`HC_SESSION` selects the Herdr session; the default is `cueloop`.
+Cueloop does not install or update `hc`.
 
-The gateway persists input before showing it queued and keeps the request until
-the owner daemon acknowledges a persisted operation receipt. If the owner is
-disconnected, the artifact stays readable and the Thread shows **Owner offline**.
-An authenticated owner connection receives requests over `cueloop-agent` SSH,
-merges their annotations into the local Thread, and streams agent state back.
-Reconnect reuses operation IDs; changed payloads cannot reuse an accepted ID.
-The gateway runs no model or workspace tools. Hosting execution elsewhere would
-require supplying Storage, Models and an isolated ExecutionEnv on that host.
+Removing a Thread stops its relay.
+Without an attached client, finished relays exit after 60 seconds and running prompts remain available for 10 minutes.
+`HERDR_ACP_IDLE_MS` and `HERDR_ACP_ABANDON_MS` configure these limits.
+Finished terminals are removed, and relay transcripts use mode `0600`.
+
+### Share agent access
+
+With `[experimental] thread_agent = true`, the share wizard offers **Allow agent messages**, off by default.
+Collaborators use the owner's conversation and model account.
+Ctrl+Enter submits agent input; Option+Enter keeps comments inline and editable.
+
+The gateway persists requests until the owner acknowledges a persisted receipt.
+An offline owner leaves the artifact readable with **Owner offline** status.
+The owner receives requests over `cueloop-agent` SSH and streams agent state back.
+Reconnect reuses operation IDs; an accepted identity cannot carry changed arguments.
+The gateway runs no models or workspace tools.
+
+## Handle diagnostics
+
+`routeHarnessOutput` writes diagnostic notices to private bounded files under `<cueloop-home>/thread-agents/`, outside Thread history and model context.
+A notice severity does not decide the turn outcome.
+Prompt results and transport failures do.
+
+The fx adapter handles structured ACP notices.
+For fx 0.0.12, `FxLegacyStartupMessages` recognizes only complete known startup lines, bounded to 128 identities and 32 KiB per pending notice.
+Unrecognized text stays visible.
+A quoted legacy notice can still be misclassified without upstream provenance.
+
+`parsePiHarnessOutput` is available at `@cueloop/adapters/pi/harness-output`.
+It validates frames and separates assistant text, notices, extension errors, cancellation, failure, activity, and `agent_settled`.
+Callers assign Message identities and track retries.
+Neither a prompt acknowledgement nor `agent_end` proves that a turn settled.

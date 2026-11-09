@@ -1,21 +1,22 @@
 # @cueloop/sync
 
 General-purpose sync for terminals.
+Build typed, live application queries against an authoritative server with a headless TypeScript client.
+Applications own their data model, permissions, interface, and execution integrations.
 
-The headless TypeScript client uses typed application queries and mutations with an authoritative server.
-Applications define their data model, permissions, interface, and execution integrations.
-The SDK has no dependency on cueloop's Thread model or terminal renderer.
+## Requirements
 
-## Runtime and services
+- Bun 1.4.4 or Node 24 and later for terminal clients.
+- A bundler for browser clients.
+- PostgreSQL with logical replication and a Zero cache service.
 
-Use Bun 1.4.4 or Node 24 and later for terminal applications.
-Browser applications bundle the client entry point.
-The published package contains JavaScript and TypeScript declarations.
-The authority uses PostgreSQL and a Zero cache service.
-PostgreSQL needs logical replication enabled.
-Local hosting runs the same service stack as remote hosting.
+The package contains JavaScript and TypeScript declarations.
+Local and remote hosting use the same service stack.
 
-Configure this override in the consuming application's package manifest:
+> [!IMPORTANT]
+> Zero 1.11.4 includes an affected worker-pool dependency.
+> Set this override in the consuming application; library overrides do not apply to consumers.
+> See the [upstream advisory](https://github.com/advisories/GHSA-85c8-ppgw-ccpr).
 
 ```json
 {
@@ -23,11 +24,9 @@ Configure this override in the consuming application's package manifest:
 }
 ```
 
-Zero 1.11.4 includes a formatter dependency with an affected worker-pool version.
-The application-level override selects the patched version; overrides inside a library do not configure its consumers.
-See the [upstream advisory](https://github.com/advisories/GHSA-85c8-ppgw-ccpr).
+## Subscribe and write
 
-## Client
+Supply your application's schema, mutators, context, and connection settings:
 
 ```ts
 import { createSyncClient } from "@cueloop/sync";
@@ -41,10 +40,9 @@ const client = createSyncClient({
   auth,
   kvStore: "mem",
 });
-
 const view = client.materialize(queries.records());
-const unsubscribe = view.addListener((records, resultType) => {
-  renderRecords(records, resultType);
+const unsubscribe = view.addListener((records, freshness) => {
+  renderRecords(records, freshness);
 });
 
 const result = await client.mutate(mutators.edit({ id, content })).server;
@@ -54,58 +52,54 @@ view.destroy();
 await client.close();
 ```
 
-Queries, schema builders, and named mutators use the Zero TypeScript API.
-The client rejects mutation submissions unless connected to the authority.
-Keep disconnected edits as application drafts and let the user submit them after reconnect.
-Connection status and query result freshness are separate values.
-`kvStore: "mem"` is an ephemeral cache; persistence requires an explicit supported storage provider.
+Schemas, queries, and named mutators use the Zero TypeScript API.
+Connection status and query freshness are separate.
 
-## Authority
+> [!NOTE]
+> Writes require a connected authority.
+> Keep disconnected edits as drafts for explicit submission after reconnect.
+> `kvStore: "mem"` is an ephemeral cache.
+> Persistent caching requires a supported storage provider.
 
-Import `createSyncAuthority` from `@cueloop/sync/server`.
-Provide the schema, database adapter, authentication callback, and named query and mutation handlers.
-The authentication callback derives the principal from verified credentials.
-The authority passes that identity to the query and mutation protocols.
-Application handlers enforce record permissions.
+## Host an authority
 
-Import `serveSyncApplication` from `@cueloop/sync/serve` to host a Fetch-compatible application in Bun or Node.
-It binds to loopback by default and limits request bodies.
-Use a TLS endpoint for remote clients.
-Configure `publicOrigin` or `--public-origin` when a reverse proxy terminates TLS.
-The host does not infer a trusted origin from forwarded headers.
+`createSyncAuthority` from `@cueloop/sync/server` accepts your schema, database adapter, authentication callback, and named query and mutation handlers.
+Derive the principal from verified credentials and enforce record permissions in application handlers.
 
-## CLI
+`serveSyncApplication` from `@cueloop/sync/serve` hosts a Fetch-compatible application in Bun or Node.
+It binds to loopback and limits request bodies.
+Use TLS for remote clients and configure `publicOrigin` behind a TLS proxy.
+Forwarded headers do not establish a trusted origin.
 
 ```sh
 cueloop-sync serve --application ./sync-application.ts --port 4849
 cueloop-sync connect --application ./sync-application.ts
+cueloop-sync --help
 ```
 
-The application module exports `syncApplication` with a `fetch` handler, a client `connect` callback, and an optional `close` callback.
-The CLI runs the application authority or its configured client; PostgreSQL and Zero run as separate services.
+Export `syncApplication` with `fetch`, `connect`, and an optional `close` callback.
+PostgreSQL and Zero run as separate services.
 Supply credentials through environment variables.
-`cueloop-sync --help` lists the available commands.
 
-## Cueloop integration
+## Enable in cueloop
 
-Enable **Multiplayer sync** in **Settings > Experimental** or configure:
+Choose **Settings > Experimental > Multiplayer sync** or set:
 
 ```toml
 [experimental]
 sync = true
 ```
 
-The experimental `cueloop sync` command uses the same CLI and SDK contracts.
-Enabling the setting does not import existing Threads or change their authority.
-Local sessions operate without the sync services.
+`cueloop sync` uses the same CLI and SDK contracts.
+The setting does not import existing Threads or change their authority.
+Local sessions work without sync services.
 
-## Standalone example and verification
+## Run the example checks
 
-The repository's `examples/sync-workspace` application defines an independent shared-record schema and authenticated query and mutation handlers.
-Its SQL migration targets PostgreSQL 18 with UUID v7 identifiers.
-The integration test starts isolated services, runs Bun, Node, browser, and experimental cueloop clients, verifies live changes and reconnect recovery, and cleans up its resources.
+[The standalone example](../../examples/sync-workspace) defines a shared-record schema and authenticated handlers with PostgreSQL 18 migrations.
+The integration checks cover Bun, Node, browser, and experimental cueloop clients, live changes, and reconnect recovery.
 
-From the repository root:
+From the repository root, with Docker available:
 
 ```sh
 bun install
@@ -113,6 +107,5 @@ bunx playwright install chromium
 bun run test:sync
 ```
 
-Docker must be available for the integration test.
-The test generates its own temporary credentials.
-Set `CUELOOP_TEST_CHROME_EXECUTABLE` to use an existing Chrome binary.
+Tests create temporary credentials and clean up their services.
+Set `CUELOOP_TEST_CHROME_EXECUTABLE` to use an installed Chrome binary.

@@ -1,7 +1,12 @@
 # @cueloop/daemon
 
-The local cueloop daemon owns Thread mutations, persisted review history, harness
-bindings and socket subscriptions. Integrations use its typed NDJSON client.
+Own Thread changes, review history, harness bindings, and socket subscriptions in the local daemon.
 
-See the [daemon SDK contract](SDK.md) for explicit capabilities, safe mutation
-retries, reconnecting subscriptions and the optional scoped Effect service.
+## Integrate
+
+Use the typed NDJSON client or the [daemon SDK](SDK.md).
+The SDK covers permissions, safe retries, reconnecting subscriptions, and an optional scoped Effect service.
+
+> [!IMPORTANT]
+> Send Thread changes through the daemon.
+> Integrations must not write session files directly.
