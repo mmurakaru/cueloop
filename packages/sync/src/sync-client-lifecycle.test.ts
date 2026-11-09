@@ -42,3 +42,43 @@ test("a failed local store is reported separately from network connection state"
     rmSync(directory, { recursive: true, force: true });
   }
 });
+
+test("a throwing lifecycle listener cannot stop shutdown or other listeners", async () => {
+  const client = createSyncClient({ schema, cacheURL: null, kvStore: "mem" });
+  const states: string[] = [];
+  const unsubscribe = client.lifecycle.subscribe((state) => {
+    if (state.status === "closing") throw new Error("Intentional sync lifecycle test failure");
+  });
+  const observe = client.lifecycle.subscribe((state) => states.push(state.status));
+
+  try {
+    const closing = client.close();
+
+    expect(client.close()).toBe(closing);
+    await closing;
+    expect(client.lifecycle.current.status).toBe("closed");
+    expect(states).toEqual(["active", "closing", "closed"]);
+  } finally {
+    unsubscribe();
+    observe();
+    await client.close();
+  }
+}, 5000);
+
+test("a failed initial lifecycle notification releases its subscription", async () => {
+  const client = createSyncClient({ schema, cacheURL: null, kvStore: "mem" });
+  let notifications = 0;
+
+  try {
+    expect(() =>
+      client.lifecycle.subscribe(() => {
+        notifications++;
+        throw new Error("Intentional initial lifecycle test failure");
+      }),
+    ).toThrow("Intentional initial lifecycle test failure");
+    await client.close();
+    expect(notifications).toBe(1);
+  } finally {
+    await client.close();
+  }
+});

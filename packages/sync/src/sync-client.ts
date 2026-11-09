@@ -47,7 +47,13 @@ export function createSyncClient<const ApplicationSchema extends Schema, Context
 
     lifecycleState = state;
 
-    for (const listener of lifecycleListeners) listener(state);
+    for (const listener of lifecycleListeners) {
+      try {
+        listener(state);
+      } catch (cause) {
+        console.error("Sync lifecycle listener failed", cause);
+      }
+    }
   };
   const client = new Zero({
     ...options,
@@ -73,7 +79,14 @@ export function createSyncClient<const ApplicationSchema extends Schema, Context
       },
       subscribe(listener) {
         lifecycleListeners.add(listener);
-        listener(lifecycleState);
+
+        try {
+          listener(lifecycleState);
+        } catch (cause) {
+          lifecycleListeners.delete(listener);
+
+          throw cause;
+        }
 
         return () => lifecycleListeners.delete(listener);
       },

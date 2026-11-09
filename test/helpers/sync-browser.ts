@@ -2,11 +2,12 @@ import { chromium, type Page } from "playwright";
 import { expect } from "bun:test";
 import * as v from "valibot";
 
-async function withTestSyncBrowser<Result>(
+export async function withTestSyncBrowser<Result>(
   run: (page: Page, moduleUrl: string) => Promise<Result>,
+  entrypoint = "examples/sync-workspace/browser-client.ts",
 ) {
   const build = await Bun.build({
-    entrypoints: ["examples/sync-workspace/browser-client.ts"],
+    entrypoints: [entrypoint],
     target: "browser",
   });
 

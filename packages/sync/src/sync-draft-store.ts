@@ -27,18 +27,19 @@ export const SyncDraftRecordSchema = v.pipe(
     v.object({
       ...SubmittedDraftEntries,
       status: v.literal("accepted"),
-      receipt: SyncOperationReceiptSchema.options[0],
+      receipt: v.optional(SyncOperationReceiptSchema.options[0]),
     }),
     v.object({
       ...SubmittedDraftEntries,
       status: v.literal("rejected"),
-      receipt: SyncOperationReceiptSchema.options[1],
+      receipt: v.optional(SyncOperationReceiptSchema.options[1]),
     }),
   ]),
   v.check(
     (record) =>
       record.status === "draft" ||
       record.status === "pending" ||
+      record.receipt === undefined ||
       (record.operation.operationIdentifier === record.receipt.operationIdentifier &&
         record.operation.workspaceIdentifier === record.receipt.workspaceIdentifier),
     "Sync draft receipt must identify its saved operation",
@@ -75,8 +76,17 @@ export function createSyncDraftStore(options: {
     options.storage,
     `cueloop-sync-drafts:${JSON.stringify(scope)}`,
   );
+  const fitsBudget = (records: SyncDraftRecord[]): boolean => {
+    const reserved = records.map((record) =>
+      record.status === "pending"
+        ? { ...record, status: "accepted", updatedAt: Number.MAX_SAFE_INTEGER }
+        : record,
+    );
+
+    return new TextEncoder().encode(JSON.stringify(reserved)).byteLength <= maximumBytes;
+  };
   const checkBudget = (records: SyncDraftRecord[]) => {
-    if (new TextEncoder().encode(JSON.stringify(records)).byteLength > maximumBytes) {
+    if (!fitsBudget(records)) {
       throw new Error("Sync draft store exceeds its byte budget; retain the unsaved input");
     }
   };
@@ -177,12 +187,20 @@ export function createSyncDraftStore(options: {
           return current;
         }
 
-        return v.parse(SyncDraftRecordSchema, {
+        const completed = v.parse(SyncDraftRecordSchema, {
           ...current,
           status: receipt.status,
           receipt,
           updatedAt: Date.now(),
         });
+        const next = [
+          ...records.filter((record) => record.draftIdentifier !== completed.draftIdentifier),
+          completed,
+        ];
+
+        if (fitsBudget(next)) return completed;
+
+        return v.parse(SyncDraftRecordSchema, { ...completed, receipt: undefined });
       });
     },
     async discard(draftIdentifier: SyncDraftRecord["draftIdentifier"]): Promise<void> {

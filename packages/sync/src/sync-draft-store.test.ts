@@ -170,3 +170,68 @@ test("a draft replacement over the byte budget preserves the last saved input", 
     rmSync(directory, { recursive: true, force: true });
   }
 });
+
+test.each(["accepted", "rejected"] as const)(
+  "a full draft store saves a bounded %s outcome and permits explicit discard",
+  async (status) => {
+    const directory = mkdtempSync(join(tmpdir(), "cueloop-sync-draft-final-budget-"));
+    const options = {
+      storage: createSyncSqliteStorage({ directory }),
+      authorityIdentifier: "https://sync.example.test",
+      userIdentifier: "alice",
+      maximumBytes: 700,
+    };
+    const store = createSyncDraftStore(options);
+
+    try {
+      const saved = await store.save({ content: "Recover this input" });
+      const operation = defineSyncOperation({
+        name: "comment.add",
+        version: 1,
+        arguments: v.object({ body: v.string() }),
+      }).create({
+        workspaceIdentifier: "019a6650-0000-7000-8000-000000000001",
+        arguments: { body: "Recover this input" },
+      });
+
+      await store.markSubmitted({ draftIdentifier: saved.draftIdentifier, operation });
+      const receipt =
+        status === "accepted"
+          ? {
+              status,
+              operationIdentifier: operation.operationIdentifier,
+              workspaceIdentifier: operation.workspaceIdentifier,
+              acceptedAt: Date.now(),
+              result: { status: "retained" as const, value: "x".repeat(1000) },
+            }
+          : {
+              status,
+              operationIdentifier: operation.operationIdentifier,
+              workspaceIdentifier: operation.workspaceIdentifier,
+              rejectedAt: Date.now(),
+              reason: {
+                status: "retained" as const,
+                code: "revision_conflict",
+                message: "x".repeat(1000),
+              },
+            };
+      const final = await store.recordReceipt({ draftIdentifier: saved.draftIdentifier, receipt });
+
+      expect(final).toMatchObject({ status, content: "Recover this input", operation });
+      expect("receipt" in final ? final.receipt : undefined).toBeUndefined();
+      await store.close();
+      const recovered = createSyncDraftStore(options);
+
+      try {
+        expect(await recovered.list()).toEqual([final]);
+        await recovered.discard(saved.draftIdentifier);
+        expect((await recovered.save({ content: "Space is available" })).status).toBe("draft");
+      } finally {
+        await recovered.close();
+      }
+    } finally {
+      await store.close();
+      rmSync(directory, { recursive: true, force: true });
+    }
+  },
+);

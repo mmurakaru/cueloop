@@ -97,6 +97,11 @@ await client.close();
 The replica stores data and engine replication positions in one transaction.
 Reconnect uses the engine's catch-up and authorized snapshot protocols.
 The application does not supply a replication cursor.
+Use `client.run(query, { type: "cached" })` to wait for a previously confirmed result during offline startup.
+An immediate query can be empty while local storage loads.
+If the query has no saved result, `cached` waits for the authority.
+Replica persistence is scheduled by the engine; a query result is not a storage acknowledgement.
+Draft-store writes commit before resolving.
 Browser draft stores use `storage: "idb"` with the same authority and user scope.
 
 Save a draft, create its operation once, and call `drafts.markSubmitted` before sending it.
@@ -105,6 +110,9 @@ A rejected draft retains its input and operation.
 A pending draft cannot be discarded until its receipt is recovered.
 These methods never submit or retry an operation.
 Draft stores default to 1,000 items and 8 MiB; a failed write preserves the previous records.
+Pending records reserve space for a final status.
+If a complete receipt would exceed the byte budget, the saved final record omits `receipt` while retaining the operation, input, and accepted or rejected status.
+Use the authority to retrieve its full receipt when needed.
 
 > [!IMPORTANT]
 > An accepted receipt can arrive before the replica update.
@@ -113,6 +121,7 @@ Draft stores default to 1,000 items and 8 MiB; a failed write preserves the prev
 `client.connection` reports transport health, query `freshness` reports completeness, and `client.lifecycle` reports storage, reset, and shutdown state.
 Replace a client that reports `needs-reset` or `storage-failed`, and retain its drafts.
 Calling `client.close()` blocks new writes immediately and awaits replica shutdown.
+Closing does not force an extra replica checkpoint; reconnect recovers changes newer than the saved position.
 
 A query subscription owns and closes its view.
 It retains one pending full snapshot and defaults to an 8 MiB byte budget.
