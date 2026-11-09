@@ -98,6 +98,7 @@ export async function runTestAgentStreamReview(options: { paragraphs?: number } 
 
   try {
     await waitForText(setup, "Stream review");
+    await waitForText(setup, "Stream Test");
     await settle(setup);
     const artifact = locateText(setup, "Stream review");
 

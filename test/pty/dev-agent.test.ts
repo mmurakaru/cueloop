@@ -38,6 +38,7 @@ ptyTest.skipIf(Boolean(process.env.CUELOOP_TEST_EXECUTABLE))(
     try {
       await session.waitForReady();
       await session.waitForText("A seeded plan");
+      await session.waitForText("fx");
       const selection = session.locate("A seeded plan");
 
       await session.dragAt(selection.column, selection.row, selection.column + 12, selection.row);
