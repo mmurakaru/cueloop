@@ -114,8 +114,18 @@ export async function runTestAgentStreamReview(options: { paragraphs?: number } 
     if (options.paragraphs) {
       await settle(setup);
 
-      for (let step = 0; step < 50 && !setup.captureCharFrame().includes("stream-0"); step++) {
-        await setup.mockMouse.scroll(20, 20, "down", { delayMs: 0 });
+      const maximumGestures = (options.paragraphs + 1) * 8;
+
+      // Tail setup must not depend on wheel acceleration between paints.
+      for (
+        let step = 0;
+        step < maximumGestures && !setup.captureCharFrame().includes("stream-0");
+        step += 16
+      ) {
+        for (let gesture = 0; gesture < Math.min(16, maximumGestures - step); gesture++) {
+          await setup.mockMouse.scroll(20, 20, "down", { delayMs: 0 });
+        }
+
         await settle(setup);
       }
     }
