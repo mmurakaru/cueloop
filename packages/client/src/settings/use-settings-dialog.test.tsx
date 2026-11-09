@@ -19,12 +19,15 @@ function TestThreadSettings({
   onSwitch: (harness: string) => void;
 }) {
   const [harness, setHarness] = useState<"pi" | "fx">("pi");
+  const [syncEnabled, setSyncEnabled] = useState(false);
   const [threadDefaults, setThreadDefaults] = useState(() => {
     const config = loadConfig();
 
     return { pi: config.thread.pi, fx: config.thread.fx };
   });
   const model = useSettingsDialog({
+    syncEnabled,
+    setSyncEnabled,
     threadDefaults,
     setThreadDefaults,
     theme: DARK,

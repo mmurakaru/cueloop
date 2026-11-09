@@ -95,6 +95,7 @@ interface CommandHandlers {
 }
 
 const commandHandlers: CommandHandlers = {
+  sync: async (rest) => (await import("./sync-command")).syncCommand(rest),
   session: (rest) => sessionCommand(rest),
   daemon: async (rest) => (await import("./daemon-command")).daemonCommand(rest),
   stop: async () => (await import("./daemon-control")).stopCommand(),

@@ -27,6 +27,22 @@ jobs:
       - run: bun run check:publish -- --dev
       - run: bun run test
 
+  sync:
+    name: Sync compatibility
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: bun install --frozen-lockfile
+      - run: bunx playwright install --with-deps chromium
+      - run: bun run test:sync
+
   dependencies:
     name: Dependency validation and reports
     runs-on: ubuntu-latest

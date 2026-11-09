@@ -87,6 +87,16 @@ jobs:
           tag="cueloop@${version}"
           echo "version=${version}" >> "$GITHUB_OUTPUT"
           echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          # A new workspace must not publish at the previous release's version.
+          for pending_changeset in .changeset/*.md; do
+            [ -f "$pending_changeset" ] || continue
+            [ "$(basename "$pending_changeset")" != README.md ] || continue
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "any_published=false" >> "$GITHUB_OUTPUT"
+            echo "finalize=false" >> "$GITHUB_OUTPUT"
+            echo "release_published=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          done
           publish=false
           any_published=false
           for manifest in packages/*/package.json packages/integrations/*/package.json; do

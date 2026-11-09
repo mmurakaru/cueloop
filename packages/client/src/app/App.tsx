@@ -701,12 +701,15 @@ export function App({
   // opt-in: render a prototype as a kitty pixel mockup instead of the markdown doc
   const [prototypePixels, setPrototypePixels] = useState(false);
   const [threadAgentEnabled, setThreadAgentEnabled] = useState(false);
+  const [syncEnabled, setSyncEnabled] = useState(false);
+  const repoRoot = controller.workspaceRoot();
 
   useEffect(() => {
-    const config = loadConfig({ repoRoot: session?.workspace.repoRoot });
+    const config = loadConfig({ repoRoot });
 
     setPrototypePixels(config.experimental.prototypePixels);
     setThreadAgentEnabled(config.experimental.threadAgent);
+    setSyncEnabled(config.experimental.sync);
     setThreadHarness(config.thread.harness);
     setThreadModelDefaults({ pi: config.thread.pi, fx: config.thread.fx });
     keysRef.current = config.keys;
@@ -725,7 +728,7 @@ export function App({
     setDefaultMessage(config.ui.defaultMessage);
     setPinnedIds(new Set(config.ui.pins));
     controller.applyConfig(config);
-  }, [session?.workspace.repoRoot, controller, keyBindings, appearance]);
+  }, [repoRoot, controller, keyBindings, appearance]);
   useEffect(
     () => () => {
       if (pulseTimer.current) clearTimeout(pulseTimer.current);
@@ -805,6 +808,9 @@ export function App({
     onCategorySelect,
     openSettings,
   } = useSettingsDialog({
+    repoRoot,
+    syncEnabled,
+    setSyncEnabled,
     threadDefaults: threadModelDefaults,
     setThreadDefaults: setThreadModelDefaults,
     theme,

@@ -701,6 +701,36 @@ describe("the bare-launch welcome shell", () => {
     setup.renderer.destroy();
   });
 
+  test("bare-launch Experimental settings uses the workspace sync override from a subdirectory", async () => {
+    const subdirectory = join(welcomeRepo, "nested");
+
+    mkdirSync(subdirectory);
+    mkdirSync(join(welcomeRepo, ".cueloop"), { recursive: true });
+    writeFileSync(join(welcomeRepo, ".cueloop", "config.toml"), "[experimental]\nsync = false\n");
+    writeFileSync(process.env.CUELOOP_CONFIG!, "[experimental]\nsync = true\n");
+    const setup = await renderReadyApp(<App home={welcomeHome} cwd={subdirectory} />, {
+      width: 120,
+      height: 30,
+    });
+
+    await setup.mockMouse.click(1, HEADER_ROW);
+    await waitForText(setup, "settings");
+    const settings = locateText(setup, "settings");
+
+    await setup.mockMouse.click(settings.column, settings.row);
+    await waitForText(setup, "General");
+    const experimental = locateText(setup, "Experimental");
+
+    await setup.mockMouse.click(experimental.column, experimental.row);
+    await waitForText(setup, "Multiplayer sync");
+    expect(setup.captureCharFrame()).toContain("Off");
+    const row = locateText(setup, "Multiplayer sync");
+
+    await setup.mockMouse.click(row.column, row.row);
+    await waitForText(setup, "On");
+    expect(loadConfig({ repoRoot: welcomeRepo }).experimental.sync).toBe(true);
+  });
+
   test("the first comment in the bare shell creates and persists a per-repo workbench thread", async () => {
     const setup = await renderWelcome();
 

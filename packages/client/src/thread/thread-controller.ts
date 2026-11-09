@@ -11,6 +11,7 @@ import { SystemClock, type Clock, type TimerHandle } from "@opentui/core";
 import { statSync } from "node:fs";
 import { createStore, type StoreApi } from "zustand/vanilla";
 import { DaemonClient, type ThreadClient } from "@cueloop/daemon/client";
+import { resolveWorkspaceRoot } from "@cueloop/daemon/thread-review";
 import {
   applyPathView,
   applyTextCuts,
@@ -285,6 +286,7 @@ export interface ReviewController {
   working(): string;
   projectFiles(): Promise<string[]>;
   readFile(path: string): Promise<string | null>;
+  workspaceRoot(): string;
   repoFiles(): Promise<string[]>;
   repoReadFile(path: string): Promise<string | null>;
   repoChanges(): Promise<readonly DiffFileContents[]>;
@@ -401,6 +403,7 @@ class Controller implements ReviewController {
   private autoClose: AutoClose = "off";
   private quickActions: QuickAction[] = [];
   private editor: string | undefined;
+  private launchWorkspaceRoot: string | undefined;
   private exporters: BundledExporter[] = [];
   private readonly clock: Clock;
   private readonly shareTransport: ShareTransport;
@@ -500,6 +503,10 @@ class Controller implements ReviewController {
           this.viewingId = this.options.sessionId;
           this.update({ session: await client.sessionGet(this.options.sessionId), inbox });
         } else {
+          this.launchWorkspaceRoot = await resolveWorkspaceRoot(this.options.cwd ?? process.cwd());
+
+          if (this.closed) return;
+
           this.update({ inbox });
         }
       } catch (err) {
@@ -769,21 +776,26 @@ class Controller implements ReviewController {
     return this.client.fileContents(session.id, path);
   }
 
-  /** The repo the sidebar tree/changes point at: the thread's own repo, else the launch directory. */
-  private sidebarRepoRoot(): string {
-    return this.snapshot.session?.workspace.repoRoot || this.options.cwd || process.cwd();
+  /** Files and settings must resolve the same workspace before a Thread exists. */
+  workspaceRoot(): string {
+    return (
+      this.snapshot.session?.workspace.repoRoot ||
+      this.launchWorkspaceRoot ||
+      this.options.cwd ||
+      process.cwd()
+    );
   }
 
   async repoFiles(): Promise<string[]> {
     if (this.client?.repoFiles === undefined) return [];
 
-    return this.client.repoFiles(this.sidebarRepoRoot());
+    return this.client.repoFiles(this.workspaceRoot());
   }
 
   async repoReadFile(path: string): Promise<string | null> {
     if (this.client?.repoFileContents === undefined) return null;
 
-    return this.client.repoFileContents(this.sidebarRepoRoot(), path);
+    return this.client.repoFileContents(this.workspaceRoot(), path);
   }
 
   async repoChanges(): Promise<readonly DiffFileContents[]> {
@@ -799,7 +811,7 @@ class Controller implements ReviewController {
     // eager: capture the live working-tree diff so the Changes navigator and its file tabs render a real diff
     if (this.client?.repoDiff !== undefined) {
       const diff = await this.client.repoDiff(
-        this.sidebarRepoRoot(),
+        this.workspaceRoot(),
         session?.artifact.meta.workbench ? (session.artifact.meta.vcs ?? "git") : undefined,
       );
 
@@ -831,7 +843,7 @@ class Controller implements ReviewController {
     // a peer without the live-diff capability still lists changes, just without a diff body
     if (this.client?.repoChanges === undefined) return [];
 
-    const changes = await this.client.repoChanges(this.sidebarRepoRoot());
+    const changes = await this.client.repoChanges(this.workspaceRoot());
 
     return changes.map((change) => ({
       path: change.path,

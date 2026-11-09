@@ -35,6 +35,7 @@
     "@cueloop/daemon": "0.1.0-alpha.115",
     "@cueloop/extension-api": "0.1.0-alpha.115",
     "@cueloop/schema": "0.1.0-alpha.115",
+    "@cueloop/sync": "workspace:*",
     "@modelcontextprotocol/server": "2.4.0",
     "@valibot/to-json-schema": "1.8.0",
     "valibot": "^1.5.0"
