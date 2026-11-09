@@ -114,9 +114,18 @@ export async function runTestAgentStreamReview(options: { paragraphs?: number } 
     if (options.paragraphs) {
       await settle(setup);
 
-      for (let step = 0; step < 50 && !setup.captureCharFrame().includes("stream-0"); step++) {
+      const maximumGestures = (options.paragraphs + 1) * 8;
+
+      const gestureNumbers = Array.from({ length: maximumGestures }, (_, index) => index + 1);
+
+      for (const gestureNumber of gestureNumbers) {
+        if (setup.captureCharFrame().includes("stream-0")) break;
+
         await setup.mockMouse.scroll(20, 20, "down", { delayMs: 0 });
-        await settle(setup);
+
+        if (gestureNumber % 16 === 0 || gestureNumber === maximumGestures) {
+          await settle(setup);
+        }
       }
     }
 

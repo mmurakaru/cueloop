@@ -42,6 +42,7 @@ ptyTest.skipIf(Boolean(process.env.CUELOOP_TEST_EXECUTABLE))(
 
       await session.dragAt(selection.column, selection.row, selection.column + 12, selection.row);
       await session.type("Explain retry cancellation");
+      await session.waitForText("Explain retry cancellation");
       await session.press(["ctrl", "enter"]);
       await session.waitForText("The timer survives cancellation.");
       client = await DaemonClient.connect({ home });
