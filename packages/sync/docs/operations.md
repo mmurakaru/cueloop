@@ -37,7 +37,6 @@ Receipt results remain available for 30 days by default.
 Authorized `compactSyncOperationResults` calls remove expired result bytes in bounded batches while retaining request identities and final status indefinitely.
 Expired results report `expired`; retrying them never applies their changes again.
 
-
 ## Example commands
 
 Save a created comment envelope and use `--operation ./comment.json` to submit it or add `--operation-status` for receipt lookup.
