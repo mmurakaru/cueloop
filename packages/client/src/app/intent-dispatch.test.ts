@@ -84,6 +84,7 @@ function baseController(): ReviewController {
     working: mock(() => ""),
     projectFiles: mock(() => Promise.resolve<string[]>([])),
     readFile: mock(() => Promise.resolve<string | null>(null)),
+    workspaceRoot: mock(() => "/workspace"),
     repoFiles: mock(() => Promise.resolve<string[]>([])),
     repoReadFile: mock(() => Promise.resolve<string | null>(null)),
     repoChanges: mock(() => Promise.resolve([])),
