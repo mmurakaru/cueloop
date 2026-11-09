@@ -21,6 +21,7 @@ const TextDraftContentSchema = v.object({
   localState: SyncTextStateSchema,
   text: v.string(),
   role: v.picklist(["viewer", "editor", "owner"]),
+  supersededDraftIdentifiers: v.optional(v.array(v.pipe(v.string(), v.uuid())), []),
 });
 
 export async function readSharedTextAuthority(options: SharedTextAuthorityOptions) {
@@ -45,7 +46,7 @@ export async function loadSharedTextEditorState(
     drafts: ReturnType<typeof createSyncDraftStore>;
   },
 ) {
-  const stored = (await options.drafts.list())
+  const candidates = (await options.drafts.list())
     .map((record) => ({ record, content: v.safeParse(TextDraftContentSchema, record.content) }))
     .filter(
       (entry) =>
@@ -53,7 +54,8 @@ export async function loadSharedTextEditorState(
         entry.content.output.workspaceIdentifier === options.workspaceIdentifier &&
         entry.content.output.recordIdentifier === options.recordIdentifier,
     )
-    .toSorted((left, right) => right.record.updatedAt - left.record.updatedAt)[0];
+    .toSorted((left, right) => right.record.updatedAt - left.record.updatedAt);
+  const stored = candidates[0];
   const restored = stored?.content.success ? stored.content.output : undefined;
   let source: v.InferOutput<typeof SharedTextStateResponseSchema>;
 
@@ -91,11 +93,31 @@ export async function loadSharedTextEditorState(
 
   if (!source.textState) throw new Error("Shared text initialization requires an editor or owner");
 
-  return restoreSharedTextEditorState({
-    source: { ...source, textState: source.textState },
-    stored,
-    restored,
-  });
+  const superseded = new Set(restored?.supersededDraftIdentifiers ?? []);
+
+  if (stored?.record.status === "rejected") superseded.add(stored.record.draftIdentifier);
+
+  const supersededDraftIdentifiers = candidates
+    .filter(
+      (entry) => entry.record.status === "rejected" && superseded.has(entry.record.draftIdentifier),
+    )
+    .map((entry) => entry.record.draftIdentifier);
+
+  if (stored?.record.status === "accepted") {
+    await Promise.all(
+      supersededDraftIdentifiers.map((identifier) => options.drafts.discard(identifier)),
+    );
+    await options.drafts.discard(stored.record.draftIdentifier);
+  }
+
+  return {
+    ...restoreSharedTextEditorState({
+      source: { ...source, textState: source.textState },
+      stored,
+      restored,
+    }),
+    supersededDraftIdentifiers,
+  };
 }
 
 function restoreSharedTextEditorState({

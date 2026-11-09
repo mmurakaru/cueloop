@@ -1,3 +1,4 @@
+import postgres from "postgres";
 import React from "react";
 import { testRender } from "@opentui/react/test-utils";
 import { SyncThreadEditor } from "@cueloop/client/sync-editor";
@@ -315,6 +316,86 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
       await session?.close();
       await relay.stop(true);
       await reader.close();
+      await stack.close();
+    }
+  },
+  120000,
+);
+
+test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
+  "a replacement accepted after restart retires its superseded rejected draft",
+  async () => {
+    const stack = await createTestSyncStack();
+    const reader = createSharedRecordClient(stack);
+    const database = postgres(stack.environment.SYNC_DATABASE_URL);
+    const storage = createSyncSqliteStorage({
+      directory: join(stack.directory, "superseded-editor"),
+    });
+    let session: Awaited<ReturnType<typeof createSharedTextEditorSession>> | undefined;
+
+    try {
+      const [record] = await reader.run(sharedRecordQueries.records(), { type: "complete" });
+
+      if (!record) throw new Error("Sync replacement test requires its record");
+
+      const options = {
+        ...stack,
+        workspaceIdentifier: record.workspaceIdentifier,
+        recordIdentifier: record.id,
+        storage,
+      };
+
+      session = await createSharedTextEditorSession(options);
+      await waitForTestTextEditor(
+        session,
+        (snapshot) => snapshot.connection === "connected",
+        "the original editor connection",
+      );
+      session.change("Rejected edit");
+      await database`UPDATE sync_workspace_member SET role = 'viewer' WHERE workspace_identifier = ${record.workspaceIdentifier} AND user_identifier = ${stack.userID}`;
+      expect((await session.save()).status).toBe("rejected");
+      await waitForTestTextEditor(
+        session,
+        (snapshot) => !snapshot.editable,
+        "the revoked editing permission",
+      );
+      await database`UPDATE sync_workspace_member SET role = 'editor' WHERE workspace_identifier = ${record.workspaceIdentifier} AND user_identifier = ${stack.userID}`;
+      await waitForTestTextEditor(
+        session,
+        (snapshot) => snapshot.editable,
+        "the restored editing permission",
+      );
+      session.change("Accepted replacement");
+      await session.close();
+      session = await createSharedTextEditorSession(options);
+      await waitForTestTextEditor(
+        session,
+        (snapshot) => snapshot.connection === "connected",
+        "the reopened replacement editor",
+      );
+      expect((await session.save()).status).toBe("accepted");
+      await session.close();
+      session = await createSharedTextEditorSession(options);
+      expect(session.getSnapshot()).toMatchObject({
+        text: "Accepted replacement",
+        operation: "idle",
+        draftSaved: false,
+      });
+      const drafts = createSyncDraftStore({
+        storage,
+        authorityIdentifier: stack.authorityURL,
+        userIdentifier: stack.userID,
+      });
+
+      try {
+        expect(await drafts.list()).toEqual([]);
+      } finally {
+        await drafts.close();
+      }
+    } finally {
+      await session?.close();
+      await reader.close();
+      await database.end();
       await stack.close();
     }
   },

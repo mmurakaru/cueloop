@@ -78,6 +78,7 @@ export async function createSharedTextEditorSession(options: {
     let baseState = initial.baseState;
     let text = initial.text;
     let draftIdentifier = initial.draftIdentifier;
+    const supersededDraftIdentifiers = new Set(initial.supersededDraftIdentifiers);
     let hasDraft = initial.hasDraft;
     let generation = initial.generation;
     let persistedGeneration = generation;
@@ -137,6 +138,7 @@ export async function createSharedTextEditorSession(options: {
             localState: document.snapshot.state,
             text,
             role,
+            supersededDraftIdentifiers: [...supersededDraftIdentifiers],
           };
           const saved = await drafts.save({ draftIdentifier, content });
 
@@ -263,7 +265,11 @@ export async function createSharedTextEditorSession(options: {
         baseState = document.snapshot.state;
         hasDraft = false;
         draftIdentifier = undefined;
+        await Promise.all(
+          [...supersededDraftIdentifiers].map((identifier) => drafts.discard(identifier)),
+        );
         await drafts.discard(acceptedDraftIdentifier);
+        supersededDraftIdentifiers.clear();
 
         try {
           const accepted = await readAuthority();
@@ -276,6 +282,7 @@ export async function createSharedTextEditorSession(options: {
           error = "Edit accepted; latest shared text is temporarily unavailable";
         }
       } else {
+        supersededDraftIdentifiers.add(draftIdentifier);
         draftIdentifier = undefined;
         persistedGeneration = 0;
         error =
