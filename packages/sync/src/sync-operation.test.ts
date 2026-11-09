@@ -140,3 +140,19 @@ test("cyclic application input fails validation before it can be submitted", () 
     "Sync JSON values require finite, acyclic plain JSON",
   );
 });
+
+test("an application cannot create a request with a byte limit above the supported protocol ceiling", () => {
+  const definition = defineSyncOperation({
+    name: "comment.add",
+    version: 1,
+    arguments: v.object({ body: v.string() }),
+  });
+
+  expect(() =>
+    definition.create({
+      workspaceIdentifier: "019a6650-0000-7000-8000-000000000001",
+      arguments: { body: "A bounded request" },
+      maximumBytes: 512 * 1024 + 1,
+    }),
+  ).toThrow();
+});

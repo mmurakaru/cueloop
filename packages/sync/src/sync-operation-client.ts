@@ -25,6 +25,10 @@ export async function submitSyncOperation<Operation extends SyncOperation>(optio
   signal?: AbortSignal;
 }): Promise<SyncOperationOutcome> {
   const operation = structuredClone(options.operation);
+  const normalized = parseSyncOperation(operation);
+
+  operation.operationIdentifier = normalized.operationIdentifier;
+  operation.workspaceIdentifier = normalized.workspaceIdentifier;
   const timeoutMilliseconds = v.parse(
     v.pipe(v.number(), v.safeInteger(), v.minValue(1), v.maxValue(2147483647)),
     options.acknowledgementTimeoutMilliseconds ?? 30000,
@@ -34,8 +38,6 @@ export async function submitSyncOperation<Operation extends SyncOperation>(optio
     operationIdentifier: operation.operationIdentifier,
     workspaceIdentifier: operation.workspaceIdentifier,
   };
-
-  parseSyncOperation(operation);
 
   if (options.signal?.aborted) return pending;
 

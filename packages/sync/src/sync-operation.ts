@@ -4,7 +4,7 @@ import serializeCanonicalJson from "canonicalize";
 import type { ReadonlyJSONValue } from "@rocicorp/zero";
 import { SyncJsonValueSchema } from "./sync-json.ts";
 
-const DEFAULT_MAXIMUM_OPERATION_BYTES = 512 * 1024;
+const MAXIMUM_OPERATION_BYTES = 512 * 1024;
 const MAXIMUM_REQUEST_LIFETIME_MILLISECONDS = 24 * 60 * 60 * 1000;
 const SyncOperationIdentifierSchema = v.pipe(
   v.string(),
@@ -47,7 +47,10 @@ export type SyncOperation<Arguments extends ReadonlyJSONValue = ReadonlyJSONValu
 > & { arguments: Arguments };
 
 function checkOperationSize(operation: SyncOperation, maximumBytes: number) {
-  v.parse(v.pipe(v.number(), v.safeInteger(), v.minValue(1)), maximumBytes);
+  v.parse(
+    v.pipe(v.number(), v.safeInteger(), v.minValue(1), v.maxValue(MAXIMUM_OPERATION_BYTES)),
+    maximumBytes,
+  );
   const serialized = JSON.stringify(operation);
 
   if (serialized === undefined) throw new Error("Sync operation must be serializable JSON");
@@ -59,7 +62,7 @@ function checkOperationSize(operation: SyncOperation, maximumBytes: number) {
 
 export function parseSyncOperation(
   input: SyncOperationInput,
-  maximumBytes = DEFAULT_MAXIMUM_OPERATION_BYTES,
+  maximumBytes = MAXIMUM_OPERATION_BYTES,
 ): SyncOperation {
   const operation = v.parse(SyncOperationSchema, input);
 
@@ -145,12 +148,12 @@ export function defineSyncOperation<
 
       checkOperationSize(
         v.parse(SyncOperationSchema, operation),
-        input.maximumBytes ?? DEFAULT_MAXIMUM_OPERATION_BYTES,
+        input.maximumBytes ?? MAXIMUM_OPERATION_BYTES,
       );
 
       return operation;
     },
-    parse(input: SyncOperationInput, maximumBytes = DEFAULT_MAXIMUM_OPERATION_BYTES) {
+    parse(input: SyncOperationInput, maximumBytes = MAXIMUM_OPERATION_BYTES) {
       const operation = v.parse(schema, input);
 
       checkOperationSize(v.parse(SyncOperationSchema, operation), maximumBytes);

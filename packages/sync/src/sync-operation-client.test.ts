@@ -88,3 +88,31 @@ test("an authoritative identity conflict fails explicitly rather than remaining 
     }),
   ).rejects.toThrow("Sync operation identity conflicts with an existing request");
 });
+
+test("normalized workspace identifiers preserve a final accepted receipt", async () => {
+  const operation = comment.create({
+    workspaceIdentifier: "019a6650-0000-7000-8000-0000000000ab",
+    arguments: { body: "A saved request" },
+  });
+  const outcome = await submitSyncOperation({
+    operation: { ...operation, workspaceIdentifier: operation.workspaceIdentifier.toUpperCase() },
+    submit: (request) => ({
+      client: Promise.resolve({ type: "success" }),
+      server: Promise.resolve({
+        type: "success",
+        data: {
+          status: "accepted",
+          operationIdentifier: request.operationIdentifier,
+          workspaceIdentifier: request.workspaceIdentifier.toLowerCase(),
+          acceptedAt: 1700000001000,
+          result: { status: "retained", value: null },
+        },
+      }),
+    }),
+  });
+
+  expect(outcome).toMatchObject({
+    status: "accepted",
+    workspaceIdentifier: "019a6650-0000-7000-8000-0000000000ab",
+  });
+});
