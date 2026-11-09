@@ -455,6 +455,7 @@ export const SessionEntrySchema = v.variant("type", [
     ...EntryBaseEntries,
     type: v.literal("revision"),
     by: v.picklist(["agent", "reviewer"]),
+    author: v.optional(NonEmpty),
     content: v.string(),
     textCuts: v.optional(TextCutsSchema),
   }),

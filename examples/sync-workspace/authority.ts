@@ -10,11 +10,11 @@ import postgres from "postgres";
 import * as v from "valibot";
 import { sharedRecordSchema } from "./workspace-schema.ts";
 import { sharedWorkspaceQueries } from "./shared-workspace.ts";
-import {
-  sharedWorkspaceServerMutators,
-  authorizeSharedWorkspace,
-  SharedWorkspaceAccessError,
-} from "./shared-comment-authority.ts";
+import { authorizeSharedWorkspace, SharedWorkspaceAccessError } from "./shared-workspace-access.ts";
+import { sharedWorkspaceServerMutators } from "./shared-workspace-authority.ts";
+import { readSharedTextRecord } from "./shared-text-authority.ts";
+import { SharedTextStateRequestSchema } from "./shared-text.ts";
+import { openSharedTextEditor } from "./text-editor-cli.ts";
 import { connectSharedRecord } from "./cli-client.ts";
 
 const databaseUrl = process.env.SYNC_DATABASE_URL;
@@ -27,10 +27,35 @@ if (!token || !userIdentifier) {
 
 const connection = databaseUrl ? postgres(databaseUrl) : undefined;
 const database = connection ? zeroPostgresJS(sharedRecordSchema, connection) : undefined;
-const authenticate = async (request: Request) =>
-  request.headers.get("authorization") === `Bearer ${token}`
-    ? { userIdentifier, context: { userIdentifier } }
+const identities = [{ token, userIdentifier }];
+const collaboratorToken = process.env.SYNC_COLLABORATOR_AUTH_TOKEN;
+const collaboratorIdentifier = process.env.SYNC_COLLABORATOR_USER_ID;
+
+if (databaseUrl && (collaboratorToken || collaboratorIdentifier)) {
+  if (
+    !collaboratorToken ||
+    !collaboratorIdentifier ||
+    collaboratorToken === token ||
+    collaboratorIdentifier === userIdentifier
+  ) {
+    throw new Error("Sync collaborator credentials require a distinct token and user identity");
+  }
+
+  identities.push({ token: collaboratorToken, userIdentifier: collaboratorIdentifier });
+}
+
+const authenticate = async (request: Request) => {
+  const identity = identities.find(
+    (candidate) => request.headers.get("authorization") === `Bearer ${candidate.token}`,
+  );
+
+  return identity
+    ? {
+        userIdentifier: identity.userIdentifier,
+        context: { userIdentifier: identity.userIdentifier },
+      }
     : null;
+};
 const handleSync = database
   ? createSyncAuthority({
       schema: sharedRecordSchema,
@@ -50,7 +75,9 @@ const handleSync = database
   : () => new Response("Sync authority database is not configured", { status: 503 });
 
 async function fetch(request: Request): Promise<Response> {
-  if (new URL(request.url).pathname !== "/operation") return handleSync(request);
+  const path = new URL(request.url).pathname;
+
+  if (path !== "/operation" && path !== "/text") return handleSync(request);
 
   if (request.method !== "POST")
     return new Response("Method not allowed", { status: 405, headers: { Allow: "POST" } });
@@ -62,6 +89,19 @@ async function fetch(request: Request): Promise<Response> {
   if (!database) return new Response("Sync authority database is not configured", { status: 503 });
 
   try {
+    if (path === "/text") {
+      const input = v.parse(SharedTextStateRequestSchema, await request.json());
+      const record = await database.transaction((transaction) =>
+        readSharedTextRecord({
+          transaction,
+          actorIdentifier: principal.userIdentifier,
+          request: input,
+        }),
+      );
+
+      return Response.json(record);
+    }
+
     const operation = v.parse(SyncOperationSchema, await request.json());
     const receipt = await database.transaction((transaction) =>
       findSyncOperationReceipt({
@@ -97,5 +137,6 @@ async function fetch(request: Request): Promise<Response> {
 export const syncApplication = {
   fetch,
   connect: connectSharedRecord,
+  openText: openSharedTextEditor,
   close: () => connection?.end(),
 };

@@ -10,7 +10,7 @@ test("the packed sync SDK and CLI run from node_modules under Node", async () =>
 
   mkdirSync(installed, { recursive: true });
   symlinkSync(resolve("node_modules/@rocicorp"), join(modules, "@rocicorp"), "dir");
-  for (const dependency of ["valibot", "uuid", "canonicalize"]) {
+  for (const dependency of ["valibot", "uuid", "canonicalize", "idb", "yjs"]) {
     symlinkSync(resolve("node_modules", dependency), join(modules, dependency), "dir");
   }
 
@@ -45,6 +45,7 @@ test("the packed sync SDK and CLI run from node_modules under Node", async () =>
       import {createSyncClient} from '@cueloop/sync';
       import {createSchema, table, string} from '@cueloop/sync/schema';
       import {defineSyncOperation, parseSyncOperation} from '@cueloop/sync/operations';
+      import {createSyncTextState, createSyncTextDocument, mergeSyncTextUpdate} from '@cueloop/sync/text';
       import {readFileSync} from 'node:fs';
       import * as v from 'valibot';
       const schema=createSchema({tables:[table('record').columns({id:string()}).primaryKey('id')]});
@@ -54,6 +55,11 @@ test("the packed sync SDK and CLI run from node_modules under Node", async () =>
       const operation=definition.create({workspaceIdentifier:'019a6650-0000-7000-8000-000000000001',arguments:{body:'Packed request'}});
       if (parseSyncOperation(JSON.parse(JSON.stringify(operation))).arguments.body !== 'Packed request') throw new Error('Packed operation lost its arguments');
       readFileSync(new URL(import.meta.resolve('@cueloop/sync/migrations/001-operation-receipt.sql')));
+      const initial=createSyncTextState('Plan');
+      const editor=createSyncTextDocument({state:initial.state,canEdit:()=>true});
+      const change=editor.replace('Shared plan');
+      if (mergeSyncTextUpdate({state:initial.state,update:change.update}).text !== 'Shared plan') throw new Error('Packed text update did not merge');
+      editor.close();
       console.log('Packed SDK closed');
     `;
     const consumer = Bun.spawn(["node", "--input-type=module", "-e", source], {

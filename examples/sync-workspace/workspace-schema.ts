@@ -5,6 +5,8 @@ const sharedRecord = table("shared_record")
     id: string(),
     workspaceIdentifier: string().from("workspace_identifier"),
     content: string(),
+    textState: string().optional().from("text_state"),
+    textRevision: number().from("text_revision"),
     createdAt: number().from("created_at"),
     updatedAt: number().from("updated_at"),
     deletedAt: number().optional().from("deleted_at"),
@@ -45,6 +47,38 @@ const sharedComment = table("shared_comment")
   })
   .primaryKey("id");
 
+const sharedTextRevision = table("shared_text_revision")
+  .columns({
+    id: string(),
+    workspaceIdentifier: string().from("workspace_identifier"),
+    recordIdentifier: string().from("record_identifier"),
+    actorIdentifier: string().from("actor_identifier"),
+    parentIdentifier: string().optional().from("parent_identifier"),
+    revision: number(),
+    content: string(),
+    createdAt: number().from("created_at"),
+    updatedAt: number().from("updated_at"),
+    deletedAt: number().optional().from("deleted_at"),
+  })
+  .primaryKey("id");
+const textEditRelationships = relationships(sharedTextRevision, ({ many, one }) => ({
+  memberships: many({
+    sourceField: ["workspaceIdentifier"],
+    destField: ["workspaceIdentifier"],
+    destSchema: syncWorkspaceMember,
+  }),
+  workspace: one({
+    sourceField: ["workspaceIdentifier"],
+    destField: ["id"],
+    destSchema: syncWorkspace,
+  }),
+  record: one({
+    sourceField: ["recordIdentifier", "workspaceIdentifier"],
+    destField: ["id", "workspaceIdentifier"],
+    destSchema: sharedRecord,
+  }),
+}));
+
 const recordRelationships = relationships(sharedRecord, ({ many, one }) => ({
   memberships: many({
     sourceField: ["workspaceIdentifier"],
@@ -77,8 +111,8 @@ const commentRelationships = relationships(sharedComment, ({ many, one }) => ({
 }));
 
 export const sharedRecordSchema = createSchema({
-  tables: [sharedRecord, syncWorkspace, syncWorkspaceMember, sharedComment],
-  relationships: [recordRelationships, commentRelationships],
+  tables: [sharedRecord, syncWorkspace, syncWorkspaceMember, sharedComment, sharedTextRevision],
+  relationships: [recordRelationships, commentRelationships, textEditRelationships],
   enableLegacyQueries: false,
   enableLegacyMutators: false,
 });

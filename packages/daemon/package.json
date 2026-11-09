@@ -38,7 +38,8 @@
     "./sdk": "./src/daemon-sdk.ts",
     "./sdk-effect": "./src/daemon-sdk-effect.ts",
     "./thread-subscription": "./src/thread-subscription.ts",
-    "./shared-agent-protocol": "./src/shared-agent-protocol.ts"
+    "./shared-agent-protocol": "./src/shared-agent-protocol.ts",
+    "./sync-plan": "./src/sync-plan.ts"
   },
   "publishConfig": {
     "access": "public"
@@ -46,6 +47,7 @@
   "dependencies": {
     "@cueloop/extension-api": "0.1.0-alpha.115",
     "@cueloop/schema": "0.1.0-alpha.115",
+    "@cueloop/sync": "workspace:*",
     "@pierre/diffs": "^1.6.4",
     "effect": "^4.1.1",
     "smol-toml": "^1.9.1",

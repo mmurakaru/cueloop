@@ -86,6 +86,13 @@ Accepted and rejected receipts retain recoverable input; a pending result requir
 
 See the [application guide](./docs/application-guide.md) for storage and recovery, the [query guide](./docs/queries.md) for permissions and pagination, and the [operation guide](./docs/operations.md) for durable acceptance and retention.
 
+## Edit shared text
+
+`@cueloop/sync/text` creates bounded, mergeable plain-text updates and maps positions between document states.
+Applications authorize updates and commit accepted text, shared state, history, and receipts together.
+Disconnected input stays a local draft until explicit submission.
+See the [text guide](./docs/text.md) for the API and experimental terminal editor.
+
 ## Host an authority
 
 `createSyncAuthority` from `@cueloop/sync/server` accepts your schema, database adapter, authentication callback, and named query and mutation handlers.

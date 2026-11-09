@@ -11,7 +11,14 @@
  * rendered preview is a later layer.
  */
 
-import React, { forwardRef, useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
+import React, {
+  forwardRef,
+  useImperativeHandle,
+  useCallback,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import type { KeyBinding, TextareaRenderable } from "@opentui/core";
 import { useRenderer } from "@opentui/react";
 import { type Theme } from "../../appearance/theme";
@@ -22,6 +29,11 @@ export interface MarkdownThreadEditorProps {
   initialText: string;
   theme: Theme;
   onExitEditor: (text: string) => void;
+  text?: string;
+  onTextChange?: (text: string) => void;
+  editable?: boolean;
+  mapCursor?: (offset: number) => number | undefined;
+  footerHint?: string;
 }
 
 /** An imperative exit for callers outside the editor (the header edit/normal toggle): save the current text and leave. */
@@ -63,9 +75,22 @@ function newlinePrefixCounts(text: string): number[] {
 }
 
 export const MarkdownThreadEditor = forwardRef<MarkdownEditorHandle, MarkdownThreadEditorProps>(
-  function MarkdownThreadEditor({ initialText, theme, onExitEditor }, handleRef): React.ReactNode {
+  function MarkdownThreadEditor(
+    {
+      initialText,
+      theme,
+      onExitEditor,
+      text,
+      onTextChange,
+      editable = true,
+      mapCursor,
+      footerHint,
+    },
+    handleRef,
+  ): React.ReactNode {
     const renderer = useRenderer();
     const editorRef = useRef<TextareaRenderable | null>(null);
+    const reportedText = useRef(initialText);
     const [position, setPosition] = useState<MarkdownEditorPosition>({
       line: 1,
       column: 1,
@@ -77,22 +102,25 @@ export const MarkdownThreadEditor = forwardRef<MarkdownEditorHandle, MarkdownThr
 
     useImperativeHandle(handleRef, () => ({ requestExit: exitWithCurrentText }));
 
-    const paintMarkdown = (editor: TextareaRenderable): void => {
-      const { styleIdFor } = markdownEditorStyle(theme, renderer.nativeScene);
-      const text = editor.plainText;
-      // addHighlightByCharRange counts offsets with newlines excluded, so map source offsets down by the
-      // newlines before them - otherwise a highlight drifts one cell per preceding line
-      const newlinesBefore = newlinePrefixCounts(text);
+    const paintMarkdown = useCallback(
+      (editor: TextareaRenderable): void => {
+        const { styleIdFor } = markdownEditorStyle(theme, renderer.nativeScene);
+        const text = editor.plainText;
+        // addHighlightByCharRange counts offsets with newlines excluded, so map source offsets down by the
+        // newlines before them - otherwise a highlight drifts one cell per preceding line
+        const newlinesBefore = newlinePrefixCounts(text);
 
-      editor.editBuffer.clearAllHighlights();
-      for (const range of markdownHighlightRanges(text)) {
-        editor.editBuffer.addHighlightByCharRange({
-          start: range.start - newlinesBefore[range.start]!,
-          end: range.end - newlinesBefore[range.end]!,
-          styleId: styleIdFor(range.group),
-        });
-      }
-    };
+        editor.editBuffer.clearAllHighlights();
+        for (const range of markdownHighlightRanges(text)) {
+          editor.editBuffer.addHighlightByCharRange({
+            start: range.start - newlinesBefore[range.start]!,
+            end: range.end - newlinesBefore[range.end]!,
+            styleId: styleIdFor(range.group),
+          });
+        }
+      },
+      [renderer, theme],
+    );
 
     // paint synchronously at commit so the first frame already shows styled markdown
     useLayoutEffect(() => {
@@ -103,14 +131,36 @@ export const MarkdownThreadEditor = forwardRef<MarkdownEditorHandle, MarkdownThr
       editor.editBuffer.setSyntaxStyle(markdownEditorStyle(theme, renderer.nativeScene).style);
       paintMarkdown(editor);
       setPosition((prior) => ({ ...prior, lineCount: editor.editBuffer.getLineCount() }));
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [paintMarkdown, renderer, theme]);
+
+    useLayoutEffect(() => {
+      const editor = editorRef.current;
+
+      if (!editor || text === undefined || editor.plainText === text) return;
+
+      const characterOffset = editor.editBuffer.getTextRange(0, editor.cursorOffset).length;
+      const mappedOffset = mapCursor?.(characterOffset);
+      const offset =
+        mappedOffset === undefined
+          ? editor.cursorOffset
+          : editor.editBuffer.measureText(text.slice(0, mappedOffset));
+
+      reportedText.current = text;
+      editor.setText(text);
+      editor.cursorOffset = Math.min(offset, editor.editBuffer.measureText(text));
+      paintMarkdown(editor);
+      setPosition({
+        line: editor.logicalCursor.row + 1,
+        column: editor.logicalCursor.col + 1,
+        lineCount: editor.editBuffer.getLineCount(),
+      });
+    }, [text, mapCursor, paintMarkdown]);
 
     return (
       <box style={{ flexDirection: "column", flexGrow: 1, paddingLeft: 2 }}>
         <textarea
           ref={editorRef}
-          focused
+          focused={editable}
           initialValue={initialText}
           keyBindings={MARKDOWN_EDITOR_KEY_BINDINGS}
           wrapMode="word"
@@ -129,6 +179,14 @@ export const MarkdownThreadEditor = forwardRef<MarkdownEditorHandle, MarkdownThr
             if (!editor) return;
 
             paintMarkdown(editor);
+
+            const currentText = editor.plainText;
+
+            if (currentText !== reportedText.current) {
+              reportedText.current = currentText;
+              onTextChange?.(currentText);
+            }
+
             setPosition((prior) => ({ ...prior, lineCount: editor.editBuffer.getLineCount() }));
           }}
           style={{
@@ -139,7 +197,7 @@ export const MarkdownThreadEditor = forwardRef<MarkdownEditorHandle, MarkdownThr
             focusedTextColor: theme.text,
           }}
         />
-        <MarkdownEditorStatus position={position} theme={theme} />
+        <MarkdownEditorStatus position={position} theme={theme} hint={footerHint} />
       </box>
     );
   },
@@ -149,9 +207,11 @@ export const MarkdownThreadEditor = forwardRef<MarkdownEditorHandle, MarkdownThr
 function MarkdownEditorStatus({
   position,
   theme,
+  hint = "⌃⏎ save & close",
 }: {
   position: MarkdownEditorPosition;
   theme: Theme;
+  hint?: string;
 }): React.ReactNode {
   return (
     <box style={{ flexDirection: "row", flexShrink: 0 }}>
@@ -159,7 +219,7 @@ function MarkdownEditorStatus({
         fg={theme.textMuted}
       >{`Ln ${position.line}/${position.lineCount}  Col ${position.column}`}</text>
       <box style={{ flexGrow: 1 }} />
-      <text fg={theme.textDim}>{"⌃⏎ save & close"}</text>
+      <text fg={theme.textDim}>{hint}</text>
     </box>
   );
 }

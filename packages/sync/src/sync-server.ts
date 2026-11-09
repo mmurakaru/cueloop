@@ -1,3 +1,4 @@
+import type { SyncTextEditorSession } from "./sync-text-session.ts";
 import { createServer } from "node:http";
 import * as v from "valibot";
 
@@ -8,6 +9,7 @@ export type SyncClientOutcome =
 export interface SyncApplication {
   fetch: (request: Request) => Response | Promise<Response>;
   connect?: (arguments_: string[]) => Promise<void | SyncClientOutcome>;
+  openText?: (arguments_: string[]) => Promise<SyncTextEditorSession>;
   close?: () => void | Promise<void>;
 }
 

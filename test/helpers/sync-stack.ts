@@ -10,7 +10,9 @@ const POSTGRES_IMAGE =
 const ZERO_IMAGE =
   "rocicorp/zero@sha256:da55baa417adf670d07dd882ec90b9d9591f274a13347205cd2f71956433c057";
 
-export async function createTestSyncStack(options: { interceptMutations?: boolean } = {}) {
+export async function createTestSyncStack(
+  options: { interceptMutations?: boolean; collaborator?: boolean } = {},
+) {
   const directory = mkdtempSync(join(tmpdir(), "cueloop-sync-stack-"));
   const name = `cueloop-sync-test-${randomUUID()}`;
   const postgresName = `${name}-postgres`;
@@ -18,11 +20,16 @@ export async function createTestSyncStack(options: { interceptMutations?: boolea
   const password = randomBytes(24).toString("hex");
   const token = randomBytes(24).toString("hex");
   const userIdentifier = "sync_test_reader";
+  const collaboratorToken = options.collaborator ? randomBytes(24).toString("hex") : undefined;
   let authority: Bun.Subprocess<"ignore", "pipe", "pipe"> | undefined;
   let mutationProxy: ReturnType<typeof createTestSyncMutationProxy> | undefined;
 
   function redact(output: string): string {
-    return output.replaceAll(password, "[redacted]").replaceAll(token, "[redacted]");
+    const ownerRedacted = output.replaceAll(password, "[redacted]").replaceAll(token, "[redacted]");
+
+    return collaboratorToken
+      ? ownerRedacted.replaceAll(collaboratorToken, "[redacted]")
+      : ownerRedacted;
   }
 
   async function docker(arguments_: string[], input?: string): Promise<string> {
@@ -160,12 +167,33 @@ export async function createTestSyncStack(options: { interceptMutations?: boolea
       ],
       "INSERT INTO sync_workspace_member (workspace_identifier, user_identifier, role) SELECT workspace_identifier, 'sync_test_reader', 'owner' FROM shared_record LIMIT 1;",
     );
+
+    if (collaboratorToken) {
+      await docker(
+        [
+          "exec",
+          "-i",
+          postgresName,
+          "psql",
+          "-v",
+          "ON_ERROR_STOP=1",
+          "-U",
+          "sync_test",
+          "-d",
+          "sync_test",
+        ],
+        "INSERT INTO sync_workspace_member (workspace_identifier, user_identifier, role) SELECT workspace_identifier, 'sync_test_collaborator', 'editor' FROM shared_record LIMIT 1;",
+      );
+    }
+
     const environment = {
       ...process.env,
       SYNC_DATABASE_URL: `postgres://sync_test:${password}@127.0.0.1:${port}/sync_test`,
       SYNC_AUTH_TOKEN: token,
       SYNC_USER_ID: userIdentifier,
       SYNC_STORAGE_KEY: name,
+      SYNC_COLLABORATOR_AUTH_TOKEN: collaboratorToken,
+      SYNC_COLLABORATOR_USER_ID: collaboratorToken ? "sync_test_collaborator" : undefined,
     };
 
     async function startAuthority(authorityPort: number) {
@@ -281,6 +309,9 @@ export async function createTestSyncStack(options: { interceptMutations?: boolea
         await authority?.exited;
         await startAuthority(authorityPort);
       },
+      collaborator: collaboratorToken
+        ? { auth: collaboratorToken, userID: "sync_test_collaborator" }
+        : undefined,
       auth: token,
       userID: userIdentifier,
       storageKey: name,
