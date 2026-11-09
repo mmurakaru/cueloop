@@ -44,8 +44,15 @@ async function watchSharedPresence(
   let signal: "SIGINT" | "SIGTERM" | undefined;
   let changed = Promise.withResolvers<void>();
   let latest = client.getSnapshot();
+  let failure: Error | undefined;
   const unsubscribe = client.subscribe(() => {
     latest = client.getSnapshot();
+
+    if (latest.status === "forbidden" && !cancellation.signal.aborted) {
+      failure = new Error("Sync presence access is unavailable");
+      cancellation.abort(failure);
+    }
+
     changed.resolve();
   });
   const interrupt = () => {
@@ -66,6 +73,8 @@ async function watchSharedPresence(
     while (!cancellation.signal.aborted) {
       const current = latest;
 
+      if (current.status === "forbidden") throw new Error("Sync presence access is unavailable");
+
       changed = Promise.withResolvers<void>();
       const output = `${JSON.stringify(current)}\n`;
 
@@ -80,10 +89,10 @@ async function watchSharedPresence(
         }
       }
 
-      if (current.status === "forbidden") throw new Error("Sync presence access is unavailable");
-
       if (latest === current && !cancellation.signal.aborted) await changed.promise;
     }
+
+    if (failure) throw failure;
 
     return signal ? { status: "interrupted", signal } : { status: "completed" };
   } finally {

@@ -3,7 +3,14 @@ import { once } from "node:events";
 import { existsSync, readFileSync, watch } from "node:fs";
 import { dirname } from "node:path";
 
-const [executable, application, ready, cleanup, signal] = process.argv.slice(2);
+const [
+  executable,
+  application,
+  ready,
+  cleanup,
+  signal,
+  expectedCleanup = "view\nclient\napplication\n",
+] = process.argv.slice(2);
 const monitor = watch(dirname(ready));
 const child = spawn(process.execPath, [executable, "connect", "--application", application], {
   stdio: ["ignore", "pipe", "pipe"],
@@ -42,7 +49,7 @@ try {
     throw new Error(`Interrupted sync watch returned unexpected status ${status}`);
   }
 
-  if (readFileSync(cleanup, "utf8") !== "view\nclient\napplication\n") {
+  if (readFileSync(cleanup, "utf8") !== expectedCleanup) {
     throw new Error("Interrupted sync watch did not finish application cleanup");
   }
 
