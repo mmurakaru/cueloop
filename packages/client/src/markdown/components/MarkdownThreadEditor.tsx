@@ -100,6 +100,8 @@ export const MarkdownThreadEditor = forwardRef<MarkdownEditorHandle, MarkdownThr
     });
 
     const reportSelection = useCallback(() => {
+      if (!onSelectionChange) return;
+
       const editor = editorRef.current;
 
       if (!editor || editor.plainText !== reportedText.current) return;
