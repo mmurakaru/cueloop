@@ -47,6 +47,7 @@
     "@opentui/core": "^0.8.3",
     "@opentui/react": "^0.8.3",
     "@oxlint/plugins": "1.90.0",
+    "@rocicorp/zero": "1.11.4",
     "@types/bun": "^1.4.4",
     "@types/react": "^19.3.0",
     "cueloop": "workspace:*",
@@ -54,12 +55,14 @@
     "oxfmt": "^0.75.0",
     "oxlint": "1.90.0",
     "playwright": "1.65.0",
-    "react": "^19.3.1",
     "postgres": "3.4.7",
+    "react": "^19.3.1",
     "ssh2": "^1.17.0",
     "typescript": "^7.0.2",
     "valibot": "^1.5.0"
   },
   "dependencies": {},
-  "overrides": { "tinypool": "2.2.0" }
+  "overrides": {
+    "tinypool": "2.2.0"
+  }
 }

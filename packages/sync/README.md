@@ -64,6 +64,19 @@ Connection status and query freshness are separate.
 > `kvStore: "mem"` is an ephemeral cache.
 > Persistent caching requires a supported storage provider.
 
+## Durable operations
+
+Define and submit operations through `@cueloop/sync/operations`.
+Save each complete request before submission and retry its original identity after an uncertain reply.
+The outcome is pending, accepted, or rejected; the helper never resubmits automatically.
+
+> [!IMPORTANT]
+> Apply the published operation-receipt migration before accepting operations.
+> Commit the application change and receipt in one authoritative transaction.
+> Acceptance does not confirm external execution or query replication.
+
+See the [operation guide](./docs/operations.md) for argument validation, authorization, deadlines, and receipt retention.
+
 ## Host an authority
 
 `createSyncAuthority` from `@cueloop/sync/server` accepts your schema, database adapter, authentication callback, and named query and mutation handlers.

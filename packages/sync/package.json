@@ -19,6 +19,7 @@
     "dist",
     "bin",
     "docs",
+    "migrations",
     "README.md"
   ],
   "type": "module",
@@ -26,9 +27,11 @@
   "exports": {
     ".": "./dist/sync-client.js",
     "./schema": "./dist/sync-schema.js",
+    "./operations": "./dist/sync-operations.js",
     "./server": "./dist/sync-authority.js",
     "./serve": "./dist/sync-server.js",
-    "./cli": "./dist/sync-cli.js"
+    "./cli": "./dist/sync-cli.js",
+    "./migrations/001-operation-receipt.sql": "./migrations/001-operation-receipt.sql"
   },
   "publishConfig": {
     "access": "public"
@@ -39,6 +42,8 @@
   },
   "dependencies": {
     "@rocicorp/zero": "1.11.4",
+    "canonicalize": "5.1.0",
+    "uuid": "14.0.3",
     "valibot": "^1.5.0"
   },
   "engines": {

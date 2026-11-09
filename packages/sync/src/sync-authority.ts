@@ -64,3 +64,15 @@ export function createSyncAuthority<
     );
   };
 }
+
+export {
+  acceptSyncOperation,
+  compactSyncOperationResults,
+  findSyncOperationReceipt,
+} from "./sync-operation-receipt.ts";
+
+export {
+  SyncOperationConflict,
+  SyncOperationRejection,
+  type SyncOperationReceipt,
+} from "./sync-operation.ts";
