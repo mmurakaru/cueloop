@@ -10,8 +10,8 @@
         "@cueloop/client": "workspace:*",
         "@cueloop/daemon": "workspace:*",
         "@cueloop/schema": "workspace:*",
-        "@opentui/core": "^0.6.8",
-        "@opentui/react": "^0.6.8",
+        "@opentui/core": "^0.8.3",
+        "@opentui/react": "^0.8.3",
         "@oxlint/plugins": "1.90.0",
         "@types/bun": "^1.4.4",
         "@types/react": "^19.3.0",
@@ -62,10 +62,10 @@
         "@cueloop/extension-api": "0.1.0-alpha.115",
         "@cueloop/integration-obsidian": "0.1.0-alpha.115",
         "@cueloop/schema": "0.1.0-alpha.115",
-        "@opentui/core": "^0.6.8",
-        "@opentui/keymap": "0.6.8",
-        "@opentui/react": "^0.6.8",
-        "@opentui/ssh": "0.6.8",
+        "@opentui/core": "^0.8.3",
+        "@opentui/keymap": "0.8.3",
+        "@opentui/react": "^0.8.3",
+        "@opentui/ssh": "0.8.3",
         "@pierre/diffs": "^1.6.4",
         "@tanstack/virtual-core": "^3.19.11",
         "diff": "^9",
@@ -100,7 +100,7 @@
         "valibot": "^1.5.0",
       },
       "peerDependencies": {
-        "@opentui/react": "^0.6.8",
+        "@opentui/react": "^0.8.3",
         "react": "^19.3.0",
       },
     },
@@ -114,8 +114,8 @@
         "@cueloop/client": "0.1.0-alpha.115",
         "@cueloop/daemon": "0.1.0-alpha.115",
         "@cueloop/schema": "0.1.0-alpha.115",
-        "@opentui/core": "^0.6.8",
-        "@opentui/react": "^0.6.8",
+        "@opentui/core": "^0.8.3",
+        "@opentui/react": "^0.8.3",
         "react": "^19.3.1",
         "ssh2": "^1.17.0",
         "valibot": "^1.5.0",
@@ -325,29 +325,29 @@
 
     "@modelcontextprotocol/server": ["@modelcontextprotocol/server@2.4.0", "", { "dependencies": { "@modelcontextprotocol/core": "2.4.0", "zod": "^4.2.0" } }, "sha512-rgR9yxSaAJ+bcsi/XroT/S2AfPiIWloXAnrdfYSCms9ivVju0ishu/wW0J21Ho6+ZOR1r7RyeRbjiRuF87ix5Q=="],
 
-    "@opentui/core": ["@opentui/core@0.6.8", "", { "dependencies": { "bun-ffi-structs": "0.3.1", "diff": "9.0.0", "marked": "17.0.1", "string-width": "7.2.0" }, "optionalDependencies": { "@opentui/core-darwin-arm64": "0.6.8", "@opentui/core-darwin-x64": "0.6.8", "@opentui/core-linux-arm64": "0.6.8", "@opentui/core-linux-arm64-musl": "0.6.8", "@opentui/core-linux-x64": "0.6.8", "@opentui/core-linux-x64-musl": "0.6.8", "@opentui/core-win32-arm64": "0.6.8", "@opentui/core-win32-x64": "0.6.8" }, "peerDependencies": { "web-tree-sitter": "0.25.10" } }, "sha512-wjqLwLdYGy/6qEBTtZEifuwwVzt06o0BqBF02xJ46whGEUK/gy+h25+1GK4dE9LFnHphgsqeA31f7PHBJPp91w=="],
+    "@opentui/core": ["@opentui/core@0.8.3", "", { "dependencies": { "bun-ffi-structs": "0.3.1", "diff": "9.0.0", "marked": "17.0.1", "string-width": "7.2.0" }, "optionalDependencies": { "@opentui/core-darwin-arm64": "0.8.3", "@opentui/core-darwin-x64": "0.8.3", "@opentui/core-linux-arm64": "0.8.3", "@opentui/core-linux-arm64-musl": "0.8.3", "@opentui/core-linux-x64": "0.8.3", "@opentui/core-linux-x64-musl": "0.8.3", "@opentui/core-win32-arm64": "0.8.3", "@opentui/core-win32-x64": "0.8.3" }, "peerDependencies": { "web-tree-sitter": "0.25.10" } }, "sha512-6Ng2jyiZZhGUTNbF8wXmjztihdGdx7uZq8O5bBgG/2XaCANw/BJgSxYb/nVFtorzShE9JcjszRhzh8XNxQ3yuA=="],
 
-    "@opentui/core-darwin-arm64": ["@opentui/core-darwin-arm64@0.6.8", "", { "os": "darwin", "cpu": "arm64" }, "sha512-kmu5Rp5qC3StrGAzLvBu6SLEXd2Qq60Yf0YCmL7BmDgYt0QUZ4M2JsSS7BFg7crpk+4Yz17N1ZeOCPumE4s83w=="],
+    "@opentui/core-darwin-arm64": ["@opentui/core-darwin-arm64@0.8.3", "", { "os": "darwin", "cpu": "arm64" }, "sha512-9YaOiVlld+J/POWW0TnUe9kX5+/9B0iEszdTAfgHFqSkVz4ndnYnFJTCC9fnwLrS+WOCked+7M9sS2DXiPpFQw=="],
 
-    "@opentui/core-darwin-x64": ["@opentui/core-darwin-x64@0.6.8", "", { "os": "darwin", "cpu": "x64" }, "sha512-eGJcssaONQ32+xYOTRCdGGXnsMJJJLn6mHYt0W79Lck8zlMuel5dWWlCbxdM3qvX/IEHr+f56bGoojTvJjDw6w=="],
+    "@opentui/core-darwin-x64": ["@opentui/core-darwin-x64@0.8.3", "", { "os": "darwin", "cpu": "x64" }, "sha512-rHW+b4mnUgdy7cs1jxFOQqd/C0n+sumjJaNVKIPKvk+EuVr+HM2pIdhFvOThnKWTyp2GlNZtIJNKCaAf+QxvkA=="],
 
-    "@opentui/core-linux-arm64": ["@opentui/core-linux-arm64@0.6.8", "", { "os": "linux", "cpu": "arm64" }, "sha512-ji2LPeEX4RU6RKC0/l70hZWmqD0AvvMvnd3WvpZUNOeaIBFseSzE0QEl3apRPUqAoYiuL7uRgwSV4eewa+xXpg=="],
+    "@opentui/core-linux-arm64": ["@opentui/core-linux-arm64@0.8.3", "", { "os": "linux", "cpu": "arm64" }, "sha512-1GeV1UZqzMTfOUKuymGUhCHD5XTJC4w2eA+zPDs/jBVgv2NqPL7sofoBHLzkyhlxZpuptQR+vVPs4sW4T+7YVg=="],
 
-    "@opentui/core-linux-arm64-musl": ["@opentui/core-linux-arm64-musl@0.6.8", "", { "os": "linux", "cpu": "arm64" }, "sha512-b+3TI8rtFBQa7T04F7XVt1I8/eL2+GX0X6x9WbDBnNmolgf1DX3ZdVPmKEP8PlxAmDYB+gek+cQAwnkwiYl5YQ=="],
+    "@opentui/core-linux-arm64-musl": ["@opentui/core-linux-arm64-musl@0.8.3", "", { "os": "linux", "cpu": "arm64", "libc": "musl" }, "sha512-U2IbCGI7sjUZoO8h8UizREHRDWk0u/bOAmJ0L46xB3uyMWKfNU9f8x5jQF4v6apMMmb56/TPl/PUoVR1sQg15A=="],
 
-    "@opentui/core-linux-x64": ["@opentui/core-linux-x64@0.6.8", "", { "os": "linux", "cpu": "x64" }, "sha512-g8hOxXpff7hOnZNlJRKCqWJr/dwVK/EyEhNsgNK4jLS13BUoaYWXi878xLXJ5acC82qEyGlYWL/kR6ACkiD0YA=="],
+    "@opentui/core-linux-x64": ["@opentui/core-linux-x64@0.8.3", "", { "os": "linux", "cpu": "x64" }, "sha512-DIhEmsACFqucaqSMYZqQKXi10WmGuO0TpmqEz9hScqktcRlNAPpsB5qmO6qCEyXxTIbfaVxxlABcq1Xn3eB0aQ=="],
 
-    "@opentui/core-linux-x64-musl": ["@opentui/core-linux-x64-musl@0.6.8", "", { "os": "linux", "cpu": "x64" }, "sha512-eVQSjO5wXYiqunz/V92WweHvVTCV+LtZOnu0z6kYjwwbAvsnTxISOFAyA9H71Sy3tsibjiu1o+E27twDyM9HlA=="],
+    "@opentui/core-linux-x64-musl": ["@opentui/core-linux-x64-musl@0.8.3", "", { "os": "linux", "cpu": "x64", "libc": "musl" }, "sha512-MJoGBVxNtmaQSu8rvzHrJKjS0Fd/ER/Sf9NKD+ep8nPanlffJPhRbX0cT0gvkKhK3G2Od+RXUr/tlUqy0U69ow=="],
 
-    "@opentui/core-win32-arm64": ["@opentui/core-win32-arm64@0.6.8", "", { "os": "win32", "cpu": "arm64" }, "sha512-P4llQH8kFeiknVp0kfTydKaJC95BSW4mf3fub9HMgFx49eiF3qgcctbebZN+/WaD8Pshu0wiN1KPitqDTyrIDw=="],
+    "@opentui/core-win32-arm64": ["@opentui/core-win32-arm64@0.8.3", "", { "os": "win32", "cpu": "arm64" }, "sha512-g0R4PrOI93z7KaWXFw/PdA6DGWDcaK9aH88ECmnsI9At1KZoEb+Jik137qEz7bGWKGOXtn+JaHsne3vipB3vwQ=="],
 
-    "@opentui/core-win32-x64": ["@opentui/core-win32-x64@0.6.8", "", { "os": "win32", "cpu": "x64" }, "sha512-6dZuSw883BDetY59G2QwWHJG1kwfPkL+lWhDQ3a6ICxW4/7nito3uPkMRaRDb8DiTHgx0wMt/RdiydjQmZd+lw=="],
+    "@opentui/core-win32-x64": ["@opentui/core-win32-x64@0.8.3", "", { "os": "win32", "cpu": "x64" }, "sha512-yjpxLUXeBc1eMW3pr4Fl9tpNuA7a4JdcGNVved9zFD3HZ07mM2YVfreLJeDn4n61jXUJKM8XtXVWBZM8RHF4gg=="],
 
-    "@opentui/keymap": ["@opentui/keymap@0.6.8", "", { "dependencies": { "@opentui/core": "0.6.8" }, "peerDependencies": { "@opentui/react": "0.6.8", "@opentui/solid": "0.6.8", "react": ">=19.2.0", "solid-js": "1.9.12" }, "optionalPeers": ["@opentui/react", "@opentui/solid", "react", "solid-js"] }, "sha512-KGiX2EMoIcJ8jSGJ8Wp2iI1VNW3HNJEqfNayPHwda6ykE//cZmZrtczpCy+OyntZOf+6I8t3H717qo+NJZx7Wg=="],
+    "@opentui/keymap": ["@opentui/keymap@0.8.3", "", { "dependencies": { "@opentui/core": "0.8.3" }, "peerDependencies": { "@opentui/react": "0.8.3", "@opentui/solid": "0.8.3", "react": ">=19.2.0", "solid-js": "^1.9.12" }, "optionalPeers": ["@opentui/react", "@opentui/solid", "react", "solid-js"] }, "sha512-QWQizeRTpgox63s3HpHcB6crjlx9yHmpHi614nCvKN5Tn6cx5mfJuqEA58jZRwyBLQwMssc1ftdFlWoLmvYk8g=="],
 
-    "@opentui/react": ["@opentui/react@0.6.8", "", { "dependencies": { "@opentui/core": "0.6.8", "react-reconciler": "^0.33.0" }, "peerDependencies": { "react": ">=19.2.0", "react-devtools-core": "^7.0.1", "ws": "^8.18.0" } }, "sha512-RHXumJ2yXJrIhEykOHGdKhEVXujQaXetfiQclbmubTGRBm4rc9R8Dv29bGpM2XmBSziqJs1yVaFhM73TPi90pg=="],
+    "@opentui/react": ["@opentui/react@0.8.3", "", { "dependencies": { "@opentui/core": "0.8.3", "react-reconciler": "^0.33.0" }, "peerDependencies": { "react": ">=19.2.0", "react-devtools-core": "^7.0.1", "ws": "^8.18.0" } }, "sha512-Tb+qHsxhmOu28XFRMPUjI1zHa69TNZEez0bqOIi4CKU8HLzp36xbuZBexmMhcNGbSircmlFF5ckvLBFrz1mUPA=="],
 
-    "@opentui/ssh": ["@opentui/ssh@0.6.8", "", { "dependencies": { "ssh2": "^1.16.0" }, "peerDependencies": { "@opentui/core": "0.6.8" } }, "sha512-7BKpjoWLKR6MEN4JhpVUv7iwk7Du6DSHvFkfDu9mg0SUZ//qPKX61gGlV6CCBZYp6g50YbuCmyMMPWPO1vSdGg=="],
+    "@opentui/ssh": ["@opentui/ssh@0.8.3", "", { "dependencies": { "ssh2": "^1.16.0" }, "peerDependencies": { "@opentui/core": "0.8.3" } }, "sha512-QeQaaPcC0Kccz4GPV4G9MQ/kZQEb5ktR3nE4n1WSDWxdqmTZzqQ3H09HOAIh/P4McqVYopifZp0jGScZx7TzXA=="],
 
     "@oxfmt/binding-android-arm-eabi": ["@oxfmt/binding-android-arm-eabi@0.75.0", "", { "os": "android", "cpu": "arm" }, "sha512-zHJ7LcTN46/5mtoLxsUu14pdF9ixFwDURtmxZ0CeNwqom5qB5NRVqU6o2GRZ7QPdNBW8G6j9UTJzQ+EDevMH0w=="],
 
