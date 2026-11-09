@@ -7,12 +7,34 @@ export interface SyncApplication {
   close?: () => void | Promise<void>;
 }
 
+function isSyncOrigin(origin: URL): boolean {
+  return (
+    (origin.protocol === "http:" || origin.protocol === "https:") &&
+    !origin.username &&
+    !origin.password &&
+    origin.pathname === "/" &&
+    !origin.search &&
+    !origin.hash
+  );
+}
+
 export async function serveSyncApplication(
   application: SyncApplication,
-  options: { host?: string; port?: number; maximumRequestBytes?: number } = {},
+  options: {
+    host?: string;
+    port?: number;
+    maximumRequestBytes?: number;
+    publicOrigin?: string;
+  } = {},
 ) {
   const host = options.host ?? "127.0.0.1";
   const maximumRequestBytes = options.maximumRequestBytes ?? 1048576;
+  const publicOrigin = options.publicOrigin ? new URL(options.publicOrigin) : undefined;
+
+  if (publicOrigin && !isSyncOrigin(publicOrigin)) {
+    throw new Error("Sync authority public origin must be an HTTP or HTTPS origin");
+  }
+
   const server = createServer(async (incoming, outgoing) => {
     try {
       const chunks: Buffer[] = [];
@@ -39,7 +61,16 @@ export async function serveSyncApplication(
       }
 
       const method = incoming.method ?? "GET";
-      const request = new Request(new URL(incoming.url ?? "/", "http://localhost"), {
+      const origin = publicOrigin ?? new URL(`http://${incoming.headers.host ?? "localhost"}`);
+      const url = new URL(incoming.url ?? "/", origin);
+
+      if (url.origin !== origin.origin || !isSyncOrigin(origin)) {
+        outgoing.writeHead(400).end("Invalid request authority");
+
+        return;
+      }
+
+      const request = new Request(url.href, {
         method,
         headers,
         body: method === "GET" || method === "HEAD" ? undefined : Buffer.concat(chunks),

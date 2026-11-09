@@ -702,9 +702,10 @@ export function App({
   const [prototypePixels, setPrototypePixels] = useState(false);
   const [threadAgentEnabled, setThreadAgentEnabled] = useState(false);
   const [syncEnabled, setSyncEnabled] = useState(false);
+  const repoRoot = session?.workspace.repoRoot;
 
   useEffect(() => {
-    const config = loadConfig({ repoRoot: session?.workspace.repoRoot });
+    const config = loadConfig({ repoRoot });
 
     setPrototypePixels(config.experimental.prototypePixels);
     setThreadAgentEnabled(config.experimental.threadAgent);
@@ -727,7 +728,7 @@ export function App({
     setDefaultMessage(config.ui.defaultMessage);
     setPinnedIds(new Set(config.ui.pins));
     controller.applyConfig(config);
-  }, [session?.workspace.repoRoot, controller, keyBindings, appearance]);
+  }, [repoRoot, controller, keyBindings, appearance]);
   useEffect(
     () => () => {
       if (pulseTimer.current) clearTimeout(pulseTimer.current);
@@ -807,6 +808,7 @@ export function App({
     onCategorySelect,
     openSettings,
   } = useSettingsDialog({
+    repoRoot,
     syncEnabled,
     setSyncEnabled,
     threadDefaults: threadModelDefaults,

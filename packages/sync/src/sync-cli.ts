@@ -8,7 +8,7 @@ Usage: cueloop-sync <serve|connect> --application <module> [options]
   serve     Run the application's authenticated query and mutation authority
   connect   Run the application's sync client
 
-Serve options: --host <address> --port <number>
+Serve options: --host <address> --port <number> --public-origin <url>
 The authority requires a configured PostgreSQL database and Zero cache service.
 The application module exports syncApplication with fetch, optional connect, and close.
 Use environment variables for credentials.
@@ -44,6 +44,14 @@ export async function runSyncCli(arguments_: string[]): Promise<number> {
 
   if (!applicationPath) throw new Error("Sync command requires --application <module>");
 
+  const port = command === "serve" ? Number(syncFlag(arguments_, "--port") ?? "4849") : 0;
+  const host = command === "serve" ? syncFlag(arguments_, "--host") : undefined;
+  const publicOrigin = command === "serve" ? syncFlag(arguments_, "--public-origin") : undefined;
+
+  if (!Number.isInteger(port) || port < 0 || port > 65535) {
+    throw new Error("Sync authority port must be an integer between 0 and 65535");
+  }
+
   const application = await loadSyncApplication(applicationPath);
 
   if (command === "connect") {
@@ -58,16 +66,15 @@ export async function runSyncCli(arguments_: string[]): Promise<number> {
     return 0;
   }
 
-  const port = Number(syncFlag(arguments_, "--port") ?? "4849");
+  let server: Awaited<ReturnType<typeof serveSyncApplication>>;
 
-  if (!Number.isInteger(port) || port < 0 || port > 65535) {
-    throw new Error("Sync authority port must be an integer between 0 and 65535");
+  try {
+    server = await serveSyncApplication(application, { host, port, publicOrigin });
+  } catch (error) {
+    await application.close?.();
+
+    throw error;
   }
-
-  const server = await serveSyncApplication(application, {
-    host: syncFlag(arguments_, "--host"),
-    port,
-  });
 
   const stopped = new Promise<void>((resolve) => {
     const stop = () => {

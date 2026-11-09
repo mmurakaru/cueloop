@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { runSyncCli } from "../src/sync-cli.ts";
+import { runSyncCli } from "../dist/sync-cli.js";
 
 try {
   process.exitCode = await runSyncCli(process.argv.slice(2));

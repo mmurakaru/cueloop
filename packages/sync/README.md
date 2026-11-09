@@ -10,6 +10,7 @@ The SDK has no dependency on cueloop's Thread model or terminal renderer.
 
 Use Bun 1.4.4 or Node 24 and later for terminal applications.
 Browser applications bundle the client entry point.
+The published package contains JavaScript and TypeScript declarations.
 The authority uses PostgreSQL and a Zero cache service.
 PostgreSQL needs logical replication enabled.
 Local hosting runs the same service stack as remote hosting.
@@ -58,6 +59,8 @@ Application handlers enforce record permissions.
 Import `serveSyncApplication` from `@cueloop/sync/serve` to host a Fetch-compatible application in Bun or Node.
 It binds to loopback by default and limits request bodies.
 Use a TLS endpoint for remote clients.
+Configure `publicOrigin` or `--public-origin` when a reverse proxy terminates TLS.
+The host does not infer a trusted origin from forwarded headers.
 
 ## CLI
 

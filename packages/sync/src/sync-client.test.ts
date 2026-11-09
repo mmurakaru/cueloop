@@ -51,7 +51,7 @@ test("a disconnected sync client reads its cache and closes without an authority
 test("a Node consumer can close a newly created client without keeping its process alive", async () => {
   const source = `
     import {createSchema, table, string} from '@rocicorp/zero';
-    import {createSyncClient} from './src/sync-client.ts';
+    import {createSyncClient} from '@cueloop/sync';
     const schema = createSchema({tables: [table('shared_record').columns({id: string()}).primaryKey('id')]});
     const client = createSyncClient({schema, cacheURL: null, kvStore: 'mem'});
     await client.close();

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import React, { useState } from "react";
@@ -32,10 +32,11 @@ test("sync requires an explicit boolean flag and preserves other configuration w
   }
 });
 
-function TestSyncSettings() {
-  const config = loadConfig();
+function TestSyncSettings({ repoRoot }: { repoRoot?: string } = {}) {
+  const config = loadConfig({ repoRoot });
   const [syncEnabled, setSyncEnabled] = useState(config.experimental.sync);
   const model = useSettingsDialog({
+    repoRoot,
     syncEnabled,
     setSyncEnabled,
     threadDefaults: { pi: config.thread.pi, fx: config.thread.fx },
@@ -109,3 +110,46 @@ test("the Experimental settings category toggles and persists multiplayer sync",
     rmSync(directory, { recursive: true, force: true });
   }
 });
+
+test.each([true, false])(
+  "sync settings update an explicit workspace override (%s)",
+  async (configured) => {
+    const directory = mkdtempSync(join(tmpdir(), "cueloop-sync-override-"));
+    const previous = process.env.CUELOOP_CONFIG;
+    const userPath = join(directory, "user.toml");
+    const repoRoot = join(directory, "workspace");
+    const workspacePath = join(repoRoot, ".cueloop", "config.toml");
+
+    mkdirSync(join(repoRoot, ".cueloop"), { recursive: true });
+    writeFileSync(userPath, `[experimental]\nsync = ${!configured}\n`);
+    writeFileSync(workspacePath, `[experimental]\nsync = ${configured}\nthread_agent = true\n`);
+    process.env.CUELOOP_CONFIG = userPath;
+    const setup = await testRender(<TestSyncSettings repoRoot={repoRoot} />, {
+      width: 90,
+      height: 28,
+    });
+
+    try {
+      await settle(setup);
+      const category = locateText(setup, "Experimental");
+
+      await setup.mockMouse.click(category.column, category.row);
+      await settle(setup);
+      const row = locateText(setup, "Multiplayer sync");
+
+      await setup.mockMouse.click(row.column, row.row);
+      await settle(setup);
+      expect(loadConfig({ repoRoot }).experimental.sync).toBe(!configured);
+      expect(setup.captureCharFrame()).toContain(configured ? "Off" : "On");
+      expect(loadConfig({ repoRoot }).experimental.threadAgent).toBe(true);
+      expect(readFileSync(userPath, "utf8")).toBe(`[experimental]\nsync = ${!configured}\n`);
+    } finally {
+      setup.renderer.destroy();
+
+      if (previous === undefined) delete process.env.CUELOOP_CONFIG;
+      else process.env.CUELOOP_CONFIG = previous;
+
+      rmSync(directory, { recursive: true, force: true });
+    }
+  },
+);

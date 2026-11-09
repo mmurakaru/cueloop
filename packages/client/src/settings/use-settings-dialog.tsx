@@ -1,6 +1,7 @@
 import React, { useState, type Dispatch, type SetStateAction } from "react";
 import {
   DEFAULT_QUICK_ACTIONS,
+  loadConfig,
   persistExperimentalSync,
   persistThreadModelDefault,
   persistActions,
@@ -86,6 +87,7 @@ function moveBodyRow(name: string, nav: SettingsNav, rowCount: number): Settings
 }
 
 export function useSettingsDialog(params: {
+  repoRoot?: string;
   syncEnabled: boolean;
   setSyncEnabled: Dispatch<SetStateAction<boolean>>;
   threadDefaults: Record<"pi" | "fx", ThreadModelDefaults>;
@@ -140,8 +142,7 @@ export function useSettingsDialog(params: {
     onSwitchHarness,
   } = params;
 
-  const { threadDefaults, setThreadDefaults } = params;
-  const { syncEnabled, setSyncEnabled } = params;
+  const { threadDefaults, setThreadDefaults, syncEnabled, setSyncEnabled, repoRoot } = params;
   const [modelEditor, setModelEditor] = useState<{ harness: "pi" | "fx"; text: string } | null>(
     null,
   );
@@ -401,8 +402,8 @@ export function useSettingsDialog(params: {
 
   const activateSetting = (rowKey: string): void => {
     if (rowKey === "multiplayerSync") {
-      persistExperimentalSync(!syncEnabled);
-      setSyncEnabled(!syncEnabled);
+      persistExperimentalSync(!syncEnabled, undefined, repoRoot);
+      setSyncEnabled(loadConfig({ repoRoot }).experimental.sync);
 
       return;
     }

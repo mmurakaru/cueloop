@@ -7,6 +7,7 @@
     "packages/integrations/*"
   ],
   "scripts": {
+    "prepare": "bun run --cwd packages/sync build",
     "dev": "bun run packages/cli/src/main.ts dev",
     "dev:watch": "CUELOOP_DEV_WATCH=1 bun --watch packages/cli/src/main.ts dev",
     "stories": "bun run packages/client/src/stories/stories-app.tsx",

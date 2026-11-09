@@ -710,8 +710,28 @@ function applyExperimental(
   if (raw.herdr_acp !== undefined) config.herdrAcp = raw.herdr_acp;
 }
 
-export function persistExperimentalSync(enabled: boolean, userConfigPath?: string): void {
-  persistTableSetting("experimental", "sync", String(enabled), userConfigPath);
+export function persistExperimentalSync(
+  enabled: boolean,
+  userConfigPath?: string,
+  repoRoot?: string,
+): void {
+  let path = userConfigPath;
+  const workspacePath = repoRoot ? join(repoRoot, ".cueloop", "config.toml") : undefined;
+
+  if (workspacePath && existsSync(workspacePath)) {
+    try {
+      const experimental = v.safeParse(
+        ExperimentalSchema,
+        parseToml(readFileSync(workspacePath, "utf8")).experimental,
+      );
+
+      if (experimental.success && experimental.output.sync !== undefined) path = workspacePath;
+    } catch {
+      path = userConfigPath;
+    }
+  }
+
+  persistTableSetting("experimental", "sync", String(enabled), path);
 }
 
 /** The preferred harness affects new Threads; existing Threads require a handoff. */

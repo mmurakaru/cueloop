@@ -16,19 +16,24 @@
     "cueloop-sync": "./bin/cueloop-sync.js"
   },
   "files": [
-    "src",
+    "dist",
     "bin",
     "README.md"
   ],
   "type": "module",
+  "types": "./dist/sync-client.d.ts",
   "exports": {
-    ".": "./src/sync-client.ts",
-    "./server": "./src/sync-authority.ts",
-    "./serve": "./src/sync-server.ts",
-    "./cli": "./src/sync-cli.ts"
+    ".": "./dist/sync-client.js",
+    "./server": "./dist/sync-authority.js",
+    "./serve": "./dist/sync-server.js",
+    "./cli": "./dist/sync-cli.js"
   },
   "publishConfig": {
     "access": "public"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "prepack": "bun run build"
   },
   "dependencies": {
     "@rocicorp/zero": "1.11.4",
