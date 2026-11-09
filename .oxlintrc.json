@@ -42,6 +42,10 @@
       20
     ],
     "typescript/prefer-for-of": "error",
+    "prefer-const": [
+      "error",
+      { "ignoreReadBeforeAssign": true }
+    ],
     "type-evidence/no-chained-type-assertions": "error",
     "type-evidence/no-conditional-empty-object-spread": "error",
     "type-evidence/no-known-value-widening": "error",
