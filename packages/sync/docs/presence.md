@@ -56,7 +56,7 @@ Heartbeats can run between 500 ms and 5 seconds apart.
 A failed request clears cached activity.
 Presence expires after 15 seconds without a new heartbeat; typing expires after 3 seconds.
 Duplicate or older sequences do not renew a lease or replace newer activity.
-Close removes only that client connection.
+Close removes only that client connection and fences publishes still awaiting authorization.
 
 The authority permits up to 100 connections per workspace, 4 per actor in a workspace, and 10,000 total.
 Requests have a 4 KiB budget and a limit of 20 requests per actor per second.
@@ -64,7 +64,9 @@ Activity is never replayed from disk after reconnect.
 
 ## Share a selection
 
-`createSyncTextPosition` and `resolveSyncTextPosition` from `@cueloop/sync/text` encode shared item identities.
+Use an open text document's `createPosition` and `resolvePositions` methods for live editing.
+They reuse its accepted in-memory state.
+For stored state, `createSyncTextPosition` and `resolveSyncTextPositions` provide one-shot creation and batched resolution.
 A selection contains its document identifier and encoded anchor and focus positions.
 For a forward range, use association `0` at its start and `-1` at its end.
 Both endpoints of a caret use the same association.

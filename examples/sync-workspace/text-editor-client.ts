@@ -5,7 +5,6 @@ import * as v from "valibot";
 import { createSyncDraftStore } from "@cueloop/sync/drafts";
 import {
   createSyncTextDocument,
-  createSyncTextPosition,
   type SyncTextEditorSession,
   type SyncTextEditorSnapshot,
   type SyncTextSaveOutcome,
@@ -357,13 +356,11 @@ export async function createSharedTextEditorSession(options: {
         presenceClient.update({
           selection: {
             documentIdentifier: request.recordIdentifier,
-            anchor: createSyncTextPosition({
-              state: document.snapshot.state,
+            anchor: document.createPosition({
               index: selection.anchor,
               association: selection.anchor < selection.focus ? 0 : -1,
             }),
-            focus: createSyncTextPosition({
-              state: document.snapshot.state,
+            focus: document.createPosition({
               index: selection.focus,
               association: selection.focus < selection.anchor ? 0 : -1,
             }),

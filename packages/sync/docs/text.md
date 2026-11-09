@@ -1,7 +1,7 @@
 # Collaborative text
 
 `@cueloop/sync/text` provides bounded plain-text documents and mergeable updates.
-Each editor owns a document actor for its lifetime.
+Each editor owns a document actor for its lifetime and exposes immutable snapshots.
 Positions use UTF-16 offsets at Unicode boundaries.
 
 ```ts

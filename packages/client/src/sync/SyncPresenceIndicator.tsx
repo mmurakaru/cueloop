@@ -1,26 +1,17 @@
-import React from "react";
+import React, { useMemo } from "react";
 import type { SyncPresencePeer, SyncPresenceSnapshot } from "@cueloop/sync/presence";
-import { resolveSyncTextPosition } from "@cueloop/sync/text";
+import { resolveSyncTextPositions } from "@cueloop/sync/text";
 import type { Theme } from "../appearance/theme";
 
 function describePresencePeer(
   peer: SyncPresencePeer,
-  textState: string,
-  documentIdentifier?: string,
+  anchor: number | undefined,
+  focus: number | undefined,
 ): string {
   const selection = peer.selection;
   let activity = peer.typing ? " typing" : "";
 
   if (selection) {
-    const anchor =
-      selection.documentIdentifier === documentIdentifier
-        ? resolveSyncTextPosition({ state: textState, position: selection.anchor })
-        : undefined;
-    const focus =
-      selection.documentIdentifier === documentIdentifier
-        ? resolveSyncTextPosition({ state: textState, position: selection.focus })
-        : undefined;
-
     if (
       anchor === undefined ||
       focus === undefined ||
@@ -49,9 +40,21 @@ export function SyncPresenceIndicator({
   theme: Theme;
 }): React.ReactNode {
   const peers = presence.peers;
-  const labels = peers
-    .slice(0, 2)
-    .map((peer) => describePresencePeer(peer, textState, documentIdentifier));
+  const labels = useMemo(() => {
+    const visible = presence.peers.slice(0, 2);
+    const positions = visible.flatMap((peer) =>
+      peer.selection && peer.selection.documentIdentifier === documentIdentifier
+        ? [peer.selection.anchor, peer.selection.focus]
+        : ["", ""],
+    );
+    const resolved = positions.some((position) => position.length > 0)
+      ? resolveSyncTextPositions({ state: textState, positions })
+      : [];
+
+    return visible.map((peer, index) =>
+      describePresencePeer(peer, resolved[index * 2], resolved[index * 2 + 1]),
+    );
+  }, [presence.peers, textState, documentIdentifier]);
   const label =
     presence.status !== "connected"
       ? "Presence unavailable"

@@ -203,3 +203,63 @@ test("presence bounds per-actor connections, input size, and request rate", asyn
     authority.close();
   }
 });
+
+test("a delayed publish cannot restore a connection after its leave finishes", async () => {
+  const entered = Promise.withResolvers<void>();
+  const resume = Promise.withResolvers<void>();
+  let delay = true;
+  let now = 1000;
+  const authority = createSyncPresenceAuthority({
+    authenticate: async (request) => ({
+      actorIdentifier: request.headers.get("authorization") ?? "",
+    }),
+    authorize: async (access) => {
+      if (delay) {
+        delay = false;
+        entered.resolve();
+        await resume.promise;
+      }
+
+      return access.actorIdentifiers;
+    },
+    now: () => now,
+  });
+  const send = (action: TestPresenceInput) =>
+    authority.fetch(
+      new Request("https://authority.test/presence", {
+        method: "POST",
+        headers: { authorization: "alice" },
+        body: JSON.stringify({ workspaceIdentifier: WORKSPACE, ...action }),
+      }),
+    );
+  const publishing = Promise.allSettled([
+    send({
+      action: "publish",
+      connectionIdentifier: FIRST_CONNECTION,
+      sequence: 1,
+      typing: true,
+      selection: null,
+    }),
+  ]);
+
+  try {
+    await entered.promise;
+    expect((await send({ action: "leave", connectionIdentifier: FIRST_CONNECTION })).status).toBe(
+      200,
+    );
+    now = 31000;
+    await send({ action: "read" });
+    resume.resolve();
+    const [published] = await publishing;
+
+    if (!published || published.status !== "fulfilled")
+      throw new Error("Delayed presence request did not finish");
+
+    expect(published.value.status).toBe(409);
+    expect(await (await send({ action: "read" })).json()).toMatchObject({ peers: [] });
+  } finally {
+    resume.resolve();
+    await publishing;
+    authority.close();
+  }
+});

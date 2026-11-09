@@ -1,3 +1,7 @@
+import {
+  createSyncPresenceConnections,
+  type SyncPresenceConnectionLease,
+} from "./sync-presence-connections.ts";
 import * as v from "valibot";
 import { SyncPresenceRequestSchema, type SyncPresencePeer } from "./sync-presence-protocol.ts";
 
@@ -5,6 +9,11 @@ interface PresenceEntry {
   peer: SyncPresencePeer;
   typingExpiresAt: number;
 }
+type ActivePresenceInput = Exclude<
+  v.InferOutput<typeof SyncPresenceRequestSchema>,
+  { action: "leave" }
+>;
+
 interface PresenceAccess {
   actorIdentifier: string;
   workspaceIdentifier: string;
@@ -59,6 +68,7 @@ export function createSyncPresenceAuthority(options: {
 }) {
   const now = options.now ?? Date.now;
   const entries = new Map<string, PresenceEntry>();
+  const connections = createSyncPresenceConnections(now);
   const rooms = new Map<string, Set<string>>();
   const rates = new Map<string, { startedAt: number; count: number }>();
   let closed = false;
@@ -84,6 +94,8 @@ export function createSyncPresenceAuthority(options: {
   const expire = () => {
     const current = now();
 
+    connections.expire();
+
     for (const [identifier, entry] of entries) {
       if (entry.peer.expiresAt <= current) removeEntry(identifier);
     }
@@ -96,10 +108,7 @@ export function createSyncPresenceAuthority(options: {
 
   timer.unref?.();
 
-  const admit = (
-    access: PresenceAccess,
-    input: v.InferOutput<typeof SyncPresenceRequestSchema>,
-  ): Response | undefined => {
+  const admit = (access: PresenceAccess, input: ActivePresenceInput): Response | undefined => {
     if (input.action === "read") return;
 
     const previous = entries.get(input.connectionIdentifier);
@@ -110,12 +119,6 @@ export function createSyncPresenceAuthority(options: {
         previous.peer.workspaceIdentifier !== access.workspaceIdentifier)
     )
       return new Response("Presence connection is owned by another client", { status: 403 });
-
-    if (input.action === "leave") {
-      removeEntry(input.connectionIdentifier);
-
-      return;
-    }
 
     if (previous && input.sequence <= previous.peer.sequence) return;
 
@@ -185,6 +188,45 @@ export function createSyncPresenceAuthority(options: {
     );
   };
 
+  const deliverPresence = async (
+    access: PresenceAccess,
+    input: ActivePresenceInput,
+    connection?: SyncPresenceConnectionLease,
+  ): Promise<Response> => {
+    const checked = new Set([
+      access.actorIdentifier,
+      ...roomEntries(access.workspaceIdentifier).map((entry) => entry.peer.actorIdentifier),
+    ]);
+    const authorized = new Set(
+      await options.authorize({
+        workspaceIdentifier: access.workspaceIdentifier,
+        actorIdentifiers: [...checked],
+      }),
+    );
+
+    if (closed) return new Response("Presence authority is closed", { status: 503 });
+
+    if (connection?.isClosed())
+      return new Response("Presence connection is closed", { status: 409 });
+
+    readPeers(access.workspaceIdentifier, checked, authorized);
+
+    if (!authorized.has(access.actorIdentifier)) return new Response("Forbidden", { status: 403 });
+
+    const rejected = admit(access, input);
+
+    if (rejected) return rejected;
+
+    if (closed) return new Response("Presence authority is closed", { status: 503 });
+
+    const admittedPeers = readPeers(access.workspaceIdentifier, checked, authorized);
+
+    return Response.json(
+      { peers: admittedPeers, leaseMilliseconds: 15000 },
+      { headers: { "cache-control": "no-store" } },
+    );
+  };
+
   return {
     async fetch(request: Request): Promise<Response> {
       if (closed) return new Response("Presence authority is closed", { status: 503 });
@@ -209,6 +251,8 @@ export function createSyncPresenceAuthority(options: {
         workspaceIdentifier: input.workspaceIdentifier,
       };
 
+      let connection: SyncPresenceConnectionLease | undefined;
+
       try {
         for (const entry of roomEntries(access.workspaceIdentifier)) {
           if (entry.peer.expiresAt <= now()) removeEntry(entry.peer.connectionIdentifier);
@@ -218,44 +262,39 @@ export function createSyncPresenceAuthority(options: {
 
         if (rateFailure) return rateFailure;
 
-        const checked = new Set([
-          access.actorIdentifier,
-          ...roomEntries(access.workspaceIdentifier).map((entry) => entry.peer.actorIdentifier),
-        ]);
-        const authorized = new Set(
-          await options.authorize({
-            workspaceIdentifier: access.workspaceIdentifier,
-            actorIdentifiers: [...checked],
-          }),
-        );
+        if (input.action !== "read") {
+          const reserved = connections.reserve({
+            ...access,
+            connectionIdentifier: input.connectionIdentifier,
+          });
 
-        if (closed) return new Response("Presence authority is closed", { status: 503 });
+          if (reserved instanceof Response) return reserved;
 
-        readPeers(access.workspaceIdentifier, checked, authorized);
+          connection = reserved;
 
-        if (!authorized.has(access.actorIdentifier))
-          return new Response("Forbidden", { status: 403 });
+          if (input.action === "leave") {
+            reserved.leave();
+            removeEntry(input.connectionIdentifier);
 
-        const rejected = admit(access, input);
+            return Response.json(
+              { peers: [], leaseMilliseconds: 15000 },
+              { headers: { "cache-control": "no-store" } },
+            );
+          }
+        }
 
-        if (rejected) return rejected;
-
-        if (closed) return new Response("Presence authority is closed", { status: 503 });
-
-        const admittedPeers = readPeers(access.workspaceIdentifier, checked, authorized);
-
-        return Response.json(
-          { peers: admittedPeers, leaseMilliseconds: 15000 },
-          { headers: { "cache-control": "no-store" } },
-        );
+        return await deliverPresence(access, input, connection);
       } catch {
         return new Response("Presence access is unavailable", { status: 503 });
+      } finally {
+        connection?.release();
       }
     },
     close() {
       closed = true;
       clearInterval(timer);
       entries.clear();
+      connections.close();
       rooms.clear();
       rates.clear();
     },

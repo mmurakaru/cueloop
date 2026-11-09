@@ -18,8 +18,8 @@ export const SyncTextUpdateSchema = v.pipe(
 );
 
 export interface SyncTextSnapshot {
-  state: string;
-  text: string;
+  readonly state: string;
+  readonly text: string;
 }
 
 export interface SyncTextChange extends SyncTextSnapshot {
@@ -171,6 +171,7 @@ function isSyncTextBoundary(text: string, index: number): boolean {
 export function createSyncTextDocument(options: { state: string; canEdit: () => boolean }) {
   let document = openSyncTextDocument(options.state);
   let closed = false;
+  let snapshot: SyncTextSnapshot = Object.freeze(readSyncTextSnapshot(document));
   const requireOpen = () => {
     if (closed) throw new Error("Sync text document is closed");
   };
@@ -180,7 +181,9 @@ export function createSyncTextDocument(options: { state: string; canEdit: () => 
     document.destroy();
     document = next;
 
-    return readSyncTextSnapshot(document);
+    snapshot = Object.freeze(readSyncTextSnapshot(document));
+
+    return snapshot;
   };
   const edit = (change: { index: number; deleteCount: number; insert: string }): SyncTextChange => {
     requireOpen();
@@ -190,7 +193,7 @@ export function createSyncTextDocument(options: { state: string; canEdit: () => 
         "Sync text editing requires a connected authority; retain the change as a draft",
       );
 
-    const previous = readSyncTextSnapshot(document);
+    const previous = snapshot;
     const { index, deleteCount, insert } = v.parse(
       v.object({
         index: v.pipe(v.number(), v.safeInteger(), v.minValue(0)),
@@ -225,11 +228,13 @@ export function createSyncTextDocument(options: { state: string; canEdit: () => 
         text.delete(index, deleteCount);
         text.insert(index, insert);
       });
-      const snapshot = readSyncTextSnapshot(document);
+      const next = readSyncTextSnapshot(document);
       const update = Y.mergeUpdates(updates);
 
       if (update.byteLength > MAXIMUM_UPDATE_BYTES)
         throw new Error("Sync text edit exceeds its update byte budget");
+
+      snapshot = Object.freeze(next);
 
       return { ...snapshot, update: encodeSyncTextBytes(update) };
     } catch (cause) {
@@ -245,13 +250,23 @@ export function createSyncTextDocument(options: { state: string; canEdit: () => 
     get snapshot(): SyncTextSnapshot {
       requireOpen();
 
-      return readSyncTextSnapshot(document);
+      return snapshot;
+    },
+    createPosition(position: SyncTextPositionInput): string {
+      requireOpen();
+
+      return createPositionInSyncDocument(document, snapshot.text, position);
+    },
+    resolvePositions(positions: readonly string[]): (number | undefined)[] {
+      requireOpen();
+
+      return resolvePositionsInSyncDocument(document, positions);
     },
     edit,
     replace(text: string): SyncTextChange {
       requireOpen();
       validateSyncTextContent(text);
-      const previous = document.getText("content").toString();
+      const previous = snapshot.text;
       let start = 0;
       let end = 0;
 
@@ -278,12 +293,14 @@ export function createSyncTextDocument(options: { state: string; canEdit: () => 
     receive(state: string): SyncTextSnapshot {
       requireOpen();
       const incoming = openSyncTextDocument(state);
-      const previous = readSyncTextSnapshot(document);
+      const previous = snapshot;
 
       try {
         applySyncTextUpdate(document, Y.encodeStateAsUpdate(incoming));
 
-        return readSyncTextSnapshot(document);
+        snapshot = Object.freeze(readSyncTextSnapshot(document));
+
+        return snapshot;
       } catch (cause) {
         replaceState(previous.state);
 
@@ -358,30 +375,77 @@ export function mapSyncTextPosition(options: {
   }
 }
 
-/** A serialized text position contains item identities, not the selected text. */
-export function createSyncTextPosition(options: {
-  state: string;
+interface SyncTextPositionInput {
   index: number;
   association?: -1 | 0;
-}): string {
+}
+
+function createPositionInSyncDocument(
+  document: Y.Doc,
+  content: string,
+  position: SyncTextPositionInput,
+): string {
+  const text = document.getText("content");
+
+  if (
+    !Number.isSafeInteger(position.index) ||
+    position.index < 0 ||
+    position.index > text.length ||
+    !isSyncTextBoundary(content, position.index)
+  )
+    throw new Error("Sync text position must be a Unicode boundary within the document");
+
+  return encodeSyncTextBytes(
+    Y.encodeRelativePosition(
+      Y.createRelativePositionFromTypeIndex(text, position.index, position.association ?? -1),
+    ),
+  );
+}
+
+function resolvePositionsInSyncDocument(
+  document: Y.Doc,
+  positions: readonly string[],
+): (number | undefined)[] {
+  if (positions.length > 200) throw new Error("Sync text position batch exceeds 200 endpoints");
+
+  const text = document.getText("content");
+
+  return positions.map((position) => {
+    try {
+      const relative = Y.decodeRelativePosition(decodeSyncTextBytes(position, 768));
+
+      if (relative.type !== null || (relative.tname !== null && relative.tname !== "content"))
+        return undefined;
+
+      const absolute = Y.createAbsolutePositionFromRelativePosition(relative, document);
+
+      return absolute?.type === text ? absolute.index : undefined;
+    } catch {
+      return undefined;
+    }
+  });
+}
+
+/** Serialized text positions contain shared item identities. */
+export function createSyncTextPosition(options: SyncTextPositionInput & { state: string }): string {
   const document = openSyncTextDocument(options.state);
 
   try {
-    const text = document.getText("content");
+    return createPositionInSyncDocument(document, document.getText("content").toString(), options);
+  } finally {
+    document.destroy();
+  }
+}
 
-    if (
-      !Number.isSafeInteger(options.index) ||
-      options.index < 0 ||
-      options.index > text.length ||
-      !isSyncTextBoundary(text.toString(), options.index)
-    )
-      throw new Error("Sync text position must be a Unicode boundary within the document");
+/** A batch opens one shared document for at most 200 position endpoints. */
+export function resolveSyncTextPositions(options: {
+  state: string;
+  positions: readonly string[];
+}): (number | undefined)[] {
+  const document = openSyncTextDocument(options.state);
 
-    return encodeSyncTextBytes(
-      Y.encodeRelativePosition(
-        Y.createRelativePositionFromTypeIndex(text, options.index, options.association ?? -1),
-      ),
-    );
+  try {
+    return resolvePositionsInSyncDocument(document, options.positions);
   } finally {
     document.destroy();
   }
@@ -392,18 +456,7 @@ export function resolveSyncTextPosition(options: {
   state: string;
   position: string;
 }): number | undefined {
-  const document = openSyncTextDocument(options.state);
-
-  try {
-    const relative = Y.decodeRelativePosition(decodeSyncTextBytes(options.position, 768));
-    const absolute = Y.createAbsolutePositionFromRelativePosition(relative, document);
-
-    return absolute?.type === document.getText("content") ? absolute.index : undefined;
-  } catch {
-    return undefined;
-  } finally {
-    document.destroy();
-  }
+  return resolveSyncTextPositions({ state: options.state, positions: [options.position] })[0];
 }
 
 export type {
