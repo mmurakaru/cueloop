@@ -6,5 +6,8 @@
     "@rocicorp/zero": "1.11.4",
     "postgres": "3.4.7",
     "valibot": "^1.5.0"
+  },
+  "overrides": {
+    "tinypool": "2.2.0"
   }
 }

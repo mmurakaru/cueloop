@@ -54,8 +54,7 @@ function earliestRootCommit(revList: string | null): string | undefined {
   return roots.at(-1);
 }
 
-/** Workspace key resolution: repo root, branch, and the project identity (root commit + remote) from the cwd. */
-export async function resolveWorkspace(cwd = process.cwd()): Promise<WorkspaceKey> {
+async function resolveWorkspaceLocation(cwd: string) {
   const [gitRepoRoot, jjRepoRoot] = await Promise.all([
     git(["rev-parse", "--show-toplevel"], cwd),
     jjRoot(cwd),
@@ -63,6 +62,18 @@ export async function resolveWorkspace(cwd = process.cwd()): Promise<WorkspaceKe
   const nativeJjRoot =
     jjRepoRoot && (!gitRepoRoot || jjRepoRoot.length > gitRepoRoot.length) ? jjRepoRoot : null;
   const repoRoot = nativeJjRoot ?? gitRepoRoot ?? cwd;
+
+  return { repoRoot, nativeJjRoot };
+}
+
+export async function resolveWorkspaceRoot(cwd = process.cwd()): Promise<string> {
+  const { repoRoot } = await resolveWorkspaceLocation(cwd);
+
+  return repoRoot;
+}
+
+export async function resolveWorkspace(cwd = process.cwd()): Promise<WorkspaceKey> {
+  const { repoRoot, nativeJjRoot } = await resolveWorkspaceLocation(cwd);
   const [gitBranch, isShallow, rootList, gitRemote] = nativeJjRoot
     ? [null, null, null, null]
     : await Promise.all([

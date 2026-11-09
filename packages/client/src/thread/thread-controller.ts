@@ -11,6 +11,7 @@ import { SystemClock, type Clock, type TimerHandle } from "@opentui/core";
 import { statSync } from "node:fs";
 import { createStore, type StoreApi } from "zustand/vanilla";
 import { DaemonClient, type ThreadClient } from "@cueloop/daemon/client";
+import { resolveWorkspaceRoot } from "@cueloop/daemon/thread-review";
 import {
   applyPathView,
   applyTextCuts,
@@ -402,6 +403,7 @@ class Controller implements ReviewController {
   private autoClose: AutoClose = "off";
   private quickActions: QuickAction[] = [];
   private editor: string | undefined;
+  private launchWorkspaceRoot: string | undefined;
   private exporters: BundledExporter[] = [];
   private readonly clock: Clock;
   private readonly shareTransport: ShareTransport;
@@ -501,6 +503,10 @@ class Controller implements ReviewController {
           this.viewingId = this.options.sessionId;
           this.update({ session: await client.sessionGet(this.options.sessionId), inbox });
         } else {
+          this.launchWorkspaceRoot = await resolveWorkspaceRoot(this.options.cwd ?? process.cwd());
+
+          if (this.closed) return;
+
           this.update({ inbox });
         }
       } catch (err) {
@@ -772,7 +778,12 @@ class Controller implements ReviewController {
 
   /** Files and settings must resolve the same workspace before a Thread exists. */
   workspaceRoot(): string {
-    return this.snapshot.session?.workspace.repoRoot || this.options.cwd || process.cwd();
+    return (
+      this.snapshot.session?.workspace.repoRoot ||
+      this.launchWorkspaceRoot ||
+      this.options.cwd ||
+      process.cwd()
+    );
   }
 
   async repoFiles(): Promise<string[]> {

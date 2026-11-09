@@ -42,6 +42,7 @@
   },
   "moduleImportBudget": 20,
   "moduleBudgets": {
+    "packages/client/src/thread/thread-controller.ts": 21,
     "packages/cli/src/main.ts": 25,
     "packages/client/src/app/App.tsx": 53,
     "packages/client/src/app/app-screens.tsx": 36,

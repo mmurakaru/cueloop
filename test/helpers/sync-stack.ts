@@ -16,7 +16,7 @@ export async function createTestSyncStack() {
   const zeroName = `${name}-zero`;
   const password = randomBytes(24).toString("hex");
   const token = randomBytes(24).toString("hex");
-  const userId = "sync_test_reader";
+  const userIdentifier = "sync_test_reader";
   let authority: Bun.Subprocess<"ignore", "pipe", "pipe"> | undefined;
 
   function redact(output: string): string {
@@ -123,7 +123,7 @@ export async function createTestSyncStack() {
       ...process.env,
       SYNC_DATABASE_URL: `postgres://sync_test:${password}@127.0.0.1:${port}/sync_test`,
       SYNC_AUTH_TOKEN: token,
-      SYNC_USER_ID: userId,
+      SYNC_USER_ID: userIdentifier,
     };
 
     authority = Bun.spawn(
@@ -218,7 +218,7 @@ export async function createTestSyncStack() {
     return {
       cacheURL,
       auth: token,
-      userID: userId,
+      userID: userIdentifier,
       directory,
       environment: { ...environment, SYNC_CACHE_URL: cacheURL },
       close,

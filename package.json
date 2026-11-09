@@ -60,5 +60,6 @@
     "typescript": "^7.0.2",
     "valibot": "^1.5.0"
   },
-  "dependencies": {}
+  "dependencies": {},
+  "overrides": { "tinypool": "2.2.0" }
 }

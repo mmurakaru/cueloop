@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { createTestSyncStack } from "../helpers/sync-stack";
+import { createTestSyncProxy } from "../helpers/sync-proxy";
 import { verifyTestBrowserSync } from "../helpers/sync-browser";
 import { createSharedRecordClient } from "../../examples/sync-workspace/client.ts";
 import {
@@ -13,7 +14,8 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
   "standalone Bun, Node, and experimental cueloop clients share authoritative records",
   async () => {
     const stack = await createTestSyncStack();
-    const client = createSharedRecordClient(stack);
+    const proxy = await createTestSyncProxy(stack.cacheURL);
+    const client = createSharedRecordClient({ ...stack, cacheURL: proxy.cacheURL });
     const view = client.materialize(sharedRecordQueries.records());
     let viewOpen = true;
     const received = new Promise<void>((resolve) => {
@@ -79,7 +81,56 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
       ).server;
 
       expect(mutation.type).toBe("success");
-      await verifyTestBrowserSync(stack);
+      const browserObserved = Promise.withResolvers<void>();
+      const stopBrowserObservation = view.addListener((records) => {
+        if (records[0]?.content === "Written by the browser client") browserObserved.resolve();
+      });
+
+      try {
+        await verifyTestBrowserSync(stack);
+        await browserObserved.promise;
+      } finally {
+        stopBrowserObservation();
+      }
+
+      const disconnected = Promise.withResolvers<void>();
+      const stopConnection = client.connection.state.subscribe((state) => {
+        if (state.name !== "connected") disconnected.resolve();
+      });
+      const recovered = Promise.withResolvers<void>();
+      const stopView = view.addListener((records) => {
+        if (records[0]?.content === "Written while disconnected") recovered.resolve();
+      });
+
+      try {
+        proxy.disconnect();
+        await disconnected.promise;
+        const writer = createSharedRecordClient(stack);
+
+        try {
+          await writer.run(sharedRecordQueries.records(), { type: "complete" });
+          const result = await writer.mutate(
+            sharedRecordMutators.edit({
+              id: record.id,
+              content: "Written while disconnected",
+            }),
+          ).server;
+
+          expect(result.type).toBe("success");
+          expect((await client.run(sharedRecordQueries.records()))[0]?.content).toBe(
+            "Written by the browser client",
+          );
+        } finally {
+          await writer.close();
+        }
+
+        proxy.reconnect();
+        await recovered.promise;
+      } finally {
+        stopConnection();
+        stopView();
+      }
+
       view.destroy();
       viewOpen = false;
       await client.close();
@@ -88,7 +139,7 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
       try {
         expect(
           (await reconnected.run(sharedRecordQueries.records(), { type: "complete" }))[0]?.content,
-        ).toBe("Written by the browser client");
+        ).toBe("Written while disconnected");
       } finally {
         await reconnected.close();
       }
@@ -99,7 +150,11 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
         try {
           await client.close();
         } finally {
-          await stack.close();
+          try {
+            await proxy.close();
+          } finally {
+            await stack.close();
+          }
         }
       }
     }

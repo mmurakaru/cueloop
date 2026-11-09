@@ -77,7 +77,10 @@ export async function serveSyncApplication(
       });
       const response = await application.fetch(request);
 
-      outgoing.writeHead(response.status, Object.fromEntries(response.headers));
+      outgoing.writeHead(response.status, {
+        ...Object.fromEntries(response.headers),
+        "set-cookie": response.headers.getSetCookie(),
+      });
       outgoing.end(Buffer.from(await response.arrayBuffer()));
     } catch {
       if (!outgoing.headersSent) outgoing.writeHead(500);

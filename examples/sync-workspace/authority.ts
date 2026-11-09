@@ -7,9 +7,9 @@ import { connectSharedRecord } from "./client.ts";
 
 const databaseUrl = process.env.SYNC_DATABASE_URL;
 const token = process.env.SYNC_AUTH_TOKEN;
-const userId = process.env.SYNC_USER_ID;
+const userIdentifier = process.env.SYNC_USER_ID;
 
-if (!token || !userId) {
+if (!token || !userIdentifier) {
   throw new Error("Sync example requires SYNC_AUTH_TOKEN and SYNC_USER_ID");
 }
 
@@ -20,7 +20,7 @@ const fetch = connection
       database: zeroPostgresJS(sharedRecordSchema, connection),
       authenticate: async (request) =>
         request.headers.get("authorization") === `Bearer ${token}`
-          ? { userId, context: { canEdit: true } }
+          ? { userIdentifier, context: { canEdit: true } }
           : null,
       query: (principal) => (name, args) =>
         mustGetQuery(sharedRecordQueries, name).fn({ args, ctx: principal.context }),

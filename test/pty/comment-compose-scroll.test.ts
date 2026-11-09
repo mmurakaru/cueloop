@@ -23,6 +23,7 @@ ptyTest("typing a comment in a project file preserves visible selection position
     await session.waitForReady();
     await session.waitForText("project");
     await session.click("project");
+    await session.waitForText("LICENSE");
     await session.click("LICENSE");
     await session.waitForText("project line 000");
     await session.click("project line 000");

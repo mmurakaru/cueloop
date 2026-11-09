@@ -701,11 +701,14 @@ describe("the bare-launch welcome shell", () => {
     setup.renderer.destroy();
   });
 
-  test("bare-launch Experimental settings uses the launch workspace sync override", async () => {
+  test("bare-launch Experimental settings uses the workspace sync override from a subdirectory", async () => {
+    const subdirectory = join(welcomeRepo, "nested");
+
+    mkdirSync(subdirectory);
     mkdirSync(join(welcomeRepo, ".cueloop"), { recursive: true });
     writeFileSync(join(welcomeRepo, ".cueloop", "config.toml"), "[experimental]\nsync = false\n");
     writeFileSync(process.env.CUELOOP_CONFIG!, "[experimental]\nsync = true\n");
-    const setup = await renderReadyApp(<App home={welcomeHome} cwd={welcomeRepo} />, {
+    const setup = await renderReadyApp(<App home={welcomeHome} cwd={subdirectory} />, {
       width: 120,
       height: 30,
     });

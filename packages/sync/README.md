@@ -15,6 +15,18 @@ The authority uses PostgreSQL and a Zero cache service.
 PostgreSQL needs logical replication enabled.
 Local hosting runs the same service stack as remote hosting.
 
+Configure this override in the consuming application's package manifest:
+
+```json
+{
+  "overrides": { "tinypool": "2.2.0" }
+}
+```
+
+Zero 1.11.4 includes a formatter dependency with an affected worker-pool version.
+The application-level override selects the patched version; overrides inside a library do not configure its consumers.
+See the [upstream advisory](https://github.com/advisories/GHSA-85c8-ppgw-ccpr).
+
 ## Client
 
 ```ts

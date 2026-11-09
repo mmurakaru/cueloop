@@ -9,7 +9,7 @@ import {
 } from "@rocicorp/zero/server";
 
 export interface SyncPrincipal<Context> {
-  userId: string;
+  userIdentifier: string;
   context: Context;
 }
 
@@ -48,7 +48,7 @@ export function createSyncAuthority<
         await handleQueryRequest({
           schema: options.schema,
           request,
-          userID: principal.userId,
+          userID: principal.userIdentifier,
           handler: options.query(principal),
         }),
       );
@@ -58,7 +58,7 @@ export function createSyncAuthority<
       await handleMutateRequest({
         dbProvider: options.database,
         request,
-        userID: principal.userId,
+        userID: principal.userIdentifier,
         handler: options.mutate(principal),
       }),
     );
