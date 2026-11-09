@@ -1,4 +1,8 @@
-import { serveSyncApplication } from "./sync-server.ts";
+import {
+  serveSyncApplication,
+  type SyncApplication,
+  type SyncClientOutcome,
+} from "./sync-server.ts";
 import { loadSyncApplication } from "./sync-application.ts";
 
 const SYNC_HELP = `General-purpose sync for terminals
@@ -25,6 +29,26 @@ function syncFlag(arguments_: string[], name: string): string | undefined {
     throw new Error(`Sync command requires a value for ${name}`);
 
   return value;
+}
+
+async function connectSyncApplication(
+  application: SyncApplication,
+  clientArguments: string[],
+): Promise<number> {
+  let outcome: SyncClientOutcome | void;
+
+  try {
+    if (!application.connect) throw new Error("Sync application does not provide a client");
+
+    const applicationIndex = clientArguments.indexOf("--application");
+
+    clientArguments.splice(applicationIndex, 2);
+    outcome = await application.connect(clientArguments);
+  } finally {
+    await application.close?.();
+  }
+
+  return outcome?.status === "interrupted" ? (outcome.signal === "SIGINT" ? 130 : 143) : 0;
 }
 
 export async function runSyncCli(arguments_: string[]): Promise<number> {
@@ -55,15 +79,7 @@ export async function runSyncCli(arguments_: string[]): Promise<number> {
   const application = await loadSyncApplication(applicationPath);
 
   if (command === "connect") {
-    try {
-      if (!application.connect) throw new Error("Sync application does not provide a client");
-
-      await application.connect(arguments_.slice(1));
-    } finally {
-      await application.close?.();
-    }
-
-    return 0;
+    return connectSyncApplication(application, arguments_.slice(1));
   }
 
   let server: Awaited<ReturnType<typeof serveSyncApplication>>;

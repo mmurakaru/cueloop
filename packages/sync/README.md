@@ -38,6 +38,7 @@ const client = createSyncClient({
   cacheURL,
   userID,
   auth,
+  storageKey,
   kvStore: "mem",
 });
 const view = client.materialize(queries.records());
@@ -52,7 +53,9 @@ view.destroy();
 await client.close();
 ```
 
-Schemas, queries, and named mutators use the Zero TypeScript API.
+Import typed schema, relationship, query, and named mutation builders from `@cueloop/sync/schema`.
+Use a distinct `storageKey` for each application authority; the user identity provides a separate storage scope.
+See the [query guide](./docs/queries.md) for authorization, relational queries, pagination, and JSONL watches.
 Connection status and query freshness are separate.
 
 > [!NOTE]

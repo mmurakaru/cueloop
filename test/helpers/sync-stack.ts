@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomBytes, randomUUID } from "node:crypto";
@@ -101,6 +101,28 @@ export async function createTestSyncStack() {
       }
     }
 
+    const migrationDirectory = new URL("../../examples/sync-workspace/", import.meta.url);
+
+    for (const migration of readdirSync(migrationDirectory)
+      .filter((file) => file.endsWith(".sql"))
+      .sort()) {
+      await docker(
+        [
+          "exec",
+          "-i",
+          postgresName,
+          "psql",
+          "-v",
+          "ON_ERROR_STOP=1",
+          "-U",
+          "sync_test",
+          "-d",
+          "sync_test",
+        ],
+        readFileSync(new URL(migration, migrationDirectory), "utf8"),
+      );
+    }
+
     await docker(
       [
         "exec",
@@ -114,16 +136,14 @@ export async function createTestSyncStack() {
         "-d",
         "sync_test",
       ],
-      readFileSync(
-        new URL("../../examples/sync-workspace/001-shared-record.sql", import.meta.url),
-        "utf8",
-      ),
+      "INSERT INTO sync_workspace_member (workspace_identifier, user_identifier, role) SELECT workspace_identifier, 'sync_test_reader', 'owner' FROM shared_record LIMIT 1;",
     );
     const environment = {
       ...process.env,
       SYNC_DATABASE_URL: `postgres://sync_test:${password}@127.0.0.1:${port}/sync_test`,
       SYNC_AUTH_TOKEN: token,
       SYNC_USER_ID: userIdentifier,
+      SYNC_STORAGE_KEY: name,
     };
 
     authority = Bun.spawn(
@@ -219,6 +239,7 @@ export async function createTestSyncStack() {
       cacheURL,
       auth: token,
       userID: userIdentifier,
+      storageKey: name,
       directory,
       environment: { ...environment, SYNC_CACHE_URL: cacheURL },
       close,

@@ -2,7 +2,12 @@
 import { runSyncCli } from "../dist/sync-cli.js";
 
 try {
-  process.exitCode = await runSyncCli(process.argv.slice(2));
+  const status = await runSyncCli(process.argv.slice(2));
+
+  // Interrupted watches can retain a blocked stdout write after cleanup.
+  if (status === 130 || status === 143) process.exit(status);
+
+  process.exitCode = status;
 } catch (error) {
   console.error(error instanceof Error ? error.message : "Sync command failed");
   process.exitCode = 1;

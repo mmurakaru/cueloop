@@ -1,9 +1,13 @@
 import { createServer } from "node:http";
 import * as v from "valibot";
 
+export type SyncClientOutcome =
+  | { status: "completed" }
+  | { status: "interrupted"; signal: "SIGINT" | "SIGTERM" };
+
 export interface SyncApplication {
   fetch: (request: Request) => Response | Promise<Response>;
-  connect?: (arguments_: string[]) => Promise<void>;
+  connect?: (arguments_: string[]) => Promise<void | SyncClientOutcome>;
   close?: () => void | Promise<void>;
 }
 
