@@ -125,6 +125,10 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
           expect(history.map((revision) => revision.revision)).toEqual([2, 1, 0]);
           expect(history[0]?.content).toBe("Alice: Shared workspace with Bob");
           expect(history[2]?.content).toBe("Shared workspace");
+          expect(history.map((revision) => revision.parentIdentifier)).toEqual([
+            ...history.slice(1).map((revision) => revision.id),
+            null,
+          ]);
           expect(
             history
               .slice(0, 2)

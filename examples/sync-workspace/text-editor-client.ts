@@ -258,15 +258,23 @@ export async function createSharedTextEditorSession(options: {
       pending = undefined;
 
       if (outcome.status === "accepted") {
-        const accepted = await readAuthority();
+        const acceptedDraftIdentifier = draftIdentifier;
 
-        if (accepted.textState) document.receive(accepted.textState);
-
-        text = document.snapshot.text;
         baseState = document.snapshot.state;
         hasDraft = false;
-        await drafts.discard(draftIdentifier);
         draftIdentifier = undefined;
+        await drafts.discard(acceptedDraftIdentifier);
+
+        try {
+          const accepted = await readAuthority();
+
+          if (accepted.textState) document.receive(accepted.textState);
+
+          text = document.snapshot.text;
+          baseState = document.snapshot.state;
+        } catch {
+          error = "Edit accepted; latest shared text is temporarily unavailable";
+        }
       } else {
         draftIdentifier = undefined;
         persistedGeneration = 0;

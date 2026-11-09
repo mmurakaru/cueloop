@@ -249,3 +249,74 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
   },
   120000,
 );
+
+test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
+  "an accepted edit remains editable when its follow-up authority read fails",
+  async () => {
+    const stack = await createTestSyncStack();
+    const reader = createSharedRecordClient(stack);
+    let readsUntilFailure = 0;
+    const relay = Bun.serve({
+      hostname: "127.0.0.1",
+      port: 0,
+      fetch: (request) => {
+        const path = new URL(request.url).pathname;
+
+        if (path === "/text" && readsUntilFailure > 0 && --readsUntilFailure === 0) {
+          return new Response("Authority read temporarily unavailable", { status: 503 });
+        }
+
+        return fetch(new Request(new URL(path, stack.authorityURL), request));
+      },
+    });
+    let session: Awaited<ReturnType<typeof createSharedTextEditorSession>> | undefined;
+
+    try {
+      const [record] = await reader.run(sharedRecordQueries.records(), { type: "complete" });
+
+      if (!record) throw new Error("Sync accepted-edit test requires its record");
+
+      session = await createSharedTextEditorSession({
+        ...stack,
+        authorityURL: relay.url.href,
+        workspaceIdentifier: record.workspaceIdentifier,
+        recordIdentifier: record.id,
+        storage: createSyncSqliteStorage({
+          directory: join(stack.directory, "read-failure-editor"),
+        }),
+      });
+      await waitForTestTextEditor(
+        session,
+        (snapshot) => snapshot.connection === "connected",
+        "the accepted-edit editor's connection",
+      );
+      session.change("First accepted edit");
+      readsUntilFailure = 2;
+      expect((await session.save()).status).toBe("accepted");
+      expect(session.getSnapshot().operation).toBe("accepted");
+      session.change("Second accepted edit");
+      expect((await session.save()).status).toBe("accepted");
+      await session.close();
+      session = undefined;
+      const view = reader.materialize(sharedRecordQueries.records());
+      const replicated = Promise.withResolvers<void>();
+      const unsubscribe = view.addListener((records) => {
+        if (records[0]?.content === "Second accepted edit") replicated.resolve();
+      });
+
+      try {
+        await waitForTestSyncState(replicated.promise, "the second accepted edit on the replica");
+        expect(view.data[0]?.content).toBe("Second accepted edit");
+      } finally {
+        unsubscribe();
+        view.destroy();
+      }
+    } finally {
+      await session?.close();
+      await relay.stop(true);
+      await reader.close();
+      await stack.close();
+    }
+  },
+  120000,
+);
