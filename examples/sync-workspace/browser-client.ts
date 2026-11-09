@@ -1,3 +1,4 @@
+import { createSyncDraftStore } from "@cueloop/sync/drafts";
 import { createSharedRecordClient } from "./client.ts";
 import { sharedRecordMutators, sharedRecordQueries } from "./shared-record.ts";
 
@@ -9,7 +10,7 @@ export async function verifyBrowserRead(options: {
   workspaceIdentifier: string;
   pageSize: number;
 }) {
-  const client = createSharedRecordClient(options);
+  const client = createSharedRecordClient({ ...options, storage: "idb" });
 
   try {
     return await client.run(
@@ -29,7 +30,7 @@ export async function verifyBrowserSync(options: {
   userID: string;
   auth: string;
 }) {
-  const client = createSharedRecordClient(options);
+  const client = createSharedRecordClient({ ...options, storage: "idb" });
 
   try {
     const initial = await client.run(sharedRecordQueries.records(), { type: "complete" });
@@ -45,5 +46,26 @@ export async function verifyBrowserSync(options: {
     return { accepted: result.type, content: updated[0]?.content };
   } finally {
     await client.close();
+  }
+}
+
+export async function verifyBrowserDraftStorage(options: {
+  authorityIdentifier: string;
+  userIdentifier: string;
+  phase: "save" | "read";
+}) {
+  const drafts = createSyncDraftStore({
+    storage: "idb",
+    authorityIdentifier: options.authorityIdentifier,
+    userIdentifier: options.userIdentifier,
+  });
+
+  try {
+    if (options.phase === "save")
+      await drafts.save({ content: { body: "Browser draft retained across reload" } });
+
+    return await drafts.list();
+  } finally {
+    await drafts.close();
   }
 }

@@ -4,6 +4,8 @@ import * as v from "valibot";
 export async function createTestSyncProxy(targetURL: string) {
   const target = new URL(targetURL);
   const sockets = new Set<Socket>();
+  const serverSources = new Set<Socket>();
+  let serverOutputPaused = false;
   let connected = true;
   const server = createServer((incoming) => {
     if (!connected) {
@@ -14,6 +16,8 @@ export async function createTestSyncProxy(targetURL: string) {
 
     const upstream = createConnection({ host: target.hostname, port: Number(target.port) });
 
+    serverSources.add(upstream);
+
     for (const socket of [incoming, upstream]) {
       sockets.add(socket);
       socket.on("error", () => {
@@ -22,12 +26,15 @@ export async function createTestSyncProxy(targetURL: string) {
       });
       socket.on("close", () => {
         sockets.delete(socket);
+        serverSources.delete(upstream);
         incoming.destroy();
         upstream.destroy();
       });
     }
 
     incoming.pipe(upstream).pipe(incoming);
+
+    if (serverOutputPaused) upstream.pause();
   });
 
   await new Promise<void>((resolve, reject) => {
@@ -38,6 +45,16 @@ export async function createTestSyncProxy(targetURL: string) {
 
   return {
     cacheURL: `http://127.0.0.1:${address.port}`,
+    pauseServerOutput() {
+      serverOutputPaused = true;
+
+      for (const source of serverSources) source.pause();
+    },
+    resumeServerOutput() {
+      serverOutputPaused = false;
+
+      for (const source of serverSources) source.resume();
+    },
     disconnect() {
       connected = false;
 

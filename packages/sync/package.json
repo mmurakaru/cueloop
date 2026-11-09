@@ -20,6 +20,7 @@
     "bin",
     "docs",
     "migrations",
+    "docs",
     "README.md"
   ],
   "type": "module",
@@ -27,6 +28,9 @@
   "exports": {
     ".": "./dist/sync-client.js",
     "./schema": "./dist/sync-schema.js",
+    "./storage": "./dist/sync-sqlite-storage.js",
+    "./drafts": "./dist/sync-draft-store.js",
+    "./queries": "./dist/sync-query.js",
     "./operations": "./dist/sync-operations.js",
     "./server": "./dist/sync-authority.js",
     "./serve": "./dist/sync-server.js",
@@ -43,6 +47,7 @@
   "dependencies": {
     "@rocicorp/zero": "1.11.4",
     "canonicalize": "5.1.0",
+    "idb": "8.0.4",
     "uuid": "14.0.3",
     "valibot": "^1.5.0"
   },

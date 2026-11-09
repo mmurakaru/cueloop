@@ -54,28 +54,37 @@ await client.close();
 ```
 
 Import typed schema, relationship, query, and named mutation builders from `@cueloop/sync/schema`.
-Use a distinct `storageKey` for each application authority; the user identity provides a separate storage scope.
-See the [query guide](./docs/queries.md) for authorization, relational queries, pagination, and JSONL watches.
 Connection status and query freshness are separate.
 
 > [!NOTE]
 > Writes require a connected authority.
 > Keep disconnected edits as drafts for explicit submission after reconnect.
 > `kvStore: "mem"` is an ephemeral cache.
-> Persistent caching requires a supported storage provider.
+> Use a distinct `storageKey` for each application authority.
+> Use `createSyncSqliteStorage` from `@cueloop/sync/storage` for persistent terminal clients, or `kvStore: "idb"` in browsers.
 
-## Durable operations
+## Recover work
+
+`createSyncDraftStore` from `@cueloop/sync/drafts` retains input and complete operation envelopes across restarts.
+Use a SQLite storage provider in terminal clients or `storage: "idb"` in browsers.
+Drafts are scoped to authority and user, default to 1,000 items and 8 MiB, and never submit automatically.
+
+`createSyncQuerySubscription` from `@cueloop/sync/queries` keeps one pending snapshot within an 8 MiB default budget.
+It reports connection status and query freshness separately and owns its view's cleanup.
+`client.lifecycle` reports storage, reset, and shutdown state.
+
+## Submit durable changes
 
 Define and submit operations through `@cueloop/sync/operations`.
 Save each complete request before submission and retry its original identity after an uncertain reply.
-The outcome is pending, accepted, or rejected; the helper never resubmits automatically.
+Accepted and rejected receipts retain recoverable input; a pending result requires receipt lookup or an explicit retry.
 
 > [!IMPORTANT]
 > Apply the published operation-receipt migration before accepting operations.
 > Commit the application change and receipt in one authoritative transaction.
 > Acceptance does not confirm external execution or query replication.
 
-See the [operation guide](./docs/operations.md) for argument validation, authorization, deadlines, and receipt retention.
+See the [application guide](./docs/application-guide.md) for storage and recovery, the [query guide](./docs/queries.md) for permissions and pagination, and the [operation guide](./docs/operations.md) for durable acceptance and retention.
 
 ## Host an authority
 
