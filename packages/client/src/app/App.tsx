@@ -1041,9 +1041,7 @@ export function App({
     // the bare shell drives its panes from its own workbench, so only reconcile against this one
     if (!session) return;
 
-    const next = reconciledFocus(navigablePanes, focusedPane);
-
-    if (next) setFocusedPane(next);
+    setFocusedPane((current) => reconciledFocus(navigablePanes, current) ?? current);
   }, [session, navigablePanes, focusedPane]);
   const cyclePanes = (backward: boolean): void =>
     setFocusedPane((current) => nextFocusPane(current, navigablePanes, backward));
