@@ -39,7 +39,7 @@ test("the packed sync SDK and CLI run from node_modules under Node", async () =>
     ]);
 
     expect(await extract.exited).toBe(0);
-    const source = `import {createSyncClient} from '@cueloop/sync'; import {createSchema, table, string} from '@rocicorp/zero'; const schema=createSchema({tables:[table('record').columns({id:string()}).primaryKey('id')]}); const client=createSyncClient({schema,cacheURL:null,kvStore:'mem'}); await client.close(); console.log('Packed SDK closed');`;
+    const source = `import {createSyncClient} from '@cueloop/sync'; import {createSchema, table, string} from '@cueloop/sync/schema'; const schema=createSchema({tables:[table('record').columns({id:string()}).primaryKey('id')]}); const client=createSyncClient({schema,cacheURL:null,kvStore:'mem'}); await client.close(); console.log('Packed SDK closed');`;
     const consumer = Bun.spawn(["node", "--input-type=module", "-e", source], {
       cwd: directory,
       stdout: "pipe",

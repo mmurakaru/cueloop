@@ -10,6 +10,12 @@ const SyncApplicationModuleSchema = v.object({
     close: v.optional(v.function()),
   }),
 });
+const SyncClientOutcomeSchema = v.optional(
+  v.variant("status", [
+    v.object({ status: v.literal("completed") }),
+    v.object({ status: v.literal("interrupted"), signal: v.picklist(["SIGINT", "SIGTERM"]) }),
+  ]),
+);
 
 export async function loadSyncApplication(path: string): Promise<SyncApplication> {
   const module = v.parse(
@@ -22,7 +28,7 @@ export async function loadSyncApplication(path: string): Promise<SyncApplication
     fetch: async (request) => v.parse(v.instance(Response), await fetch(request)),
     connect: connect
       ? async (arguments_) => {
-          await connect(arguments_);
+          return v.parse(SyncClientOutcomeSchema, await connect(arguments_));
         }
       : undefined,
     close: close

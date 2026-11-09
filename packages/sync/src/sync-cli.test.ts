@@ -1,9 +1,40 @@
 import { expect, test } from "bun:test";
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runSyncCli } from "./sync-cli.ts";
 import { serveSyncApplication } from "./sync-server.ts";
+
+test("connect passes only application arguments to the client", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "cueloop-sync-cli-arguments-"));
+  const application = join(directory, "application.mjs");
+  const marker = join(directory, "arguments.json");
+
+  writeFileSync(
+    application,
+    `import {writeFileSync} from 'node:fs'; export const syncApplication={fetch:()=>new Response('ok'),connect:arguments_=>writeFileSync(${JSON.stringify(marker)},JSON.stringify(arguments_))};`,
+  );
+
+  try {
+    await runSyncCli([
+      "connect",
+      "--application",
+      application,
+      "--workspace",
+      "example",
+      "--limit",
+      "1",
+    ]);
+    expect(JSON.parse(readFileSync(marker, "utf8"))).toEqual([
+      "--workspace",
+      "example",
+      "--limit",
+      "1",
+    ]);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
 
 test("invalid CLI options cannot initialize an application", async () => {
   const directory = mkdtempSync(join(tmpdir(), "cueloop-sync-cli-"));

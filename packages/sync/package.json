@@ -18,12 +18,14 @@
   "files": [
     "dist",
     "bin",
+    "docs",
     "README.md"
   ],
   "type": "module",
   "types": "./dist/sync-client.d.ts",
   "exports": {
     ".": "./dist/sync-client.js",
+    "./schema": "./dist/sync-schema.js",
     "./server": "./dist/sync-authority.js",
     "./serve": "./dist/sync-server.js",
     "./cli": "./dist/sync-cli.js"

@@ -14,7 +14,7 @@
     "stories:watch": "bun --watch packages/client/src/stories/stories-app.tsx",
     "test": "bun test --timeout 60000 ./packages ./test ./hooks",
     "test:pty": "CUELOOP_RUN_PTY=1 bun test --timeout 60000 ./test/pty",
-    "test:sync": "CUELOOP_RUN_SYNC=1 bun test --timeout 120000 ./test/session/sync-workspace.test.ts",
+    "test:sync": "CUELOOP_RUN_SYNC=1 bun test --timeout 120000 ./test/session/sync-*.test.ts",
     "test:install-vm": "bun run test/install/vm/runner.ts",
     "test:gateway-mirror": "bun run test/gateway/mirror/runner.ts",
     "bench": "bun run benchmarks/run.ts",

@@ -1,0 +1,15 @@
+export {
+  createBuilder,
+  createSchema,
+  defineMutatorsWithType,
+  defineMutatorWithType,
+  defineQueriesWithType,
+  defineQueryWithType,
+  number,
+  relationships,
+  string,
+  table,
+  type Query,
+  type Row,
+  type Schema,
+} from "@rocicorp/zero";
