@@ -10,6 +10,11 @@ export const SyncPresenceSelectionSchema = v.strictObject({
   focus: PresencePositionSchema,
 });
 
+export const SyncPresenceUpdateSchema = v.strictObject({
+  typing: v.optional(v.boolean()),
+  selection: v.optional(v.nullable(SyncPresenceSelectionSchema)),
+});
+
 export type SyncPresenceSelection = v.InferOutput<typeof SyncPresenceSelectionSchema>;
 export const SyncPresenceRequestSchema = v.variant("action", [
   v.strictObject({ action: v.literal("read"), workspaceIdentifier: PresenceIdentifierSchema }),

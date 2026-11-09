@@ -2,7 +2,7 @@ import * as v from "valibot";
 import { v7 as createPresenceIdentifier } from "uuid";
 import {
   SyncPresenceResponseSchema,
-  SyncPresenceSelectionSchema,
+  SyncPresenceUpdateSchema,
   type SyncPresencePeer,
   type SyncPresenceSelection,
 } from "./sync-presence-protocol.ts";
@@ -40,6 +40,7 @@ export function createSyncPresenceClient(options: {
   let typingAt = -Infinity;
   let selection: SyncPresenceSelection | null = null;
   let running: Promise<void> | undefined;
+  let activityTimer: ReturnType<typeof setTimeout> | undefined;
   let closing: Promise<void> | undefined;
   let request: AbortController | undefined;
   const publish = (next: SyncPresenceSnapshot) => {
@@ -55,6 +56,9 @@ export function createSyncPresenceClient(options: {
   };
   const refresh = (): Promise<void> => {
     if (closed || !enabled) return Promise.resolve();
+
+    clearTimeout(activityTimer);
+    activityTimer = undefined;
 
     if (running) {
       const capturedGeneration = requestGeneration;
@@ -145,19 +149,30 @@ export function createSyncPresenceClient(options: {
     update(update: { typing?: boolean; selection?: SyncPresenceSelection | null }) {
       if (closed) throw new Error("Sync presence client is closed");
 
+      const next = v.parse(SyncPresenceUpdateSchema, update);
+
+      if (next.typing === undefined && next.selection === undefined) return;
+
       generation++;
 
-      if (update.typing !== undefined) typingAt = update.typing ? performance.now() : -Infinity;
+      if (next.typing !== undefined) typingAt = next.typing ? performance.now() : -Infinity;
 
-      if (update.selection !== undefined)
-        selection =
-          update.selection === null ? null : v.parse(SyncPresenceSelectionSchema, update.selection);
+      if (next.selection !== undefined) selection = next.selection;
+
+      if (enabled && !activityTimer) {
+        activityTimer = setTimeout(() => {
+          activityTimer = undefined;
+          void refresh();
+        }, 500);
+      }
     },
     setEnabled(value: boolean) {
       if (closed || enabled === value) return;
 
       enabled = value;
       generation++;
+      clearTimeout(activityTimer);
+      activityTimer = undefined;
       request?.abort();
       typingAt = -Infinity;
       selection = null;
@@ -167,12 +182,7 @@ export function createSyncPresenceClient(options: {
     close(): Promise<void> {
       if (closing) return closing;
 
-      closed = true;
-      clearInterval(timer);
-      request?.abort();
-      publish({ status: "closed", peers: [] });
-      listeners.clear();
-      closing = (async () => {
+      closing = Promise.resolve().then(async () => {
         await running;
 
         try {
@@ -188,7 +198,14 @@ export function createSyncPresenceClient(options: {
         } catch {
           // The authority lease expires when a closing client cannot reach it.
         }
-      })();
+      });
+      closed = true;
+      clearInterval(timer);
+      clearTimeout(activityTimer);
+      activityTimer = undefined;
+      request?.abort();
+      publish({ status: "closed", peers: [] });
+      listeners.clear();
 
       return closing;
     },

@@ -51,7 +51,7 @@ unsubscribe();
 await presence.close();
 ```
 
-The client coalesces updates into one heartbeat per second by default.
+The client sends one heartbeat per second by default and coalesces new activity into a 500 ms flush.
 Heartbeats can run between 500 ms and 5 seconds apart.
 A failed request clears cached activity.
 Presence expires after 15 seconds without a new heartbeat; typing expires after 3 seconds.

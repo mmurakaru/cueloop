@@ -98,3 +98,73 @@ test("a lost presence authority clears cached activity and recovers after an emp
     await server.stop(true);
   }
 });
+
+test("presence shutdown stays idempotent when a closed-state listener closes it again", async () => {
+  const authority = createSyncPresenceAuthority({
+    authenticate: async () => ({ actorIdentifier: "alice" }),
+    authorize: async (access) => access.actorIdentifiers,
+  });
+  const server = Bun.serve({ hostname: "127.0.0.1", port: 0, fetch: authority.fetch });
+  const client = createSyncPresenceClient({
+    authorityURL: server.url.href,
+    workspaceIdentifier: WORKSPACE,
+    auth: "alice",
+  });
+  let notifications = 0;
+  let nested: Promise<void> | undefined;
+
+  try {
+    await client.refresh();
+    client.subscribe(() => {
+      if (client.getSnapshot().status === "closed") {
+        notifications++;
+
+        if (notifications === 1) nested = client.close();
+      }
+    });
+    const closing = client.close();
+
+    expect(nested).toBe(closing);
+    expect(notifications).toBe(1);
+    await closing;
+  } finally {
+    await client.close();
+    authority.close();
+    await server.stop(true);
+  }
+});
+
+test("a five-second heartbeat still publishes typing before the activity expires", async () => {
+  const authority = createSyncPresenceAuthority({
+    authenticate: async () => ({ actorIdentifier: "alice" }),
+    authorize: async (access) => access.actorIdentifiers,
+  });
+  const server = Bun.serve({ hostname: "127.0.0.1", port: 0, fetch: authority.fetch });
+  const client = createSyncPresenceClient({
+    authorityURL: server.url.href,
+    workspaceIdentifier: WORKSPACE,
+    auth: "alice",
+    pollMilliseconds: 5000,
+  });
+  const observed = Promise.withResolvers<void>();
+  let deadline: ReturnType<typeof setTimeout> | undefined;
+
+  try {
+    await client.refresh();
+    client.subscribe(() => {
+      if (client.getSnapshot().peers.some((peer) => peer.typing)) observed.resolve();
+    });
+    deadline = setTimeout(
+      () => observed.reject(new Error("Typing was not published before expiry")),
+      2000,
+    );
+    client.update({ typing: true });
+    await observed.promise;
+    expect(client.getSnapshot().peers[0]?.typing).toBe(true);
+  } finally {
+    clearTimeout(deadline);
+    await client.close();
+    authority.close();
+    await server.stop(true);
+  }
+});
