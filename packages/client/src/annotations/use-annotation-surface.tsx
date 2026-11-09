@@ -367,7 +367,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
         ? { start: head, end: head }
         : null;
   };
-  const collapseCaret = (): void => setCaret({ head, anchor: head });
+  const collapseCaret = (position = head): void => setCaret({ head: position, anchor: position });
   const spanQuote = (span: TextSpan): string => {
     const parts: string[] = [];
 
@@ -501,7 +501,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     if (prompt && !invoke) return;
 
     closeCompose();
-    collapseCaret();
+    collapseCaret(prompt ? target.span.end : head);
 
     if (!target || body.trim().length === 0) return;
 
