@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-test.each(["SIGINT", "SIGTERM"])(
+test.each(["SIGINT", "SIGTERM", "query-error", "small-query-error", "oversized"])(
   "standalone watch finishes cleanup and exits with blocked output on %s",
   async (signal) => {
     const directory = mkdtempSync(join(tmpdir(), "cueloop-sync-watch-"));
@@ -19,9 +19,10 @@ test.each(["SIGINT", "SIGTERM"])(
 import { appendFileSync, writeFileSync } from 'node:fs';
 import { watchSharedRecords } from ${JSON.stringify(watcherUrl)};
 const record = event => appendFileSync(${JSON.stringify(cleanup)}, event + '\\n');
+let onChange;
 const client = {
   materialize: () => ({
-    addListener: listener => { listener([{content: 'x'.repeat(6 * 1024 * 1024)}], 'complete'); return () => {}; },
+    addListener: listener => { onChange = listener; listener(${JSON.stringify(signal)} === 'small-query-error' ? [{content:'Small snapshot'}] : Array.from({length:64}, () => ({content:'x'.repeat(100000)})), 'complete'); return () => {}; },
     destroy: () => record('view'),
   }),
   close: () => record('client'),
@@ -29,7 +30,21 @@ const client = {
 export const syncApplication = {
   fetch: () => new Response('ok'),
   async connect() {
-    setImmediate(() => writeFileSync(${JSON.stringify(ready)}, process.stdout.writableNeedDrain ? 'blocked' : 'flowing'));
+    if (${JSON.stringify(signal)} === 'small-query-error') {
+      for (let writes = 0; writes < 4096; writes++) {
+        process.stdout.write('x'.repeat(1024));
+        await new Promise(resolve => setImmediate(resolve));
+        if (process.stdout.writableLength > 0) break;
+      }
+    }
+    setImmediate(() => {
+      const state = ${JSON.stringify(signal)} === 'small-query-error'
+        ? process.stdout.writableLength > 0 && !process.stdout.writableNeedDrain ? 'small-blocked' : 'flowing'
+        : process.stdout.writableNeedDrain ? 'blocked' : 'flowing';
+      writeFileSync(${JSON.stringify(ready)}, state);
+      if (${JSON.stringify(signal)} === 'query-error' || ${JSON.stringify(signal)} === 'small-query-error') onChange([], 'error', {message:'Example query failed'});
+      if (${JSON.stringify(signal)} === 'oversized') onChange(Array.from({length:90}, () => ({content:'x'.repeat(100000)})), 'complete');
+    });
     try { return await watchSharedRecords(client, {}); } finally { client.close(); }
   },
   close: () => record('application'),
@@ -57,7 +72,7 @@ export const syncApplication = {
       ]);
 
       expect(status, error).toBe(0);
-      expect(output).toContain("Interrupted sync watch exited after cleanup");
+      expect(output).toContain("Sync watch exited after cleanup");
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }

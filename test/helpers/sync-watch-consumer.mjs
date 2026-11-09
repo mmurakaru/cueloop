@@ -18,11 +18,14 @@ try {
     await once(monitor, "change", { signal: AbortSignal.timeout(15000) });
   }
 
-  if (readFileSync(ready, "utf8") !== "blocked") {
+  if (
+    readFileSync(ready, "utf8") !== (signal === "small-query-error" ? "small-blocked" : "blocked")
+  ) {
     throw new Error("Sync watch fixture did not reach output backpressure");
   }
 
-  child.kill(signal);
+  if (signal === "SIGINT" || signal === "SIGTERM") child.kill(signal);
+
   const [status] = await Promise.race([
     exited,
     new Promise((_, reject) => {
@@ -33,7 +36,9 @@ try {
     }),
   ]);
 
-  if (status !== (signal === "SIGINT" ? 130 : 143)) {
+  const expectedStatus = signal === "SIGINT" ? 130 : signal === "SIGTERM" ? 143 : 1;
+
+  if (status !== expectedStatus) {
     throw new Error(`Interrupted sync watch returned unexpected status ${status}`);
   }
 
@@ -41,7 +46,7 @@ try {
     throw new Error("Interrupted sync watch did not finish application cleanup");
   }
 
-  console.log("Interrupted sync watch exited after cleanup");
+  console.log("Sync watch exited after cleanup");
 } finally {
   clearTimeout(exitDeadline);
   monitor.close();
