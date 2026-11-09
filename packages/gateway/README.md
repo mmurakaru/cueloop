@@ -36,6 +36,7 @@ From the repository root, start a temporary gateway:
 
 ```sh
 export CUELOOP_HOME="$(mktemp -d)"
+printf 'Temporary home: %s\n' "$CUELOOP_HOME"
 export CUELOOP_IDLE_EXIT_MS=0
 export CUELOOP_STORE=memory
 export CUELOOP_GATEWAY_HOST=127.0.0.1
@@ -44,9 +45,11 @@ export CUELOOP_HOST_KEY_PATH="$CUELOOP_HOME/gateway-host-key"
 bun run packages/gateway/src/main.ts
 ```
 
-In another terminal, create a plan and copy its returned identifier:
+In another terminal, set `CUELOOP_HOME` to the printed temporary path before creating a plan.
+Copy the returned Thread identifier:
 
 ```sh
+export CUELOOP_HOME="REPLACE_WITH_PRINTED_TEMPORARY_PATH"
 printf '# Rollout plan\n\nShip the store move behind a flag.\n' \
   | bun run packages/cli/src/main.ts session create --type plan --title "Rollout plan"
 ```
