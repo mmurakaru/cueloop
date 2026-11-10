@@ -113,13 +113,15 @@ export function SyncThreadEditor({
 
   const draftLabel = snapshot.saving
     ? "Saving"
-    : snapshot.operation === "pending"
-      ? "Request pending"
-      : snapshot.operation === "rejected"
-        ? "Rejected draft"
-        : snapshot.draftSaved
-          ? "Draft saved locally"
-          : "Editing";
+    : snapshot.operation === "recovery-required"
+      ? "Recovery required - draft retained"
+      : snapshot.operation === "pending"
+        ? "Request pending"
+        : snapshot.operation === "rejected"
+          ? "Rejected draft"
+          : snapshot.draftSaved
+            ? "Draft saved locally"
+            : "Editing";
   const message = error ?? snapshot.error;
 
   return (

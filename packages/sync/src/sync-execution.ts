@@ -22,6 +22,7 @@ export const SyncExecutionClaimSchema = v.strictObject({
   input: ExecutionInputSchema,
   executorIdentifier: ExecutionIdentifierSchema,
   leaseIdentifier: ExecutionIdentifierSchema,
+  generation: v.optional(v.nullable(ExecutionIdentifierSchema)),
   fencingToken: v.pipe(v.number(), v.safeInteger(), v.minValue(1), v.maxValue(2147483647)),
 });
 export const SyncExecutionLeaseSchema = v.pick(v.object(SyncExecutionClaimSchema.entries), [
@@ -30,6 +31,7 @@ export const SyncExecutionLeaseSchema = v.pick(v.object(SyncExecutionClaimSchema
   "executorIdentifier",
   "leaseIdentifier",
   "fencingToken",
+  "generation",
 ]);
 
 export type SyncExecutionLease = Readonly<v.InferOutput<typeof SyncExecutionLeaseSchema>>;

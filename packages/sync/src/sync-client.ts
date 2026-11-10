@@ -1,3 +1,5 @@
+import { syncAuthorityStorageKey } from "./sync-authority-client.ts";
+import type { SyncAuthorityIdentity } from "./sync-authority-protocol.ts";
 import {
   Zero,
   type MutateRequest,
@@ -33,8 +35,15 @@ export interface SyncClient<ApplicationSchema extends Schema, Context> {
 }
 
 export function createSyncClient<const ApplicationSchema extends Schema, Context = unknown>(
-  options: ZeroOptions<ApplicationSchema, undefined, Context>,
+  options: ZeroOptions<ApplicationSchema, undefined, Context> & {
+    authority?: SyncAuthorityIdentity;
+  },
 ): SyncClient<ApplicationSchema, Context> {
+  if (options.cacheURL !== null && options.kvStore !== "mem" && !options.authority)
+    throw new Error(
+      "Sync persistent client requires a resolved authority before opening its replica",
+    );
+
   let lifecycleState: SyncClientLifecycle = { status: "active" };
   let closing: Promise<void> | undefined;
   const lifecycleListeners = new Set<(state: SyncClientLifecycle) => void>();
@@ -57,6 +66,9 @@ export function createSyncClient<const ApplicationSchema extends Schema, Context
   };
   const client = new Zero({
     ...options,
+    storageKey: options.authority
+      ? syncAuthorityStorageKey(options.authority, options.storageKey)
+      : options.storageKey,
     onClientStateNotFound() {
       publishLifecycle({ status: "needs-reset", reason: "client-state-missing" });
       options.onClientStateNotFound?.();

@@ -1,3 +1,4 @@
+import { assertSyncAuthorityOperation } from "@cueloop/sync/authority/server";
 import {
   SyncOperationConflict,
   SyncOperationSchema,
@@ -73,6 +74,7 @@ async function stageSyncThreadPayload(options: {
     if (![...rows].length) throw new SyncThreadAccessError();
   }
 
+  await assertSyncAuthorityOperation(options.transaction, options.operation);
   const operation = JSON.stringify(options.operation);
 
   await options.transaction.dbTransaction.query(

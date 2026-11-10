@@ -77,6 +77,7 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
       );
       const original = structuredClone(local.sessionGet(source.id));
       const upload = await prepareSyncThreadImport({
+        authority: stack.authority,
         workspaceIdentifier: workspace.id,
         thread: original,
       });
@@ -140,6 +141,7 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
 
       editor.close();
       const edit = syncThreadOperations.editText.create({
+        authority: stack.authority,
         workspaceIdentifier: workspace.id,
         arguments: {
           recordIdentifier: document.id,
@@ -183,6 +185,7 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
       if (!restored?.thread) throw new Error("Recovered Thread requires its authoritative version");
 
       const revision = await prepareSyncThreadCommand({
+        authority: stack.authority,
         workspaceIdentifier: workspace.id,
         recordIdentifier: document.id,
         expectedVersion: restored.thread.version,
@@ -222,6 +225,7 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
         revised.result.value,
       );
       const staleText = syncThreadOperations.editText.create({
+        authority: stack.authority,
         workspaceIdentifier: workspace.id,
         arguments: { ...edit.arguments },
       });
@@ -258,6 +262,7 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
 
       expect(repeatedImport).toEqual(accepted);
       const forbidden = syncThreadOperations.command.create({
+        authority: stack.authority,
         workspaceIdentifier: workspace.id,
         arguments: {
           recordIdentifier: document.id,
@@ -286,6 +291,7 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
         reason: { status: "retained", code: "permission_denied" },
       });
       const message = syncThreadOperations.command.create({
+        authority: stack.authority,
         workspaceIdentifier: workspace.id,
         arguments: {
           recordIdentifier: document.id,

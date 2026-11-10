@@ -1,3 +1,4 @@
+import { SyncWorkspaceAuthoritySchema } from "@cueloop/sync/authority";
 import { expect, test } from "bun:test";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -17,7 +18,7 @@ import {
 
 const uncheckedMutators = defineMutatorsWithType<typeof sharedRecordSchema>()({
   edit: defineMutatorWithType<typeof sharedRecordSchema, SharedRecordContext>()(
-    v.object({ id: v.string(), content: v.string() }),
+    v.object({ id: v.string(), content: v.string(), authority: SyncWorkspaceAuthoritySchema }),
     async () => {},
   ),
 });
@@ -52,6 +53,7 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
       await database`INSERT INTO shared_record (workspace_identifier, content, created_at) SELECT ${authorizedWorkspaceIdentifier}, 'Unrequested record ' || sequence, '2020-01-01T00:00:00Z'::timestamptz FROM generate_series(1, 20) AS sequence`;
       await database`INSERT INTO sync_workspace_member (workspace_identifier, user_identifier, role) VALUES (${authorizedWorkspaceIdentifier}, 'private-other-member', 'viewer')`;
       await verifyTestBrowserQuery({
+        authority: stack.authority,
         cacheURL: stack.cacheURL,
         userID: stack.userID,
         auth: stack.auth,
@@ -209,7 +211,11 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
       expect(await watcher.exited).toBe(143);
       reader.releaseLock();
       const rejected = await client.mutate(
-        sharedRecordMutators.edit({ id: record.id, content: "Forbidden edit" }),
+        sharedRecordMutators.edit({
+          authority: stack.authority,
+          id: record.id,
+          content: "Forbidden edit",
+        }),
       ).server;
 
       expect(rejected.type).toBe("error");
@@ -227,7 +233,11 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
       try {
         await uncheckedClient.run(sharedRecordQueries.records(), { type: "complete" });
         const forged = uncheckedClient.mutate(
-          uncheckedMutators.edit({ id: record.id, content: "Forged edit" }),
+          uncheckedMutators.edit({
+            id: record.id,
+            content: "Forged edit",
+            authority: stack.authority,
+          }),
         );
 
         expect((await forged.client).type).toBe("success");

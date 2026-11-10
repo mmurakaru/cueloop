@@ -42,8 +42,9 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
 
       try {
         for (const content of ["First update", "Second update", "Final update"]) {
-          const result = await writer.mutate(sharedRecordMutators.edit({ id: record.id, content }))
-            .server;
+          const result = await writer.mutate(
+            sharedRecordMutators.edit({ authority: stack.authority, id: record.id, content }),
+          ).server;
 
           expect(result.type).toBe("success");
         }
@@ -63,7 +64,11 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
 
       const overflowed = Promise.allSettled([iterator.next()]);
       const oversized = await writer.mutate(
-        sharedRecordMutators.edit({ id: record.id, content: "x".repeat(3000) }),
+        sharedRecordMutators.edit({
+          authority: stack.authority,
+          id: record.id,
+          content: "x".repeat(3000),
+        }),
       ).server;
 
       expect(oversized.type).toBe("success");
@@ -112,7 +117,11 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
 
       expect(() =>
         observer.mutate(
-          sharedRecordMutators.edit({ id: record.id, content: "A write after shutdown started" }),
+          sharedRecordMutators.edit({
+            authority: stack.authority,
+            id: record.id,
+            content: "A write after shutdown started",
+          }),
         ),
       ).toThrow("retain the change as a draft");
       await shuttingDown;
@@ -161,7 +170,13 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
         await disconnected.promise;
         expect((await original.run(query))[0]?.content).toBe("Shared workspace");
         expect(() =>
-          original.mutate(sharedRecordMutators.edit({ id: record.id, content: "Unsent draft" })),
+          original.mutate(
+            sharedRecordMutators.edit({
+              authority: stack.authority,
+              id: record.id,
+              content: "Unsent draft",
+            }),
+          ),
         ).toThrow("retain the change as a draft");
         const saved = await drafts.save({ content: { body: "Unsent draft" } });
 
@@ -169,7 +184,11 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
         expect(
           (
             await writer.mutate(
-              sharedRecordMutators.edit({ id: record.id, content: "Changed while disconnected" }),
+              sharedRecordMutators.edit({
+                authority: stack.authority,
+                id: record.id,
+                content: "Changed while disconnected",
+              }),
             ).server
           ).type,
         ).toBe("success");

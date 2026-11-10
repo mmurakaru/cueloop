@@ -1,3 +1,5 @@
+import { editSharedRecord } from "./shared-record-edit-client.ts";
+import { fetchSyncAuthority } from "@cueloop/sync/authority/client";
 import { connectSharedPresence } from "./presence-client.ts";
 import { parseArgs } from "node:util";
 import * as v from "valibot";
@@ -8,11 +10,7 @@ import { createSyncSqliteStorage } from "@cueloop/sync/storage";
 import { createSyncDraftStore } from "@cueloop/sync/drafts";
 import { connectSharedOperation } from "./operation-client.ts";
 import type { SyncClientOutcome } from "@cueloop/sync/serve";
-import {
-  sharedRecordMutators,
-  sharedRecordQueries,
-  sharedRecordQueryArgumentsSchema,
-} from "./shared-record.ts";
+import { sharedRecordQueries, sharedRecordQueryArgumentsSchema } from "./shared-record.ts";
 
 export async function connectSharedRecord(arguments_: string[]): Promise<void | SyncClientOutcome> {
   const { values } = parseArgs({
@@ -81,7 +79,17 @@ export async function connectSharedRecord(arguments_: string[]): Promise<void | 
     throw new Error("Sync client requires SYNC_CACHE_URL, SYNC_USER_ID, and SYNC_AUTH_TOKEN");
   }
 
+  const authorityURL = process.env.SYNC_AUTHORITY_URL;
+
+  if (!authorityURL)
+    throw new Error("Sync client requires SYNC_AUTHORITY_URL before opening a replica");
+
+  const authority = await fetchSyncAuthority({
+    authorityURL,
+    headers: { authorization: `Bearer ${auth}` },
+  });
   const client = createSharedRecordClient({
+    authority,
     cacheURL,
     userID,
     auth,
@@ -108,10 +116,6 @@ export async function connectSharedRecord(arguments_: string[]): Promise<void | 
     }
 
     if (values.operation !== undefined) {
-      const authorityURL = process.env.SYNC_AUTHORITY_URL;
-
-      if (!authorityURL) throw new Error("Sync operation client requires SYNC_AUTHORITY_URL");
-
       if (values.watch || values.content !== undefined)
         throw new Error("Sync operation client requires an operation-only command");
 
@@ -140,12 +144,14 @@ export async function connectSharedRecord(arguments_: string[]): Promise<void | 
 
       if (!record) throw new Error("Sync example edit requires an authorized record");
 
-      const result = await client.mutate(
-        sharedRecordMutators.edit({ id: record.id, content: values.content }),
-      ).server;
-
-      if (result.type === "error")
-        throw new Error(`Sync example mutation failed: ${result.error.message}`);
+      await editSharedRecord({
+        client,
+        authorityURL,
+        auth,
+        workspaceIdentifier: record.workspaceIdentifier,
+        recordIdentifier: record.id,
+        content: values.content,
+      });
     }
 
     process.stdout.write(JSON.stringify(await client.run(query, { type: "complete" })) + "\n");

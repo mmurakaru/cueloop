@@ -1,3 +1,4 @@
+import { SyncAuthorityRecoveryRequired } from "./sync-authority-protocol.ts";
 import type { MutatorResult } from "@rocicorp/zero";
 import * as v from "valibot";
 import {
@@ -11,10 +12,54 @@ import {
 export type SyncOperationOutcome =
   | SyncOperationReceipt
   | {
+      status: "recovery-required";
+      reason: "unknown-after-recovery";
+      operationIdentifier: SyncOperation["operationIdentifier"];
+      workspaceIdentifier: string;
+    }
+  | {
       status: "pending";
       operationIdentifier: SyncOperation["operationIdentifier"];
       workspaceIdentifier: string;
     };
+
+/** Receipt recovery never submits or changes an envelope, including outside a restored boundary. */
+export async function lookupSyncOperationOutcome<Operation extends SyncOperation>(options: {
+  operation: Operation;
+  lookup: (operation: Operation) => Promise<SyncOperationReceipt | undefined>;
+}): Promise<SyncOperationOutcome> {
+  const operation = structuredClone(options.operation);
+  const normalized = parseSyncOperation(operation);
+
+  operation.operationIdentifier = normalized.operationIdentifier;
+  operation.workspaceIdentifier = normalized.workspaceIdentifier;
+  const pending: SyncOperationOutcome = {
+    status: "pending",
+    operationIdentifier: operation.operationIdentifier,
+    workspaceIdentifier: operation.workspaceIdentifier,
+  };
+
+  try {
+    const input = await options.lookup(structuredClone(operation));
+
+    if (input === undefined) return pending;
+
+    const receipt = v.parse(SyncOperationReceiptSchema, input);
+
+    if (
+      receipt.operationIdentifier !== operation.operationIdentifier ||
+      receipt.workspaceIdentifier !== operation.workspaceIdentifier
+    )
+      return pending;
+
+    return receipt;
+  } catch (cause) {
+    if (cause instanceof SyncAuthorityRecoveryRequired)
+      return { ...pending, status: "recovery-required", reason: "unknown-after-recovery" };
+
+    throw cause;
+  }
+}
 
 /** A missing acknowledgement remains pending and never triggers an automatic resubmission. */
 export async function submitSyncOperation<Operation extends SyncOperation>(options: {
@@ -39,6 +84,12 @@ export async function submitSyncOperation<Operation extends SyncOperation>(optio
     workspaceIdentifier: operation.workspaceIdentifier,
   };
 
+  const recoveryRequired: SyncOperationOutcome = {
+    ...pending,
+    status: "recovery-required",
+    reason: "unknown-after-recovery",
+  };
+
   if (options.signal?.aborted) return pending;
 
   const interrupted = Promise.withResolvers<SyncOperationOutcome>();
@@ -58,6 +109,13 @@ export async function submitSyncOperation<Operation extends SyncOperation>(optio
       )
         throw new SyncOperationConflict();
 
+      if (
+        result.type === "error" &&
+        result.error.type === "app" &&
+        v.is(v.object({ name: v.literal("SyncAuthorityRecoveryRequired") }), result.error.details)
+      )
+        return recoveryRequired;
+
       const input =
         result.type === "success" && result.data !== undefined
           ? result.data
@@ -75,6 +133,8 @@ export async function submitSyncOperation<Operation extends SyncOperation>(optio
 
       return receipt;
     } catch (cause) {
+      if (cause instanceof SyncAuthorityRecoveryRequired) return recoveryRequired;
+
       if (cause instanceof SyncOperationConflict) throw cause;
 
       return pending;

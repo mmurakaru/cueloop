@@ -1,3 +1,7 @@
+import { mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { createSyncSqliteStorage } from "./sync-sqlite-storage.ts";
 import { expect, test } from "bun:test";
 import {
   createBuilder,
@@ -65,3 +69,22 @@ test("a Node consumer can close a newly created client without keeping its proce
 
   expect(await child.exited).toBe(0);
 }, 10000);
+
+test("an unresolved online authority cannot open persistent replica files", () => {
+  const directory = mkdtempSync(join(tmpdir(), "cueloop-sync-unresolved-authority-"));
+  const storage = createSyncSqliteStorage({ directory });
+
+  try {
+    expect(() =>
+      createSyncClient({
+        schema,
+        cacheURL: "http://127.0.0.1:1",
+        userID: "reader",
+        kvStore: storage,
+      }),
+    ).toThrow("requires a resolved authority");
+    expect(readdirSync(directory)).toEqual([]);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});

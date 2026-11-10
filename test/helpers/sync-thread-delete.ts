@@ -8,9 +8,15 @@ export async function recoverTestSyncDeletedThread(options: {
   threadIdentifier: string;
   gate: { received: Promise<void>; processed: Promise<void>; forward(): void };
 }) {
-  const interrupted = options.client.sessionDelete(options.threadIdentifier).catch(() => undefined);
+  const request = options.client.sessionDelete(options.threadIdentifier);
+  const interrupted = request.catch(() => undefined);
 
-  await options.gate.received;
+  await Promise.race([
+    options.gate.received,
+    request.then(() => {
+      throw new Error("Sync deletion completed before its intercepted mutation was received");
+    }),
+  ]);
   options.gate.forward();
   await options.gate.processed;
   options.client.close();

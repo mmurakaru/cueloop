@@ -52,6 +52,7 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
       try {
         await observer.run(query, { type: "complete" });
         const creation = sharedCommentOperations.add.create({
+          authority: stack.authority,
           workspaceIdentifier: record.workspaceIdentifier,
           arguments: { recordIdentifier: record.id, body: "Explain cancellation" },
         });
@@ -144,6 +145,7 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
         await waitForComments([{ body: "Explain cancellation", revision: 1 }]);
         expect((await observer.run(query))[0]?.authorIdentifier).toBe(stack.userID);
         const edit = sharedCommentOperations.edit.create({
+          authority: stack.authority,
           workspaceIdentifier: record.workspaceIdentifier,
           arguments: {
             commentIdentifier: creation.operationIdentifier,
@@ -166,6 +168,7 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
         ).toMatchObject({ type: "success", data: acceptedEdit });
         await waitForComments([{ body: "Explain cancellation and cleanup", revision: 2 }]);
         const staleEdit = sharedCommentOperations.edit.create({
+          authority: stack.authority,
           workspaceIdentifier: record.workspaceIdentifier,
           arguments: {
             commentIdentifier: creation.operationIdentifier,
@@ -184,6 +187,7 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
         });
         expect((await observer.run(query))[0]?.body).toBe("Explain cancellation and cleanup");
         const removal = sharedCommentOperations.remove.create({
+          authority: stack.authority,
           workspaceIdentifier: record.workspaceIdentifier,
           arguments: { commentIdentifier: creation.operationIdentifier, expectedRevision: 2 },
         });
@@ -244,6 +248,7 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
         recordIdentifier: record.id,
       });
       const creation = sharedCommentOperations.add.create({
+        authority: stack.authority,
         workspaceIdentifier: record.workspaceIdentifier,
         arguments: { recordIdentifier: record.id, body: "Before disconnect" },
       });
@@ -264,6 +269,7 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
 
       try {
         const edit = sharedCommentOperations.edit.create({
+          authority: stack.authority,
           workspaceIdentifier: record.workspaceIdentifier,
           arguments: {
             commentIdentifier: creation.operationIdentifier,
@@ -382,6 +388,7 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
 
       await secondWriter.run(sharedRecordQueries.records(), { type: "complete" });
       const creation = sharedCommentOperations.add.create({
+        authority: stack.authority,
         workspaceIdentifier: record.workspaceIdentifier,
         arguments: { recordIdentifier: record.id, body: "Original" },
       });
@@ -391,6 +398,7 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
       expect(created.type).toBe("success");
       const requests = ["First edit", "Second edit"].map((body) =>
         sharedCommentOperations.edit.create({
+          authority: stack.authority,
           workspaceIdentifier: record.workspaceIdentifier,
           arguments: { commentIdentifier: creation.operationIdentifier, expectedRevision: 1, body },
         }),
@@ -452,6 +460,7 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
       if (!record) throw new Error("Sync receipt authorization test requires its seeded record");
 
       const creation = sharedCommentOperations.add.create({
+        authority: stack.authority,
         workspaceIdentifier: record.workspaceIdentifier,
         arguments: { recordIdentifier: record.id, body: "Authorized original" },
       });
@@ -467,6 +476,7 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
 
       await database`UPDATE sync_workspace_member SET role = 'viewer' WHERE workspace_identifier = ${record.workspaceIdentifier} AND user_identifier = ${stack.userID}`;
       const deniedCreation = sharedCommentOperations.add.create({
+        authority: stack.authority,
         workspaceIdentifier: record.workspaceIdentifier,
         arguments: { recordIdentifier: record.id, body: "Viewer write" },
       });

@@ -1,3 +1,5 @@
+import { openSharedTextOfflineDraft } from "./text-editor-offline.ts";
+import { fetchSyncWorkspaceAuthority } from "@cueloop/sync/authority/client";
 import { createSyncPresenceClient } from "@cueloop/sync/presence";
 import { loadSharedTextEditorState, readSharedTextAuthority } from "./text-editor-state.ts";
 import type { StoreProvider } from "@rocicorp/zero/sqlite";
@@ -9,7 +11,7 @@ import {
   type SyncTextEditorSnapshot,
   type SyncTextSaveOutcome,
 } from "@cueloop/sync/text";
-import { submitSyncOperation } from "@cueloop/sync/operations";
+import { lookupSyncOperationOutcome, submitSyncOperation } from "@cueloop/sync/operations";
 import { createSharedRecordClient } from "./client.ts";
 import {
   sharedWorkspaceMutators,
@@ -38,8 +40,30 @@ export async function createSharedTextEditorSession(options: {
     authorityIdentifier: options.authorityURL,
     userIdentifier: options.userID,
   });
+  let authority: Awaited<ReturnType<typeof fetchSyncWorkspaceAuthority>>;
+
+  try {
+    authority = await fetchSyncWorkspaceAuthority({
+      authorityURL: options.authorityURL,
+      workspaceIdentifier: options.workspaceIdentifier,
+      headers: { authorization: `Bearer ${options.auth}` },
+    });
+  } catch (cause) {
+    try {
+      const offline = await openSharedTextOfflineDraft({ ...request, drafts });
+
+      if (offline) return offline;
+
+      throw cause;
+    } catch (failure) {
+      await drafts.close();
+
+      throw failure;
+    }
+  }
   const client = createSharedRecordClient({
     ...options,
+    authority,
     storage: options.storage,
     storageKey: options.storageKey ?? options.authorityURL,
   });
@@ -62,6 +86,7 @@ export async function createSharedTextEditorSession(options: {
     const initial = await loadSharedTextEditorState({
       ...options,
       ...request,
+      authority,
       client,
       drafts,
     });
@@ -108,7 +133,7 @@ export async function createSharedTextEditorSession(options: {
         operation,
         saving: saving !== undefined,
         draftSaved: hasDraft && generation === persistedGeneration,
-        editable: !closed && !saving && operation !== "pending" && role !== "viewer",
+        editable: !closed && !saving && !pending && role !== "viewer",
         revision,
         presence: {
           ...presenceClient.getSnapshot(),
@@ -244,6 +269,7 @@ export async function createSharedTextEditorSession(options: {
         await persist();
         const requestOperation = sharedTextOperations.edit.create({
           workspaceIdentifier: request.workspaceIdentifier,
+          authority,
           arguments: {
             recordIdentifier: request.recordIdentifier,
             update: document.updateSince(baseState),
@@ -259,19 +285,26 @@ export async function createSharedTextEditorSession(options: {
       }
 
       const requestOperation = pending;
-      const existing = await lookup(requestOperation);
+      const existing = await lookupSyncOperationOutcome({ operation: requestOperation, lookup });
       const outcome =
-        existing ??
-        (await submitSyncOperation({
-          operation: requestOperation,
-          lookup,
-          submit: (value) =>
-            client.mutate(
-              sharedWorkspaceMutators.text.edit(sharedTextOperations.edit.parse(value)),
-            ),
-        }));
+        existing.status !== "pending"
+          ? existing
+          : await submitSyncOperation({
+              operation: requestOperation,
+              lookup,
+              submit: (value) =>
+                client.mutate(
+                  sharedWorkspaceMutators.text.edit(sharedTextOperations.edit.parse(value)),
+                ),
+            });
 
       operation = outcome.status;
+
+      if (outcome.status === "recovery-required") {
+        error = "Request outcome is unknown after recovery; the original draft is retained";
+
+        return outcome;
+      }
 
       if (outcome.status === "pending") return outcome;
 

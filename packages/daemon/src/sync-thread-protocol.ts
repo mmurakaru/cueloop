@@ -1,3 +1,4 @@
+import type { SyncWorkspaceAuthority } from "@cueloop/sync/authority";
 import * as v from "valibot";
 import { defineSyncOperation, SyncRecordIdentifierSchema } from "@cueloop/sync/operations";
 import { SyncTextUpdateSchema } from "@cueloop/sync/text";
@@ -162,12 +163,14 @@ export function parseSyncThreadSnapshot(snapshot: SyncThreadPayload): Thread {
 
 /** Validate before fencing local writes; retries reuse this complete snapshot and operation. */
 export async function prepareSyncThreadImport(options: {
+  authority?: SyncWorkspaceAuthority;
   workspaceIdentifier: string;
   thread: Thread;
 }) {
   const snapshot = serializeSyncThreadSnapshot(options.thread);
   const operation = syncThreadOperations.import.create({
     workspaceIdentifier: options.workspaceIdentifier,
+    authority: options.authority,
     arguments: {
       recordIdentifier: createSyncRecordIdentifier(),
       digest: await fingerprintSyncThreadSnapshot(snapshot),
@@ -184,6 +187,7 @@ interface SyncThreadCommandMetadata {
 }
 
 export async function prepareSyncThreadCommand(options: {
+  authority?: SyncWorkspaceAuthority;
   workspaceIdentifier: string;
   recordIdentifier: string;
   expectedVersion: number;
@@ -213,6 +217,7 @@ export async function prepareSyncThreadCommand(options: {
       kind: "inline" as const,
       operation: syncThreadOperations.command.create({
         workspaceIdentifier: options.workspaceIdentifier,
+        authority: options.authority,
         arguments: { ...metadata, ...command },
       }),
     };
@@ -220,6 +225,7 @@ export async function prepareSyncThreadCommand(options: {
 
   const operation = syncThreadOperations.stagedCommand.create({
     workspaceIdentifier: options.workspaceIdentifier,
+    authority: options.authority,
     arguments: {
       ...metadata,
       method: command.method,

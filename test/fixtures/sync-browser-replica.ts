@@ -1,7 +1,9 @@
+import type { SyncWorkspaceAuthority } from "@cueloop/sync/authority";
 import { createSharedRecordClient } from "../../examples/sync-workspace/client.ts";
 import { sharedRecordQueries } from "../../examples/sync-workspace/shared-record.ts";
 
 interface BrowserReplicaOptions {
+  authority: SyncWorkspaceAuthority;
   cacheURL: string;
   userID: string;
   auth: string;

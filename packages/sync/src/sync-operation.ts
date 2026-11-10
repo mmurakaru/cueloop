@@ -1,3 +1,8 @@
+import { SyncVersionSevenIdentifierSchema } from "./sync-identifiers.ts";
+import {
+  SyncWorkspaceAuthoritySchema,
+  type SyncWorkspaceAuthority,
+} from "./sync-authority-protocol.ts";
 import { v7 as createVersionSevenIdentifier } from "uuid";
 import * as v from "valibot";
 import serializeCanonicalJson from "canonicalize";
@@ -6,17 +11,12 @@ import { SyncJsonValueSchema } from "./sync-json.ts";
 
 const MAXIMUM_OPERATION_BYTES = 512 * 1024;
 const MAXIMUM_REQUEST_LIFETIME_MILLISECONDS = 24 * 60 * 60 * 1000;
-const VersionSevenIdentifierSchema = v.pipe(
-  v.string(),
-  v.regex(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i),
-  v.toLowerCase(),
-);
 export const SyncRecordIdentifierSchema = v.pipe(
-  VersionSevenIdentifierSchema,
+  SyncVersionSevenIdentifierSchema,
   v.brand("SyncRecordIdentifier"),
 );
 export const SyncOperationIdentifierSchema = v.pipe(
-  VersionSevenIdentifierSchema,
+  SyncVersionSevenIdentifierSchema,
   v.brand("SyncOperationIdentifier"),
 );
 
@@ -31,6 +31,7 @@ const SyncOperationMetadataEntries = {
   workspaceIdentifier: v.pipe(v.string(), v.uuid(), v.toLowerCase()),
   createdAt: v.pipe(v.number(), v.safeInteger(), v.minValue(0), v.maxValue(281474976710655)),
   expiresAt: v.pipe(v.number(), v.safeInteger(), v.minValue(0)),
+  authority: v.optional(SyncWorkspaceAuthoritySchema),
 };
 
 const SyncOperationMetadataSchema = v.pipe(
@@ -40,6 +41,12 @@ const SyncOperationMetadataSchema = v.pipe(
       operation.expiresAt > operation.createdAt &&
       operation.expiresAt - operation.createdAt <= MAXIMUM_REQUEST_LIFETIME_MILLISECONDS,
     "Sync operation deadline must be within 24 hours of creation",
+  ),
+  v.check(
+    (operation) =>
+      operation.authority === undefined ||
+      operation.authority.workspaceIdentifier === operation.workspaceIdentifier,
+    "Sync operation authority must identify the same workspace",
   ),
 );
 
@@ -85,6 +92,10 @@ export function parseSyncOperation(
 
 type ReplayableArgumentsSchema<Definition extends v.GenericSchema> =
   v.InferOutput<Definition> extends v.InferInput<Definition> ? Definition : never;
+
+interface SyncOperationAuthorityMetadata {
+  authority?: SyncWorkspaceAuthority;
+}
 
 export function defineSyncOperation<
   const Name extends string,
@@ -136,6 +147,7 @@ export function defineSyncOperation<
       arguments: v.InferInput<ArgumentsSchema>;
       requestLifetimeMilliseconds?: number;
       maximumBytes?: number;
+      authority?: v.InferInput<typeof SyncWorkspaceAuthoritySchema>;
       now?: () => number;
     }) {
       const createdAt = input.now?.() ?? Date.now();
@@ -148,7 +160,13 @@ export function defineSyncOperation<
         ),
         input.requestLifetimeMilliseconds ?? 5 * 60 * 1000,
       );
+      const authorityMetadata: SyncOperationAuthorityMetadata = {};
+
+      if (input.authority)
+        authorityMetadata.authority = v.parse(SyncWorkspaceAuthoritySchema, input.authority);
+
       const operation = v.parse(schema, {
+        ...authorityMetadata,
         operationIdentifier: createVersionSevenIdentifier({ msecs: createdAt }),
         name: options.name,
         version: options.version,
@@ -173,6 +191,28 @@ export function defineSyncOperation<
       return operation;
     },
   };
+}
+
+/** Bind once before saving or submitting; a recovered draft keeps its original generation. */
+export function bindSyncOperationAuthority<Operation extends SyncOperation>(
+  operation: Operation,
+  input: v.InferInput<typeof SyncWorkspaceAuthoritySchema>,
+): Operation & { authority: SyncWorkspaceAuthority } {
+  const authority = v.parse(SyncWorkspaceAuthoritySchema, input);
+  const normalized = parseSyncOperation(operation);
+
+  if (
+    normalized.workspaceIdentifier !== authority.workspaceIdentifier ||
+    (normalized.authority &&
+      serializeCanonicalJson(normalized.authority) !== serializeCanonicalJson(authority))
+  )
+    throw new SyncOperationConflict();
+
+  const bound = { ...structuredClone(operation), authority };
+
+  parseSyncOperation(bound);
+
+  return bound;
 }
 
 export const SyncOperationRejectionSchema = v.object({

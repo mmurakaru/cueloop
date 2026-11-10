@@ -6,7 +6,7 @@ Argument normalization must be stable when the same schema validates its output 
 Retry the saved envelope with its original identity, arguments, and deadline.
 
 ```ts
-const operation = addComment.create({ workspaceIdentifier, arguments: { body } });
+const operation = addComment.create({ workspaceIdentifier, authority, arguments: { body } });
 await saveDraft(operation);
 const outcome = await submitSyncOperation({
   operation,
@@ -15,13 +15,16 @@ const outcome = await submitSyncOperation({
 });
 ```
 
-The outcome is `pending`, `accepted`, or `rejected`.
+The outcome is `pending`, `accepted`, `rejected`, or `recovery-required`.
+A missing old-generation request after restore has an unknown outcome and keeps its original envelope.
+See the [recovery guide](./recovery.md) before opening persistent replicas or restoring a deployment.
 A timeout or lost reply remains pending; the helper does not resubmit automatically.
 Acceptance confirms a committed data change or intent, and says nothing about external execution progress.
 An accepted reply is not a guarantee that every subscribed query has received the change.
 
 > [!IMPORTANT]
-> Apply `@cueloop/sync/migrations/001-operation-receipt.sql` to PostgreSQL 18 before accepting operations.
+> Initialize the SDK database and apply application migrations before accepting operations.
+> Bind the current authority descriptor when you create each new request.
 > Call `acceptSyncOperation` inside the same authoritative transaction as the application change, and send its receipt only after that transaction commits.
 
 The server helper binds the identity to the verified actor and full canonical request.

@@ -239,7 +239,7 @@ export const Params = {
   "agent.comment": v.object({ id: SessionId, comment: AgentCommentSchema }),
   "agent.permission": v.object({ id: SessionId, requestId: NonEmpty, optionId: NonEmpty }),
   "session.syncImport": v.object({ id: SessionId, connection: SyncThreadImportConnectionSchema }),
-  "session.syncResume": v.object({ id: SessionId }),
+  "session.syncResume": v.object({ id: SessionId, acceptRecovery: v.optional(v.boolean(), false) }),
   "session.syncDrafts": v.object({ id: SessionId }),
   "session.syncRetry": v.object({ id: SessionId, draftIdentifier: v.pipe(v.string(), v.uuid()) }),
   "session.syncDiscard": v.object({ id: SessionId, draftIdentifier: v.pipe(v.string(), v.uuid()) }),

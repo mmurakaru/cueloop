@@ -1,3 +1,4 @@
+import { SyncAuthorityRecoveryRequired } from "@cueloop/sync/authority";
 import * as v from "valibot";
 import {
   SyncOperationReceiptSchema,
@@ -56,6 +57,8 @@ export async function lookupSyncThreadOperation(options: {
     },
   );
 
+  if (response.status === 425) throw new SyncAuthorityRecoveryRequired();
+
   if (response.status === 409) throw new SyncOperationConflict();
 
   if (!response.ok)
@@ -90,6 +93,8 @@ export async function uploadSyncThreadCommand(options: {
       redirect: "error",
     },
   );
+
+  if (response.status === 425) throw new SyncAuthorityRecoveryRequired();
 
   if (response.status === 409) throw new SyncOperationConflict();
 

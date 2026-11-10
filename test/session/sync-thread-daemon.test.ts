@@ -128,6 +128,7 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
         throw new Error("Interrupted draft fixture requires its imported Thread metadata");
 
       const interruptedDrafts = await createTestSyncThreadDrafts({
+        authority: stack.authority,
         home,
         threadIdentifier: thread.id,
         expectedVersion: 4,
@@ -235,6 +236,7 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
       if (!metadata) throw new Error("Imported Thread must retain its authority metadata");
 
       const replay = syncThreadOperations.command.create({
+        authority: stack.authority,
         workspaceIdentifier: workspace.id,
         arguments: {
           recordIdentifier: metadata.id,
@@ -288,12 +290,14 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
         authenticationTokenEnvironment: credentialVariable,
       };
       const recoveryUpload = await prepareSyncThreadImport({
+        authority: stack.authority,
         workspaceIdentifier: workspace.id,
         thread: recoveryThread,
       });
       const expired = {
         ...recoveryUpload,
         operation: syncThreadOperations.import.create({
+          authority: stack.authority,
           workspaceIdentifier: workspace.id,
           arguments: recoveryUpload.operation.arguments,
           now: () => Date.now() - 600000,

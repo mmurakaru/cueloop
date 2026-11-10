@@ -167,6 +167,7 @@
         "@rocicorp/zero": "1.11.4",
         "canonicalize": "5.1.0",
         "idb": "8.0.4",
+        "postgres": "3.4.7",
         "uuid": "14.0.3",
         "valibot": "^1.5.0",
         "yjs": "13.6.33",

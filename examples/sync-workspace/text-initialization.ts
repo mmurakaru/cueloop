@@ -1,6 +1,7 @@
+import type { SyncWorkspaceAuthority } from "@cueloop/sync/authority";
 import * as v from "valibot";
 import { createSyncTextState } from "@cueloop/sync/text";
-import { submitSyncOperation } from "@cueloop/sync/operations";
+import { lookupSyncOperationOutcome, submitSyncOperation } from "@cueloop/sync/operations";
 import type { createSyncDraftStore } from "@cueloop/sync/drafts";
 import type { createSharedRecordClient } from "./client.ts";
 import {
@@ -11,6 +12,7 @@ import {
 import { lookupSharedOperationReceipt } from "./operation-receipt-client.ts";
 
 export async function initializeSharedText(options: {
+  authority: SyncWorkspaceAuthority;
   client: ReturnType<typeof createSharedRecordClient>;
   drafts: ReturnType<typeof createSyncDraftStore>;
   authorityURL: string;
@@ -38,6 +40,7 @@ export async function initializeSharedText(options: {
     ? previous.operation.output
     : sharedTextOperations.initialize.create({
         workspaceIdentifier: options.workspaceIdentifier,
+        authority: options.authority,
         arguments: {
           recordIdentifier: options.recordIdentifier,
           state: createSyncTextState(options.content).state,
@@ -71,19 +74,20 @@ export async function initializeSharedText(options: {
     }),
     { type: "complete" },
   );
-  const existing = await lookup();
+  const existing = await lookupSyncOperationOutcome({ operation, lookup });
   const outcome =
-    existing ??
-    (await submitSyncOperation({
-      operation,
-      lookup,
-      submit: (value) =>
-        options.client.mutate(
-          sharedWorkspaceMutators.text.initialize(sharedTextOperations.initialize.parse(value)),
-        ),
-    }));
+    existing.status !== "pending"
+      ? existing
+      : await submitSyncOperation({
+          operation,
+          lookup,
+          submit: (value) =>
+            options.client.mutate(
+              sharedWorkspaceMutators.text.initialize(sharedTextOperations.initialize.parse(value)),
+            ),
+        });
 
-  if (outcome.status !== "pending") {
+  if (outcome.status === "accepted" || outcome.status === "rejected") {
     await options.drafts.recordReceipt({
       draftIdentifier: saved.draftIdentifier,
       receipt: outcome,

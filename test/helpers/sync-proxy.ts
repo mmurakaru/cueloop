@@ -2,7 +2,7 @@ import { createConnection, createServer, type Socket } from "node:net";
 import * as v from "valibot";
 
 export async function createTestSyncProxy(targetURL: string) {
-  const target = new URL(targetURL);
+  let target = new URL(targetURL);
   const sockets = new Set<Socket>();
   const serverSources = new Set<Socket>();
   let serverOutputPaused = false;
@@ -62,6 +62,11 @@ export async function createTestSyncProxy(targetURL: string) {
     },
     reconnect() {
       connected = true;
+    },
+    retarget(url: string) {
+      target = new URL(url);
+
+      for (const socket of sockets) socket.destroy();
     },
     async close() {
       connected = false;

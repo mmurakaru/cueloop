@@ -1,3 +1,4 @@
+import type { SyncWorkspaceAuthority } from "@cueloop/sync/authority";
 import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { createSyncDraftStore } from "@cueloop/sync/drafts";
@@ -6,6 +7,7 @@ import { prepareSyncThreadCommand } from "@cueloop/daemon/sync-thread-protocol";
 
 /** Persist the interrupted save-before-submission format without running a daemon or sending changes. */
 export async function createTestSyncThreadDrafts(options: {
+  authority: SyncWorkspaceAuthority;
   home: string;
   threadIdentifier: string;
   expectedVersion: number;
@@ -39,6 +41,7 @@ export async function createTestSyncThreadDrafts(options: {
   try {
     const prepared = await prepareSyncThreadCommand({
       ...connection,
+      authority: options.authority,
       expectedVersion: options.expectedVersion,
       command: {
         method: "session.setTitle",

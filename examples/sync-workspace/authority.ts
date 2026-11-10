@@ -1,3 +1,9 @@
+import {
+  createSyncAuthorityDatabase,
+  readSyncAuthority,
+  readSyncWorkspaceAuthority,
+} from "@cueloop/sync/authority/server";
+import { SyncAuthorityFenced, SyncAuthorityRecoveryRequired } from "@cueloop/sync/authority";
 import { createSyncPresenceAuthority } from "@cueloop/sync/presence/server";
 import { mustGetMutator, mustGetQuery } from "@rocicorp/zero";
 import { zeroPostgresJS } from "@rocicorp/zero/server/adapters/postgresjs";
@@ -30,7 +36,13 @@ if (!token || !userIdentifier) {
 }
 
 const connection = databaseUrl ? postgres(databaseUrl) : undefined;
-const database = connection ? zeroPostgresJS(sharedRecordSchema, connection) : undefined;
+const rawDatabase = connection ? zeroPostgresJS(sharedRecordSchema, connection) : undefined;
+const database = rawDatabase
+  ? createSyncAuthorityDatabase({
+      database: rawDatabase,
+      identity: await rawDatabase.transaction((transaction) => readSyncAuthority(transaction)),
+    })
+  : undefined;
 const identities = [{ token, userIdentifier }];
 const collaboratorToken = process.env.SYNC_COLLABORATOR_AUTH_TOKEN;
 const collaboratorIdentifier = process.env.SYNC_COLLABORATOR_USER_ID;
@@ -101,7 +113,7 @@ async function fetch(request: Request): Promise<Response> {
 
   if (path === "/presence") return presence.fetch(request);
 
-  if (path !== "/operation" && path !== "/text" && path !== "/execution")
+  if (path !== "/operation" && path !== "/text" && path !== "/execution" && path !== "/authority")
     return handleSync(request);
 
   if (request.method !== "POST")
@@ -114,6 +126,42 @@ async function fetch(request: Request): Promise<Response> {
   if (!database) return new Response("Sync authority database is not configured", { status: 503 });
 
   try {
+    if (path === "/authority") {
+      const input = v.parse(
+        v.strictObject({ workspaceIdentifier: v.optional(v.pipe(v.string(), v.uuid())) }),
+        await request.json(),
+      );
+      const current = await database.transaction(async (transaction) => {
+        const workspaceIdentifier = input.workspaceIdentifier;
+
+        if (!workspaceIdentifier) {
+          const authority = await readSyncAuthority(transaction);
+
+          return {
+            authority: {
+              authorityIdentifier: authority.authorityIdentifier,
+              generation: authority.generation,
+            },
+            phase: "active" as const,
+            deploymentPhase: authority.phase,
+          };
+        }
+
+        await authorizeSharedWorkspace({
+          transaction,
+          workspaceIdentifier,
+          actorIdentifier: principal.userIdentifier,
+        });
+
+        return readSyncWorkspaceAuthority(transaction, workspaceIdentifier);
+      });
+
+      if (current.phase !== "active" || current.deploymentPhase !== "active")
+        throw new SyncAuthorityFenced();
+
+      return Response.json(current.authority, { headers: { "cache-control": "no-store" } });
+    }
+
     if (path === "/execution") {
       const input: unknown = await request.json();
 
@@ -154,14 +202,7 @@ async function fetch(request: Request): Promise<Response> {
 
     return Response.json({ receipt: receipt ?? null });
   } catch (cause) {
-    if (cause instanceof v.ValiError || cause instanceof SyntaxError)
-      return Response.json({ error: "invalid_operation" }, { status: 400 });
-
-    if (cause instanceof SharedWorkspaceAccessError)
-      return Response.json({ error: "forbidden" }, { status: 403 });
-
-    if (cause instanceof SyncOperationConflict || cause instanceof SyncExecutionLeaseConflict)
-      return Response.json({ error: "operation_conflict" }, { status: 409 });
+    if (cause instanceof Error) return sharedAuthorityErrorResponse(cause);
 
     throw cause;
   }
@@ -177,3 +218,22 @@ export const syncApplication = {
     await connection?.end();
   },
 };
+
+function sharedAuthorityErrorResponse(error: Error): Response {
+  if (error instanceof SyncAuthorityRecoveryRequired)
+    return Response.json({ error: "unknown_after_recovery" }, { status: 425 });
+
+  if (error instanceof SyncAuthorityFenced)
+    return Response.json({ error: "authority_fenced" }, { status: 503 });
+
+  if (error instanceof v.ValiError || error instanceof SyntaxError)
+    return Response.json({ error: "invalid_operation" }, { status: 400 });
+
+  if (error instanceof SharedWorkspaceAccessError)
+    return Response.json({ error: "forbidden" }, { status: 403 });
+
+  if (error instanceof SyncOperationConflict || error instanceof SyncExecutionLeaseConflict)
+    return Response.json({ error: "operation_conflict" }, { status: 409 });
+
+  throw error;
+}

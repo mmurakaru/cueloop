@@ -1,7 +1,8 @@
+import { SyncAuthorityRecoveryRequired } from "./sync-authority-protocol.ts";
 import { expect, test } from "bun:test";
 import * as v from "valibot";
 import { defineSyncOperation } from "./sync-operation.ts";
-import { submitSyncOperation } from "./sync-operation-client.ts";
+import { lookupSyncOperationOutcome, submitSyncOperation } from "./sync-operation-client.ts";
 
 const comment = defineSyncOperation({
   name: "comment.add",
@@ -115,4 +116,54 @@ test("normalized workspace identifiers preserve a final accepted receipt", async
     status: "accepted",
     workspaceIdentifier: "019a6650-0000-7000-8000-0000000000ab",
   });
+});
+
+test("an old request outside the recovered boundary keeps an explicit unknown outcome", async () => {
+  const operation = comment.create({
+    workspaceIdentifier: "019a6650-0000-7000-8000-000000000001",
+    arguments: { body: "Retain this uncertain input" },
+  });
+  const outcome = await submitSyncOperation({
+    operation,
+    submit: () => ({
+      client: Promise.resolve({ type: "success" }),
+      server: Promise.resolve({
+        type: "error",
+        error: {
+          type: "app",
+          message: "The recovered snapshot does not include this request",
+          details: { name: "SyncAuthorityRecoveryRequired" },
+        },
+      }),
+    }),
+  });
+
+  expect(outcome).toEqual({
+    status: "recovery-required",
+    reason: "unknown-after-recovery",
+    operationIdentifier: operation.operationIdentifier,
+    workspaceIdentifier: operation.workspaceIdentifier,
+  });
+});
+
+test("receipt lookup reports an unknown recovery outcome without submitting or changing its saved identity", async () => {
+  const operation = comment.create({
+    workspaceIdentifier: "019a6650-0000-7000-8000-000000000001",
+    arguments: { body: "A saved request outside the snapshot" },
+  });
+  const original = structuredClone(operation);
+  const outcome = await lookupSyncOperationOutcome({
+    operation,
+    lookup: async () => {
+      throw new SyncAuthorityRecoveryRequired();
+    },
+  });
+
+  expect(outcome).toEqual({
+    status: "recovery-required",
+    reason: "unknown-after-recovery",
+    operationIdentifier: operation.operationIdentifier,
+    workspaceIdentifier: operation.workspaceIdentifier,
+  });
+  expect(operation).toEqual(original);
 });

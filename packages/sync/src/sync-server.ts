@@ -1,3 +1,4 @@
+import type { syncAuthorityReplicaConfiguration } from "./sync-restore.ts";
 import type { SyncTextEditorSession } from "./sync-text-session.ts";
 import { createServer } from "node:http";
 import * as v from "valibot";
@@ -11,6 +12,9 @@ export interface SyncApplication {
   connect?: (arguments_: string[]) => Promise<void | SyncClientOutcome>;
   execute?: (arguments_: string[]) => Promise<void | SyncClientOutcome>;
   openText?: (arguments_: string[]) => Promise<SyncTextEditorSession>;
+  verifyReplica?: (
+    configuration: ReturnType<typeof syncAuthorityReplicaConfiguration>,
+  ) => Promise<void>;
   close?: () => void | Promise<void>;
 }
 

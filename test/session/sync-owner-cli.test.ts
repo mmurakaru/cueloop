@@ -32,6 +32,7 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
       if (!record) throw new Error("Sync owner CLI test requires its application record");
 
       const operation = sharedExecutionOperations.request.create({
+        authority: stack.authority,
         workspaceIdentifier: record.workspaceIdentifier,
         arguments: { recordIdentifier: record.id, text: "Explain the plan" },
       });

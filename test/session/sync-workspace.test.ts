@@ -77,7 +77,11 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
       expect(cueloopOutput).toContain("Written by cueloop");
       const record = initial[0]!;
       const mutation = await client.mutate(
-        sharedRecordMutators.edit({ id: record.id, content: "Written by the Bun SDK" }),
+        sharedRecordMutators.edit({
+          authority: stack.authority,
+          id: record.id,
+          content: "Written by the Bun SDK",
+        }),
       ).server;
 
       expect(mutation.type).toBe("success");
@@ -111,6 +115,7 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
           await writer.run(sharedRecordQueries.records(), { type: "complete" });
           const result = await writer.mutate(
             sharedRecordMutators.edit({
+              authority: stack.authority,
               id: record.id,
               content: "Written while disconnected",
             }),
