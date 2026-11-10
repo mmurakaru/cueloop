@@ -2,7 +2,7 @@
 
 import { launchTuiSession, ptyTuiAvailable } from "../test/helpers/pty-tui-session";
 import { createTestGitRepo } from "../test/helpers/git-repo";
-import { createTestReviewHome } from "../test/helpers/review-home";
+import { createTestCliReviewHome } from "../test/helpers/cli-review-home";
 import { emitMetric } from "./lib/metric";
 
 const FILE = "startup-target.ts";
@@ -60,7 +60,7 @@ if (!ptyTuiAvailable()) {
   const repo = createTestGitRepo([
     { path: FILE, before: "export const value = 1;\n", after: `${CHANGED_LINE}\n` },
   ]);
-  const reviewHome = createTestReviewHome();
+  const reviewHome = createTestCliReviewHome();
 
   try {
     const newReview = await timeToVisible(reviewHome.home, repo.dir);
@@ -78,7 +78,7 @@ if (!ptyTuiAvailable()) {
     emitMetric("is_diff_body_visible_at_ready_new", newReview.diffBodyAtReady ? 1 : 0);
     emitMetric("is_diff_body_visible_at_ready_reopen", reopenedReview.diffBodyAtReady ? 1 : 0);
   } finally {
-    reviewHome.cleanup();
+    await reviewHome.cleanup();
     repo.cleanup();
   }
 
@@ -89,7 +89,7 @@ if (!ptyTuiAvailable()) {
       after: `${CHANGED_LINE}\n`,
     })),
   );
-  const manyFilesHome = createTestReviewHome();
+  const manyFilesHome = createTestCliReviewHome();
 
   try {
     const manyFileReview = await timeToVisible(manyFilesHome.home, manyFiles.dir, "file-00.ts");
@@ -97,7 +97,7 @@ if (!ptyTuiAvailable()) {
     emitMetric("diff_first_visible_40_files_ms", manyFileReview.visibleMs);
     emitMetric("is_diff_visible_at_ready_40_files", manyFileReview.visibleAtReady ? 1 : 0);
   } finally {
-    manyFilesHome.cleanup();
+    await manyFilesHome.cleanup();
     manyFiles.cleanup();
   }
 }

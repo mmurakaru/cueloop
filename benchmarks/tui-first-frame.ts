@@ -7,7 +7,7 @@
  */
 
 import { launchTuiSession, ptyTuiAvailable } from "../test/helpers/pty-tui-session";
-import { createTestReviewHome } from "../test/helpers/review-home";
+import { createTestCliReviewHome } from "../test/helpers/cli-review-home";
 import { largePlanMarkdown } from "./lib/fixtures";
 import { emitMetric } from "./lib/metric";
 
@@ -19,7 +19,7 @@ const PLAN_TITLE = "Rollout Plan";
 /** Milliseconds from spawn to the ready signal. */
 async function timeToReady(home: string, sessionId: string): Promise<number> {
   const started = performance.now();
-  const session = launchTuiSession({ home, args: [sessionId], cols: 140, rows: 40 });
+  const session = launchTuiSession({ home, cwd: home, args: [sessionId], cols: 140, rows: 40 });
 
   try {
     await session.waitForReady(READY_TIMEOUT_MS, READY_POLL_MS);
@@ -42,15 +42,15 @@ if (!ptyTuiAvailable()) {
   emitMetric("is_ready_signal_supported", readySignalSupported ? 1 : 0);
 
   if (readySignalSupported) {
-    const reviewHome = createTestReviewHome();
+    const reviewHome = createTestCliReviewHome();
 
     try {
-      const plan = reviewHome.createPlanSession(largePlanMarkdown(32), PLAN_TITLE);
+      const plan = await reviewHome.createPlanSession(largePlanMarkdown(32), PLAN_TITLE);
 
       emitMetric("plan_ready_cold_ms", await timeToReady(reviewHome.home, plan.id));
       emitMetric("plan_ready_warm_ms", await timeToReady(reviewHome.home, plan.id));
     } finally {
-      reviewHome.cleanup();
+      await reviewHome.cleanup();
     }
   }
 }
