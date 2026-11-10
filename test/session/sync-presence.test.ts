@@ -55,6 +55,24 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
           "the second presence connection",
         ),
       ]);
+      await Promise.all([
+        waitForTestTextEditor(
+          first,
+          (snapshot) =>
+            Boolean(
+              snapshot.presence?.peers.some(
+                (peer) => peer.actorIdentifier === stack.collaborator?.userID,
+              ),
+            ),
+          "the collaborator presence publication",
+        ),
+        waitForTestTextEditor(
+          second,
+          (snapshot) =>
+            Boolean(snapshot.presence?.peers.some((peer) => peer.actorIdentifier === stack.userID)),
+          "the owner presence publication",
+        ),
+      ]);
       const environment = { ...stack.environment, SYNC_CACHE_URL: "" };
 
       const node = Bun.spawn(
