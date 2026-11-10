@@ -1,3 +1,5 @@
+import * as v from "valibot";
+import type { SyncThreadRuntime } from "./sync-thread-runtime";
 /**
  * The socket server: binds DaemonCore's methods to the unix socket, owns the
  * pidfile, stale-socket cleanup, and the idle-exit timer. File
@@ -21,7 +23,7 @@ import type { AgentHarnessTools } from "@cueloop/schema";
 import { DaemonCore, type DaemonEvent } from "./api";
 import { DaemonError } from "./errors";
 import { DEFAULT_ROLE, roleAllowsMethod, type DaemonRole } from "./capabilities";
-import { isKnownMethod, parseParams, type MethodName } from "./validate";
+import { isKnownMethod, parseParams, ThreadRecordSchema, type MethodName } from "./validate";
 import {
   BackpressureWriter,
   LineBuffer,
@@ -42,9 +44,12 @@ interface Connection {
   role: DaemonRole;
 }
 
+const SyncThreadTargetSchema = v.object({ id: v.string() });
+
 type MethodHandler = (connection: Connection, request: Request) => Response["result"];
 
 export interface DaemonOptions {
+  sync?: { enabledForThread(thread: import("@cueloop/schema").Thread): boolean };
   agentHarnessDefault?: () => string;
   threadAgent?: Pick<
     ThreadAgentOptions,
@@ -66,6 +71,7 @@ const HELD_HOMES = new Set<string>();
 const LOCK_WAIT = new Int32Array(new SharedArrayBuffer(4));
 
 export class DaemonServer {
+  private syncRuntime?: Promise<SyncThreadRuntime>;
   private readonly threadAgent: ThreadAgentManager;
   readonly core: DaemonCore;
   readonly home: string;
@@ -304,6 +310,36 @@ export class DaemonServer {
     return path;
   }
 
+  private getSyncRuntime(): Promise<SyncThreadRuntime> {
+    this.syncRuntime ??= import("./sync-thread-runtime").then(
+      ({ SyncThreadRuntime }) =>
+        new SyncThreadRuntime({
+          home: this.home,
+          core: this.core,
+          onDelete: (id) => this.threadAgent.remove(id),
+          enabled: (id) => this.options.sync?.enabledForThread(this.core.sessionGet(id)) ?? false,
+        }),
+    );
+
+    return this.syncRuntime;
+  }
+
+  resumeSyncThreads(): void {
+    if (!this.options.sync) return;
+
+    for (const thread of this.core.sessionList()) {
+      if (
+        this.core.store.isLocalAuthority?.(thread.id) !== false ||
+        !this.options.sync.enabledForThread(thread)
+      )
+        continue;
+
+      void this.getSyncRuntime()
+        .then((runtime) => runtime.resume(thread.id))
+        .catch((error) => console.error("[sync recovery]", error));
+    }
+  }
+
   resumeAgents(): void {
     for (const thread of this.core.sessionList({ status: "pending" })) {
       if (!this.threadAgent.isEnabled(thread.id)) continue;
@@ -319,10 +355,14 @@ export class DaemonServer {
 
   async shutdown(): Promise<void> {
     await this.threadAgent.dispose();
+    await (await this.syncRuntime)?.close();
     this.stop();
   }
 
   stop(): void {
+    void this.syncRuntime
+      ?.then((runtime) => runtime.close())
+      .catch((error) => console.error("[sync shutdown]", error));
     void this.threadAgent.dispose().catch((error) => console.error("[agent shutdown]", error));
     this.core.dispose();
 
@@ -410,18 +450,25 @@ export class DaemonServer {
         thread.annotations.find((entry) => entry.id === (comment.replyTo ?? comment.id)) ?? comment;
 
       return JSON.stringify(
-        this.core.sessionAnnotate(
-          args.id,
+        await this.dispatch(
+          { role: "owner", subscribed: false, write: () => {} },
           {
-            id: randomUUID(),
-            kind: "comment",
-            anchor: root.anchor,
-            target: root.target,
-            replyTo: root.id,
-            body: args.body,
-            author: "embedded-agent",
+            id: 0,
+            method: "session.annotate",
+            params: {
+              id: args.id,
+              annotation: {
+                id: randomUUID(),
+                kind: "comment",
+                anchor: root.anchor,
+                target: root.target,
+                replyTo: root.id,
+                body: args.body,
+                author: "embedded-agent",
+              },
+              authorName: "Agent",
+            },
           },
-          "Agent",
         ),
       );
     }
@@ -431,7 +478,7 @@ export class DaemonServer {
     if (!isKnownMethod(method)) throw new Error("Thread agent tool API method is unavailable");
 
     return JSON.stringify(
-      await this.handlers[method](
+      await this.dispatch(
         { role: "owner", subscribed: false, write: () => {} },
         { id: 0, method, params: args.params },
       ),
@@ -449,6 +496,46 @@ export class DaemonServer {
   }
 
   private readonly handlers: Record<MethodName, MethodHandler> = {
+    "session.syncDrafts": async (_connection, request) => {
+      const parameters = parseParams("session.syncDrafts", request.params);
+      const drafts = await (await this.getSyncRuntime()).pendingDrafts(parameters.id);
+
+      return drafts.flatMap((draft) =>
+        draft.status === "draft"
+          ? []
+          : [
+              {
+                draftIdentifier: draft.draftIdentifier,
+                status: draft.status,
+                content: draft.content,
+                operationIdentifier: draft.operation.operationIdentifier,
+                updatedAt: draft.updatedAt,
+              },
+            ],
+      );
+    },
+    "session.syncRetry": async (_connection, request) => {
+      const parameters = parseParams("session.syncRetry", request.params);
+
+      return (await this.getSyncRuntime()).retryDraft(parameters.id, parameters.draftIdentifier);
+    },
+    "session.syncDiscard": async (_connection, request) => {
+      const parameters = parseParams("session.syncDiscard", request.params);
+
+      await (await this.getSyncRuntime()).discardDraft(parameters.id, parameters.draftIdentifier);
+
+      return {};
+    },
+    "session.syncImport": async (_connection, request) => {
+      const parameters = parseParams("session.syncImport", request.params);
+
+      return (await this.getSyncRuntime()).importThread(parameters.id, parameters.connection);
+    },
+    "session.syncResume": async (_connection, request) => {
+      const parameters = parseParams("session.syncResume", request.params);
+
+      return (await this.getSyncRuntime()).resume(parameters.id);
+    },
     "agent.configure": (_connection, request) => {
       const params = parseParams("agent.configure", request.params);
 
@@ -678,6 +765,14 @@ export class DaemonServer {
       this.core.workbenchSession(parseParams("session.workbench", request.params).cwd),
     "session.workbenchReview": (_connection, request) =>
       this.core.workbenchReview(parseParams("session.workbenchReview", request.params).cwd),
+    "session.applyDiffCapture": (_connection, request) => {
+      const parameters = parseParams("session.applyDiffCapture", request.params);
+
+      return this.core.sessionApplyDiffCapture(
+        parameters.id,
+        v.parse(ThreadRecordSchema, JSON.parse(parameters.snapshot)),
+      );
+    },
     "session.refreshDiff": (_connection, request) => {
       const params = parseParams("session.refreshDiff", request.params);
 
@@ -815,6 +910,49 @@ export class DaemonServer {
 
     if (!Object.hasOwn(this.handlers, request.method)) {
       throw new DaemonError("unknown_method", `unknown method ${request.method}`);
+    }
+
+    const target = this.core.store.hasSyncThreads?.()
+      ? v.safeParse(SyncThreadTargetSchema, request.params)
+      : undefined;
+
+    if (
+      target?.success &&
+      this.core.store.isLocalAuthority?.(target.output.id) === false &&
+      ![
+        "session.get",
+        "session.wait",
+        "session.syncImport",
+        "session.syncResume",
+        "session.syncDrafts",
+        "session.syncRetry",
+        "session.syncDiscard",
+      ].includes(request.method)
+    ) {
+      if (request.method === "session.annotate" || request.method === "session.comment") {
+        const comment = parseParams(request.method, request.params);
+
+        if (this.threadAgent.isReadOnly(comment.id, comment.annotation.id))
+          throw new Error("Thread agent submitted comments are read-only");
+      }
+
+      if (request.method === "session.removeAnnotation") {
+        const comment = parseParams(request.method, request.params);
+
+        if (this.threadAgent.isReadOnly(comment.id, comment.annotationId))
+          throw new Error("Thread agent submitted comments are read-only");
+      }
+
+      if (request.method === "session.setShares") {
+        const shares = parseParams(request.method, request.params);
+
+        if (shares.shares.some((link) => link.agentEnabled))
+          this.threadAgent.assertEnabled(shares.id);
+      }
+
+      const result = await (await this.getSyncRuntime()).route(request, connection);
+
+      if (result.handled) return result.result;
     }
 
     return this.handlers[request.method](connection, request);

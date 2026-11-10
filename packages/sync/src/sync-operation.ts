@@ -1,4 +1,4 @@
-import { v7 as createOperationIdentifier } from "uuid";
+import { v7 as createVersionSevenIdentifier } from "uuid";
 import * as v from "valibot";
 import serializeCanonicalJson from "canonicalize";
 import type { ReadonlyJSONValue } from "@rocicorp/zero";
@@ -6,12 +6,24 @@ import { SyncJsonValueSchema } from "./sync-json.ts";
 
 const MAXIMUM_OPERATION_BYTES = 512 * 1024;
 const MAXIMUM_REQUEST_LIFETIME_MILLISECONDS = 24 * 60 * 60 * 1000;
-export const SyncOperationIdentifierSchema = v.pipe(
+const VersionSevenIdentifierSchema = v.pipe(
   v.string(),
   v.regex(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i),
   v.toLowerCase(),
+);
+export const SyncRecordIdentifierSchema = v.pipe(
+  VersionSevenIdentifierSchema,
+  v.brand("SyncRecordIdentifier"),
+);
+export const SyncOperationIdentifierSchema = v.pipe(
+  VersionSevenIdentifierSchema,
   v.brand("SyncOperationIdentifier"),
 );
+
+/** Allocate an immutable UUID v7 before a record participates in an accepted operation. */
+export function createSyncRecordIdentifier(): v.InferOutput<typeof SyncRecordIdentifierSchema> {
+  return v.parse(SyncRecordIdentifierSchema, createVersionSevenIdentifier());
+}
 const SyncOperationMetadataEntries = {
   operationIdentifier: SyncOperationIdentifierSchema,
   name: v.pipe(v.string(), v.minLength(1), v.maxLength(100), v.regex(/^[a-z][a-z0-9_.-]*$/)),
@@ -137,7 +149,7 @@ export function defineSyncOperation<
         input.requestLifetimeMilliseconds ?? 5 * 60 * 1000,
       );
       const operation = v.parse(schema, {
-        operationIdentifier: createOperationIdentifier({ msecs: createdAt }),
+        operationIdentifier: createVersionSevenIdentifier({ msecs: createdAt }),
         name: options.name,
         version: options.version,
         workspaceIdentifier: input.workspaceIdentifier,

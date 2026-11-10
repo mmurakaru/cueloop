@@ -1,3 +1,4 @@
+import { loadConfig } from "@cueloop/client/config";
 import { OwnerAgentRelay } from "@cueloop/adapters/owner-agent-relay";
 
 /** Long-lived ACP relay. hc keeps this process up while the daemon is down. */
@@ -27,6 +28,10 @@ export async function daemonCommand(argv: string[]): Promise<number> {
       if (event.event !== "agent.updated") relay?.update(server.core.sessionList());
     },
     idleExitMs,
+    sync: {
+      enabledForThread: (thread) =>
+        loadConfig({ repoRoot: thread.workspace.repoRoot }).experimental.sync,
+    },
     agentHarnessDefault: () => configuredAgentHarnessId(),
     threadAgent: {
       enabled: true,
@@ -45,6 +50,7 @@ export async function daemonCommand(argv: string[]): Promise<number> {
     return 1;
   }
 
+  server.resumeSyncThreads();
   server.resumeAgents();
   relay = new OwnerAgentRelay({
     home: server.home,

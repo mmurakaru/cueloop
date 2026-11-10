@@ -1,6 +1,7 @@
 import type { SyncTextEditorSession } from "./sync-text-session.ts";
 import {
   serveSyncApplication,
+  parseSyncRequestByteBudget,
   type SyncApplication,
   type SyncClientOutcome,
 } from "./sync-server.ts";
@@ -14,7 +15,7 @@ Usage: cueloop-sync <serve|connect|owner> --application <module> [options]
   connect   Run the application's sync client
   owner     Recover and execute accepted requests through an application integration
 
-Serve options: --host <address> --port <number> --public-origin <url>
+Serve options: --host <address> --port <number> --public-origin <url> --maximum-request-bytes <number>
 The authority requires a configured PostgreSQL database and Zero cache service.
 The application module exports syncApplication with fetch, optional connect, and close.
 Use environment variables for credentials.
@@ -42,6 +43,9 @@ function syncAuthorityOptions(arguments_: string[]) {
 
   return {
     port,
+    maximumRequestBytes: parseSyncRequestByteBudget(
+      Number(syncFlag(arguments_, "--maximum-request-bytes") ?? "1048576"),
+    ),
     host: syncFlag(arguments_, "--host"),
     publicOrigin: syncFlag(arguments_, "--public-origin"),
   };

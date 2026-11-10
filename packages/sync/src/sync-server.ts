@@ -25,6 +25,13 @@ function isSyncOrigin(origin: URL): boolean {
   );
 }
 
+export function parseSyncRequestByteBudget(value: number): number {
+  if (!Number.isSafeInteger(value) || value < 1 || value > 64 * 1024 * 1024)
+    throw new Error("Sync authority request byte budget must be an integer between 1 and 67108864");
+
+  return value;
+}
+
 export async function serveSyncApplication(
   application: SyncApplication,
   options: {
@@ -35,7 +42,7 @@ export async function serveSyncApplication(
   } = {},
 ) {
   const host = options.host ?? "127.0.0.1";
-  const maximumRequestBytes = options.maximumRequestBytes ?? 1048576;
+  const maximumRequestBytes = parseSyncRequestByteBudget(options.maximumRequestBytes ?? 1048576);
   const publicOrigin = options.publicOrigin ? new URL(options.publicOrigin) : undefined;
 
   if (publicOrigin && !isSyncOrigin(publicOrigin)) {

@@ -10,9 +10,37 @@ const POSTGRES_IMAGE =
 const ZERO_IMAGE =
   "rocicorp/zero@sha256:da55baa417adf670d07dd882ec90b9d9591f274a13347205cd2f71956433c057";
 
+function testSyncApplicationProfile(application: "shared-record" | "thread" | undefined) {
+  if (application === "thread")
+    return {
+      migrationDirectory: new URL("../../packages/daemon/migrations/", import.meta.url),
+      module: "examples/sync-thread/authority.ts",
+      ownerSeed:
+        "INSERT INTO cueloop_sync_workspace_member (workspace_identifier, actor_identifier, role) SELECT id, 'sync_test_reader', 'owner' FROM cueloop_sync_workspace LIMIT 1;",
+      collaboratorSeed:
+        "INSERT INTO cueloop_sync_workspace_member (workspace_identifier, actor_identifier, role) SELECT id, 'sync_test_collaborator', 'editor' FROM cueloop_sync_workspace LIMIT 1;",
+      requestOptions: ["--maximum-request-bytes", "67108864"],
+    };
+
+  return {
+    migrationDirectory: new URL("../../examples/sync-workspace/", import.meta.url),
+    module: "examples/sync-workspace/authority.ts",
+    ownerSeed:
+      "INSERT INTO sync_workspace_member (workspace_identifier, user_identifier, role) SELECT workspace_identifier, 'sync_test_reader', 'owner' FROM shared_record LIMIT 1;",
+    collaboratorSeed:
+      "INSERT INTO sync_workspace_member (workspace_identifier, user_identifier, role) SELECT workspace_identifier, 'sync_test_collaborator', 'editor' FROM shared_record LIMIT 1;",
+    requestOptions: [],
+  };
+}
+
 export async function createTestSyncStack(
-  options: { interceptMutations?: boolean; collaborator?: boolean } = {},
+  options: {
+    interceptMutations?: boolean;
+    collaborator?: boolean;
+    application?: "shared-record" | "thread";
+  } = {},
 ) {
+  const profile = testSyncApplicationProfile(options.application);
   const directory = mkdtempSync(join(tmpdir(), "cueloop-sync-stack-"));
   const name = `cueloop-sync-test-${randomUUID()}`;
   const postgresName = `${name}-postgres`;
@@ -132,7 +160,8 @@ export async function createTestSyncStack(
       );
     }
 
-    const migrationDirectory = new URL("../../examples/sync-workspace/", import.meta.url);
+    const threadApplication = options.application === "thread";
+    const migrationDirectory = profile.migrationDirectory;
 
     for (const migration of readdirSync(migrationDirectory)
       .filter((file) => file.endsWith(".sql"))
@@ -154,6 +183,24 @@ export async function createTestSyncStack(
       );
     }
 
+    if (threadApplication) {
+      await docker(
+        [
+          "exec",
+          "-i",
+          postgresName,
+          "psql",
+          "-v",
+          "ON_ERROR_STOP=1",
+          "-U",
+          "sync_test",
+          "-d",
+          "sync_test",
+        ],
+        "INSERT INTO cueloop_sync_workspace (title) VALUES ('Thread workspace');",
+      );
+    }
+
     await docker(
       [
         "exec",
@@ -167,7 +214,7 @@ export async function createTestSyncStack(
         "-d",
         "sync_test",
       ],
-      "INSERT INTO sync_workspace_member (workspace_identifier, user_identifier, role) SELECT workspace_identifier, 'sync_test_reader', 'owner' FROM shared_record LIMIT 1;",
+      profile.ownerSeed,
     );
 
     if (collaboratorToken) {
@@ -184,7 +231,7 @@ export async function createTestSyncStack(
           "-d",
           "sync_test",
         ],
-        "INSERT INTO sync_workspace_member (workspace_identifier, user_identifier, role) SELECT workspace_identifier, 'sync_test_collaborator', 'editor' FROM shared_record LIMIT 1;",
+        profile.collaboratorSeed,
       );
     }
 
@@ -205,11 +252,12 @@ export async function createTestSyncStack(
           "packages/sync/bin/cueloop-sync.js",
           "serve",
           "--application",
-          "examples/sync-workspace/authority.ts",
+          profile.module,
           "--host",
           "0.0.0.0",
           "--port",
           String(authorityPort),
+          ...profile.requestOptions,
         ],
         { env: environment, stdin: "ignore", stdout: "pipe", stderr: "pipe" },
       );
@@ -220,7 +268,10 @@ export async function createTestSyncStack(
         for (;;) {
           const { value, done } = await reader.read();
 
-          if (done) throw new Error("Sync test authority exited before readiness");
+          if (done)
+            throw new Error(
+              `Sync test authority exited before readiness: ${redact(await new Response(authority.stderr).text())}`,
+            );
 
           startup += new TextDecoder().decode(value);
 

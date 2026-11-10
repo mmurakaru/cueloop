@@ -10,3 +10,9 @@ The SDK covers permissions, safe retries, reconnecting subscriptions, and an opt
 > [!IMPORTANT]
 > Send Thread changes through the daemon.
 > Integrations must not write session files directly.
+
+## Workspace authority
+
+An owner can explicitly import a Thread into a PostgreSQL workspace behind the experimental sync setting.
+The local daemon retains a read-only projection and delivers accepted Messages to installed harness adapters.
+See [workspace setup and recovery](SDK.md#workspace-authority).
