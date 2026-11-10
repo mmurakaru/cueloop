@@ -1,3 +1,4 @@
+import { getSyncTelemetry, type SyncTelemetry } from "./sync-telemetry.ts";
 import * as v from "valibot";
 import { SyncOperationIdentifierSchema } from "./sync-operation.ts";
 import { SyncJsonValueSchema } from "./sync-json.ts";
@@ -100,10 +101,22 @@ async function recoverSyncExecution(
   executor: SyncExecutionExecutor,
   claim: SyncExecutionClaim,
   signal?: AbortSignal,
+  telemetry: SyncTelemetry = getSyncTelemetry(),
 ): Promise<SyncExecutionObservation> {
+  const span = telemetry.start("execution.recover");
+
   try {
-    return v.parse(SyncExecutionObservationSchema, await executor.recover(claim, signal));
+    const observation = v.parse(
+      SyncExecutionObservationSchema,
+      await span.run(() => executor.recover(claim, signal)),
+    );
+
+    span.end(observation.status);
+
+    return observation;
   } catch {
+    span.end("recovery-required");
+
     return {
       status: "recovery-required",
       message: "Execution integration recovery is unavailable",
@@ -116,7 +129,10 @@ export async function advanceSyncExecution(options: {
   queue: SyncExecutionQueue;
   executor: SyncExecutionExecutor;
   signal?: AbortSignal;
+  telemetry?: SyncTelemetry;
 }): Promise<SyncExecutionReport | undefined> {
+  const telemetry = options.telemetry ?? getSyncTelemetry();
+
   options.signal?.throwIfAborted();
   const executorIdentifier = v.parse(ExecutionIdentifierSchema, options.executor.identifier);
   const received = await options.queue.claim({ executorIdentifier, signal: options.signal });
@@ -128,18 +144,22 @@ export async function advanceSyncExecution(options: {
   if (claim.executorIdentifier !== executorIdentifier)
     throw new Error("Sync execution claim belongs to a different recovery domain");
 
-  let observation = await recoverSyncExecution(options.executor, claim, options.signal);
+  let observation = await recoverSyncExecution(options.executor, claim, options.signal, telemetry);
 
   options.signal?.throwIfAborted();
 
   if (observation.status === "absent") {
+    const span = telemetry.start("execution.dispatch");
+
     try {
       observation = v.parse(
         SyncExecutionObservationSchema,
-        await options.executor.dispatch(claim, options.signal),
+        await span.run(() => options.executor.dispatch(claim, options.signal)),
       );
+      span.end(observation.status);
     } catch {
-      observation = await recoverSyncExecution(options.executor, claim, options.signal);
+      span.end("recovery-required");
+      observation = await recoverSyncExecution(options.executor, claim, options.signal, telemetry);
     }
   }
 

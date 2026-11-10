@@ -50,6 +50,8 @@ export async function createTestSyncStack(
     interceptMutations?: boolean;
     collaborator?: boolean;
     application?: "shared-record" | "thread";
+    authorityPreload?: string;
+    authorityEnvironment?: Record<string, string>;
   } = {},
 ) {
   const profile = testSyncApplicationProfile(options.application);
@@ -343,6 +345,7 @@ export async function createTestSyncStack(
       authority = Bun.spawn(
         [
           process.execPath,
+          ...(options.authorityPreload ? ["--preload", options.authorityPreload] : []),
           "packages/sync/bin/cueloop-sync.js",
           "serve",
           "--application",
@@ -353,7 +356,12 @@ export async function createTestSyncStack(
           String(authorityPort),
           ...profile.requestOptions,
         ],
-        { env: environment, stdin: "ignore", stdout: "pipe", stderr: "pipe" },
+        {
+          env: { ...environment, ...options.authorityEnvironment },
+          stdin: "ignore",
+          stdout: "pipe",
+          stderr: "pipe",
+        },
       );
       const reader = authority.stdout.getReader();
       let startup = "";
@@ -376,7 +384,7 @@ export async function createTestSyncStack(
       }
 
       const ready = v.parse(
-        v.object({ event: v.literal("sync.authority.ready"), port: v.number() }),
+        v.object({ event: v.literal("sync.authority.listening"), port: v.number() }),
         JSON.parse(startup.trim()),
       );
 
@@ -439,7 +447,9 @@ export async function createTestSyncStack(
       if (logs.includes('"message":"zero-cache ready (')) break;
 
       if (Date.now() >= readyDeadline)
-        throw new Error("Sync test cache did not signal worker readiness");
+        throw new Error(
+          `Sync test cache did not signal worker readiness: ${redact(logs.slice(-6000))}`,
+        );
 
       await Bun.sleep(50);
     }

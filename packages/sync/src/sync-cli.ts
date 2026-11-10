@@ -182,7 +182,9 @@ export async function runSyncCli(
     process.once("SIGTERM", stop);
   });
 
-  process.stdout.write(JSON.stringify({ event: "sync.authority.ready", port: server.port }) + "\n");
+  process.stdout.write(
+    JSON.stringify({ event: "sync.authority.listening", port: server.port }) + "\n",
+  );
   await stopped;
   await server.close();
 

@@ -1,3 +1,4 @@
+import { SyncServerReadinessSchema } from "./sync-server-protocol.ts";
 import {
   defineSyncWorkspaceTransferAdapter,
   SyncTransferTableSchema,
@@ -15,6 +16,7 @@ const SyncApplicationModuleSchema = v.object({
     execute: v.optional(v.function()),
     openText: v.optional(v.function()),
     close: v.optional(v.function()),
+    readiness: v.optional(v.function()),
     verifyReplica: v.optional(v.function()),
     transferAdapter: v.optional(
       v.object({
@@ -47,6 +49,7 @@ export async function loadSyncApplication(path: string): Promise<SyncApplication
     verifyReplica,
     transferAdapter,
     verifyWorkspaceReplica,
+    readiness,
   } = module.syncApplication;
 
   return {
@@ -84,9 +87,12 @@ export async function loadSyncApplication(path: string): Promise<SyncApplication
           await verifyWorkspaceReplica(authority);
         }
       : undefined,
+    readiness: readiness
+      ? async (signal) => v.parse(SyncServerReadinessSchema, await readiness(signal))
+      : undefined,
     close: close
-      ? async () => {
-          await close();
+      ? async (signal) => {
+          await close(signal);
         }
       : undefined,
   };

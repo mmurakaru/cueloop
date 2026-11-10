@@ -1,3 +1,4 @@
+import { getSyncTelemetry, type SyncTelemetry } from "./sync-telemetry.ts";
 import type {
   Database,
   TransactionProviderHooks,
@@ -69,32 +70,48 @@ export async function readSyncWorkspaceAuthority(
 /** The state-row share lock remains held until the same transaction commits or rolls back. */
 export function createSyncAuthorityDatabase<Transaction extends SyncAuthorityTransaction>(options: {
   database: Database<Transaction>;
+  telemetry?: SyncTelemetry;
   identity: v.InferInput<typeof SyncAuthorityIdentitySchema>;
 }) {
+  const telemetry = options.telemetry ?? getSyncTelemetry();
   const identity = Object.freeze(v.parse(SyncAuthorityIdentitySchema, options.identity));
 
   return {
-    transaction<Result>(
+    async transaction<Result>(
       callback: (
         transaction: Transaction,
         hooks: TransactionProviderHooks,
       ) => Result | Promise<Result>,
       input?: TransactionProviderInput,
     ): Promise<Result> {
-      return options.database.transaction(async (transaction, hooks) => {
-        const current = await readSyncAuthority(transaction);
+      const observation = telemetry.start("transaction.commit");
 
-        if (
-          current.phase !== "active" ||
-          current.authorityIdentifier !== identity.authorityIdentifier ||
-          current.generation !== identity.generation
-        )
-          throw new SyncAuthorityFenced();
+      try {
+        const result = await observation.run(() =>
+          options.database.transaction(async (transaction, hooks) => {
+            const current = await readSyncAuthority(transaction);
 
-        return withSyncAuthorityTransaction(transaction, identity, () =>
-          callback(transaction, hooks),
+            if (
+              current.phase !== "active" ||
+              current.authorityIdentifier !== identity.authorityIdentifier ||
+              current.generation !== identity.generation
+            )
+              throw new SyncAuthorityFenced();
+
+            return withSyncAuthorityTransaction(transaction, identity, () =>
+              callback(transaction, hooks),
+            );
+          }, input),
         );
-      }, input);
+
+        observation.end();
+
+        return result;
+      } catch (cause) {
+        observation.end("failed");
+
+        throw cause;
+      }
     },
   } satisfies Database<Transaction>;
 }

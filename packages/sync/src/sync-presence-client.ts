@@ -1,3 +1,5 @@
+import { getSyncTelemetry, type SyncTelemetry } from "./sync-telemetry.ts";
+import { fetchSyncHttp } from "./sync-telemetry-http.ts";
 import * as v from "valibot";
 import { v7 as createPresenceIdentifier } from "uuid";
 import {
@@ -19,6 +21,7 @@ export function createSyncPresenceClient(options: {
   workspaceIdentifier: string;
   auth: string;
   pollMilliseconds?: number;
+  telemetry?: SyncTelemetry;
 }) {
   const workspaceIdentifier = v.parse(
     v.pipe(v.string(), v.uuid(), v.toLowerCase()),
@@ -28,6 +31,7 @@ export function createSyncPresenceClient(options: {
     v.pipe(v.number(), v.safeInteger(), v.minValue(500), v.maxValue(5000)),
     options.pollMilliseconds ?? 1000,
   );
+  const telemetry = options.telemetry ?? getSyncTelemetry();
   const url = new URL("presence", `${options.authorityURL.replace(/\/$/, "")}/`);
   const connectionIdentifier = createPresenceIdentifier();
   const listeners = new Set<() => void>();
@@ -44,6 +48,20 @@ export function createSyncPresenceClient(options: {
   let closing: Promise<void> | undefined;
   let request: AbortController | undefined;
   const publish = (next: SyncPresenceSnapshot) => {
+    if (snapshot.status !== next.status) {
+      telemetry.event(
+        "presence",
+        next.status === "connected"
+          ? "connected"
+          : next.status === "closed"
+            ? "closed"
+            : next.status === "forbidden"
+              ? "rejected"
+              : "disconnected",
+        { items: next.peers.length },
+      );
+    }
+
     snapshot = Object.freeze(next);
 
     for (const listener of listeners) {
@@ -79,19 +97,26 @@ export function createSyncPresenceClient(options: {
     request = controller;
     running = (async () => {
       try {
-        const response = await fetch(url, {
-          method: "POST",
-          headers: { authorization: `Bearer ${options.auth}`, "content-type": "application/json" },
-          body: JSON.stringify({
-            action: "publish",
-            workspaceIdentifier,
-            connectionIdentifier,
-            sequence: currentSequence,
-            typing,
-            selection: currentSelection,
-          }),
-          signal,
-        });
+        const response = await fetchSyncHttp(
+          url,
+          {
+            method: "POST",
+            headers: {
+              authorization: `Bearer ${options.auth}`,
+              "content-type": "application/json",
+            },
+            body: JSON.stringify({
+              action: "publish",
+              workspaceIdentifier,
+              connectionIdentifier,
+              sequence: currentSequence,
+              typing,
+              selection: currentSelection,
+            }),
+            signal,
+          },
+          telemetry,
+        );
 
         if (closed || !enabled || signal.aborted) return;
 
@@ -186,15 +211,19 @@ export function createSyncPresenceClient(options: {
         await running;
 
         try {
-          await fetch(url, {
-            method: "POST",
-            headers: {
-              authorization: `Bearer ${options.auth}`,
-              "content-type": "application/json",
+          await fetchSyncHttp(
+            url,
+            {
+              method: "POST",
+              headers: {
+                authorization: `Bearer ${options.auth}`,
+                "content-type": "application/json",
+              },
+              body: JSON.stringify({ action: "leave", workspaceIdentifier, connectionIdentifier }),
+              signal: AbortSignal.timeout(3000),
             },
-            body: JSON.stringify({ action: "leave", workspaceIdentifier, connectionIdentifier }),
-            signal: AbortSignal.timeout(3000),
-          });
+            telemetry,
+          );
         } catch {
           // The authority lease expires when a closing client cannot reach it.
         }

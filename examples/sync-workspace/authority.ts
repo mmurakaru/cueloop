@@ -211,6 +211,15 @@ async function fetch(request: Request): Promise<Response> {
 
 export const syncApplication = {
   transferAdapter: sharedWorkspaceTransferAdapter,
+  readiness: async (signal: AbortSignal) => {
+    if (!rawDatabase || signal.aborted) return { ready: false, phase: "unavailable" as const };
+
+    const authority = await rawDatabase.transaction((transaction) =>
+      readSyncAuthority(transaction),
+    );
+
+    return { ready: authority.phase === "active", phase: authority.phase };
+  },
   fetch,
   connect: connectSharedRecord,
   execute: executeSharedRequests,

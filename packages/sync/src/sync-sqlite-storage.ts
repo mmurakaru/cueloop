@@ -1,3 +1,4 @@
+import { getSyncTelemetry, type SyncTelemetry } from "./sync-telemetry.ts";
 import { createHash } from "node:crypto";
 import { chmodSync, mkdirSync, rmSync } from "node:fs";
 import { resolve } from "node:path";
@@ -10,10 +11,20 @@ import {
 } from "@rocicorp/zero/sqlite";
 import * as v from "valibot";
 
-function openSyncSqliteDatabase(filename: string): SQLiteDatabase {
-  const database = new DatabaseSync(filename);
+function observeSyncStorage<Result>(telemetry: SyncTelemetry, operation: () => Result): Result {
+  try {
+    return operation();
+  } catch (cause) {
+    telemetry.event("storage", "failed");
 
-  chmodSync(filename, 0o600);
+    throw cause;
+  }
+}
+
+function openSyncSqliteDatabase(filename: string, telemetry: SyncTelemetry): SQLiteDatabase {
+  const database = observeSyncStorage(telemetry, () => new DatabaseSync(filename));
+
+  observeSyncStorage(telemetry, () => chmodSync(filename, 0o600));
 
   return {
     close: () => database.close(),
@@ -21,18 +32,25 @@ function openSyncSqliteDatabase(filename: string): SQLiteDatabase {
       for (const path of [filename, `${filename}-wal`, `${filename}-shm`])
         rmSync(path, { force: true });
     },
-    execSync: (sql) => database.exec(sql),
+    execSync: (sql) => observeSyncStorage(telemetry, () => database.exec(sql)),
     prepare(sql) {
-      const statement = database.prepare(sql);
+      const statement = observeSyncStorage(telemetry, () => {
+        const prepared = database.prepare(sql);
 
-      statement.setReturnArrays(true);
+        prepared.setReturnArrays(true);
+
+        return prepared;
+      });
 
       return {
         async exec(parameters) {
-          statement.run(...parameters);
+          observeSyncStorage(telemetry, () => statement.run(...parameters));
         },
         async all(parameters) {
-          return v.parse(v.array(v.array(v.unknown())), statement.all(...parameters));
+          return v.parse(
+            v.array(v.array(v.unknown())),
+            observeSyncStorage(telemetry, () => statement.all(...parameters)),
+          );
         },
       };
     },
@@ -40,7 +58,11 @@ function openSyncSqliteDatabase(filename: string): SQLiteDatabase {
 }
 
 /** SQLite commits replica records and engine positions together through Zero's transactional store. */
-export function createSyncSqliteStorage(options: { directory: string }): StoreProvider {
+export function createSyncSqliteStorage(options: {
+  directory: string;
+  telemetry?: SyncTelemetry;
+}): StoreProvider {
+  const telemetry = options.telemetry ?? getSyncTelemetry();
   const directory = resolve(v.parse(v.pipe(v.string(), v.minLength(1)), options.directory));
   const storeOptions = {
     directory,
@@ -50,10 +72,12 @@ export function createSyncSqliteStorage(options: { directory: string }): StorePr
   } as const;
   const storeName = (name: string) => createHash("sha256").update(name).digest("hex");
 
-  mkdirSync(directory, { recursive: true, mode: 0o700 });
+  observeSyncStorage(telemetry, () => mkdirSync(directory, { recursive: true, mode: 0o700 }));
+  const open = (filename: string) => openSyncSqliteDatabase(filename, telemetry);
 
   return {
-    create: (name) => new SQLiteStore(storeName(name), openSyncSqliteDatabase, storeOptions),
-    drop: (name) => dropStore(storeName(name), openSyncSqliteDatabase, storeOptions),
+    create: (name) =>
+      observeSyncStorage(telemetry, () => new SQLiteStore(storeName(name), open, storeOptions)),
+    drop: (name) => dropStore(storeName(name), open, storeOptions),
   };
 }

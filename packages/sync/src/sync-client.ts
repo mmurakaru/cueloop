@@ -1,3 +1,6 @@
+import { SpanKind } from "@opentelemetry/api";
+import { getSyncTelemetry, type SyncTelemetry } from "./sync-telemetry.ts";
+import { attemptSyncTelemetry } from "./sync-telemetry-context.ts";
 import { syncAuthorityStorageKey } from "./sync-authority-client.ts";
 import type { SyncAuthorityIdentity, SyncWorkspaceAuthority } from "./sync-authority-protocol.ts";
 import {
@@ -24,6 +27,7 @@ export interface SyncClientLifecycleSource {
 }
 
 export interface SyncClient<ApplicationSchema extends Schema, Context> {
+  readonly telemetry?: SyncTelemetry;
   connection: Connection;
   lifecycle: SyncClientLifecycleSource;
   materialize: Zero<ApplicationSchema, undefined, Context>["materialize"];
@@ -37,6 +41,7 @@ export interface SyncClient<ApplicationSchema extends Schema, Context> {
 export function createSyncClient<const ApplicationSchema extends Schema, Context = unknown>(
   options: ZeroOptions<ApplicationSchema, undefined, Context> & {
     authority?: SyncAuthorityIdentity | SyncWorkspaceAuthority;
+    telemetry?: SyncTelemetry;
   },
 ): SyncClient<ApplicationSchema, Context> {
   if (options.cacheURL !== null && options.kvStore !== "mem" && !options.authority)
@@ -44,6 +49,8 @@ export function createSyncClient<const ApplicationSchema extends Schema, Context
       "Sync persistent client requires a resolved authority before opening its replica",
     );
 
+  const { telemetry = getSyncTelemetry(), ...clientOptions } = options;
+  const pendingTelemetry = new Set<ReturnType<SyncTelemetry["start"]>>();
   let lifecycleState: SyncClientLifecycle = { status: "active" };
   let closing: Promise<void> | undefined;
   const lifecycleListeners = new Set<(state: SyncClientLifecycle) => void>();
@@ -55,6 +62,15 @@ export function createSyncClient<const ApplicationSchema extends Schema, Context
       return;
 
     lifecycleState = state;
+    const outcomes = {
+      active: "started",
+      "needs-reset": "recovery-required",
+      "storage-failed": "failed",
+      closing: "closing",
+      closed: "closed",
+    } as const;
+
+    telemetry.event("client.lifecycle", outcomes[state.status]);
 
     for (const listener of lifecycleListeners) {
       try {
@@ -65,7 +81,24 @@ export function createSyncClient<const ApplicationSchema extends Schema, Context
     }
   };
   const client = new Zero({
-    ...options,
+    ...clientOptions,
+    getTraceparent() {
+      const suppliedTraceparent = clientOptions.getTraceparent;
+
+      if (suppliedTraceparent) return attemptSyncTelemetry(() => suppliedTraceparent());
+
+      const pending = [...pendingTelemetry];
+      const transport = telemetry.start("transport.send", {
+        kind: SpanKind.CLIENT,
+        parent: pending[0]?.context,
+        links: pending.flatMap((span) => (span.spanContext ? [span.spanContext] : [])),
+      });
+      const parent = telemetry.traceparent(transport.context);
+
+      transport.end();
+
+      return parent;
+    },
     storageKey: options.authority
       ? syncAuthorityStorageKey(options.authority, options.storageKey)
       : options.storageKey,
@@ -83,7 +116,19 @@ export function createSyncClient<const ApplicationSchema extends Schema, Context
     },
   });
 
+  telemetry.activeWork("client.lifecycle", 1);
+  let previousConnection = client.connection.state.current.name;
+  const unsubscribeConnection = client.connection.state.subscribe(() => {
+    const name = client.connection.state.current.name;
+
+    if (name === previousConnection) return;
+
+    previousConnection = name;
+    telemetry.event("client.lifecycle", name === "connected" ? "connected" : "disconnected");
+  });
+
   return {
+    telemetry,
     connection: client.connection,
     lifecycle: {
       get current() {
@@ -120,7 +165,36 @@ export function createSyncClient<const ApplicationSchema extends Schema, Context
         );
       }
 
-      return client.mutate(request);
+      const observation = telemetry.start("mutation.submit", { kind: SpanKind.CLIENT });
+
+      if (pendingTelemetry.size < 32) pendingTelemetry.add(observation);
+
+      try {
+        const result = observation.run(() => client.mutate(request));
+
+        return {
+          ...result,
+          server: result.server.then(
+            (outcome) => {
+              pendingTelemetry.delete(observation);
+              observation.end(outcome.type === "success" ? "completed" : "failed");
+
+              return outcome;
+            },
+            (cause) => {
+              pendingTelemetry.delete(observation);
+              observation.end("failed");
+
+              throw cause;
+            },
+          ),
+        };
+      } catch (cause) {
+        pendingTelemetry.delete(observation);
+        observation.end("failed");
+
+        throw cause;
+      }
     },
     close() {
       if (closing) return closing;
@@ -129,6 +203,11 @@ export function createSyncClient<const ApplicationSchema extends Schema, Context
 
       closing = completion.promise;
       publishLifecycle({ status: "closing" });
+      unsubscribeConnection();
+
+      for (const observation of pendingTelemetry) observation.end("pending");
+
+      pendingTelemetry.clear();
       const finish = async () => {
         try {
           // Startup can create a broadcast channel after an early close.
@@ -138,6 +217,7 @@ export function createSyncClient<const ApplicationSchema extends Schema, Context
             await client.close();
           } finally {
             publishLifecycle({ status: "closed" });
+            telemetry.activeWork("client.lifecycle", -1);
             lifecycleListeners.clear();
           }
         }

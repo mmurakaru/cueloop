@@ -56,7 +56,9 @@
     "./migrations/004-restore-journal.sql": "./migrations/004-restore-journal.sql",
     "./transfer": "./dist/sync-transfer.js",
     "./migrations/005-workspace-transfer.sql": "./migrations/005-workspace-transfer.sql",
-    "./rebind": "./dist/sync-workspace-rebind.js"
+    "./rebind": "./dist/sync-workspace-rebind.js",
+    "./telemetry": "./dist/sync-telemetry.js",
+    "./telemetry/http": "./dist/sync-telemetry-http.js"
   },
   "publishConfig": {
     "access": "public"
@@ -66,6 +68,7 @@
     "prepack": "bun run build"
   },
   "dependencies": {
+    "@opentelemetry/api": "1.10.0",
     "@rocicorp/zero": "1.11.4",
     "canonicalize": "5.1.0",
     "idb": "8.0.4",

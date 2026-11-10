@@ -1,3 +1,4 @@
+import { getSyncTelemetry, type SyncTelemetry } from "./sync-telemetry.ts";
 import { SyncAuthorityPhaseSchema } from "./sync-authority-protocol.ts";
 import postgres from "postgres";
 import { createHash } from "node:crypto";
@@ -11,7 +12,7 @@ export interface SyncDatabaseMigration {
 }
 
 /** Migrations run while fenced; their SQL and immutable digests commit in one transaction. */
-export async function migrateSyncDatabase(options: {
+async function applySyncDatabaseMigrations(options: {
   databaseURL: string;
   migrations: readonly SyncDatabaseMigration[];
   signal?: AbortSignal;
@@ -86,4 +87,12 @@ export async function migrateSyncDatabase(options: {
   } finally {
     await database.end();
   }
+}
+
+export function migrateSyncDatabase(
+  options: Parameters<typeof applySyncDatabaseMigrations>[0] & { telemetry?: SyncTelemetry },
+) {
+  return (options.telemetry ?? getSyncTelemetry()).run("database.migrate", () =>
+    applySyncDatabaseMigrations(options),
+  );
 }

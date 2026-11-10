@@ -1,3 +1,5 @@
+import { SpanKind } from "@opentelemetry/api";
+import { getSyncTelemetry, type SyncTelemetry } from "./sync-telemetry.ts";
 import type { Schema } from "@rocicorp/zero";
 import {
   handleMutateRequest,
@@ -18,6 +20,7 @@ export interface SyncAuthorityOptions<
   ApplicationDatabase extends Database<ExtractTransactionType<ApplicationDatabase>>,
   Context,
 > {
+  telemetry?: SyncTelemetry;
   schema: ApplicationSchema;
   database: ApplicationDatabase;
   authenticate: (request: Request) => Promise<SyncPrincipal<Context> | null>;
@@ -30,7 +33,8 @@ export function createSyncAuthority<
   ApplicationDatabase extends Database<ExtractTransactionType<ApplicationDatabase>>,
   Context,
 >(options: SyncAuthorityOptions<ApplicationSchema, ApplicationDatabase, Context>) {
-  return async (request: Request): Promise<Response> => {
+  const telemetry = options.telemetry ?? getSyncTelemetry();
+  const handle = async (request: Request): Promise<Response> => {
     const path = new URL(request.url).pathname;
 
     if (path !== "/query" && path !== "/mutate") return new Response("Not found", { status: 404 });
@@ -62,6 +66,27 @@ export function createSyncAuthority<
         handler: options.mutate(principal),
       }),
     );
+  };
+
+  return async (request: Request): Promise<Response> => {
+    const observation = telemetry.start("authority.request", {
+      kind: SpanKind.INTERNAL,
+      parent: telemetry.requestContext(request.headers),
+    });
+
+    try {
+      const response = await observation.run(() => handle(request));
+
+      observation.end(response.status >= 500 ? "failed" : "completed", {
+        httpStatus: response.status,
+      });
+
+      return response;
+    } catch (cause) {
+      observation.end("failed");
+
+      throw cause;
+    }
   };
 }
 

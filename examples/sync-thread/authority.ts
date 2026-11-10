@@ -35,4 +35,16 @@ const application = createSyncThreadApplication({
   },
 });
 
-export const syncApplication = { ...application, close: () => connection.end() };
+export const syncApplication = {
+  ...application,
+  readiness: async (signal: AbortSignal) => {
+    if (signal.aborted) return { ready: false, phase: "unavailable" as const };
+
+    const authority = await rawDatabase.transaction((transaction) =>
+      readSyncAuthority(transaction),
+    );
+
+    return { ready: authority.phase === "active", phase: authority.phase };
+  },
+  close: () => connection.end(),
+};
