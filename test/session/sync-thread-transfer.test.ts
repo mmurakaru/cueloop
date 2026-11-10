@@ -1,3 +1,4 @@
+import { pauseTestSyncDraftWrite } from "../helpers/sync-draft-write-gate";
 import { expect, test } from "bun:test";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
@@ -8,7 +9,10 @@ import { DaemonClient } from "@cueloop/daemon/client";
 import { SyncThreadConnectionSchema } from "@cueloop/daemon/sync-thread-protocol";
 import { syncThreadTransferAdapter as adapter } from "@cueloop/daemon/sync-thread-transfer";
 import { createTestSyncStack } from "../helpers/sync-stack";
-import { createTestSyncThreadDrafts } from "../helpers/sync-thread-drafts";
+import {
+  createTestSyncThreadDrafts,
+  createTestSyncThreadDraftStore,
+} from "../helpers/sync-thread-drafts";
 import { createSyncClient } from "@cueloop/sync";
 import { syncThreadSchema } from "@cueloop/daemon/sync-thread-schema";
 import { syncThreadQueries } from "@cueloop/daemon/sync-thread-queries";
@@ -30,6 +34,7 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
       new DaemonServer({ home, idleExitMs: 0, sync: { enabledForThread: () => true } });
     let server = createServer();
     let owner: DaemonClient | undefined;
+    let draftGate: ReturnType<typeof pauseTestSyncDraftWrite> | undefined;
     let target: Awaited<ReturnType<typeof createTestSyncStack>> | undefined;
     let reader:
       | ReturnType<typeof createSyncClient<typeof syncThreadSchema, { actorIdentifier: string }>>
@@ -87,6 +92,15 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
       expect(
         originalDrafts.find((draft) => draft.draftIdentifier === retained.retryIdentifier)?.status,
       ).toBe("pending");
+      draftGate = pauseTestSyncDraftWrite(retained.retryIdentifier);
+      const concurrentCommand = owner
+        .sessionSubmitRevision(thread.id, "A revision saved while the handoff starts")
+        .then(
+          () => "accepted",
+          () => "pending",
+        );
+
+      await draftGate.received;
       target = await createTestSyncStack({ application: "thread" });
       const binding = createSyncWorkspaceTransferBinding({
         source: source.authority,
@@ -142,13 +156,55 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
         authorityURL: target.authorityURL,
         cacheURL: target.cacheURL,
       };
-      const rebound = await owner.sessionSyncRebind(thread.id, connection);
+      const handoff = owner.sessionSyncRebind(thread.id, connection);
+      const waiting = Promise.withResolvers<"waiting" | "completed">();
+      const timer = setTimeout(() => waiting.resolve("waiting"), 1000);
+
+      void handoff.then(
+        () => waiting.resolve("completed"),
+        () => waiting.resolve("completed"),
+      );
+
+      try {
+        expect(await waiting.promise).toBe("waiting");
+      } finally {
+        clearTimeout(timer);
+        draftGate.release();
+      }
+
+      expect(await concurrentCommand).toBe("pending");
+      draftGate.close();
+      const sourceDrafts = createTestSyncThreadDraftStore({ home, connection: previousConnection });
+      let savedDrafts;
+
+      try {
+        savedDrafts = (await sourceDrafts.list()).map((draft) => {
+          const content = v.parse(v.string(), draft.content);
+          const prepared = v.parse(
+            v.object({ operation: v.object({ operationIdentifier: v.string() }) }),
+            JSON.parse(content),
+          );
+
+          return {
+            draftIdentifier: draft.draftIdentifier,
+            status: draft.status,
+            content,
+            operationIdentifier: prepared.operation.operationIdentifier,
+            updatedAt: draft.updatedAt,
+          };
+        });
+      } finally {
+        await sourceDrafts.close();
+      }
+
+      expect(savedDrafts.length).toBe(originalDrafts.length + 1);
+      const rebound = await handoff;
 
       expect(rebound.id).toBe(thread.id);
       expect(rebound.message?.id).toBe(sent.message?.id);
       expect(projection().authority).toEqual(authority);
       expect(readdirSync(join(threadDirectory, "recovered-projections"))).toHaveLength(1);
-      expect(await owner.sessionSyncDrafts(thread.id)).toEqual(originalDrafts);
+      expect(await owner.sessionSyncDrafts(thread.id)).toEqual(savedDrafts);
       await expect(
         owner.sessionSyncRetry(thread.id, retained.retryIdentifier),
       ).rejects.toMatchObject({ code: "sync_recovery_required" });
@@ -163,7 +219,7 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
       server.start();
       owner = await DaemonClient.connect({ home });
       await owner.sessionSyncResume(thread.id);
-      expect(await owner.sessionSyncDrafts(thread.id)).toEqual(originalDrafts);
+      expect(await owner.sessionSyncDrafts(thread.id)).toEqual(savedDrafts);
       expect(manifest().connection).toEqual(connection);
       await owner.sessionSubmitRevision(thread.id, "A fresh revision after the handoff");
       await owner.sessionSetTitle(thread.id, "A fresh change at the destination");
@@ -171,6 +227,7 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
         "A fresh change at the destination",
       );
     } finally {
+      draftGate?.close();
       owner?.close();
       await server.shutdown();
       await reader?.close();

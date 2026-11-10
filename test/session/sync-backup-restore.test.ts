@@ -138,7 +138,9 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
         )[0]?.relation,
       ).toBeNull();
       expect((await destination`SELECT phase FROM sync_authority`)[0]?.phase).toBe("recovering");
-      expect(await destination`SELECT identity FROM sync_schema_migration`).toHaveLength(0);
+      expect([
+        ...(await destination`SELECT identity, digest FROM sync_schema_migration WHERE deleted_at IS NULL ORDER BY identity`),
+      ]).toEqual(backup.manifest.migrations);
       await source.unsafe("CREATE DATABASE sync_initialized");
       const initializedURL = new URL(stack.environment.SYNC_DATABASE_URL);
 

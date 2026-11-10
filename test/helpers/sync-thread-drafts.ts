@@ -5,6 +5,31 @@ import { createSyncDraftStore } from "@cueloop/sync/drafts";
 import { createSyncSqliteStorage } from "@cueloop/sync/storage";
 import { prepareSyncThreadCommand } from "@cueloop/daemon/sync-thread-protocol";
 
+export function createTestSyncThreadDraftStore(options: {
+  home: string;
+  connection: { authorityURL: string; cacheURL: string; actorIdentifier: string };
+}) {
+  const connection = options.connection;
+  const profileIdentifier = createHash("sha256")
+    .update(
+      JSON.stringify({
+        cacheURL: connection.cacheURL,
+        authorityURL: connection.authorityURL,
+        actorIdentifier: connection.actorIdentifier,
+      }),
+    )
+    .digest("hex");
+
+  return createSyncDraftStore({
+    storage: createSyncSqliteStorage({
+      directory: join(options.home, "sync-replicas", profileIdentifier),
+    }),
+    authorityIdentifier: connection.authorityURL,
+    userIdentifier: connection.actorIdentifier,
+    maximumBytes: 64 * 1024 * 1024,
+  });
+}
+
 /** Persist interrupted native drafts without running a daemon or sending changes. */
 export async function createTestSyncThreadDrafts(options: {
   authority: SyncWorkspaceAuthority;
@@ -21,23 +46,7 @@ export async function createTestSyncThreadDrafts(options: {
   };
 }) {
   const connection = options.connection;
-  const profileIdentifier = createHash("sha256")
-    .update(
-      JSON.stringify({
-        cacheURL: connection.cacheURL,
-        authorityURL: connection.authorityURL,
-        actorIdentifier: connection.actorIdentifier,
-      }),
-    )
-    .digest("hex");
-  const drafts = createSyncDraftStore({
-    storage: createSyncSqliteStorage({
-      directory: join(options.home, "sync-replicas", profileIdentifier),
-    }),
-    authorityIdentifier: connection.authorityURL,
-    userIdentifier: connection.actorIdentifier,
-    maximumBytes: 64 * 1024 * 1024,
-  });
+  const drafts = createTestSyncThreadDraftStore(options);
 
   try {
     const prepared = await prepareSyncThreadCommand({
