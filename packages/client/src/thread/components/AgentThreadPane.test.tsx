@@ -191,6 +191,54 @@ test("typing on the final blank line invokes the agent while the existing footer
   }
 });
 
+test("submitting a prompt before its caret paints preserves the next streaming draft", async () => {
+  const { client, prompts } = createTestAgentClient(empty);
+
+  client.agentPrompt = async (params) => {
+    prompts.push(params);
+
+    return {
+      ...empty,
+      phase: { kind: "running" },
+      messages: [
+        { id: "question", role: "user", text: params.text, complete: true, revision: 1 },
+        { id: "answer", role: "agent", text: "Streaming answer", complete: false, revision: 1 },
+      ],
+    };
+  };
+  const setup = await testRender(
+    <AgentThreadPane
+      thread={thread}
+      client={client}
+      focused
+      theme={DARK}
+      onActiveChange={noop}
+      onOpenFile={noop}
+    >
+      {artifactView(thread)}
+    </AgentThreadPane>,
+    { width: 100, height: 24, kittyKeyboard: true },
+  );
+
+  try {
+    await waitForText(setup, "Original artifact");
+    await settle(setup);
+    const artifact = locateText(setup, "Original artifact");
+    const pressed = setup.mockMouse.pressDown(artifact.column, artifact.row + 2, 0, { delayMs: 0 });
+    const typed = setup.mockInput.typeText("First question");
+
+    setup.mockInput.pressKey("RETURN", { ctrl: true });
+    await Promise.all([pressed, typed]);
+    await setup.mockMouse.release(artifact.column, artifact.row + 2, 0, { delayMs: 0 });
+    await waitForText(setup, "Streaming answer");
+    await typeText(setup, "Next question");
+    expect(setup.captureCharFrame()).toContain("Next question");
+    expect(prompts.map((prompt) => prompt.text)).toEqual(["First question"]);
+  } finally {
+    setup.renderer.destroy();
+  }
+});
+
 test("typing after a submitted original creates a reply instead of editing the frozen comment", async () => {
   const annotated: Thread = {
     ...thread,
