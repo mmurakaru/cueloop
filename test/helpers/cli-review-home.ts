@@ -10,13 +10,18 @@ const CreatedReviewSchema = v.object({ id: v.string() });
 export function createTestCliReviewHome() {
   const home = mkdtempSync(join(tmpdir(), "cueloop-cli-review-home-"));
 
-  async function createSession(type: "plan" | "diff", content: string, title: string, cwd = home) {
+  async function createSession(
+    type: "plan" | "diff",
+    content: string,
+    title: string,
+    workingDirectory = home,
+  ) {
     const result = await runCli(
       home,
       ["session", "create", "--type", type, "--title", title],
       content,
       undefined,
-      cwd,
+      workingDirectory,
     );
 
     if (result.code !== 0) {
@@ -31,8 +36,8 @@ export function createTestCliReviewHome() {
     createPlanSession(markdown: string, title = "Plan") {
       return createSession("plan", markdown, title);
     },
-    createDiffSession(patch: string, title = "working tree", cwd = home) {
-      return createSession("diff", patch, title, cwd);
+    createDiffSession(patch: string, title = "working tree", workingDirectory = home) {
+      return createSession("diff", patch, title, workingDirectory);
     },
     async cleanup() {
       const result = await runCli(home, ["stop"]);
