@@ -553,9 +553,12 @@ export class SyncThreadRuntime {
           upload: "",
           phase: "remote",
           version: record.thread.version,
+          authority: profile.authority,
         });
 
-      this.options.core.sessionProjectSyncThread(fork, record.thread.version);
+      this.options.core.sessionProjectSyncThread(fork, record.thread.version, {
+        authority: profile.authority,
+      });
       await profile.drafts.discard(draftIdentifier);
       await this.observe(fork.id);
 

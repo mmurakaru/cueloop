@@ -185,6 +185,7 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
       if (!restored?.thread) throw new Error("Recovered Thread requires its authoritative version");
 
       const revision = await prepareSyncThreadCommand({
+        authority: stack.authority,
         workspaceIdentifier: workspace.id,
         recordIdentifier: document.id,
         expectedVersion: restored.thread.version,

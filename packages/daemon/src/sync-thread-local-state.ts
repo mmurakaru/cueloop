@@ -122,6 +122,7 @@ export class SyncThreadLocalState {
     upload: string;
     phase?: "importing" | "remote";
     version?: number;
+    authority?: SyncAuthorityIdentity;
   }): void {
     const manifest = v.parse(ManifestSchema, {
       threadIdentifier: options.thread.id,
@@ -141,7 +142,13 @@ export class SyncThreadLocalState {
     try {
       writeSyncThreadFile(
         join(preparing, "projection.json"),
-        JSON.stringify(v.parse(ProjectionSchema, { version: options.version ?? 0, thread })),
+        JSON.stringify(
+          v.parse(ProjectionSchema, {
+            version: options.version ?? 0,
+            thread,
+            authority: options.authority,
+          }),
+        ),
       );
       writeSyncThreadFile(join(preparing, "import.json"), options.upload);
       writeSyncThreadFile(join(preparing, "manifest.json"), JSON.stringify(manifest));
