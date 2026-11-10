@@ -1,19 +1,21 @@
+import { finalizeSyncRestore } from "./sync-restore-finalization.ts";
+import {
+  hasSyncDatabaseTable,
+  readSyncRestoreJournal,
+  reserveSyncRestoreJournal,
+  syncRestoreManifestDigest,
+} from "./sync-restore-journal.ts";
 import postgres from "postgres";
 import * as v from "valibot";
 import { readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import { v7 as uuidv7 } from "uuid";
 import {
   SyncAuthorityIdentitySchema,
+  SyncAuthorityPhaseSchema,
   type SyncAuthorityIdentity,
 } from "./sync-authority-protocol.ts";
-import {
-  SyncBackupManifestSchema,
-  SyncMigrationDigestSchema,
-  digestSyncBackupArchive,
-} from "./sync-backup-manifest.ts";
+import { SyncBackupManifestSchema, digestSyncBackupArchive } from "./sync-backup-manifest.ts";
 import { runSyncPostgresTool, type SyncPostgresTools } from "./sync-postgres-tools.ts";
-import { migrateSyncDatabase, type SyncDatabaseMigration } from "./sync-database-migration.ts";
 
 export function syncAuthorityReplicaConfiguration(identity: SyncAuthorityIdentity) {
   return {
@@ -40,76 +42,81 @@ export async function restoreSyncBackup(options: {
     throw new Error("Sync backup archive digest does not match its manifest");
 
   const database = postgres(options.databaseURL, { max: 1, onnotice: () => {} });
-  const connection = await database.reserve();
+  let connection: Awaited<ReturnType<typeof database.reserve>> | undefined;
 
   try {
+    connection = await database.reserve();
     await connection`SELECT pg_advisory_lock(hashtextextended('cueloop-sync-database-operator', 0))`;
-    const objects =
-      await connection`SELECT objectid FROM (SELECT class.oid AS objectid FROM pg_class AS class JOIN pg_namespace AS namespace ON namespace.oid = class.relnamespace WHERE namespace.nspname !~ '^pg_' AND namespace.nspname <> 'information_schema' UNION ALL SELECT routine.oid FROM pg_proc AS routine JOIN pg_namespace AS namespace ON namespace.oid = routine.pronamespace WHERE namespace.nspname !~ '^pg_' AND namespace.nspname <> 'information_schema' UNION ALL SELECT namespace.oid FROM pg_namespace AS namespace WHERE namespace.nspname !~ '^pg_' AND namespace.nspname NOT IN ('public', 'information_schema')) AS existing LIMIT 1`;
+    let journal = await readSyncRestoreJournal(connection);
 
-    if (objects.length)
-      throw new Error("Sync restore requires a clean offline destination database");
+    if (!journal) {
+      const objects =
+        await connection`SELECT objectid FROM (SELECT class.oid AS objectid FROM pg_class AS class JOIN pg_namespace AS namespace ON namespace.oid = class.relnamespace WHERE namespace.nspname !~ '^pg_' AND namespace.nspname <> 'information_schema' UNION ALL SELECT routine.oid FROM pg_proc AS routine JOIN pg_namespace AS namespace ON namespace.oid = routine.pronamespace WHERE namespace.nspname !~ '^pg_' AND namespace.nspname <> 'information_schema' UNION ALL SELECT namespace.oid FROM pg_namespace AS namespace WHERE namespace.nspname !~ '^pg_' AND namespace.nspname NOT IN ('public', 'information_schema')) AS existing LIMIT 1`;
 
-    await connection`DROP SCHEMA IF EXISTS public`;
-    await runSyncPostgresTool({
-      command: options.tools?.restore ?? ["pg_restore"],
-      arguments: [
-        "--dbname=",
-        "--single-transaction",
-        "--exit-on-error",
-        "--no-password",
-        "--no-owner",
-        "--no-acl",
-        "--no-publications",
-        "--no-subscriptions",
-      ],
-      databaseURL: options.databaseURL,
-      inputPath: archive,
+      if (objects.length)
+        throw new Error("Sync restore requires a clean offline destination database");
+
+      options.signal?.throwIfAborted();
+      journal = await reserveSyncRestoreJournal(connection, manifest);
+    }
+
+    if (
+      journal.archiveDigest !== manifest.archiveDigest ||
+      journal.manifestDigest !== syncRestoreManifestDigest(manifest) ||
+      journal.sourceAuthorityIdentifier !== manifest.authority.authorityIdentifier ||
+      journal.sourceGeneration !== manifest.authority.generation
+    )
+      throw new Error("Sync restore destination is reserved for a different archive or manifest");
+
+    if (
+      journal.phase === "prepared" &&
+      !(await hasSyncDatabaseTable(connection, "public.sync_authority"))
+    ) {
+      await connection`DROP SCHEMA IF EXISTS public`;
+      await runSyncPostgresTool({
+        command: options.tools?.restore ?? ["pg_restore"],
+        arguments: [
+          "--dbname=",
+          "--single-transaction",
+          "--exit-on-error",
+          "--no-password",
+          "--no-owner",
+          "--no-acl",
+          "--no-publications",
+          "--no-subscriptions",
+        ],
+        databaseURL: options.databaseURL,
+        inputPath: archive,
+        signal: options.signal,
+      });
+    }
+
+    const status = await finalizeSyncRestore({
+      connection,
+      journal,
+      manifest,
       signal: options.signal,
     });
     const identity = v.parse(SyncAuthorityIdentitySchema, {
-      authorityIdentifier: manifest.authority.authorityIdentifier,
-      generation: uuidv7(),
+      authorityIdentifier: journal.sourceAuthorityIdentifier,
+      generation: journal.targetGeneration,
     });
 
-    await connection`BEGIN`;
-
-    try {
-      const transaction = connection;
-      const roots = await transaction`SELECT id FROM public.sync_authority`;
-
-      if (roots.length)
-        throw new Error("Sync restore archive contains an activatable source authority");
-
-      const migrations = v.parse(
-        v.array(SyncMigrationDigestSchema),
-        await transaction`SELECT identity, digest FROM public.sync_schema_migration WHERE deleted_at IS NULL ORDER BY identity`,
-      );
-
-      if (JSON.stringify(migrations) !== JSON.stringify(manifest.migrations))
-        throw new Error("Sync restore migration ledger differs from its snapshot manifest");
-
-      await transaction`INSERT INTO public.sync_authority (id, generation, phase, recovered_source_generation, restored_snapshot_at) VALUES (${identity.authorityIdentifier}, ${identity.generation}, 'recovering', ${manifest.authority.generation}, ${manifest.snapshotStartedAt})`;
-      await transaction`UPDATE public.sync_execution SET recovery_held = true, lease_identifier = NULL, lease_generation = NULL, lease_expires_at = NULL WHERE status NOT IN ('completed', 'failed') AND deleted_at IS NULL`;
-      await connection`COMMIT`;
-    } catch (cause) {
-      await connection`ROLLBACK`;
-
-      throw cause;
-    }
-
     return {
-      status: "recovering" as const,
+      status,
       authority: identity,
       source: manifest.authority,
       replica: syncAuthorityReplicaConfiguration(identity),
       snapshotStartedAt: manifest.snapshotStartedAt,
     };
   } finally {
-    await connection`SELECT pg_advisory_unlock(hashtextextended('cueloop-sync-database-operator', 0))`.catch(
-      () => {},
-    );
-    connection.release();
+    if (connection) {
+      await connection`SELECT pg_advisory_unlock(hashtextextended('cueloop-sync-database-operator', 0))`.catch(
+        () => {},
+      );
+      connection.release();
+    }
+
     await database.end();
   }
 }
@@ -123,8 +130,10 @@ export async function fenceSyncAuthority(options: {
   const database = postgres(options.databaseURL, { max: 1, onnotice: () => {} });
 
   try {
-    const rows =
-      await database`UPDATE public.sync_authority SET phase = 'fenced' WHERE id = ${identity.authorityIdentifier} AND generation = ${identity.generation} AND phase IN ('active', 'fenced') AND deleted_at IS NULL RETURNING id`;
+    const rows = v.parse(
+      v.array(v.object({ id: SyncAuthorityIdentitySchema.entries.authorityIdentifier })),
+      await database`UPDATE public.sync_authority SET phase = 'fenced' WHERE id = ${identity.authorityIdentifier} AND generation = ${identity.generation} AND phase IN ('active', 'fenced') AND deleted_at IS NULL RETURNING id::text`,
+    );
 
     if (rows.length !== 1)
       throw new Error("Sync authority fence does not match the source generation");
@@ -144,7 +153,6 @@ export async function activateSyncRestore(options: {
   verifyReplica: (
     configuration: ReturnType<typeof syncAuthorityReplicaConfiguration>,
   ) => Promise<void>;
-  migrations?: readonly SyncDatabaseMigration[];
   signal?: AbortSignal;
 }) {
   const identity = v.parse(SyncAuthorityIdentitySchema, options.authority);
@@ -162,24 +170,27 @@ export async function activateSyncRestore(options: {
   const database = postgres(options.databaseURL, { max: 1, onnotice: () => {} });
 
   try {
-    const [fenced] =
-      await original`SELECT phase FROM public.sync_authority WHERE id = ${source.authorityIdentifier} AND generation = ${source.generation} AND deleted_at IS NULL`;
-
-    if (fenced?.phase !== "fenced")
-      throw new Error("Sync restore activation requires a verified source fence");
-
-    await migrateSyncDatabase({
-      databaseURL: options.databaseURL,
-      migrations: options.migrations ?? [],
-      signal: options.signal,
-    });
     await database.begin(async (transaction) => {
       await transaction`SELECT pg_advisory_xact_lock(hashtextextended('cueloop-sync-database-operator', 0))`;
-      const [target] =
-        await transaction`SELECT phase FROM public.sync_authority WHERE id = ${identity.authorityIdentifier} AND generation = ${identity.generation} AND recovered_source_generation = ${source.generation} AND deleted_at IS NULL FOR UPDATE`;
+      const [target] = v.parse(
+        v.array(v.object({ phase: SyncAuthorityPhaseSchema })),
+        await transaction`SELECT phase FROM public.sync_authority WHERE id = ${identity.authorityIdentifier} AND generation = ${identity.generation} AND recovered_source_generation = ${source.generation} AND deleted_at IS NULL FOR UPDATE`,
+      );
 
-      if (target?.phase !== "recovering")
+      if (target?.phase !== "recovering" && target?.phase !== "active")
         throw new Error("Sync restore activation does not match a recovering destination");
+
+      if (target.phase === "active") return;
+
+      const [fenced] = v.parse(
+        v.array(v.object({ generation: SyncAuthorityIdentitySchema.entries.generation })),
+        await original`UPDATE public.sync_authority SET recovery_target_generation = ${identity.generation} WHERE id = ${source.authorityIdentifier} AND generation = ${source.generation} AND phase = 'fenced' AND deleted_at IS NULL AND (recovery_target_generation IS NULL OR recovery_target_generation = ${identity.generation}) RETURNING generation::text`,
+      );
+
+      if (!fenced)
+        throw new Error(
+          "Sync restore activation requires a verified source fence bound to this destination",
+        );
 
       options.signal?.throwIfAborted();
       await options.verifyReplica(syncAuthorityReplicaConfiguration(identity));

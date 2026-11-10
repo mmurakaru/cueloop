@@ -1,3 +1,4 @@
+import { SyncAuthorityPhaseSchema } from "./sync-authority-protocol.ts";
 import postgres from "postgres";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
@@ -38,8 +39,15 @@ export async function migrateSyncDatabase(options: {
   try {
     return await database.begin(async (transaction) => {
       await transaction`SELECT pg_advisory_xact_lock(hashtextextended('cueloop-sync-database-operator', 0))`;
-      const [authority] =
-        await transaction`SELECT phase FROM public.sync_authority WHERE singleton FOR UPDATE`;
+      const [authority] = v.parse(
+        v.array(v.object({ phase: SyncAuthorityPhaseSchema })),
+        await transaction`SELECT phase FROM public.sync_authority WHERE singleton FOR UPDATE`,
+      );
+
+      if (!authority)
+        throw new Error(
+          "Sync migration requires an initialized authority; resume the restore first",
+        );
 
       if (authority?.phase === "active")
         throw new Error("Sync migration requires a fenced or recovering authority");
@@ -53,8 +61,10 @@ export async function migrateSyncDatabase(options: {
 
       for (const migration of migrations) {
         options.signal?.throwIfAborted();
-        const [applied] =
-          await transaction`SELECT digest FROM public.sync_schema_migration WHERE identity = ${migration.identity}`;
+        const [applied] = v.parse(
+          v.array(v.object({ digest: SyncMigrationDigestSchema.entries.digest })),
+          await transaction`SELECT digest FROM public.sync_schema_migration WHERE identity = ${migration.identity}`,
+        );
 
         if (applied) {
           if (applied.digest !== migration.digest)

@@ -1,6 +1,7 @@
 type TestMutationPhase = ReturnType<typeof Promise.withResolvers<void>>;
 
 interface TestMutationGate {
+  preserveAcknowledgement?: boolean;
   received: TestMutationPhase;
   forward: TestMutationPhase;
   processed: TestMutationPhase;
@@ -41,12 +42,15 @@ export function createTestSyncMutationProxy(authorityURL: string) {
 
         if (!gate) return response;
 
-        await response.arrayBuffer();
+        const responseBody = await response.arrayBuffer();
 
         if (!response.ok)
           throw new Error(`Sync test mutation authority returned HTTP ${response.status}`);
 
         gate.processed.resolve();
+
+        if (gate.preserveAcknowledgement)
+          return new Response(responseBody, { status: response.status, headers: response.headers });
 
         return new Response("Simulated lost mutation acknowledgement", { status: 503 });
       } catch (cause) {
@@ -79,7 +83,10 @@ export function createTestSyncMutationProxy(authorityURL: string) {
       return {
         received: gate.received.promise,
         processed: gate.processed.promise,
-        forward: () => gate.forward.resolve(),
+        forward: (options: { preserveAcknowledgement?: boolean } = {}) => {
+          gate.preserveAcknowledgement = options.preserveAcknowledgement;
+          gate.forward.resolve();
+        },
       };
     },
     async close() {

@@ -67,6 +67,11 @@ Restore validates the archive digest and uses one PostgreSQL restore transaction
 An interrupted restore cannot commit a partial schema.
 The restored database retains its logical authority and receives a fresh generation.
 It stays in `recovering` until activation succeeds.
+A destination journal reserves the archive and target generation before import.
+If status reports `restore-pending`, repeat the restore command with the same archive.
+The command finishes authority setup without importing committed rows again.
+Repeating a finalized restore returns its current authority state without overwriting later work.
+A different archive cannot replace the reserved destination.
 Nonterminal execution requests stay held for provider recovery.
 A new executor reporting absence cannot release them.
 
@@ -89,6 +94,9 @@ cueloop-sync database activate --database-env RESTORE_DATABASE_URL --source-data
 
 Route clients to the target after activation.
 Keep the source fenced.
+Activation binds that source fence to one destination generation.
+Retry that destination after a failed replica check.
+The same source fence cannot activate a second destination.
 An unreachable source does not prove that its writers have stopped.
 Activation remains blocked when the source fence cannot be verified.
 

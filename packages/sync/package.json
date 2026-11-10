@@ -52,7 +52,8 @@
     "./migrations": "./dist/sync-database-migration.js",
     "./authority/client": "./dist/sync-authority-client.js",
     "./database/status": "./dist/sync-database-status.js",
-    "./database/initialize": "./dist/sync-database-initialize.js"
+    "./database/initialize": "./dist/sync-database-initialize.js",
+    "./migrations/004-restore-journal.sql": "./migrations/004-restore-journal.sql"
   },
   "publishConfig": {
     "access": "public"

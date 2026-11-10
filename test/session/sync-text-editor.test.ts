@@ -401,3 +401,55 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
   },
   120000,
 );
+
+test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
+  "an uncertain text operation stays read-only across an authority generation boundary",
+  async () => {
+    const stack = await createTestSyncStack({ interceptMutations: true });
+    const database = postgres(stack.environment.SYNC_DATABASE_URL);
+    const reader = createSharedRecordClient(stack);
+    let editor: Awaited<ReturnType<typeof createSharedTextEditorSession>> | undefined;
+
+    try {
+      const [record] = await reader.run(sharedRecordQueries.records(), { type: "complete" });
+
+      if (!record) throw new Error("Text recovery test requires its source record");
+
+      editor = await createSharedTextEditorSession({
+        ...stack,
+        workspaceIdentifier: record.workspaceIdentifier,
+        recordIdentifier: record.id,
+        storage: createSyncSqliteStorage({ directory: join(stack.directory, "generation-draft") }),
+      });
+      await waitForTestTextEditor(
+        editor,
+        (snapshot) => snapshot.connection === "connected",
+        "the generation-bound text editor",
+      );
+      editor.change("Retain this uncertain text request");
+      const gate = stack.pauseNextMutation();
+      const saving = editor.save();
+
+      await gate.received;
+      await database`UPDATE sync_authority SET generation = uuidv7()`;
+      await stack.restartAuthority();
+      gate.forward({ preserveAcknowledgement: true });
+      await gate.processed;
+      expect((await saving).status).toBe("recovery-required");
+      expect((await editor.save()).status).toBe("recovery-required");
+      expect(editor.getSnapshot().editable).toBe(false);
+      expect(() => editor!.change("Do not overwrite the submitted identity")).toThrow(
+        "must finish",
+      );
+      expect(
+        (await database`SELECT content FROM shared_record WHERE id = ${record.id}`)[0]?.content,
+      ).toBe("Shared workspace");
+    } finally {
+      await editor?.close();
+      await reader.close();
+      await database.end();
+      await stack.close();
+    }
+  },
+  120000,
+);

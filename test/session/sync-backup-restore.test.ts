@@ -1,3 +1,4 @@
+import { readSyncDatabaseStatus } from "@cueloop/sync/database/status";
 import { initializeSyncDatabase, activateSyncDatabase } from "@cueloop/sync/database/initialize";
 import { createSyncDraftStore } from "@cueloop/sync/drafts";
 import * as v from "valibot";
@@ -58,6 +59,10 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
 
     try {
       await source.unsafe("CREATE DATABASE sync_restore");
+      expect(await readSyncDatabaseStatus(destinationURL.href)).toEqual({
+        status: "uninitialized",
+        ready: false,
+      });
       const backup = await createSyncBackup({
         databaseURL: stack.environment.SYNC_DATABASE_URL,
         directory: join(stack.directory, "backup"),
@@ -144,7 +149,7 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
       try {
         expect(initialized.status).toBe("recovering");
         expect(await initializedDatabase`SELECT identity FROM sync_schema_migration`).toHaveLength(
-          3,
+          4,
         );
         await writeFile(migration, "CREATE TABLE initial_migration_probe (id uuid PRIMARY KEY);");
         await migrateSyncDatabase({
@@ -377,6 +382,23 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
         });
 
         expect(activated.status).toBe("active");
+        expect(
+          await activateSyncRestore({
+            databaseURL: target.environment.SYNC_DATABASE_URL,
+            sourceDatabaseURL: "postgres://unused:unused@127.0.0.1:1/unreachable",
+            source: target.recovery.source,
+            authority: target.recovery.authority,
+            verifyReplica: async () => {
+              throw new Error("An acknowledged activation must not repeat replica verification");
+            },
+          }),
+        ).toEqual(activated);
+        expect(
+          await restoreSyncBackup({
+            databaseURL: target.environment.SYNC_DATABASE_URL,
+            directory: backup.directory,
+          }),
+        ).toMatchObject({ status: "active", authority: activated.authority });
         const replacementStores = openedStores
           .slice(storesBeforeRecovery)
           .filter((name) => name.includes(`zero-${stack.userID}-`));
@@ -544,6 +566,137 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
       expect((await source`SELECT content FROM public.shared_record`)[0]?.content).toBe(
         "Shared workspace",
       );
+    } finally {
+      await destination.end();
+      await source.end();
+      await stack.close();
+    }
+  },
+  120000,
+);
+
+test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
+  "restore resumes after a lost import acknowledgement and binds the source fence to one destination",
+  async () => {
+    const stack = await createTestSyncStack();
+    const source = postgres(stack.environment.SYNC_DATABASE_URL);
+    const destinationURL = new URL(stack.environment.SYNC_DATABASE_URL);
+    const otherURL = new URL(stack.environment.SYNC_DATABASE_URL);
+
+    destinationURL.pathname = "/sync_resume";
+    otherURL.pathname = "/sync_second_restore";
+    const destination = postgres(destinationURL.href);
+    const tools = (database: string) => ({
+      dump: [
+        "docker",
+        "exec",
+        "-i",
+        stack.postgresContainer,
+        "env",
+        `PGDATABASE=${database}`,
+        "PGUSER=sync_test",
+        "pg_dump",
+      ],
+      restore: [
+        "docker",
+        "exec",
+        "-i",
+        stack.postgresContainer,
+        "env",
+        `PGDATABASE=${database}`,
+        "PGUSER=sync_test",
+        "pg_restore",
+      ],
+    });
+
+    try {
+      await source.unsafe("CREATE DATABASE sync_resume");
+      await source.unsafe("CREATE DATABASE sync_second_restore");
+      const backup = await createSyncBackup({
+        databaseURL: stack.environment.SYNC_DATABASE_URL,
+        directory: join(stack.directory, "resume-backup"),
+        tools: tools("sync_test"),
+      });
+      const interruptedTools = {
+        restore: [
+          "/bin/sh",
+          "-c",
+          '"$@"; result=$?; if [ "$result" -eq 0 ]; then exit 71; fi; exit "$result"',
+          "sync-restore-acknowledgement",
+          ...tools("sync_resume").restore,
+        ],
+      };
+
+      await expect(
+        restoreSyncBackup({
+          databaseURL: destinationURL.href,
+          directory: backup.directory,
+          tools: interruptedTools,
+        }),
+      ).rejects.toThrow("PostgreSQL tool failed");
+      expect((await destination`SELECT content FROM public.shared_record`)[0]?.content).toBe(
+        "Shared workspace",
+      );
+      expect(await destination`SELECT id FROM public.sync_authority`).toHaveLength(0);
+      expect(await readSyncDatabaseStatus(destinationURL.href)).toMatchObject({
+        status: "restore-pending",
+        ready: false,
+      });
+      const resumed = await restoreSyncBackup({
+        databaseURL: destinationURL.href,
+        directory: backup.directory,
+        tools: interruptedTools,
+      });
+
+      expect(resumed.status).toBe("recovering");
+      expect(
+        await restoreSyncBackup({
+          databaseURL: destinationURL.href,
+          directory: backup.directory,
+          tools: interruptedTools,
+        }),
+      ).toEqual(resumed);
+      const other = await restoreSyncBackup({
+        databaseURL: otherURL.href,
+        directory: backup.directory,
+        tools: tools("sync_second_restore"),
+      });
+
+      await fenceSyncAuthority({
+        databaseURL: stack.environment.SYNC_DATABASE_URL,
+        authority: stack.authority,
+      });
+      await expect(
+        activateSyncRestore({
+          databaseURL: destinationURL.href,
+          sourceDatabaseURL: stack.environment.SYNC_DATABASE_URL,
+          source: resumed.source,
+          authority: resumed.authority,
+          verifyReplica: async () => {
+            throw new Error("Replica proof is unavailable");
+          },
+        }),
+      ).rejects.toThrow("proof is unavailable");
+      await expect(
+        activateSyncRestore({
+          databaseURL: otherURL.href,
+          sourceDatabaseURL: stack.environment.SYNC_DATABASE_URL,
+          source: other.source,
+          authority: other.authority,
+          verifyReplica: async () => {
+            throw new Error("A second destination must not reach replica verification");
+          },
+        }),
+      ).rejects.toThrow("source fence bound to this destination");
+      expect(await readSyncDatabaseStatus(stack.environment.SYNC_DATABASE_URL)).toMatchObject({
+        status: "fenced",
+        recoveryTargetGeneration: resumed.authority.generation,
+      });
+      expect(await readSyncDatabaseStatus(otherURL.href)).toMatchObject({
+        status: "recovering",
+        ready: false,
+      });
+      expect((await source`SELECT phase FROM public.sync_authority`)[0]?.phase).toBe("fenced");
     } finally {
       await destination.end();
       await source.end();

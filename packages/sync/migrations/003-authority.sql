@@ -4,6 +4,7 @@ CREATE TABLE sync_authority (
   generation uuid NOT NULL DEFAULT uuidv7(),
   phase varchar(20) NOT NULL DEFAULT 'recovering' CHECK (phase IN ('active', 'recovering', 'fenced')),
   recovered_source_generation uuid,
+  recovery_target_generation uuid,
   restored_snapshot_at timestamptz,
   schema_revision integer NOT NULL DEFAULT 1 CHECK (schema_revision > 0),
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -65,6 +66,7 @@ COMMENT ON COLUMN sync_authority.singleton IS 'Singleton constraint allowing one
 COMMENT ON COLUMN sync_authority.generation IS 'Fresh UUID v7 invalidating old replica positions and request issuance after restore';
 COMMENT ON COLUMN sync_authority.phase IS 'Active write eligibility, offline recovery, or a durable source write fence';
 COMMENT ON COLUMN sync_authority.recovered_source_generation IS 'Source generation retained from the backup for verified activation fencing';
+COMMENT ON COLUMN sync_authority.recovery_target_generation IS 'One destination generation allowed to activate from this durable source fence';
 COMMENT ON COLUMN sync_authority.restored_snapshot_at IS 'UTC beginning of the restored consistent snapshot, or null for a new deployment';
 COMMENT ON COLUMN sync_authority.schema_revision IS 'Supported authority protocol schema revision';
 COMMENT ON COLUMN sync_authority.created_at IS 'UTC time when the logical authority was initialized';

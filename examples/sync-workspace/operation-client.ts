@@ -2,6 +2,7 @@ import { lookupSharedOperationReceipt } from "./operation-receipt-client.ts";
 import { readFile } from "node:fs/promises";
 import * as v from "valibot";
 import {
+  lookupSyncOperationOutcome,
   parseSyncOperation,
   submitSyncOperation,
   type SyncOperation,
@@ -33,11 +34,7 @@ export async function connectSharedOperation(options: {
   let outcome: SyncOperationOutcome;
 
   if (options.statusOnly) {
-    outcome = (await lookup(operation)) ?? {
-      status: "pending",
-      operationIdentifier: operation.operationIdentifier,
-      workspaceIdentifier: operation.workspaceIdentifier,
-    };
+    outcome = await lookupSyncOperationOutcome({ operation, lookup });
   } else {
     v.parse(
       v.union([

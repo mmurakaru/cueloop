@@ -11,7 +11,7 @@ import {
   type SyncTextEditorSnapshot,
   type SyncTextSaveOutcome,
 } from "@cueloop/sync/text";
-import { submitSyncOperation } from "@cueloop/sync/operations";
+import { lookupSyncOperationOutcome, submitSyncOperation } from "@cueloop/sync/operations";
 import { createSharedRecordClient } from "./client.ts";
 import {
   sharedWorkspaceMutators,
@@ -133,7 +133,7 @@ export async function createSharedTextEditorSession(options: {
         operation,
         saving: saving !== undefined,
         draftSaved: hasDraft && generation === persistedGeneration,
-        editable: !closed && !saving && operation !== "pending" && role !== "viewer",
+        editable: !closed && !saving && !pending && role !== "viewer",
         revision,
         presence: {
           ...presenceClient.getSnapshot(),
@@ -285,17 +285,18 @@ export async function createSharedTextEditorSession(options: {
       }
 
       const requestOperation = pending;
-      const existing = await lookup(requestOperation);
+      const existing = await lookupSyncOperationOutcome({ operation: requestOperation, lookup });
       const outcome =
-        existing ??
-        (await submitSyncOperation({
-          operation: requestOperation,
-          lookup,
-          submit: (value) =>
-            client.mutate(
-              sharedWorkspaceMutators.text.edit(sharedTextOperations.edit.parse(value)),
-            ),
-        }));
+        existing.status !== "pending"
+          ? existing
+          : await submitSyncOperation({
+              operation: requestOperation,
+              lookup,
+              submit: (value) =>
+                client.mutate(
+                  sharedWorkspaceMutators.text.edit(sharedTextOperations.edit.parse(value)),
+                ),
+            });
 
       operation = outcome.status;
 

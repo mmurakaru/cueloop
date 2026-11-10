@@ -14,7 +14,14 @@ export const SyncBackupManifestSchema = v.strictObject({
   schemaRevision: v.literal(1),
   serverVersion: v.pipe(v.number(), v.integer(), v.minValue(180000)),
   snapshotStartedAt: v.pipe(v.string(), v.isoTimestamp()),
-  schemas: v.pipe(v.array(v.pipe(v.string(), v.regex(/^[a-z_][a-z0-9_]*$/))), v.minLength(1)),
+  schemas: v.pipe(
+    v.array(v.pipe(v.string(), v.regex(/^[a-z_][a-z0-9_]*$/))),
+    v.minLength(1),
+    v.check(
+      (schemas) => !schemas.includes("cueloop_sync_recovery"),
+      "Sync backup excludes the destination recovery journal schema",
+    ),
+  ),
   migrations: v.array(SyncMigrationDigestSchema),
   archiveDigest: v.pipe(v.string(), v.regex(/^[0-9a-f]{64}$/)),
 });

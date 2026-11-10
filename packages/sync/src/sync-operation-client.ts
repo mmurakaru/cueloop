@@ -23,6 +23,44 @@ export type SyncOperationOutcome =
       workspaceIdentifier: string;
     };
 
+/** Receipt recovery never submits or changes an envelope, including outside a restored boundary. */
+export async function lookupSyncOperationOutcome<Operation extends SyncOperation>(options: {
+  operation: Operation;
+  lookup: (operation: Operation) => Promise<SyncOperationReceipt | undefined>;
+}): Promise<SyncOperationOutcome> {
+  const operation = structuredClone(options.operation);
+  const normalized = parseSyncOperation(operation);
+
+  operation.operationIdentifier = normalized.operationIdentifier;
+  operation.workspaceIdentifier = normalized.workspaceIdentifier;
+  const pending: SyncOperationOutcome = {
+    status: "pending",
+    operationIdentifier: operation.operationIdentifier,
+    workspaceIdentifier: operation.workspaceIdentifier,
+  };
+
+  try {
+    const input = await options.lookup(structuredClone(operation));
+
+    if (input === undefined) return pending;
+
+    const receipt = v.parse(SyncOperationReceiptSchema, input);
+
+    if (
+      receipt.operationIdentifier !== operation.operationIdentifier ||
+      receipt.workspaceIdentifier !== operation.workspaceIdentifier
+    )
+      return pending;
+
+    return receipt;
+  } catch (cause) {
+    if (cause instanceof SyncAuthorityRecoveryRequired)
+      return { ...pending, status: "recovery-required", reason: "unknown-after-recovery" };
+
+    throw cause;
+  }
+}
+
 /** A missing acknowledgement remains pending and never triggers an automatic resubmission. */
 export async function submitSyncOperation<Operation extends SyncOperation>(options: {
   operation: Operation;

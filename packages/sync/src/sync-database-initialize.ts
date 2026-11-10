@@ -12,7 +12,12 @@ import { syncAuthorityReplicaConfiguration } from "./sync-restore.ts";
 /** Initialization is explicit and requires an empty database before any application server starts. */
 export async function initializeSyncDatabase(options: { databaseURL: string }) {
   const migrations = await Promise.all(
-    ["001-operation-receipt.sql", "002-execution.sql", "003-authority.sql"].map(async (name) => {
+    [
+      "001-operation-receipt.sql",
+      "002-execution.sql",
+      "003-authority.sql",
+      "004-restore-journal.sql",
+    ].map(async (name) => {
       const source = await readFile(new URL(`../migrations/${name}`, import.meta.url), "utf8");
 
       return {
@@ -73,8 +78,10 @@ export async function activateSyncDatabase(options: {
   try {
     return await database.begin(async (transaction) => {
       await transaction`SELECT pg_advisory_xact_lock(hashtextextended('cueloop-sync-database-operator', 0))`;
-      const [row] =
-        await transaction`SELECT id FROM public.sync_authority WHERE id = ${authority.authorityIdentifier} AND generation = ${authority.generation} AND phase = 'recovering' AND recovered_source_generation IS NULL AND deleted_at IS NULL FOR UPDATE`;
+      const [row] = v.parse(
+        v.array(v.object({ id: SyncAuthorityIdentitySchema.entries.authorityIdentifier })),
+        await transaction`SELECT id::text FROM public.sync_authority WHERE id = ${authority.authorityIdentifier} AND generation = ${authority.generation} AND phase = 'recovering' AND recovered_source_generation IS NULL AND deleted_at IS NULL FOR UPDATE`,
+      );
 
       if (!row)
         throw new Error(

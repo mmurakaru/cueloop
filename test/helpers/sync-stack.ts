@@ -174,6 +174,7 @@ export async function createTestSyncStack(
         "@cueloop/sync/migrations/001-operation-receipt.sql",
         "@cueloop/sync/migrations/002-execution.sql",
         "@cueloop/sync/migrations/003-authority.sql",
+        "@cueloop/sync/migrations/004-restore-journal.sql",
       ]) {
         await docker(
           [

@@ -1,6 +1,8 @@
 import * as v from "valibot";
 import { SyncVersionSevenIdentifierSchema } from "./sync-identifiers.ts";
 
+export const SyncAuthorityPhaseSchema = v.picklist(["active", "recovering", "fenced"]);
+
 export const SyncAuthorityIdentitySchema = v.object({
   authorityIdentifier: v.pipe(SyncVersionSevenIdentifierSchema, v.brand("SyncAuthorityIdentifier")),
   generation: v.pipe(SyncVersionSevenIdentifierSchema, v.brand("SyncAuthorityGeneration")),

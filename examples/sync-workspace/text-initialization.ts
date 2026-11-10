@@ -1,7 +1,7 @@
 import type { SyncWorkspaceAuthority } from "@cueloop/sync/authority";
 import * as v from "valibot";
 import { createSyncTextState } from "@cueloop/sync/text";
-import { submitSyncOperation } from "@cueloop/sync/operations";
+import { lookupSyncOperationOutcome, submitSyncOperation } from "@cueloop/sync/operations";
 import type { createSyncDraftStore } from "@cueloop/sync/drafts";
 import type { createSharedRecordClient } from "./client.ts";
 import {
@@ -74,17 +74,18 @@ export async function initializeSharedText(options: {
     }),
     { type: "complete" },
   );
-  const existing = await lookup();
+  const existing = await lookupSyncOperationOutcome({ operation, lookup });
   const outcome =
-    existing ??
-    (await submitSyncOperation({
-      operation,
-      lookup,
-      submit: (value) =>
-        options.client.mutate(
-          sharedWorkspaceMutators.text.initialize(sharedTextOperations.initialize.parse(value)),
-        ),
-    }));
+    existing.status !== "pending"
+      ? existing
+      : await submitSyncOperation({
+          operation,
+          lookup,
+          submit: (value) =>
+            options.client.mutate(
+              sharedWorkspaceMutators.text.initialize(sharedTextOperations.initialize.parse(value)),
+            ),
+        });
 
   if (outcome.status === "accepted" || outcome.status === "rejected") {
     await options.drafts.recordReceipt({
