@@ -65,7 +65,7 @@ export async function finalizeSyncRestore(options: {
       ],
     );
     await connection.unsafe(
-      "UPDATE public.sync_execution SET recovery_held = true, lease_identifier = NULL, lease_generation = NULL, lease_expires_at = NULL WHERE status NOT IN ('completed', 'failed') AND deleted_at IS NULL",
+      "UPDATE public.sync_execution SET recovery_held = true, lease_generation = NULL, lease_expires_at = NULL WHERE status NOT IN ('completed', 'failed') AND deleted_at IS NULL",
     );
     await connection.unsafe(
       "UPDATE cueloop_sync_recovery.restore_attempt SET phase = 'finalized' WHERE singleton",

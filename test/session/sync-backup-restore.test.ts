@@ -307,6 +307,15 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
           })
         ).status,
       ).toBe("accepted");
+      const sourceQueue = createSyncExecutionQueue({
+        url: new URL("execution", stack.authorityURL).href,
+        workspaceIdentifier: record.workspaceIdentifier,
+        headers: () => ({ authorization: `Bearer ${stack.auth}` }),
+      });
+      const executorIdentifier = crypto.randomUUID();
+      const sourceClaim = await sourceQueue.claim({ executorIdentifier });
+
+      expect(sourceClaim?.operationIdentifier).toBe(intent.operationIdentifier);
       const backup = await createSyncBackup({
         databaseURL: stack.environment.SYNC_DATABASE_URL,
         directory: join(stack.directory, "complete-backup"),
@@ -435,7 +444,7 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
           (
             await recoveredDatabase`SELECT recovery_held, executor_identifier FROM sync_execution WHERE id = ${intent.operationIdentifier}`
           )[0],
-        ).toEqual({ recovery_held: true, executor_identifier: null });
+        ).toEqual({ recovery_held: true, executor_identifier: executorIdentifier });
         const queue = createSyncExecutionQueue({
           url: new URL("execution", target.authorityURL).href,
           workspaceIdentifier: record.workspaceIdentifier,
@@ -443,6 +452,22 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
         });
 
         expect(await queue.claim({ executorIdentifier: crypto.randomUUID() })).toBeNull();
+
+        if (!sourceClaim) throw new Error("Recovery test requires the original execution claim");
+
+        await expect(
+          queue.report({ claim: sourceClaim, observation: { status: "completed" } }),
+        ).rejects.toThrow();
+        expect(
+          (
+            await recoveredDatabase`SELECT lease_identifier::text, fencing_token, lease_generation, lease_expires_at FROM sync_execution WHERE id = ${intent.operationIdentifier}`
+          )[0],
+        ).toEqual({
+          lease_identifier: sourceClaim.leaseIdentifier,
+          fencing_token: sourceClaim.fencingToken,
+          lease_generation: null,
+          lease_expires_at: null,
+        });
         const fresh = sharedCommentOperations.add.create({
           authority: target.authority,
           workspaceIdentifier: record.workspaceIdentifier,
