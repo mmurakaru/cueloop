@@ -30,6 +30,12 @@ Dispatch must use `claim.operationIdentifier` as its durable idempotency key.
 An uncertain dispatch reply returns to recovery.
 Unavailable recovery produces `recovery-required` and never starts another request.
 
+`runSyncExecutionWorker` from `@cueloop/sync/execution/worker` polls until its required abort signal stops it.
+It retries temporary authority errors with a delay that increases from 250 milliseconds to five seconds.
+One pending report retains its identity after an uncertain reply.
+An expired lease discards that claim and returns to provider recovery.
+Invalid requests and revoked access stop the worker.
+
 > [!NOTE]
 > This contract does not guarantee exactly-once external effects.
 > The provider integration owns execution, process lifetime, and conversation recovery.

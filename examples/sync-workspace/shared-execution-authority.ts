@@ -21,20 +21,20 @@ export const sharedExecutionServerMutatorDefinitions = {
   execution: {
     request: defineExecutionMutator(
       sharedExecutionOperations.request.schema,
-      async ({ tx, args, ctx }) => {
-        if (tx.location !== "server")
+      async ({ tx: transaction, args: operation, ctx: principal }) => {
+        if (transaction.location !== "server")
           throw new Error("Shared execution authority requires a server transaction");
 
         await acceptSyncExecution({
-          transaction: tx,
+          transaction,
           definition: sharedExecutionOperations.request,
-          operation: args,
-          actorIdentifier: ctx.userIdentifier,
+          operation,
+          actorIdentifier: principal.userIdentifier,
           authorize: (transaction, operation) =>
             authorizeSharedWorkspace({
               transaction,
               workspaceIdentifier: operation.workspaceIdentifier,
-              actorIdentifier: ctx.userIdentifier,
+              actorIdentifier: principal.userIdentifier,
             }),
           prepare: async (transaction, operation, access) => {
             if (access.role === "viewer")

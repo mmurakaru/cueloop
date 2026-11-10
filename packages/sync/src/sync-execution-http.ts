@@ -2,6 +2,7 @@ import * as v from "valibot";
 import {
   SyncExecutionClaimSchema,
   SyncExecutionRequestSchema,
+  SyncExecutionAuthorityError,
   type SyncExecutionQueue,
 } from "./sync-execution.ts";
 
@@ -28,17 +29,24 @@ export function createSyncExecutionQueue(options: {
     const headers = new Headers(await options.headers());
 
     headers.set("content-type", "application/json");
-    const response = await (options.fetch ?? globalThis.fetch)(endpoint, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(v.parse(SyncExecutionRequestSchema, input)),
-      signal: signal
-        ? AbortSignal.any([signal, AbortSignal.timeout(30000)])
-        : AbortSignal.timeout(30000),
-      redirect: "error",
-    });
+    let response: Response;
 
-    if (!response.ok) throw new Error(`Sync execution request failed with HTTP ${response.status}`);
+    try {
+      response = await (options.fetch ?? globalThis.fetch)(endpoint, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(v.parse(SyncExecutionRequestSchema, input)),
+        signal: signal
+          ? AbortSignal.any([signal, AbortSignal.timeout(30000)])
+          : AbortSignal.timeout(30000),
+        redirect: "error",
+      });
+    } catch {
+      signal?.throwIfAborted();
+      throw new SyncExecutionAuthorityError();
+    }
+
+    if (!response.ok) throw new SyncExecutionAuthorityError(response.status);
 
     return response;
   };
@@ -49,10 +57,19 @@ export function createSyncExecutionQueue(options: {
         { action: "claim", workspaceIdentifier, executorIdentifier },
         signal,
       );
-      const result = v.parse(
-        v.strictObject({ claim: v.nullable(SyncExecutionClaimSchema) }),
-        await response.json(),
-      );
+      let body: unknown;
+
+      try {
+        body = await response.json();
+      } catch (cause) {
+        signal?.throwIfAborted();
+
+        if (cause instanceof SyntaxError) throw cause;
+
+        throw new SyncExecutionAuthorityError();
+      }
+
+      const result = v.parse(v.strictObject({ claim: v.nullable(SyncExecutionClaimSchema) }), body);
 
       if (result.claim && result.claim.workspaceIdentifier !== workspaceIdentifier)
         throw new Error("Sync execution response belongs to a different workspace");

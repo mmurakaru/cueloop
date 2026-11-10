@@ -75,6 +75,25 @@ export interface SyncExecutionQueue {
   report(report: SyncExecutionReport, signal?: AbortSignal): Promise<void>;
 }
 
+export class SyncExecutionAuthorityError extends Error {
+  constructor(readonly statusCode?: number) {
+    super(
+      statusCode === undefined
+        ? "Sync execution authority is unavailable"
+        : `Sync execution request failed with HTTP ${statusCode}`,
+    );
+    this.name = "SyncExecutionAuthorityError";
+  }
+
+  get recoverable(): boolean {
+    return (
+      this.statusCode === undefined ||
+      [408, 409, 425, 429].includes(this.statusCode) ||
+      this.statusCode >= 500
+    );
+  }
+}
+
 async function recoverSyncExecution(
   executor: SyncExecutionExecutor,
   claim: SyncExecutionClaim,

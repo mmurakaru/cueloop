@@ -25,10 +25,13 @@ export const sharedExecutionOperations = {
 };
 export const sharedExecutionMutatorDefinitions = {
   execution: {
-    request: defineExecutionMutator(sharedExecutionOperations.request.schema, async ({ tx }) => {
-      if (tx.location !== "client")
-        throw new Error("Shared execution requires its authoritative registry");
-    }),
+    request: defineExecutionMutator(
+      sharedExecutionOperations.request.schema,
+      async ({ tx: transaction }) => {
+        if (transaction.location !== "client")
+          throw new Error("Shared execution requires its authoritative registry");
+      },
+    ),
   },
 };
 export const sharedExecutionQueryDefinitions = {
@@ -37,16 +40,18 @@ export const sharedExecutionQueryDefinitions = {
       workspaceIdentifier: identifier,
       pageSize: v.optional(v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(100)), 50),
     }),
-    ({ args, ctx }) =>
+    ({ args: parameters, ctx: principal }) =>
       builder.sync_execution
-        .where("workspaceIdentifier", args.workspaceIdentifier)
+        .where("workspaceIdentifier", parameters.workspaceIdentifier)
         .where("deletedAt", "IS", null)
         .whereExists("workspace", (workspace) => workspace.where("deletedAt", "IS", null))
         .whereExists("memberships", (memberships) =>
-          memberships.where("userIdentifier", ctx.userIdentifier).where("deletedAt", "IS", null),
+          memberships
+            .where("userIdentifier", principal.userIdentifier)
+            .where("deletedAt", "IS", null),
         )
         .orderBy("createdAt", "desc")
         .orderBy("id", "desc")
-        .limit(args.pageSize),
+        .limit(parameters.pageSize),
   ),
 };

@@ -48,6 +48,7 @@ test("the packed sync SDK and CLI run from node_modules under Node", async () =>
       import {createSyncTextState, createSyncTextDocument, mergeSyncTextUpdate} from '@cueloop/sync/text';
       import {advanceSyncExecution} from '@cueloop/sync/execution';
       import {createSyncExecutionQueue} from '@cueloop/sync/execution/http';
+      import {runSyncExecutionWorker} from '@cueloop/sync/execution/worker';
       import {syncExecutionTable} from '@cueloop/sync/execution/schema';
       import {claimSyncExecution, reportSyncExecution} from '@cueloop/sync/execution/server';
       import {readFileSync} from 'node:fs';
@@ -60,7 +61,7 @@ test("the packed sync SDK and CLI run from node_modules under Node", async () =>
       if (parseSyncOperation(JSON.parse(JSON.stringify(operation))).arguments.body !== 'Packed request') throw new Error('Packed operation lost its arguments');
       readFileSync(new URL(import.meta.resolve('@cueloop/sync/migrations/001-operation-receipt.sql')));
       readFileSync(new URL(import.meta.resolve('@cueloop/sync/migrations/002-execution.sql')));
-      if (typeof advanceSyncExecution !== 'function' || typeof createSyncExecutionQueue !== 'function' || typeof claimSyncExecution !== 'function' || typeof reportSyncExecution !== 'function' || !syncExecutionTable) throw new Error('Packed execution contracts are unavailable');
+      if (typeof runSyncExecutionWorker !== 'function' || typeof advanceSyncExecution !== 'function' || typeof createSyncExecutionQueue !== 'function' || typeof claimSyncExecution !== 'function' || typeof reportSyncExecution !== 'function' || !syncExecutionTable) throw new Error('Packed execution contracts are unavailable');
       const initial=createSyncTextState('Plan');
       const editor=createSyncTextDocument({state:initial.state,canEdit:()=>true});
       const change=editor.replace('Shared plan');

@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
+import postgres from "postgres";
 import * as v from "valibot";
 import { submitSyncOperation } from "@cueloop/sync/operations";
 import { createTestSyncStack } from "../helpers/sync-stack";
@@ -14,10 +15,15 @@ import {
 import { lookupSharedOperationReceipt } from "../../examples/sync-workspace/operation-receipt-client.ts";
 
 test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
-  "standalone Node owner recovers accepted intent after restart and drains executor cleanup",
+  "standalone Node owner recovers lost authority replies and expired leases without another provider dispatch",
   async () => {
     const stack = await createTestSyncStack();
     const client = createSharedRecordClient(stack);
+    const database = postgres(stack.environment.SYNC_DATABASE_URL);
+    let proxy: ReturnType<typeof Bun.serve> | undefined;
+    let lostClaimReply = false;
+    let expiredReportLease = false;
+    let lostReportReply = false;
     let child: Bun.Subprocess<"ignore", "pipe", "pipe"> | undefined;
 
     try {
@@ -61,6 +67,40 @@ export const syncExecutor = {
 };
 `,
       );
+      proxy = Bun.serve({
+        hostname: "127.0.0.1",
+        port: 0,
+        async fetch(request) {
+          const input = v.parse(
+            v.object({ action: v.picklist(["claim", "report"]) }),
+            await request.clone().json(),
+          );
+
+          if (input.action === "report" && !expiredReportLease) {
+            expiredReportLease = true;
+            await database`UPDATE sync_execution SET lease_expires_at = clock_timestamp() - interval '1 second' WHERE id = ${operation.operationIdentifier}`;
+          }
+
+          const response = await fetch(
+            new Request(new URL("execution", stack.authorityURL), request),
+          );
+
+          if (input.action === "claim" && !lostClaimReply && response.ok) {
+            lostClaimReply = true;
+            await database`UPDATE sync_execution SET lease_expires_at = clock_timestamp() - interval '1 second' WHERE id = ${operation.operationIdentifier}`;
+
+            return new Response("Temporary authority outage after claim commit", { status: 503 });
+          }
+
+          if (input.action === "report" && response.ok && !lostReportReply) {
+            lostReportReply = true;
+
+            return new Response("Report reply lost after commit", { status: 503 });
+          }
+
+          return response;
+        },
+      });
       child = Bun.spawn(
         [
           "node",
@@ -74,7 +114,7 @@ export const syncExecutor = {
           executorModule,
         ],
         {
-          env: stack.environment,
+          env: { ...stack.environment, SYNC_AUTHORITY_URL: proxy.url.href },
           stdin: "ignore",
           stdout: "pipe",
           stderr: "pipe",
@@ -106,6 +146,7 @@ export const syncExecutor = {
         dispatches: 1,
       });
       expect(readFileSync(cleanup, "utf8")).toBe("closed");
+      expect([lostClaimReply, expiredReportLease, lostReportReply]).toEqual([true, true, true]);
       const inspector = Bun.spawn(
         [
           "node",
@@ -137,7 +178,9 @@ export const syncExecutor = {
     } finally {
       child?.kill("SIGTERM");
       await child?.exited;
+      proxy?.stop(true);
       await client.close();
+      await database.end();
       await stack.close();
     }
   },

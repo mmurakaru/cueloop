@@ -42,7 +42,8 @@
     "./execution/server": "./dist/sync-execution-authority.js",
     "./migrations/002-execution.sql": "./migrations/002-execution.sql",
     "./execution/schema": "./dist/sync-execution-schema.js",
-    "./execution/http": "./dist/sync-execution-http.js"
+    "./execution/http": "./dist/sync-execution-http.js",
+    "./execution/worker": "./dist/sync-execution-worker.js"
   },
   "publishConfig": {
     "access": "public"
