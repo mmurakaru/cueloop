@@ -1,4 +1,7 @@
-import { SyncThreadImportConnectionSchema } from "./sync-thread-connection";
+import {
+  SyncThreadImportConnectionSchema,
+  SyncThreadConnectionSchema,
+} from "./sync-thread-connection";
 /**
  * Runtime validation of the wire boundary. Everything arriving over the
  * socket is untrusted JSON: adapters, the CLI, extensions, and any script a
@@ -239,6 +242,7 @@ export const Params = {
   "agent.comment": v.object({ id: SessionId, comment: AgentCommentSchema }),
   "agent.permission": v.object({ id: SessionId, requestId: NonEmpty, optionId: NonEmpty }),
   "session.syncImport": v.object({ id: SessionId, connection: SyncThreadImportConnectionSchema }),
+  "session.syncRebind": v.object({ id: SessionId, connection: SyncThreadConnectionSchema }),
   "session.syncResume": v.object({ id: SessionId, acceptRecovery: v.optional(v.boolean(), false) }),
   "session.syncDrafts": v.object({ id: SessionId }),
   "session.syncRetry": v.object({ id: SessionId, draftIdentifier: v.pipe(v.string(), v.uuid()) }),

@@ -1,3 +1,5 @@
+import type { SyncWorkspaceTransferAdapter } from "./sync-transfer-adapter.ts";
+import type { SyncWorkspaceAuthority } from "./sync-authority-protocol.ts";
 import type { syncAuthorityReplicaConfiguration } from "./sync-restore.ts";
 import type { SyncTextEditorSession } from "./sync-text-session.ts";
 import { createServer } from "node:http";
@@ -15,6 +17,8 @@ export interface SyncApplication {
   verifyReplica?: (
     configuration: ReturnType<typeof syncAuthorityReplicaConfiguration>,
   ) => Promise<void>;
+  transferAdapter?: SyncWorkspaceTransferAdapter;
+  verifyWorkspaceReplica?: (authority: SyncWorkspaceAuthority) => Promise<void>;
   close?: () => void | Promise<void>;
 }
 

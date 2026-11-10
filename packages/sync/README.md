@@ -161,3 +161,5 @@ bun run test:sync
 
 Tests create temporary credentials and clean up their services.
 Set `CUELOOP_TEST_CHROME_EXECUTABLE` to use an installed Chrome binary.
+
+See [workspace transfer](docs/workspace-transfer.md) for selective handoffs and client rebinding.

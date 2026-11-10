@@ -53,7 +53,10 @@
     "./authority/client": "./dist/sync-authority-client.js",
     "./database/status": "./dist/sync-database-status.js",
     "./database/initialize": "./dist/sync-database-initialize.js",
-    "./migrations/004-restore-journal.sql": "./migrations/004-restore-journal.sql"
+    "./migrations/004-restore-journal.sql": "./migrations/004-restore-journal.sql",
+    "./transfer": "./dist/sync-transfer.js",
+    "./migrations/005-workspace-transfer.sql": "./migrations/005-workspace-transfer.sql",
+    "./rebind": "./dist/sync-workspace-rebind.js"
   },
   "publishConfig": {
     "access": "public"

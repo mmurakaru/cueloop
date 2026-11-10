@@ -15,6 +15,7 @@ Usage: cueloop-sync <serve|connect|owner> --application <module> [options]
   connect   Run the application's sync client
   owner     Recover and execute accepted requests through an application integration
   database  Back up, restore, fence, migrate, and inspect a PostgreSQL authority
+  workspace Transfer a workspace between PostgreSQL authorities
 
 Serve options: --host <address> --port <number> --public-origin <url> --maximum-request-bytes <number>
 The authority requires a configured PostgreSQL database and Zero cache service.
@@ -110,6 +111,12 @@ export async function runSyncCli(
     const { runSyncDatabaseCli } = await import("./sync-database-cli.ts");
 
     return runSyncDatabaseCli(arguments_.slice(1));
+  }
+
+  if (arguments_[0] === "workspace") {
+    const { runSyncWorkspaceCli } = await import("./sync-workspace-cli.ts");
+
+    return runSyncWorkspaceCli(arguments_.slice(1));
   }
 
   if (arguments_.length === 0 || arguments_.includes("--help")) {

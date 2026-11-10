@@ -1,5 +1,5 @@
 import * as v from "valibot";
-import { SyncAuthorityIdentitySchema } from "@cueloop/sync/authority";
+import { SyncAuthorityIdentitySchema, SyncWorkspaceAuthoritySchema } from "@cueloop/sync/authority";
 import { expect, test } from "bun:test";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -225,6 +225,41 @@ test("a restored native message stays outside harness delivery and wait response
       fresh.message.id,
     ]);
     expect((await local.sessionWait(thread.id, 100))?.message?.id).toBe(fresh.message.id);
+  } finally {
+    local.dispose();
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("a workspace-only generation change preserves the previous projection before accepting its replacement", () => {
+  const home = mkdtempSync(join(tmpdir(), "cueloop-workspace-projection-"));
+  const local = new DaemonCore(home);
+
+  try {
+    const thread = local.sessionCreate({
+      workspace: { repoRoot: home, branch: "main" },
+      artifact: { type: "plan", content: "Retain this projection", meta: {} },
+    });
+    const state = new SyncThreadLocalState(home);
+    const authority = v.parse(SyncWorkspaceAuthoritySchema, {
+      authorityIdentifier: "019a691a-c6ae-7000-8000-000000000003",
+      generation: "019a691a-c6ae-7000-8000-000000000004",
+      workspaceIdentifier: connection.workspaceIdentifier,
+      workspaceGeneration: "019a691a-c6ae-7000-8000-000000000005",
+    });
+    const replacement = v.parse(SyncWorkspaceAuthoritySchema, {
+      ...authority,
+      workspaceGeneration: "019a691a-c6ae-7000-8000-000000000006",
+    });
+
+    state.begin({ thread, connection, upload: "retained-upload", authority });
+    state.project({ thread, version: 8, authority });
+    expect(() => state.project({ thread, version: 3, authority: replacement })).toThrow("recovery");
+    expect(
+      state.project({ thread, version: 3, authority: replacement, acceptRecovery: true }),
+    ).toBe(true);
+    expect(state.readProjection(thread.id).authority).toEqual(replacement);
+    expect(state.recoveryArchives(thread.id)).toHaveLength(1);
   } finally {
     local.dispose();
     rmSync(home, { recursive: true, force: true });

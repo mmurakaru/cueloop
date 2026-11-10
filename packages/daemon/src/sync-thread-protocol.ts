@@ -1,3 +1,4 @@
+export { SyncThreadConnectionSchema } from "./sync-thread-connection";
 import type { SyncWorkspaceAuthority } from "@cueloop/sync/authority";
 import * as v from "valibot";
 import { defineSyncOperation, SyncRecordIdentifierSchema } from "@cueloop/sync/operations";

@@ -49,3 +49,18 @@ test("an operation cannot claim an authority descriptor from another workspace",
     }),
   ).toThrow("workspace");
 });
+
+test("a workspace generation selects a fresh native replica without changing deployment identity", async () => {
+  const { syncAuthorityStorageKey } = await import("./sync-authority-client.ts");
+  const original = syncAuthorityStorageKey(authority, "saved-client");
+  const rebound = syncAuthorityStorageKey(
+    v.parse(SyncWorkspaceAuthoritySchema, {
+      ...authority,
+      workspaceGeneration: "019a691a-c6ae-7000-8000-000000000005",
+    }),
+    "saved-client",
+  );
+
+  expect(rebound).not.toBe(original);
+  expect(syncAuthorityStorageKey(authority, "saved-client")).toBe(original);
+});

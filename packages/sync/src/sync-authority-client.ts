@@ -4,6 +4,7 @@ import {
   SyncWorkspaceAuthoritySchema,
   SyncAuthorityIdentitySchema,
   type SyncAuthorityIdentity,
+  type SyncWorkspaceAuthority,
 } from "./sync-authority-protocol.ts";
 
 /** Resolve the authority before opening a replica that could replay persistent native mutations. */
@@ -46,13 +47,24 @@ export async function fetchSyncWorkspaceAuthority(options: {
   return authority;
 }
 
-export function syncAuthorityStorageKey(identity: SyncAuthorityIdentity, storageKey = "") {
+export function syncAuthorityStorageKey(
+  identity: SyncAuthorityIdentity | SyncWorkspaceAuthority,
+  storageKey = "",
+) {
   const authority = v.parse(SyncAuthorityIdentitySchema, {
     authorityIdentifier: identity.authorityIdentifier,
     generation: identity.generation,
   });
 
-  return JSON.stringify([storageKey, authority.authorityIdentifier, authority.generation]);
+  const workspace =
+    "workspaceIdentifier" in identity ? v.parse(SyncWorkspaceAuthoritySchema, identity) : undefined;
+
+  return JSON.stringify([
+    storageKey,
+    authority.authorityIdentifier,
+    authority.generation,
+    ...(workspace ? [workspace.workspaceIdentifier, workspace.workspaceGeneration] : []),
+  ]);
 }
 
 /** Deployment identity permits cache recovery without granting access to any application record. */

@@ -115,6 +115,29 @@ export function createSyncDraftStore(options: {
 
       return records;
     },
+    async importRecords(input: readonly SyncDraftRecord[]): Promise<void> {
+      const incoming = v.parse(recordsSchema, input);
+
+      await store.update((current) => {
+        const records = v.parse(recordsSchema, current ?? []);
+        const merged = new Map(records.map((record) => [record.draftIdentifier, record]));
+
+        for (const record of incoming) {
+          const existing = merged.get(record.draftIdentifier);
+
+          if (existing && serializeCanonicalJson(existing) !== serializeCanonicalJson(record))
+            throw new Error("Sync draft import conflicts with an existing saved identity");
+
+          merged.set(record.draftIdentifier, record);
+        }
+
+        const next = v.parse(recordsSchema, [...merged.values()]);
+
+        checkBudget(next);
+
+        return { value: next, result: undefined };
+      });
+    },
     async save(input: {
       content: ReadonlyJSONValue;
       draftIdentifier?: SyncDraftRecord["draftIdentifier"];

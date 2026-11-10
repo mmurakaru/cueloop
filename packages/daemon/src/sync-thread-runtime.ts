@@ -1,3 +1,5 @@
+import { SyncThreadOperationQueue } from "./sync-thread-operation-queue";
+import { rebindSyncWorkspace } from "@cueloop/sync/rebind";
 import {
   createSyncThreadProfile,
   type SyncThreadProfile,
@@ -59,6 +61,7 @@ interface ThreadObservation {
 
 /** Files contain only projections and journals; every supported mutation crosses the workspace authority. */
 export class SyncThreadRuntime {
+  private readonly operations = new SyncThreadOperationQueue();
   private readonly profiles = new Map<string, SyncThreadProfile>();
   private readonly observations = new Map<string, ThreadObservation>();
   private readonly store: ThreadStore;
@@ -104,8 +107,25 @@ export class SyncThreadRuntime {
     return this.options.enabled(thread);
   }
 
-  private assertEnabled(threadIdentifier: string): void {
+  private assertOpen(): void {
     if (this.closed) throw new DaemonError("sync_closed", "Sync Thread runtime is closed");
+  }
+
+  private runThreadOperation<Result>(
+    threadIdentifier: string,
+    operation: () => Promise<Result>,
+  ): Promise<Result> {
+    this.assertOpen();
+
+    return this.operations.run(threadIdentifier, () => {
+      this.assertOpen();
+
+      return operation();
+    });
+  }
+
+  private assertEnabled(threadIdentifier: string): void {
+    this.assertOpen();
 
     if (!this.isEnabled(threadIdentifier))
       throw new DaemonError(
@@ -257,6 +277,55 @@ export class SyncThreadRuntime {
     threadIdentifier: string,
     connection: Omit<SyncThreadConnection, "recordIdentifier">,
   ) {
+    return this.runThreadOperation(threadIdentifier, () =>
+      this.importThreadUnlocked(threadIdentifier, connection),
+    );
+  }
+
+  async rebind(threadIdentifier: string, connection: SyncThreadConnection) {
+    return this.runThreadOperation(threadIdentifier, () =>
+      this.rebindUnlocked(threadIdentifier, connection),
+    );
+  }
+
+  async resume(threadIdentifier: string, acceptRecovery = false) {
+    return this.runThreadOperation(threadIdentifier, () =>
+      this.resumeUnlocked(threadIdentifier, acceptRecovery),
+    );
+  }
+
+  async command(
+    command: SyncThreadCommand,
+    delegation?: v.InferOutput<typeof SyncThreadDelegationSchema>,
+    capturedVersion?: number,
+  ) {
+    return this.runThreadOperation(command.parameters.id, () =>
+      this.commandUnlocked(command, delegation, capturedVersion),
+    );
+  }
+
+  async pendingDrafts(threadIdentifier: string) {
+    return this.runThreadOperation(threadIdentifier, () =>
+      this.pendingDraftsUnlocked(threadIdentifier),
+    );
+  }
+
+  async discardDraft(threadIdentifier: string, draftIdentifier: string): Promise<void> {
+    return this.runThreadOperation(threadIdentifier, () =>
+      this.discardDraftUnlocked(threadIdentifier, draftIdentifier),
+    );
+  }
+
+  async retryDraft(threadIdentifier: string, draftIdentifier: string) {
+    return this.runThreadOperation(threadIdentifier, () =>
+      this.retryDraftUnlocked(threadIdentifier, draftIdentifier),
+    );
+  }
+
+  private async importThreadUnlocked(
+    threadIdentifier: string,
+    connection: Omit<SyncThreadConnection, "recordIdentifier">,
+  ) {
     this.assertEnabled(threadIdentifier);
 
     if (this.store.syncState.isFenced(threadIdentifier))
@@ -292,7 +361,7 @@ export class SyncThreadRuntime {
       upload: JSON.stringify(upload),
     });
 
-    return this.resume(threadIdentifier);
+    return this.resumeUnlocked(threadIdentifier);
   }
 
   private async retryImport(
@@ -308,7 +377,7 @@ export class SyncThreadRuntime {
         "Sync Thread import cannot change its saved authority connection; use an explicit authority transfer",
       );
 
-    if (manifest.phase === "remote") return this.resume(threadIdentifier);
+    if (manifest.phase === "remote") return this.resumeUnlocked(threadIdentifier);
 
     const profile = await this.profile(manifest.connection).connect();
     const previous = v.parse(
@@ -321,7 +390,7 @@ export class SyncThreadRuntime {
       operation: previous.operation,
     });
 
-    if (!receipt || receipt.status === "accepted") return this.resume(threadIdentifier);
+    if (!receipt || receipt.status === "accepted") return this.resumeUnlocked(threadIdentifier);
 
     const operation = syncThreadOperations.import.create({
       workspaceIdentifier: previous.operation.workspaceIdentifier,
@@ -332,10 +401,72 @@ export class SyncThreadRuntime {
 
     this.store.syncState.replaceRejectedUpload(threadIdentifier, JSON.stringify(upload));
 
-    return this.resume(threadIdentifier);
+    return this.resumeUnlocked(threadIdentifier);
   }
 
-  async resume(threadIdentifier: string, acceptRecovery = false) {
+  private async rebindUnlocked(threadIdentifier: string, connection: SyncThreadConnection) {
+    this.assertEnabled(threadIdentifier);
+    const previous = this.store.syncState.read(threadIdentifier);
+
+    if (
+      previous.phase !== "remote" ||
+      previous.connection.workspaceIdentifier !== connection.workspaceIdentifier ||
+      previous.connection.actorIdentifier !== connection.actorIdentifier ||
+      previous.connection.recordIdentifier !== connection.recordIdentifier
+    )
+      throw new DaemonError(
+        "sync_rebind_identity",
+        "Sync Thread rebind must preserve its accepted workspace, actor, and record identities",
+      );
+
+    const source = this.profile(previous.connection);
+    const target = await this.profile(connection).connect();
+    const document = await target.client.run(
+      syncThreadQueries.ownerDocument({
+        workspaceIdentifier: connection.workspaceIdentifier,
+        recordIdentifier: connection.recordIdentifier,
+      }),
+      { type: "complete" },
+    );
+
+    if (!document?.thread || v.parse(ThreadRecordSchema, document.document).id !== threadIdentifier)
+      throw new DaemonError(
+        "sync_rebind_identity",
+        "Sync Thread rebind destination has no matching accepted Thread",
+      );
+
+    const selectedDrafts = new Set(
+      (await this.pendingDraftsUnlocked(threadIdentifier)).map((draft) => draft.draftIdentifier),
+    );
+    const rebound = await rebindSyncWorkspace({
+      authorityURL: connection.authorityURL,
+      workspaceIdentifier: connection.workspaceIdentifier,
+      headers: { authorization: `Bearer ${target.authenticationToken}` },
+      sourceDrafts: source.drafts,
+      targetDrafts: target.drafts,
+      selectDraft: (draft) => selectedDrafts.has(draft.draftIdentifier),
+      lookup: (operation) =>
+        lookupSyncThreadOperation({
+          authorityURL: connection.authorityURL,
+          authenticationToken: target.authenticationToken,
+          operation,
+        }),
+    });
+
+    if (!isDeepStrictEqual(rebound.authority, target.authority))
+      throw new DaemonError(
+        "sync_recovery_required",
+        "Sync Thread destination changed during rebind; repeat the command",
+      );
+
+    this.observations.get(threadIdentifier)?.close();
+    this.observations.delete(threadIdentifier);
+    this.store.syncState.rebind(threadIdentifier, connection);
+
+    return this.resumeUnlocked(threadIdentifier, true);
+  }
+
+  private async resumeUnlocked(threadIdentifier: string, acceptRecovery = false) {
     this.assertEnabled(threadIdentifier);
     const manifest = this.store.syncState.read(threadIdentifier);
     const profile = await this.profile(manifest.connection).connect();
@@ -429,7 +560,7 @@ export class SyncThreadRuntime {
     return { handled: true as const, result: command.method === "session.delete" ? {} : result };
   }
 
-  async command(
+  private async commandUnlocked(
     command: SyncThreadCommand,
     delegation?: v.InferOutput<typeof SyncThreadDelegationSchema>,
     capturedVersion?: number,
@@ -464,7 +595,7 @@ export class SyncThreadRuntime {
       draftIdentifier: draft.draftIdentifier,
       operation: prepared.operation,
     });
-    await this.resume(threadIdentifier);
+    await this.resumeUnlocked(threadIdentifier);
 
     return this.finishCommand(threadIdentifier, draft.draftIdentifier, prepared);
   }
@@ -578,7 +709,7 @@ export class SyncThreadRuntime {
     return previousMessage ? { ...thread, message: previousMessage } : thread;
   }
 
-  async pendingDrafts(threadIdentifier: string) {
+  private async pendingDraftsUnlocked(threadIdentifier: string) {
     const connection = this.store.syncState.read(threadIdentifier).connection;
     const profile = this.profile(connection);
     const records = await profile.drafts.list();
@@ -615,8 +746,11 @@ export class SyncThreadRuntime {
     });
   }
 
-  async discardDraft(threadIdentifier: string, draftIdentifier: string): Promise<void> {
-    const draft = (await this.pendingDrafts(threadIdentifier)).find(
+  private async discardDraftUnlocked(
+    threadIdentifier: string,
+    draftIdentifier: string,
+  ): Promise<void> {
+    const draft = (await this.pendingDraftsUnlocked(threadIdentifier)).find(
       (record) => record.draftIdentifier === draftIdentifier,
     );
 
@@ -627,9 +761,9 @@ export class SyncThreadRuntime {
     );
   }
 
-  async retryDraft(threadIdentifier: string, draftIdentifier: string) {
+  private async retryDraftUnlocked(threadIdentifier: string, draftIdentifier: string) {
     this.assertEnabled(threadIdentifier);
-    const records = await this.pendingDrafts(threadIdentifier);
+    const records = await this.pendingDraftsUnlocked(threadIdentifier);
     const draft = records.find((record) => record.draftIdentifier === draftIdentifier);
 
     if (!draft) throw new DaemonError("not_found", "Sync Thread draft is unavailable");
@@ -660,7 +794,7 @@ export class SyncThreadRuntime {
       operation: prepared.operation,
     });
 
-    if (!receipt) await this.resume(threadIdentifier);
+    if (!receipt) await this.resumeUnlocked(threadIdentifier);
 
     return this.finishCommand(threadIdentifier, draft.draftIdentifier, prepared, receipt);
   }
@@ -706,14 +840,19 @@ export class SyncThreadRuntime {
     if (this.closed) return;
 
     this.closed = true;
+    for (const observation of this.observations.values()) {
+      observation.failure = new DaemonError("sync_closed", "Sync Thread runtime is closed");
+      observation.close();
 
-    for (const observation of this.observations.values()) observation.close();
+      for (const notify of observation.changed) notify();
+    }
 
     await Promise.all(
       [...this.profiles.values()].map(async (profile) => {
         await profile.close();
       }),
     );
+    await this.operations.drain();
     this.observations.clear();
     this.profiles.clear();
   }

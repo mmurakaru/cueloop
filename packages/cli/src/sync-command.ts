@@ -8,7 +8,7 @@ export async function syncCommand(arguments_: string[]): Promise<number> {
     throw new Error("Multiplayer sync is experimental; enable it in Settings > Experimental");
   }
 
-  if (["import", "resume", "pending", "retry", "discard"].includes(arguments_[0] ?? "")) {
+  if (["import", "resume", "rebind", "pending", "retry", "discard"].includes(arguments_[0] ?? "")) {
     const { syncThreadImportCommand } = await import("./sync-thread-import-command");
 
     return syncThreadImportCommand(arguments_);

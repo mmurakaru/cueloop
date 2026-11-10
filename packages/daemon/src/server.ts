@@ -533,6 +533,11 @@ export class DaemonServer {
 
       return (await this.getSyncRuntime()).importThread(parameters.id, parameters.connection);
     },
+    "session.syncRebind": async (_connection, request) => {
+      const parameters = parseParams("session.syncRebind", request.params);
+
+      return (await this.getSyncRuntime()).rebind(parameters.id, parameters.connection);
+    },
     "session.syncResume": async (_connection, request) => {
       const parameters = parseParams("session.syncResume", request.params);
 
@@ -926,6 +931,7 @@ export class DaemonServer {
         "session.wait",
         "session.syncImport",
         "session.syncResume",
+        "session.syncRebind",
         "session.syncDrafts",
         "session.syncRetry",
         "session.syncDiscard",

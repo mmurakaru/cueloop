@@ -3,7 +3,7 @@ import { SyncWorkspaceAuthoritySchema } from "@cueloop/sync/authority";
 import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { randomBytes, randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import * as v from "valibot";
 import { createTestSyncMutationProxy } from "./sync-mutation-proxy";
 
@@ -16,6 +16,7 @@ function testSyncApplicationProfile(application: "shared-record" | "thread" | un
   if (application === "thread")
     return {
       migrationDirectory: new URL("../../packages/daemon/migrations/", import.meta.url),
+      migrationIdentityPrefix: "@cueloop/daemon",
       module: "examples/sync-thread/authority.ts",
       workspaceTable: "cueloop_sync_workspace",
       ownerSeed:
@@ -27,6 +28,7 @@ function testSyncApplicationProfile(application: "shared-record" | "thread" | un
 
   return {
     migrationDirectory: new URL("../../examples/sync-workspace/", import.meta.url),
+    migrationIdentityPrefix: "@cueloop/example-shared-workspace",
     module: "examples/sync-workspace/authority.ts",
     workspaceTable: "sync_workspace",
     ownerSeed:
@@ -170,12 +172,21 @@ export async function createTestSyncStack(
         },
       });
     } else {
+      const appliedMigrations: { identity: string; digest: string }[] = [];
+
       for (const migration of [
         "@cueloop/sync/migrations/001-operation-receipt.sql",
         "@cueloop/sync/migrations/002-execution.sql",
         "@cueloop/sync/migrations/003-authority.sql",
         "@cueloop/sync/migrations/004-restore-journal.sql",
+        "@cueloop/sync/migrations/005-workspace-transfer.sql",
       ]) {
+        const source = readFileSync(new URL(import.meta.resolve(migration)), "utf8");
+
+        appliedMigrations.push({
+          identity: migration.replace("/migrations/", "/"),
+          digest: createHash("sha256").update(source).digest("hex"),
+        });
         await docker(
           [
             "exec",
@@ -189,7 +200,7 @@ export async function createTestSyncStack(
             "-d",
             "sync_test",
           ],
-          readFileSync(new URL(import.meta.resolve(migration)), "utf8"),
+          source,
         );
       }
 
@@ -198,6 +209,12 @@ export async function createTestSyncStack(
       for (const migration of readdirSync(migrationDirectory)
         .filter((file) => file.endsWith(".sql"))
         .sort()) {
+        const source = readFileSync(new URL(migration, migrationDirectory), "utf8");
+
+        appliedMigrations.push({
+          identity: `${profile.migrationIdentityPrefix}/${migration}`,
+          digest: createHash("sha256").update(source).digest("hex"),
+        });
         await docker(
           [
             "exec",
@@ -211,9 +228,27 @@ export async function createTestSyncStack(
             "-d",
             "sync_test",
           ],
-          readFileSync(new URL(migration, migrationDirectory), "utf8"),
+          source,
         );
       }
+
+      const ledger = JSON.stringify(appliedMigrations).replaceAll("'", "''");
+
+      await docker(
+        [
+          "exec",
+          "-i",
+          postgresName,
+          "psql",
+          "-v",
+          "ON_ERROR_STOP=1",
+          "-U",
+          "sync_test",
+          "-d",
+          "sync_test",
+        ],
+        `INSERT INTO sync_schema_migration (identity, digest) SELECT identity, digest FROM jsonb_to_recordset('${ledger}'::jsonb) AS migration(identity text, digest text);`,
+      );
 
       if (threadApplication) {
         await docker(
