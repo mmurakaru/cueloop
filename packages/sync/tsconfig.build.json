@@ -5,7 +5,8 @@
     "declaration": true,
     "rewriteRelativeImportExtensions": true,
     "rootDir": "src",
-    "outDir": "dist"
+    "outDir": "dist",
+    "resolveJsonModule": true
   },
   "include": ["src/**/*.ts"],
   "exclude": ["src/**/*.test.ts"]

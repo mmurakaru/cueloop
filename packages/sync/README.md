@@ -4,6 +4,9 @@ General-purpose sync for terminals.
 Build typed, live application queries against an authoritative server with a headless TypeScript client.
 Applications own their data model, permissions, interface, and execution integrations.
 
+Install with `npm install @cueloop/sync@alpha` for the SDK or `npm install --global @cueloop/sync@alpha` for the CLI.
+See the [installation guide](./docs/installation.md) for the optional `cs` shortcut.
+
 ## Requirements
 
 - Bun 1.4.4 or Node 24 and later for terminal clients.

@@ -1,8 +1,11 @@
 #!/usr/bin/env node
+import { fileURLToPath } from "node:url";
 import { runSyncCli } from "../dist/sync-cli.js";
 
 try {
-  const status = await runSyncCli(process.argv.slice(2));
+  const status = await runSyncCli(process.argv.slice(2), {
+    standaloneExecutable: fileURLToPath(import.meta.url),
+  });
 
   // Interrupted watches can retain a blocked stdout write after cleanup.
   if (status === 130 || status === 143) process.exit(status);

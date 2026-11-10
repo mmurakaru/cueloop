@@ -1,6 +1,6 @@
 import type postgres from "postgres";
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import syncMigrationResources from "./sync-migration-resources.generated.json" with { type: "json" };
 import canonicalize from "canonicalize";
 import * as v from "valibot";
 import { SyncAuthorityIdentitySchema } from "./sync-authority-protocol.ts";
@@ -56,10 +56,7 @@ export async function reserveSyncRestoreJournal(
   connection: SyncPostgresJournalConnection,
   manifest: SyncBackupManifest,
 ) {
-  const source = await readFile(
-    new URL("../migrations/004-restore-journal.sql", import.meta.url),
-    "utf8",
-  );
+  const source = syncMigrationResources["004-restore-journal.sql"];
 
   await connection.unsafe("BEGIN");
 

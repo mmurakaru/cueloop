@@ -34,7 +34,8 @@
       "@cueloop/integration-obsidian": [
         "./packages/integrations/obsidian/src/index.ts"
       ]
-    }
+    },
+    "resolveJsonModule": true
   },
   "include": [
     "packages/*/src/**/*.ts",
