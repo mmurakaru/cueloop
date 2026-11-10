@@ -1,5 +1,18 @@
 # @cueloop/adapters
 
+## 0.1.0-alpha.116
+
+### Minor Changes
+
+- [#655](https://github.com/mmurakaru/cueloop/pull/655) [`48df947`](https://github.com/mmurakaru/cueloop/commit/48df947c56f2e1ce8b4993104c4a3b314d156c1d) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Commit owner-side agent requests as durable intent and recover execution through fenced claims, provider observations, and existing daemon prompt identities.
+
+### Patch Changes
+
+- Updated dependencies [[`aefb868`](https://github.com/mmurakaru/cueloop/commit/aefb868e583ae36cd8fa4834e1c91564d6de8e20), [`aaaeb18`](https://github.com/mmurakaru/cueloop/commit/aaaeb189a302edc9b33601a97981863441d4d244), [`48df947`](https://github.com/mmurakaru/cueloop/commit/48df947c56f2e1ce8b4993104c4a3b314d156c1d), [`20d814b`](https://github.com/mmurakaru/cueloop/commit/20d814bab1c3828923613255c868c7dbdf1a5b76), [`f0bdcc9`](https://github.com/mmurakaru/cueloop/commit/f0bdcc9e3f06c115b1160614f8892545c14dc9a6), [`3d04a30`](https://github.com/mmurakaru/cueloop/commit/3d04a30d95198c59d5334dcebf4fc2ee45410e59), [`36d00a4`](https://github.com/mmurakaru/cueloop/commit/36d00a476e4659a11ce9b7e82c658bbbc18a95e7), [`4450481`](https://github.com/mmurakaru/cueloop/commit/44504813c3c9b3521677927f4fa5f7ea5eae8d39), [`379c54c`](https://github.com/mmurakaru/cueloop/commit/379c54c2cffb6e1cb48781a69678e1b06d891e18), [`a2487c4`](https://github.com/mmurakaru/cueloop/commit/a2487c4e8d3089134533ea59ea2fb1f714607a14), [`48d8a9c`](https://github.com/mmurakaru/cueloop/commit/48d8a9ce0399aa85ce0833d07c6a3eb276798d9d), [`f08e1a5`](https://github.com/mmurakaru/cueloop/commit/f08e1a5836f413133c08c0d98557715d99241b22), [`e6fd7b2`](https://github.com/mmurakaru/cueloop/commit/e6fd7b263b284a86f1b8eabfba5730725e29804a)]:
+  - @cueloop/sync@0.1.0-alpha.116
+  - @cueloop/daemon@0.1.0-alpha.116
+  - @cueloop/schema@0.1.0-alpha.116
+
 ## 0.1.0-alpha.115
 
 ### Patch Changes

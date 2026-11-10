@@ -1,5 +1,15 @@
 # @cueloop/gateway
 
+## 0.1.0-alpha.116
+
+### Patch Changes
+
+- [#630](https://github.com/mmurakaru/cueloop/pull/630) [`12e2d54`](https://github.com/mmurakaru/cueloop/commit/12e2d54a67f2f6673d00bcbf054dade684b41714) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Update OpenTUI to 0.8.3 and require Bun 1.4.4 for the terminal client, CLI, and gateway to avoid native scroll failures with older Bun releases.
+- Updated dependencies [[`aaaeb18`](https://github.com/mmurakaru/cueloop/commit/aaaeb189a302edc9b33601a97981863441d4d244), [`ecf1de9`](https://github.com/mmurakaru/cueloop/commit/ecf1de92d98efdda549f22a1924456a77926f491), [`48df947`](https://github.com/mmurakaru/cueloop/commit/48df947c56f2e1ce8b4993104c4a3b314d156c1d), [`12e2d54`](https://github.com/mmurakaru/cueloop/commit/12e2d54a67f2f6673d00bcbf054dade684b41714), [`5d6eb85`](https://github.com/mmurakaru/cueloop/commit/5d6eb8509124770c3b5887cb86aec3eb47fe1e21), [`3d04a30`](https://github.com/mmurakaru/cueloop/commit/3d04a30d95198c59d5334dcebf4fc2ee45410e59), [`36d00a4`](https://github.com/mmurakaru/cueloop/commit/36d00a476e4659a11ce9b7e82c658bbbc18a95e7), [`379c54c`](https://github.com/mmurakaru/cueloop/commit/379c54c2cffb6e1cb48781a69678e1b06d891e18), [`a2487c4`](https://github.com/mmurakaru/cueloop/commit/a2487c4e8d3089134533ea59ea2fb1f714607a14), [`2032709`](https://github.com/mmurakaru/cueloop/commit/203270941df81f8226ac249739fd82f33e33b753), [`48d8a9c`](https://github.com/mmurakaru/cueloop/commit/48d8a9ce0399aa85ce0833d07c6a3eb276798d9d), [`f08e1a5`](https://github.com/mmurakaru/cueloop/commit/f08e1a5836f413133c08c0d98557715d99241b22), [`e6fd7b2`](https://github.com/mmurakaru/cueloop/commit/e6fd7b263b284a86f1b8eabfba5730725e29804a)]:
+  - @cueloop/daemon@0.1.0-alpha.116
+  - @cueloop/client@0.1.0-alpha.116
+  - @cueloop/schema@0.1.0-alpha.116
+
 ## 0.1.0-alpha.115
 
 ### Patch Changes
