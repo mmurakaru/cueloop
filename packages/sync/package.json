@@ -43,7 +43,16 @@
     "./migrations/002-execution.sql": "./migrations/002-execution.sql",
     "./execution/schema": "./dist/sync-execution-schema.js",
     "./execution/http": "./dist/sync-execution-http.js",
-    "./execution/worker": "./dist/sync-execution-worker.js"
+    "./execution/worker": "./dist/sync-execution-worker.js",
+    "./authority": "./dist/sync-authority-protocol.js",
+    "./authority/server": "./dist/sync-authority-database.js",
+    "./migrations/003-authority.sql": "./migrations/003-authority.sql",
+    "./backup": "./dist/sync-backup.js",
+    "./restore": "./dist/sync-restore.js",
+    "./migrations": "./dist/sync-database-migration.js",
+    "./authority/client": "./dist/sync-authority-client.js",
+    "./database/status": "./dist/sync-database-status.js",
+    "./database/initialize": "./dist/sync-database-initialize.js"
   },
   "publishConfig": {
     "access": "public"
@@ -56,6 +65,7 @@
     "@rocicorp/zero": "1.11.4",
     "canonicalize": "5.1.0",
     "idb": "8.0.4",
+    "postgres": "3.4.7",
     "uuid": "14.0.3",
     "valibot": "^1.5.0",
     "yjs": "13.6.33"

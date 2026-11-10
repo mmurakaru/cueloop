@@ -1,3 +1,4 @@
+import { fetchSyncWorkspaceAuthority } from "@cueloop/sync/authority/client";
 import { createSyncPresenceClient } from "@cueloop/sync/presence";
 import { loadSharedTextEditorState, readSharedTextAuthority } from "./text-editor-state.ts";
 import type { StoreProvider } from "@rocicorp/zero/sqlite";
@@ -33,6 +34,11 @@ export async function createSharedTextEditorSession(options: {
     workspaceIdentifier: options.workspaceIdentifier,
     recordIdentifier: options.recordIdentifier,
   });
+  const authority = await fetchSyncWorkspaceAuthority({
+    authorityURL: options.authorityURL,
+    workspaceIdentifier: options.workspaceIdentifier,
+    headers: { authorization: `Bearer ${options.auth}` },
+  });
   const drafts = createSyncDraftStore({
     storage: options.storage,
     authorityIdentifier: options.authorityURL,
@@ -40,6 +46,7 @@ export async function createSharedTextEditorSession(options: {
   });
   const client = createSharedRecordClient({
     ...options,
+    authority,
     storage: options.storage,
     storageKey: options.storageKey ?? options.authorityURL,
   });
@@ -244,6 +251,7 @@ export async function createSharedTextEditorSession(options: {
         await persist();
         const requestOperation = sharedTextOperations.edit.create({
           workspaceIdentifier: request.workspaceIdentifier,
+          authority,
           arguments: {
             recordIdentifier: request.recordIdentifier,
             update: document.updateSince(baseState),
@@ -272,6 +280,12 @@ export async function createSharedTextEditorSession(options: {
         }));
 
       operation = outcome.status;
+
+      if (outcome.status === "recovery-required") {
+        error = "Request outcome is unknown after recovery; the original draft is retained";
+
+        return outcome;
+      }
 
       if (outcome.status === "pending") return outcome;
 

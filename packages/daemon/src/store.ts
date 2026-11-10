@@ -27,7 +27,11 @@ import { dirname, join } from "node:path";
 import { historyFromLinear, type Thread } from "@cueloop/schema";
 import { migratedSessionsDir, sessionsDir, threadBucket, threadsDir } from "./paths";
 import { validateThreadRecord } from "./validate";
-import { SyncThreadLocalState, type SyncThreadConnection } from "./sync-thread-local-state";
+import {
+  SyncThreadLocalState,
+  type SyncThreadConnection,
+  type SyncThreadProjectionOptions,
+} from "./sync-thread-local-state";
 
 /** A thread's log is rewritten to a single snapshot line once it grows past this many, so an
  *  active thread's file never bloats unbounded while writes stay cheap appends in between. */
@@ -228,9 +232,16 @@ export class ThreadStore implements ThreadRepository {
     this.sessions.delete(id);
   }
 
-  installSyncProjection(thread: Thread, version: number): void {
-    this.syncState.project({ thread, version });
+  installSyncProjection(
+    thread: Thread,
+    version: number,
+    options: SyncThreadProjectionOptions = {},
+  ): boolean {
+    const recovered = this.syncState.project({ thread, version, ...options });
+
     this.sessions.set(thread.id, structuredClone(thread));
+
+    return recovered;
   }
 
   get(id: string): Thread | undefined {

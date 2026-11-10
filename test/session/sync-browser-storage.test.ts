@@ -40,6 +40,7 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
               {
                 moduleUrl,
                 complete,
+                authority: stack.authority,
                 cacheURL: proxy.cacheURL,
                 userID: stack.userID,
                 auth: stack.auth,
@@ -68,6 +69,7 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
           },
           {
             moduleUrl,
+            authority: stack.authority,
             cacheURL: proxy.cacheURL,
             userID: stack.userID,
             auth: stack.auth,
@@ -89,6 +91,7 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
             },
             {
               moduleUrl,
+              authority: stack.authority,
               cacheURL: proxy.cacheURL,
               userID: stack.userID,
               auth: stack.auth,
@@ -117,6 +120,7 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
           (
             await writer.mutate(
               sharedRecordMutators.edit({
+                authority: stack.authority,
                 id: record.id,
                 content: "Updated while browser was offline",
               }),

@@ -1,3 +1,4 @@
+import { fetchSyncWorkspaceAuthority } from "@cueloop/sync/authority/client";
 import { connectSharedPresence } from "./presence-client.ts";
 import { parseArgs } from "node:util";
 import * as v from "valibot";
@@ -81,7 +82,18 @@ export async function connectSharedRecord(arguments_: string[]): Promise<void | 
     throw new Error("Sync client requires SYNC_CACHE_URL, SYNC_USER_ID, and SYNC_AUTH_TOKEN");
   }
 
+  const authorityURL = process.env.SYNC_AUTHORITY_URL;
+
+  if (!authorityURL)
+    throw new Error("Sync client requires SYNC_AUTHORITY_URL before opening a replica");
+
+  const authority = await fetchSyncWorkspaceAuthority({
+    authorityURL,
+    workspaceIdentifier: queryArguments.workspaceIdentifier,
+    headers: { authorization: `Bearer ${auth}` },
+  });
   const client = createSharedRecordClient({
+    authority,
     cacheURL,
     userID,
     auth,
@@ -108,10 +120,6 @@ export async function connectSharedRecord(arguments_: string[]): Promise<void | 
     }
 
     if (values.operation !== undefined) {
-      const authorityURL = process.env.SYNC_AUTHORITY_URL;
-
-      if (!authorityURL) throw new Error("Sync operation client requires SYNC_AUTHORITY_URL");
-
       if (values.watch || values.content !== undefined)
         throw new Error("Sync operation client requires an operation-only command");
 
@@ -141,7 +149,7 @@ export async function connectSharedRecord(arguments_: string[]): Promise<void | 
       if (!record) throw new Error("Sync example edit requires an authorized record");
 
       const result = await client.mutate(
-        sharedRecordMutators.edit({ id: record.id, content: values.content }),
+        sharedRecordMutators.edit({ authority, id: record.id, content: values.content }),
       ).server;
 
       if (result.type === "error")

@@ -38,6 +38,7 @@ export async function initializeSharedText(options: {
     ? previous.operation.output
     : sharedTextOperations.initialize.create({
         workspaceIdentifier: options.workspaceIdentifier,
+        authority: options.client.authority,
         arguments: {
           recordIdentifier: options.recordIdentifier,
           state: createSyncTextState(options.content).state,
@@ -83,7 +84,7 @@ export async function initializeSharedText(options: {
         ),
     }));
 
-  if (outcome.status !== "pending") {
+  if (outcome.status === "accepted" || outcome.status === "rejected") {
     await options.drafts.recordReceipt({
       draftIdentifier: saved.draftIdentifier,
       receipt: outcome,

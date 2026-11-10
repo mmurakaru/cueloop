@@ -1,3 +1,4 @@
+import { SyncAuthorityIdentitySchema, type SyncAuthorityIdentity } from "@cueloop/sync/authority";
 import { SyncThreadConnectionSchema, type SyncThreadConnection } from "./sync-thread-connection";
 import { createHash, randomUUID } from "node:crypto";
 import {
@@ -27,9 +28,34 @@ const ManifestSchema = v.strictObject({
 const ProjectionSchema = v.strictObject({
   version: v.pipe(v.number(), v.safeInteger(), v.minValue(0)),
   thread: ThreadRecordSchema,
+  authority: v.optional(SyncAuthorityIdentitySchema),
+  heldMessageIdentifiers: v.optional(v.array(v.string()), []),
 });
 
+interface SyncThreadProjectionRecord {
+  thread: Thread;
+  version: number;
+  heldMessageIdentifiers: string[];
+  authority?: SyncAuthorityIdentity;
+}
+
+export interface SyncThreadProjectionOptions {
+  authority?: SyncAuthorityIdentity;
+  acceptRecovery?: boolean;
+}
+
 export type { SyncThreadConnection } from "./sync-thread-connection";
+
+function syncThreadMessageIdentifiers(thread: Thread): string[] {
+  const messages =
+    thread.history?.entries.flatMap((entry) =>
+      entry.type === "message" ? [entry.message.id] : [],
+    ) ?? [];
+
+  if (thread.message) messages.push(thread.message.id);
+
+  return messages;
+}
 
 function syncDirectory(path: string): void {
   const descriptor = openSync(path, "r");
@@ -169,23 +195,86 @@ export class SyncThreadLocalState {
     return this.readProjection(threadIdentifier).version;
   }
 
-  project(options: { thread: Thread; version: number }): void {
+  project(options: { thread: Thread; version: number } & SyncThreadProjectionOptions): boolean {
     if (!this.isFenced(options.thread.id))
       throw new Error("Sync Thread projection requires a durable authority fence");
 
-    const projection = v.parse(ProjectionSchema, options);
     const path = join(this.threadDirectory(options.thread.id), "projection.json");
-    const previous = v.parse(ProjectionSchema, JSON.parse(readFileSync(path, "utf8")));
+    const previous = this.readProjection(options.thread.id);
+    const manifest = this.read(options.thread.id);
+    const authority = options.authority ?? previous.authority;
+    const changedGeneration =
+      authority !== undefined &&
+      (previous.authority
+        ? authority.authorityIdentifier !== previous.authority.authorityIdentifier ||
+          authority.generation !== previous.authority.generation
+        : manifest.phase === "remote");
 
-    if (projection.version < previous.version)
+    if (changedGeneration && !options.acceptRecovery)
+      throw new DaemonError(
+        "sync_recovery_required",
+        "Sync Thread authority generation changed; resume with --accept-recovery to preserve the previous projection and read the restored snapshot",
+      );
+
+    if (!changedGeneration && options.version < previous.version)
       throw new Error("Sync Thread cannot install an older authority projection");
 
-    writeSyncThreadFile(path, JSON.stringify(projection));
-    const manifest = this.read(options.thread.id);
+    if (changedGeneration) {
+      const archived = JSON.stringify(previous);
+      const archives = join(this.threadDirectory(options.thread.id), "recovered-projections");
 
+      mkdirSync(archives, { recursive: true, mode: 0o700 });
+      writeSyncThreadFile(
+        join(archives, `${createHash("sha256").update(archived).digest("hex")}.json`),
+        archived,
+      );
+    }
+
+    const heldMessageIdentifiers = [
+      ...new Set([
+        ...previous.heldMessageIdentifiers,
+        ...(changedGeneration
+          ? [
+              ...syncThreadMessageIdentifiers(previous.thread),
+              ...syncThreadMessageIdentifiers(options.thread),
+            ]
+          : []),
+      ]),
+    ];
+    const input: SyncThreadProjectionRecord = {
+      thread: options.thread,
+      version: options.version,
+      heldMessageIdentifiers,
+    };
+
+    if (authority) input.authority = authority;
+
+    const projection = v.parse(ProjectionSchema, input);
+
+    writeSyncThreadFile(path, JSON.stringify(projection));
     writeSyncThreadFile(
       this.manifestPath(options.thread.id),
       JSON.stringify({ ...manifest, phase: "remote" }),
+    );
+
+    return changedGeneration;
+  }
+
+  recoveryArchives(threadIdentifier: string): string[] {
+    const directory = join(this.threadDirectory(threadIdentifier), "recovered-projections");
+
+    if (!existsSync(directory)) return [];
+
+    return readdirSync(directory)
+      .filter((name) => /^[0-9a-f]{64}\.json$/.test(name))
+      .sort()
+      .map((name) => join(directory, name));
+  }
+
+  isMessageHeld(threadIdentifier: string, messageIdentifier: string): boolean {
+    return (
+      this.isFenced(threadIdentifier) &&
+      this.readProjection(threadIdentifier).heldMessageIdentifiers.includes(messageIdentifier)
     );
   }
 

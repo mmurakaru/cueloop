@@ -8,7 +8,7 @@ Applications own their data model, permissions, interface, and execution integra
 
 - Bun 1.4.4 or Node 24 and later for terminal clients.
 - A bundler for browser clients.
-- PostgreSQL with logical replication and a Zero cache service.
+- PostgreSQL 18 or later with logical replication and a Zero cache service.
 
 The package contains JavaScript and TypeScript declarations.
 Local and remote hosting use the same service stack.
@@ -30,8 +30,15 @@ Supply your application's schema, mutators, context, and connection settings:
 
 ```ts
 import { createSyncClient } from "@cueloop/sync";
+import { fetchSyncWorkspaceAuthority } from "@cueloop/sync/authority/client";
 
+const authority = await fetchSyncWorkspaceAuthority({
+  authorityURL,
+  workspaceIdentifier,
+  headers: { authorization: `Bearer ${auth}` },
+});
 const client = createSyncClient({
+  authority,
   schema,
   mutators,
   context,
@@ -46,7 +53,7 @@ const unsubscribe = view.addListener((records, freshness) => {
   renderRecords(records, freshness);
 });
 
-const result = await client.mutate(mutators.edit({ id, content })).server;
+const result = await client.mutate(mutators.edit({ id, content, authority })).server;
 
 unsubscribe();
 view.destroy();
@@ -60,7 +67,8 @@ Connection status and query freshness are separate.
 > Writes require a connected authority.
 > Keep disconnected edits as drafts for explicit submission after reconnect.
 > `kvStore: "mem"` is an ephemeral cache.
-> Use a distinct `storageKey` for each application authority.
+> Resolve the authority before opening a persistent replica.
+> The authority generation scopes the cache; keep the draft namespace stable.
 > Use `createSyncSqliteStorage` from `@cueloop/sync/storage` for persistent terminal clients, or `kvStore: "idb"` in browsers.
 
 ## Recover work
@@ -107,7 +115,7 @@ See the [execution guide](./docs/execution.md) for claims, recovery, the owner C
 
 ## Host an authority
 
-`createSyncAuthority` from `@cueloop/sync/server` accepts your schema, database adapter, authentication callback, and named query and mutation handlers.
+`createSyncAuthority` from `@cueloop/sync/server` accepts your schema, authority-wrapped database adapter, authentication callback, and named query and mutation handlers.
 Derive the principal from verified credentials and enforce record permissions in application handlers.
 
 `serveSyncApplication` from `@cueloop/sync/serve` hosts a Fetch-compatible application in Bun or Node.

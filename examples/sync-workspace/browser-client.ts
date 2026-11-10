@@ -1,8 +1,10 @@
+import type { SyncWorkspaceAuthority } from "@cueloop/sync/authority";
 import { createSyncDraftStore } from "@cueloop/sync/drafts";
 import { createSharedRecordClient } from "./client.ts";
 import { sharedRecordMutators, sharedRecordQueries } from "./shared-record.ts";
 
 export async function verifyBrowserRead(options: {
+  authority: SyncWorkspaceAuthority;
   cacheURL: string;
   userID: string;
   auth: string;
@@ -26,6 +28,7 @@ export async function verifyBrowserRead(options: {
 }
 
 export async function verifyBrowserSync(options: {
+  authority: SyncWorkspaceAuthority;
   cacheURL: string;
   userID: string;
   auth: string;
@@ -39,7 +42,11 @@ export async function verifyBrowserSync(options: {
     if (!record) throw new Error("Browser sync example requires a shared record");
 
     const result = await client.mutate(
-      sharedRecordMutators.edit({ id: record.id, content: "Written by the browser client" }),
+      sharedRecordMutators.edit({
+        authority: options.authority,
+        id: record.id,
+        content: "Written by the browser client",
+      }),
     ).server;
     const updated = await client.run(sharedRecordQueries.records(), { type: "complete" });
 

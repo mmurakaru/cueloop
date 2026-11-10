@@ -1,3 +1,4 @@
+import { SyncWorkspaceAuthoritySchema } from "@cueloop/sync/authority";
 import {
   createBuilder,
   defineMutatorsWithType,
@@ -47,38 +48,39 @@ export const sharedRecordQueries = defineQueriesWithType<typeof sharedRecordSche
   }),
 });
 
-export const sharedRecordMutators = defineMutatorsWithType<typeof sharedRecordSchema>()({
-  edit: defineRecordMutator(
-    v.object({
-      id: v.pipe(v.string(), v.uuid()),
-      content: v.pipe(v.string(), v.maxLength(100000)),
-    }),
-    async ({ tx, args, ctx }) => {
-      if (tx.location === "server") {
-        await tx.dbTransaction.query("SELECT id FROM shared_record WHERE id = $1 FOR UPDATE", [
-          args.id,
-        ]);
-      }
+export const SharedRecordEditSchema = v.object({
+  id: v.pipe(v.string(), v.uuid()),
+  content: v.pipe(v.string(), v.maxLength(100000)),
+  authority: SyncWorkspaceAuthoritySchema,
+});
 
-      const record = await tx.run(
-        builder.shared_record.where("id", args.id).where("deletedAt", "IS", null).one(),
+export const sharedRecordMutators = defineMutatorsWithType<typeof sharedRecordSchema>()({
+  edit: defineRecordMutator(SharedRecordEditSchema, async ({ tx, args, ctx }) => {
+    if (tx.location === "server") {
+      await tx.dbTransaction.query("SELECT id FROM shared_record WHERE id = $1 FOR UPDATE", [
+        args.id,
+      ]);
+    }
+
+    const record = await tx.run(
+      builder.shared_record.where("id", args.id).where("deletedAt", "IS", null).one(),
+    );
+
+    if (!record || record.workspaceIdentifier !== args.authority.workspaceIdentifier)
+      throw new Error("Shared record editing is not permitted");
+
+    if (tx.location === "server") {
+      const membership = await tx.dbTransaction.query(
+        "SELECT membership.id FROM sync_workspace_member AS membership JOIN sync_workspace AS workspace ON workspace.id = membership.workspace_identifier WHERE workspace.id = $1 AND membership.user_identifier = $2 AND membership.deleted_at IS NULL AND workspace.deleted_at IS NULL AND membership.role IN ('editor', 'owner') FOR SHARE OF membership, workspace",
+        [record.workspaceIdentifier, ctx.userIdentifier],
       );
 
-      if (!record) throw new Error("Shared record editing is not permitted");
+      if (![...membership].length) throw new Error("Shared record editing is not permitted");
+    }
 
-      if (tx.location === "server") {
-        const membership = await tx.dbTransaction.query(
-          "SELECT membership.id FROM sync_workspace_member AS membership JOIN sync_workspace AS workspace ON workspace.id = membership.workspace_identifier WHERE workspace.id = $1 AND membership.user_identifier = $2 AND membership.deleted_at IS NULL AND workspace.deleted_at IS NULL AND membership.role IN ('editor', 'owner') FOR SHARE OF membership, workspace",
-          [record.workspaceIdentifier, ctx.userIdentifier],
-        );
+    if (record.textState !== null)
+      throw new Error("Shared record uses collaborative text operations");
 
-        if (![...membership].length) throw new Error("Shared record editing is not permitted");
-      }
-
-      if (record.textState !== null)
-        throw new Error("Shared record uses collaborative text operations");
-
-      await tx.mutate.shared_record.update(args);
-    },
-  ),
+    await tx.mutate.shared_record.update({ id: args.id, content: args.content });
+  }),
 });

@@ -23,7 +23,7 @@ export interface SyncTextEditorSnapshot {
   readonly connection: Connection["state"]["current"]["name"];
   readonly freshness: ResultType;
   readonly lifecycle: SyncClientLifecycle["status"];
-  readonly operation: "idle" | "pending" | "accepted" | "rejected";
+  readonly operation: "idle" | "pending" | "accepted" | "rejected" | "recovery-required";
   readonly saving: boolean;
   readonly draftSaved: boolean;
   readonly editable: boolean;
@@ -59,7 +59,7 @@ const TextEditorSnapshotSchema = v.object({
   ]),
   freshness: v.picklist(["unknown", "cached", "complete", "error"]),
   lifecycle: v.picklist(["active", "needs-reset", "storage-failed", "closing", "closed"]),
-  operation: v.picklist(["idle", "pending", "accepted", "rejected"]),
+  operation: v.picklist(["idle", "pending", "accepted", "rejected", "recovery-required"]),
   saving: v.boolean(),
   draftSaved: v.boolean(),
   editable: v.boolean(),
@@ -94,6 +94,12 @@ const TextSaveOutcomeSchema = v.union([
   SyncOperationReceiptSchema,
   v.object({
     status: v.literal("pending"),
+    operationIdentifier: SyncOperationIdentifierSchema,
+    workspaceIdentifier: v.pipe(v.string(), v.uuid()),
+  }),
+  v.object({
+    status: v.literal("recovery-required"),
+    reason: v.literal("unknown-after-recovery"),
     operationIdentifier: SyncOperationIdentifierSchema,
     workspaceIdentifier: v.pipe(v.string(), v.uuid()),
   }),

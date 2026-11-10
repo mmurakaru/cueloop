@@ -35,6 +35,7 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
       const initial = createSyncTextState(record.content);
       const initialized = await submitSyncOperation({
         operation: sharedTextOperations.initialize.create({
+          authority: stack.authority,
           workspaceIdentifier: record.workspaceIdentifier,
           arguments: { recordIdentifier: record.id, state: initial.state },
         }),
@@ -65,6 +66,7 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
         );
         const changed = editor.replace("Accepted after rollback");
         const operation = sharedTextOperations.edit.create({
+          authority: stack.authority,
           workspaceIdentifier: record.workspaceIdentifier,
           arguments: { recordIdentifier: record.id, update: changed.update },
         });
@@ -114,6 +116,7 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
         const denied = editor.replace("Viewer text must not be accepted");
         const rejected = await submitSyncOperation({
           operation: sharedTextOperations.edit.create({
+            authority: stack.authority,
             workspaceIdentifier: record.workspaceIdentifier,
             arguments: { recordIdentifier: record.id, update: denied.update },
           }),
@@ -127,7 +130,11 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
         expect((await observer.run(query))[0]?.content).toBe("Accepted after rollback");
         expect(observed).not.toContain("Viewer text must not be accepted");
         const bypass = await writer.mutate(
-          sharedRecordMutators.edit({ id: record.id, content: "Bypass collaborative state" }),
+          sharedRecordMutators.edit({
+            authority: stack.authority,
+            id: record.id,
+            content: "Bypass collaborative state",
+          }),
         ).server;
 
         expect(bypass.type).toBe("error");

@@ -116,3 +116,31 @@ test("normalized workspace identifiers preserve a final accepted receipt", async
     workspaceIdentifier: "019a6650-0000-7000-8000-0000000000ab",
   });
 });
+
+test("an old request outside the recovered boundary keeps an explicit unknown outcome", async () => {
+  const operation = comment.create({
+    workspaceIdentifier: "019a6650-0000-7000-8000-000000000001",
+    arguments: { body: "Retain this uncertain input" },
+  });
+  const outcome = await submitSyncOperation({
+    operation,
+    submit: () => ({
+      client: Promise.resolve({ type: "success" }),
+      server: Promise.resolve({
+        type: "error",
+        error: {
+          type: "app",
+          message: "The recovered snapshot does not include this request",
+          details: { name: "SyncAuthorityRecoveryRequired" },
+        },
+      }),
+    }),
+  });
+
+  expect(outcome).toEqual({
+    status: "recovery-required",
+    reason: "unknown-after-recovery",
+    operationIdentifier: operation.operationIdentifier,
+    workspaceIdentifier: operation.workspaceIdentifier,
+  });
+});

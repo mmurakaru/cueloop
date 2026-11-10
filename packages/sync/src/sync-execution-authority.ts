@@ -1,3 +1,6 @@
+import { syncTransactionAuthority } from "./sync-authority-context.ts";
+import { readSyncWorkspaceAuthority } from "./sync-authority-database.ts";
+import { SyncAuthorityFenced } from "./sync-authority-protocol.ts";
 import * as v from "valibot";
 import type { ReadonlyJSONValue, Schema, ServerTransaction } from "@rocicorp/zero";
 import { acceptSyncOperation } from "./sync-operation-receipt.ts";
@@ -81,6 +84,21 @@ interface ExecutionOwnerOptions extends ExecutionOwnerAccess {
   authorize: (transaction: SyncExecutionTransaction, access: ExecutionOwnerAccess) => Promise<void>;
 }
 
+async function assertExecutionWorkspace(
+  transaction: SyncExecutionTransaction,
+  workspaceIdentifier: string,
+) {
+  const identity = syncTransactionAuthority(transaction);
+
+  if (!identity) return;
+
+  const current = await readSyncWorkspaceAuthority(transaction, workspaceIdentifier);
+
+  if (current.phase !== "active") throw new SyncAuthorityFenced();
+
+  return identity;
+}
+
 /** A claim pins its recovery domain and advances the authority fencing token before dispatch. */
 export async function claimSyncExecution(
   options: ExecutionOwnerOptions & { executorIdentifier: string },
@@ -92,10 +110,11 @@ export async function claimSyncExecution(
     workspaceIdentifier,
     actorIdentifier: options.actorIdentifier,
   });
+  const identity = await assertExecutionWorkspace(options.transaction, workspaceIdentifier);
   const rows = await options.transaction.dbTransaction.query(
     `WITH candidate AS (
       SELECT id FROM sync_execution
-      WHERE workspace_identifier = $1 AND deleted_at IS NULL
+      WHERE workspace_identifier = $1 AND deleted_at IS NULL AND NOT recovery_held
         AND status IN ('waiting-owner', 'executing', 'recovery-required')
         AND (executor_identifier IS NULL OR executor_identifier = $2)
         AND (lease_expires_at IS NULL OR lease_expires_at <= clock_timestamp())
@@ -103,15 +122,16 @@ export async function claimSyncExecution(
       ORDER BY next_check_at, id FOR UPDATE SKIP LOCKED LIMIT 1
     )
     UPDATE sync_execution AS execution
-    SET executor_identifier = $2, lease_identifier = uuidv7(),
+    SET executor_identifier = $2, lease_identifier = uuidv7(), lease_generation = $3,
       fencing_token = execution.fencing_token + 1,
       lease_expires_at = clock_timestamp() + interval '30 seconds'
     FROM candidate WHERE execution.id = candidate.id
     RETURNING execution.id AS "operationIdentifier", execution.workspace_identifier AS "workspaceIdentifier",
       execution.target_identifier AS "targetIdentifier", execution.requester_identifier AS "requesterIdentifier",
       execution.action, execution.input, execution.executor_identifier AS "executorIdentifier",
-      execution.lease_identifier AS "leaseIdentifier", execution.fencing_token AS "fencingToken"`,
-    [workspaceIdentifier, executorIdentifier],
+      execution.lease_identifier AS "leaseIdentifier", execution.fencing_token AS "fencingToken",
+      execution.lease_generation::text AS generation`,
+    [workspaceIdentifier, executorIdentifier, identity?.generation ?? null],
   );
   const [claim] = v.parse(v.array(SyncExecutionClaimSchema), [...rows]);
 
@@ -139,6 +159,11 @@ export async function reportSyncExecution(
     workspaceIdentifier,
     actorIdentifier: options.actorIdentifier,
   });
+  const identity = await assertExecutionWorkspace(options.transaction, workspaceIdentifier);
+
+  if ((claim.generation ?? null) !== (identity?.generation ?? null))
+    throw new SyncExecutionLeaseConflict();
+
   const status = observation.status === "absent" ? "waiting-owner" : observation.status;
   const reference = "reference" in observation ? (observation.reference ?? null) : null;
   const message = "message" in observation ? observation.message : null;
@@ -147,13 +172,15 @@ export async function reportSyncExecution(
       lease_expires_at IS NULL AS reported,
       lease_expires_at > clock_timestamp() AS active
      FROM sync_execution WHERE id = $1 AND workspace_identifier = $2 AND executor_identifier = $3
-       AND lease_identifier = $4 AND fencing_token = $5 AND deleted_at IS NULL FOR UPDATE`,
+       AND lease_identifier = $4 AND fencing_token = $5 AND deleted_at IS NULL
+       AND NOT recovery_held AND lease_generation IS NOT DISTINCT FROM $6::uuid FOR UPDATE`,
     [
       claim.operationIdentifier,
       workspaceIdentifier,
       claim.executorIdentifier,
       claim.leaseIdentifier,
       claim.fencingToken,
+      claim.generation ?? null,
     ],
   );
   const [current] = v.parse(

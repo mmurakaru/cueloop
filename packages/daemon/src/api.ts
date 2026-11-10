@@ -1,5 +1,5 @@
 import { isDeepStrictEqual } from "node:util";
-import type { SyncThreadConnection } from "./sync-thread-local-state";
+import type { SyncThreadConnection, SyncThreadProjectionOptions } from "./sync-thread-local-state";
 /**
  * The daemon's method surface. Transport-independent: the socket
  * server and the in-process test harness both call these handlers.
@@ -277,6 +277,7 @@ export class DaemonCore {
       session.message.outcome !== "approved" ||
       session.artifact.content !== content ||
       this.harnessState.submittingBinding(session.id)?.id !== bindingId ||
+      this.isSyncMessageHeld(session.id, messageId) ||
       !this.harnessState.acknowledged(bindingId, messageId)
     ) {
       throw new DaemonError("invalid_state", `no unchanged approved plan for ${bindingId}`);
@@ -292,23 +293,26 @@ export class DaemonCore {
 
     const session = this.sessionGet(binding.threadId);
 
-    return this.harnessState.pending(bindingId).map((delivery) => {
-      const historical = session.history?.entries.find(
-        (entry) => entry.type === "message" && entry.message.id === delivery.messageId,
-      );
-      const message =
-        session.message?.id === delivery.messageId
-          ? session.message
-          : historical?.type === "message"
-            ? historical.message
-            : null;
+    return this.harnessState
+      .pending(bindingId)
+      .filter((delivery) => !this.isSyncMessageHeld(session.id, delivery.messageId))
+      .map((delivery) => {
+        const historical = session.history?.entries.find(
+          (entry) => entry.type === "message" && entry.message.id === delivery.messageId,
+        );
+        const message =
+          session.message?.id === delivery.messageId
+            ? session.message
+            : historical?.type === "message"
+              ? historical.message
+              : null;
 
-      if (!message || message.id !== delivery.messageId) {
-        throw new DaemonError("not_found", `no message ${delivery.messageId}`);
-      }
+        if (!message || message.id !== delivery.messageId) {
+          throw new DaemonError("not_found", `no message ${delivery.messageId}`);
+        }
 
-      return { delivery, message };
-    });
+        return { delivery, message };
+      });
   }
 
   deliveryAcknowledge(deliveryId: string): Delivery {
@@ -381,10 +385,18 @@ export class DaemonCore {
     return session;
   }
 
+  private isSyncMessageHeld(threadIdentifier: string, messageIdentifier: string): boolean {
+    return (
+      this.store instanceof ThreadStore &&
+      this.store.syncState.isMessageHeld(threadIdentifier, messageIdentifier)
+    );
+  }
+
   private reconcileDeliveries(session: Thread, authoritativeProjection = false): void {
     if (
       !this.ownsLocalThreadLifecycle ||
       !session.message ||
+      this.isSyncMessageHeld(session.id, session.message.id) ||
       (!authoritativeProjection && this.store.isLocalAuthority?.(session.id) === false)
     )
       return;
@@ -426,7 +438,11 @@ export class DaemonCore {
   }
 
   /** Only committed authority projections can release the owner's native adapter deliveries. */
-  sessionProjectSyncThread(thread: Thread, version: number): void {
+  sessionProjectSyncThread(
+    thread: Thread,
+    version: number,
+    options: SyncThreadProjectionOptions = {},
+  ): void {
     if (!(this.store instanceof ThreadStore))
       throw new DaemonError(
         "invalid_state",
@@ -435,11 +451,13 @@ export class DaemonCore {
 
     const previous = this.store.get(thread.id);
 
-    this.store.installSyncProjection(thread, version);
-    this.reconcileDeliveries(thread, true);
+    const recovered = this.store.installSyncProjection(thread, version, options);
+
+    if (!recovered) this.reconcileDeliveries(thread, true);
+
     this.trackLiveDiffSession(thread);
 
-    if (thread.message && thread.message.id !== previous?.message?.id) {
+    if (!recovered && thread.message && thread.message.id !== previous?.message?.id) {
       this.emit("message.sent", thread.id);
 
       if (thread.status === "resolved") {
@@ -508,6 +526,12 @@ export class DaemonCore {
    */
   sessionWait(id: string, timeoutMs: number): Promise<Thread | null> {
     const current = this.sessionGet(id);
+
+    if (current.message && this.isSyncMessageHeld(id, current.message.id))
+      throw new DaemonError(
+        "sync_execution_recovery_required",
+        "Sync Thread restored message requires recovery; send a new message only after the original execution outcome is known",
+      );
 
     if (current.status === "resolved") return Promise.resolve(current);
 

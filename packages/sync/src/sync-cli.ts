@@ -14,6 +14,7 @@ Usage: cueloop-sync <serve|connect|owner> --application <module> [options]
   serve     Run the application's authenticated query and mutation authority
   connect   Run the application's sync client
   owner     Recover and execute accepted requests through an application integration
+  database  Back up, restore, fence, migrate, and inspect a PostgreSQL authority
 
 Serve options: --host <address> --port <number> --public-origin <url> --maximum-request-bytes <number>
 The authority requires a configured PostgreSQL database and Zero cache service.
@@ -105,6 +106,12 @@ export async function runSyncCli(
     renderTextEditor?: (session: SyncTextEditorSession) => Promise<void | SyncClientOutcome>;
   } = {},
 ): Promise<number> {
+  if (arguments_[0] === "database") {
+    const { runSyncDatabaseCli } = await import("./sync-database-cli.ts");
+
+    return runSyncDatabaseCli(arguments_.slice(1));
+  }
+
   if (arguments_.length === 0 || arguments_.includes("--help")) {
     process.stdout.write(
       SYNC_HELP +

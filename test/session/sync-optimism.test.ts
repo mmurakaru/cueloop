@@ -45,6 +45,7 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
         recordIdentifier: record.id,
       });
       const creation = sharedCommentOperations.add.create({
+        authority: stack.authority,
         workspaceIdentifier: record.workspaceIdentifier,
         arguments: { recordIdentifier: record.id, body: "Original comment" },
       });
@@ -70,6 +71,7 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
       try {
         const saved = await drafts.save({ content: { body: "Accepted before replication" } });
         const operation = sharedCommentOperations.edit.create({
+          authority: stack.authority,
           workspaceIdentifier: record.workspaceIdentifier,
           arguments: {
             commentIdentifier: creation.operationIdentifier,

@@ -1,5 +1,8 @@
 import { mustGetMutator, mustGetQuery } from "@rocicorp/zero";
-import type { ZQLDatabase } from "@rocicorp/zero/server";
+import type { Database } from "@rocicorp/zero/server";
+import type { ServerTransaction } from "@rocicorp/zero";
+import { readSyncWorkspaceAuthority } from "@cueloop/sync/authority/server";
+import { SyncAuthorityFenced, SyncAuthorityRecoveryRequired } from "@cueloop/sync/authority";
 import {
   createSyncAuthority,
   findSyncOperationReceipt,
@@ -20,7 +23,7 @@ import { DaemonError } from "./errors";
 
 /** The host owns PostgreSQL connections and verifies credentials before selecting an actor. */
 export function createSyncThreadApplication<WrappedTransaction>(options: {
-  database: ZQLDatabase<typeof syncThreadSchema, WrappedTransaction>;
+  database: Database<ServerTransaction<typeof syncThreadSchema, WrappedTransaction>>;
   authenticate(request: Request): Promise<{ actorIdentifier: string } | null>;
 }) {
   const authenticate = async (request: Request) => {
@@ -53,7 +56,12 @@ export function createSyncThreadApplication<WrappedTransaction>(options: {
     async fetch(request: Request): Promise<Response> {
       const path = new URL(request.url).pathname;
 
-      if (path !== "/thread-import" && path !== "/thread-command" && path !== "/operation")
+      if (
+        path !== "/thread-import" &&
+        path !== "/thread-command" &&
+        path !== "/operation" &&
+        path !== "/authority"
+      )
         return handleSync(request);
 
       if (request.method !== "POST")
@@ -65,6 +73,27 @@ export function createSyncThreadApplication<WrappedTransaction>(options: {
 
       try {
         const input: unknown = await request.json();
+
+        if (path === "/authority") {
+          const descriptor = v.parse(
+            v.strictObject({ workspaceIdentifier: v.pipe(v.string(), v.uuid()) }),
+            input,
+          );
+          const current = await options.database.transaction(async (transaction) => {
+            await authorizeSyncThreadWorkspace({
+              transaction,
+              workspaceIdentifier: descriptor.workspaceIdentifier,
+              actorIdentifier: principal.userIdentifier,
+            });
+
+            return readSyncWorkspaceAuthority(transaction, descriptor.workspaceIdentifier);
+          });
+
+          if (current.phase !== "active" || current.deploymentPhase !== "active")
+            throw new SyncAuthorityFenced();
+
+          return Response.json(current.authority, { headers: { "cache-control": "no-store" } });
+        }
 
         if (path === "/thread-import") {
           const upload = v.parse(SyncThreadImportUploadSchema, input);
@@ -113,20 +142,32 @@ export function createSyncThreadApplication<WrappedTransaction>(options: {
 
         return Response.json({ receipt: receipt ?? null });
       } catch (cause) {
-        if (cause instanceof v.ValiError || cause instanceof SyntaxError)
-          return Response.json({ error: "invalid_request" }, { status: 400 });
-
-        if (
-          cause instanceof SyncThreadAccessError ||
-          (cause instanceof DaemonError && cause.code === "forbidden")
-        )
-          return Response.json({ error: "forbidden" }, { status: 403 });
-
-        if (cause instanceof SyncOperationConflict)
-          return Response.json({ error: "operation_conflict" }, { status: 409 });
+        if (cause instanceof Error) return syncThreadAuthorityErrorResponse(cause);
 
         throw cause;
       }
     },
   };
+}
+
+function syncThreadAuthorityErrorResponse(error: Error): Response {
+  if (error instanceof SyncAuthorityRecoveryRequired)
+    return Response.json({ error: "unknown_after_recovery" }, { status: 425 });
+
+  if (error instanceof SyncAuthorityFenced)
+    return Response.json({ error: "authority_fenced" }, { status: 503 });
+
+  if (error instanceof v.ValiError || error instanceof SyntaxError)
+    return Response.json({ error: "invalid_request" }, { status: 400 });
+
+  if (
+    error instanceof SyncThreadAccessError ||
+    (error instanceof DaemonError && error.code === "forbidden")
+  )
+    return Response.json({ error: "forbidden" }, { status: 403 });
+
+  if (error instanceof SyncOperationConflict)
+    return Response.json({ error: "operation_conflict" }, { status: 409 });
+
+  throw error;
 }

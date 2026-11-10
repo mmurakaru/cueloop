@@ -11,6 +11,7 @@ const SyncApplicationModuleSchema = v.object({
     execute: v.optional(v.function()),
     openText: v.optional(v.function()),
     close: v.optional(v.function()),
+    verifyReplica: v.optional(v.function()),
   }),
 });
 const SyncClientOutcomeSchema = v.optional(
@@ -25,7 +26,7 @@ export async function loadSyncApplication(path: string): Promise<SyncApplication
     SyncApplicationModuleSchema,
     await import(pathToFileURL(resolve(path)).href),
   );
-  const { fetch, connect, execute, openText, close } = module.syncApplication;
+  const { fetch, connect, execute, openText, close, verifyReplica } = module.syncApplication;
 
   return {
     fetch: async (request) => v.parse(v.instance(Response), await fetch(request)),
@@ -42,6 +43,11 @@ export async function loadSyncApplication(path: string): Promise<SyncApplication
           validateSyncTextEditorSession(
             v.parse(SyncTextEditorSourceSchema, await openText(arguments_)),
           )
+      : undefined,
+    verifyReplica: verifyReplica
+      ? async (configuration) => {
+          await verifyReplica(configuration);
+        }
       : undefined,
     close: close
       ? async () => {

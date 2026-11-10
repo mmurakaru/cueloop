@@ -1,3 +1,5 @@
+import * as v from "valibot";
+import { SyncOperationIdentifierSchema } from "@cueloop/sync/operations";
 import { expect, test } from "bun:test";
 import React from "react";
 import { testRender } from "@opentui/react/test-utils";
@@ -112,3 +114,72 @@ test.each(["Plan", "Plan 世界 🌍", "Plan e\u0301"])(
     }
   },
 );
+
+test("an unknown request after recovery keeps the editor open and displays its retained draft", async () => {
+  const state = createSyncTextState("Keep this uncertain edit");
+  let snapshot: SyncTextEditorSnapshot = {
+    text: "Keep this uncertain edit",
+    textState: state.state,
+    connection: "connected",
+    freshness: "complete",
+    lifecycle: "active",
+    operation: "pending",
+    saving: false,
+    draftSaved: true,
+    editable: false,
+  };
+  const listeners = new Set<() => void>();
+  let exited = false;
+  const session: SyncTextEditorSession = {
+    getSnapshot: () => snapshot,
+    subscribe(listener) {
+      listeners.add(listener);
+
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+    change() {
+      throw new Error("Uncertain requests retain their original text");
+    },
+    async save() {
+      snapshot = { ...snapshot, operation: "recovery-required" };
+
+      for (const listener of listeners) listener();
+
+      return {
+        status: "recovery-required",
+        reason: "unknown-after-recovery",
+        operationIdentifier: v.parse(
+          SyncOperationIdentifierSchema,
+          "019a691a-c6ae-7000-8000-000000000001",
+        ),
+        workspaceIdentifier: "019a691a-c6ae-7000-8000-000000000002",
+      };
+    },
+    async close() {},
+  };
+  const setup = await testRender(
+    <SyncThreadEditor
+      session={session}
+      theme={DARK}
+      onExit={() => {
+        exited = true;
+      }}
+    />,
+    { width: 100, height: 14, kittyKeyboard: true },
+  );
+
+  try {
+    await settle(setup);
+    await waitForText(setup, "Request pending");
+    setup.mockInput.pressKey("RETURN", { ctrl: true });
+    await settle(setup);
+    await waitForText(setup, "Recovery required - draft retained");
+    expect(setup.captureCharFrame()).toContain("Keep this uncertain edit");
+    expect(exited).toBe(false);
+  } finally {
+    setup.renderer.destroy();
+    await session.close();
+  }
+});

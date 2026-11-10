@@ -36,6 +36,7 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
       collaborator = createSharedRecordClient({ ...stack, ...stack.collaborator });
       await collaborator.run(sharedRecordQueries.records(), { type: "complete" });
       const operation = sharedExecutionOperations.request.create({
+        authority: stack.authority,
         workspaceIdentifier: record.workspaceIdentifier,
         arguments: { recordIdentifier: record.id, text: "Explain this plan" },
       });
@@ -166,6 +167,7 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
         ).rejects.toThrow("HTTP 409");
         await database`UPDATE sync_workspace_member SET role = 'viewer' WHERE workspace_identifier = ${record.workspaceIdentifier} AND user_identifier = ${stack.collaborator.userID}`;
         const denied = sharedExecutionOperations.request.create({
+          authority: stack.authority,
           workspaceIdentifier: record.workspaceIdentifier,
           arguments: { recordIdentifier: record.id, text: "Viewer request" },
         });

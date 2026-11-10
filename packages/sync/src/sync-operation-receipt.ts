@@ -1,3 +1,4 @@
+import { assertSyncAuthorityOperation } from "./sync-authority-database.ts";
 import { createHash } from "node:crypto";
 import serialize from "canonicalize";
 import * as v from "valibot";
@@ -208,6 +209,8 @@ export async function acceptSyncOperation<
 
   if (existing) return existing;
 
+  await assertSyncAuthorityOperation(options.transaction, operation);
+
   if (operation.expiresAt <= now) {
     return persistOperationRejection(
       context,
@@ -296,13 +299,17 @@ export async function findSyncOperationReceipt<
     options.now?.() ?? Date.now(),
   );
 
-  return readOperationReceipt({
+  const receipt = await readOperationReceipt({
     transaction: options.transaction,
     operation,
     actorIdentifier,
     fingerprint: operationFingerprint(operation, actorIdentifier),
     now,
   });
+
+  if (!receipt) await assertSyncAuthorityOperation(options.transaction, operation);
+
+  return receipt;
 }
 
 /** Compaction keeps request identities and acceptance or rejection metadata reserved indefinitely. */

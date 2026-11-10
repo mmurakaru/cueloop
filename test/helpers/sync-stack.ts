@@ -1,3 +1,5 @@
+import { restoreSyncBackup, syncAuthorityReplicaConfiguration } from "@cueloop/sync/restore";
+import { SyncWorkspaceAuthoritySchema } from "@cueloop/sync/authority";
 import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -15,6 +17,7 @@ function testSyncApplicationProfile(application: "shared-record" | "thread" | un
     return {
       migrationDirectory: new URL("../../packages/daemon/migrations/", import.meta.url),
       module: "examples/sync-thread/authority.ts",
+      workspaceTable: "cueloop_sync_workspace",
       ownerSeed:
         "INSERT INTO cueloop_sync_workspace_member (workspace_identifier, actor_identifier, role) SELECT id, 'sync_test_reader', 'owner' FROM cueloop_sync_workspace LIMIT 1;",
       collaboratorSeed:
@@ -25,6 +28,7 @@ function testSyncApplicationProfile(application: "shared-record" | "thread" | un
   return {
     migrationDirectory: new URL("../../examples/sync-workspace/", import.meta.url),
     module: "examples/sync-workspace/authority.ts",
+    workspaceTable: "sync_workspace",
     ownerSeed:
       "INSERT INTO sync_workspace_member (workspace_identifier, user_identifier, role) SELECT workspace_identifier, 'sync_test_reader', 'owner' FROM shared_record LIMIT 1;",
     collaboratorSeed:
@@ -33,8 +37,14 @@ function testSyncApplicationProfile(application: "shared-record" | "thread" | un
   };
 }
 
+function testSyncAuthenticationToken(existing: string | undefined): string {
+  return existing ?? randomBytes(24).toString("hex");
+}
+
 export async function createTestSyncStack(
   options: {
+    authenticationToken?: string;
+    restoreDirectory?: string;
     interceptMutations?: boolean;
     collaborator?: boolean;
     application?: "shared-record" | "thread";
@@ -46,7 +56,7 @@ export async function createTestSyncStack(
   const postgresName = `${name}-postgres`;
   const zeroName = `${name}-zero`;
   const password = randomBytes(24).toString("hex");
-  const token = randomBytes(24).toString("hex");
+  const token = testSyncAuthenticationToken(options.authenticationToken);
   const userIdentifier = "sync_test_reader";
   const collaboratorToken = options.collaborator ? randomBytes(24).toString("hex") : undefined;
   let authority: Bun.Subprocess<"ignore", "pipe", "pipe"> | undefined;
@@ -139,33 +149,89 @@ export async function createTestSyncStack(
       }
     }
 
-    for (const migration of [
-      "@cueloop/sync/migrations/001-operation-receipt.sql",
-      "@cueloop/sync/migrations/002-execution.sql",
-    ]) {
-      await docker(
-        [
-          "exec",
-          "-i",
-          postgresName,
-          "psql",
-          "-v",
-          "ON_ERROR_STOP=1",
-          "-U",
-          "sync_test",
-          "-d",
-          "sync_test",
-        ],
-        readFileSync(new URL(import.meta.resolve(migration)), "utf8"),
-      );
-    }
-
     const threadApplication = options.application === "thread";
-    const migrationDirectory = profile.migrationDirectory;
+    let recovery: Awaited<ReturnType<typeof restoreSyncBackup>> | undefined;
 
-    for (const migration of readdirSync(migrationDirectory)
-      .filter((file) => file.endsWith(".sql"))
-      .sort()) {
+    if (options.restoreDirectory) {
+      recovery = await restoreSyncBackup({
+        databaseURL: `postgres://sync_test:${password}@127.0.0.1:${port}/sync_test`,
+        directory: options.restoreDirectory,
+        tools: {
+          restore: [
+            "docker",
+            "exec",
+            "-i",
+            postgresName,
+            "env",
+            "PGDATABASE=sync_test",
+            "PGUSER=sync_test",
+            "pg_restore",
+          ],
+        },
+      });
+    } else {
+      for (const migration of [
+        "@cueloop/sync/migrations/001-operation-receipt.sql",
+        "@cueloop/sync/migrations/002-execution.sql",
+        "@cueloop/sync/migrations/003-authority.sql",
+      ]) {
+        await docker(
+          [
+            "exec",
+            "-i",
+            postgresName,
+            "psql",
+            "-v",
+            "ON_ERROR_STOP=1",
+            "-U",
+            "sync_test",
+            "-d",
+            "sync_test",
+          ],
+          readFileSync(new URL(import.meta.resolve(migration)), "utf8"),
+        );
+      }
+
+      const migrationDirectory = profile.migrationDirectory;
+
+      for (const migration of readdirSync(migrationDirectory)
+        .filter((file) => file.endsWith(".sql"))
+        .sort()) {
+        await docker(
+          [
+            "exec",
+            "-i",
+            postgresName,
+            "psql",
+            "-v",
+            "ON_ERROR_STOP=1",
+            "-U",
+            "sync_test",
+            "-d",
+            "sync_test",
+          ],
+          readFileSync(new URL(migration, migrationDirectory), "utf8"),
+        );
+      }
+
+      if (threadApplication) {
+        await docker(
+          [
+            "exec",
+            "-i",
+            postgresName,
+            "psql",
+            "-v",
+            "ON_ERROR_STOP=1",
+            "-U",
+            "sync_test",
+            "-d",
+            "sync_test",
+          ],
+          "INSERT INTO cueloop_sync_workspace (title) VALUES ('Thread workspace');",
+        );
+      }
+
       await docker(
         [
           "exec",
@@ -179,11 +245,27 @@ export async function createTestSyncStack(
           "-d",
           "sync_test",
         ],
-        readFileSync(new URL(migration, migrationDirectory), "utf8"),
+        profile.ownerSeed,
       );
-    }
 
-    if (threadApplication) {
+      if (collaboratorToken) {
+        await docker(
+          [
+            "exec",
+            "-i",
+            postgresName,
+            "psql",
+            "-v",
+            "ON_ERROR_STOP=1",
+            "-U",
+            "sync_test",
+            "-d",
+            "sync_test",
+          ],
+          profile.collaboratorSeed,
+        );
+      }
+
       await docker(
         [
           "exec",
@@ -197,43 +279,19 @@ export async function createTestSyncStack(
           "-d",
           "sync_test",
         ],
-        "INSERT INTO cueloop_sync_workspace (title) VALUES ('Thread workspace');",
+        `INSERT INTO sync_authority (phase) VALUES ('active'); INSERT INTO sync_workspace_authority (workspace_identifier) SELECT id FROM ${profile.workspaceTable};`,
       );
     }
 
-    await docker(
-      [
-        "exec",
-        "-i",
-        postgresName,
-        "psql",
-        "-v",
-        "ON_ERROR_STOP=1",
-        "-U",
-        "sync_test",
-        "-d",
-        "sync_test",
-      ],
-      profile.ownerSeed,
+    const workspaceAuthority = v.parse(
+      SyncWorkspaceAuthoritySchema,
+      JSON.parse(
+        await docker(
+          ["exec", "-i", postgresName, "psql", "-t", "-A", "-U", "sync_test", "-d", "sync_test"],
+          `SELECT json_build_object('authorityIdentifier', authority.id, 'generation', authority.generation, 'workspaceIdentifier', workspace.workspace_identifier, 'workspaceGeneration', workspace.generation) FROM sync_authority AS authority CROSS JOIN sync_workspace_authority AS workspace LIMIT 1;`,
+        ),
+      ),
     );
-
-    if (collaboratorToken) {
-      await docker(
-        [
-          "exec",
-          "-i",
-          postgresName,
-          "psql",
-          "-v",
-          "ON_ERROR_STOP=1",
-          "-U",
-          "sync_test",
-          "-d",
-          "sync_test",
-        ],
-        profile.collaboratorSeed,
-      );
-    }
 
     const environment = {
       ...process.env,
@@ -302,6 +360,7 @@ export async function createTestSyncStack(
       `ZERO_CVR_DB=${upstream}`,
       `ZERO_CHANGE_DB=${upstream}`,
       "ZERO_REPLICA_FILE=/data/zero.db",
+      `ZERO_APP_ID=${syncAuthorityReplicaConfiguration(workspaceAuthority).appID}`,
       "ZERO_NUM_SYNC_WORKERS=1",
       "ZERO_ALLOW_LEGACY_QUERIES=false",
       "ZERO_ENABLE_CRUD_MUTATIONS=false",
@@ -351,6 +410,10 @@ export async function createTestSyncStack(
 
     return {
       cacheURL,
+      postgresContainer: postgresName,
+      authority: workspaceAuthority,
+      recovery,
+      replica: syncAuthorityReplicaConfiguration(workspaceAuthority),
       authorityURL,
       pauseNextMutation: () => {
         if (!mutationProxy) throw new Error("Sync test mutation interception is not enabled");

@@ -136,7 +136,8 @@ See the [query guide](./queries.md) for authorization and pagination, and the [o
 ## Authority
 
 Import `createSyncAuthority` from `@cueloop/sync/server`.
-Provide the schema, database adapter, authentication callback, and named query and mutation handlers.
+Provide the schema, authority-wrapped database adapter, authentication callback, and named query and mutation handlers.
+The [recovery guide](./recovery.md) defines the transactional fence and generation checks.
 The authentication callback derives the principal from verified credentials.
 The authority passes that identity to the query and mutation protocols.
 Application handlers enforce record permissions.
@@ -176,7 +177,8 @@ Local sessions operate without the sync services.
 
 The repository's `examples/sync-workspace` application defines an independent shared-record schema and authenticated query and mutation handlers.
 Its SQL migration targets PostgreSQL 18 with UUID v7 identifiers.
-Apply its numbered SQL migrations in order and provision an active `sync_workspace_member` row for the verified application identity.
+Initialize the SDK database with the [recovery procedure](./recovery.md), then apply the example SQL migrations in order.
+Provision an active `sync_workspace_member` row and a `sync_workspace_authority` binding for each application workspace.
 For comment operations, save a created envelope and use `--operation ./comment.json` to submit it or add `--operation-status` for receipt lookup.
 Set `SYNC_AUTHORITY_URL` to the authenticated application authority for these commands.
 The same options work through the experimental `cueloop sync connect` command.

@@ -1,3 +1,4 @@
+import type { SyncWorkspaceAuthority } from "@cueloop/sync/authority";
 import { chromium, type Page } from "playwright";
 import { expect } from "bun:test";
 import * as v from "valibot";
@@ -45,6 +46,7 @@ export async function withTestSyncBrowser<Result>(
 }
 
 export async function verifyTestBrowserSync(options: {
+  authority: SyncWorkspaceAuthority;
   cacheURL: string;
   userID: string;
   auth: string;
@@ -58,6 +60,7 @@ export async function verifyTestBrowserSync(options: {
         return module.verifyBrowserSync(configuration);
       },
       {
+        authority: options.authority,
         cacheURL: options.cacheURL,
         userID: options.userID,
         auth: options.auth,
@@ -77,6 +80,7 @@ export async function verifyTestBrowserSync(options: {
 }
 
 export async function verifyTestBrowserQuery(options: {
+  authority: SyncWorkspaceAuthority;
   cacheURL: string;
   userID: string;
   auth: string;
@@ -100,6 +104,7 @@ export async function verifyTestBrowserQuery(options: {
       },
       {
         moduleUrl,
+        authority: options.authority,
         cacheURL: options.cacheURL,
         userID: options.userID,
         auth: options.auth,

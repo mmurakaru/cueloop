@@ -34,6 +34,7 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
 
       const initialized = await submitSyncOperation({
         operation: sharedTextOperations.initialize.create({
+          authority: stack.authority,
           workspaceIdentifier: original.workspaceIdentifier,
           arguments: {
             recordIdentifier: original.id,
@@ -62,6 +63,7 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
         });
         const operations = [firstEdit, secondEdit].map((change) =>
           sharedTextOperations.edit.create({
+            authority: stack.authority,
             workspaceIdentifier: original.workspaceIdentifier,
             arguments: { recordIdentifier: original.id, update: change.update },
           }),

@@ -1,3 +1,4 @@
+import { SyncAuthorityRecoveryRequired } from "@cueloop/sync/authority";
 import * as v from "valibot";
 import {
   SyncOperationReceiptSchema,
@@ -19,6 +20,8 @@ export async function lookupSharedOperationReceipt(options: {
       signal: AbortSignal.timeout(30000),
     },
   );
+
+  if (response.status === 425) throw new SyncAuthorityRecoveryRequired();
 
   if (response.status === 409) throw new SyncOperationConflict();
 

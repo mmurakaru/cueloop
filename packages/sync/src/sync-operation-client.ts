@@ -1,3 +1,4 @@
+import { SyncAuthorityRecoveryRequired } from "./sync-authority-protocol.ts";
 import type { MutatorResult } from "@rocicorp/zero";
 import * as v from "valibot";
 import {
@@ -10,6 +11,12 @@ import {
 
 export type SyncOperationOutcome =
   | SyncOperationReceipt
+  | {
+      status: "recovery-required";
+      reason: "unknown-after-recovery";
+      operationIdentifier: SyncOperation["operationIdentifier"];
+      workspaceIdentifier: string;
+    }
   | {
       status: "pending";
       operationIdentifier: SyncOperation["operationIdentifier"];
@@ -39,6 +46,12 @@ export async function submitSyncOperation<Operation extends SyncOperation>(optio
     workspaceIdentifier: operation.workspaceIdentifier,
   };
 
+  const recoveryRequired: SyncOperationOutcome = {
+    ...pending,
+    status: "recovery-required",
+    reason: "unknown-after-recovery",
+  };
+
   if (options.signal?.aborted) return pending;
 
   const interrupted = Promise.withResolvers<SyncOperationOutcome>();
@@ -58,6 +71,13 @@ export async function submitSyncOperation<Operation extends SyncOperation>(optio
       )
         throw new SyncOperationConflict();
 
+      if (
+        result.type === "error" &&
+        result.error.type === "app" &&
+        v.is(v.object({ name: v.literal("SyncAuthorityRecoveryRequired") }), result.error.details)
+      )
+        return recoveryRequired;
+
       const input =
         result.type === "success" && result.data !== undefined
           ? result.data
@@ -75,6 +95,8 @@ export async function submitSyncOperation<Operation extends SyncOperation>(optio
 
       return receipt;
     } catch (cause) {
+      if (cause instanceof SyncAuthorityRecoveryRequired) return recoveryRequired;
+
       if (cause instanceof SyncOperationConflict) throw cause;
 
       return pending;

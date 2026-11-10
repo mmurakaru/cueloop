@@ -1,3 +1,4 @@
+import { SyncAuthorityRecoveryRequired, SyncAuthorityFenced } from "@cueloop/sync/authority";
 import * as v from "valibot";
 import type { SyncThreadRuntime } from "./sync-thread-runtime";
 /**
@@ -421,7 +422,14 @@ export class DaemonServer {
 
       connection.write(JSON.stringify({ id: request.id, result }) + "\n");
     } catch (err) {
-      const code = err instanceof DaemonError ? err.code : "internal";
+      const code =
+        err instanceof DaemonError
+          ? err.code
+          : err instanceof SyncAuthorityRecoveryRequired
+            ? "sync_recovery_required"
+            : err instanceof SyncAuthorityFenced
+              ? "sync_authority_fenced"
+              : "internal";
       const message = err instanceof Error ? err.message : String(err);
 
       connection.write(JSON.stringify({ id: request.id, error: { code, message } }) + "\n");
@@ -528,7 +536,7 @@ export class DaemonServer {
     "session.syncResume": async (_connection, request) => {
       const parameters = parseParams("session.syncResume", request.params);
 
-      return (await this.getSyncRuntime()).resume(parameters.id);
+      return (await this.getSyncRuntime()).resume(parameters.id, parameters.acceptRecovery);
     },
     "agent.configure": (_connection, request) => {
       const params = parseParams("agent.configure", request.params);

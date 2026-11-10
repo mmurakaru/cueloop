@@ -85,3 +85,28 @@ test("failed authority startup closes the initialized application", async () => 
     rmSync(directory, { recursive: true, force: true });
   }
 });
+
+test("database commands require a credential environment reference before writing a backup", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "cueloop-sync-cli-database-"));
+  const archive = join(directory, "backup");
+  const reference = `CUELOOP_SYNC_DATABASE_${crypto.randomUUID().replaceAll("-", "_")}`;
+
+  try {
+    await expect(
+      runSyncCli([
+        "database",
+        "backup",
+        "--database-env",
+        "postgres://credential@example.test/private",
+        "--directory",
+        archive,
+      ]),
+    ).rejects.toThrow("name an environment variable");
+    await expect(
+      runSyncCli(["database", "backup", "--database-env", reference, "--directory", archive]),
+    ).rejects.toThrow("environment variable is empty");
+    expect(existsSync(archive)).toBe(false);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});

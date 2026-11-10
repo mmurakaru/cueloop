@@ -1,4 +1,8 @@
-import { createSyncThreadProfile, type SyncThreadProfile } from "./sync-thread-profile";
+import {
+  createSyncThreadProfile,
+  type SyncThreadProfile,
+  type ConnectedSyncThreadProfile,
+} from "./sync-thread-profile";
 import type { Thread } from "@cueloop/schema";
 import { createSyncThreadDiffLifecycle } from "./sync-thread-diff-refresh";
 import { isDeepStrictEqual } from "node:util";
@@ -46,7 +50,7 @@ const CommandResultSchema = v.object({
 });
 
 interface ThreadObservation {
-  profile: SyncThreadProfile;
+  profile: ConnectedSyncThreadProfile;
   version: number;
   failure?: Error;
   changed: Set<() => void>;
@@ -114,7 +118,6 @@ export class SyncThreadRuntime {
     const key = JSON.stringify({
       ...connection,
       recordIdentifier: undefined,
-      workspaceIdentifier: undefined,
     });
     const existing = this.profiles.get(key);
 
@@ -139,15 +142,19 @@ export class SyncThreadRuntime {
     return profile;
   }
 
-  private observe(threadIdentifier: string): ThreadObservation {
+  private async observe(
+    threadIdentifier: string,
+    acceptRecovery = false,
+  ): Promise<ThreadObservation> {
     this.assertEnabled(threadIdentifier);
+    const manifest = this.store.syncState.read(threadIdentifier);
+    const profile = await this.profile(manifest.connection).connect();
     const existing = this.observations.get(threadIdentifier);
 
-    if (existing && !existing.failure) return existing;
+    if (existing && !existing.failure && existing.profile.client === profile.client)
+      return existing;
 
     existing?.close();
-    const manifest = this.store.syncState.read(threadIdentifier);
-    const profile = this.profile(manifest.connection);
     const query = syncThreadQueries.ownerDocument({
       workspaceIdentifier: manifest.connection.workspaceIdentifier,
       recordIdentifier: manifest.connection.recordIdentifier,
@@ -168,6 +175,8 @@ export class SyncThreadRuntime {
     void (async () => {
       try {
         for await (const snapshot of subscription) {
+          if (this.observations.get(threadIdentifier) !== observation) break;
+
           if (this.closed || !this.isEnabled(threadIdentifier)) {
             subscription.close();
             throw new DaemonError(
@@ -191,7 +200,10 @@ export class SyncThreadRuntime {
 
           if (observation.version === snapshot.data.thread.version) continue;
 
-          this.options.core.sessionProjectSyncThread(thread, snapshot.data.thread.version);
+          this.options.core.sessionProjectSyncThread(thread, snapshot.data.thread.version, {
+            authority: profile.authority,
+            acceptRecovery,
+          });
           observation.version = snapshot.data.thread.version;
 
           for (const notify of observation.changed) notify();
@@ -250,7 +262,7 @@ export class SyncThreadRuntime {
     if (this.store.syncState.isFenced(threadIdentifier))
       return this.retryImport(threadIdentifier, connection);
 
-    const profile = this.profile({ ...connection, recordIdentifier: "" });
+    const profile = await this.profile({ ...connection, recordIdentifier: "" }).connect();
     const workspace = await profile.client.run(
       syncThreadQueries.workspace({ workspaceIdentifier: connection.workspaceIdentifier }),
       { type: "complete" },
@@ -269,6 +281,7 @@ export class SyncThreadRuntime {
 
     const upload = await prepareSyncThreadImport({
       workspaceIdentifier: connection.workspaceIdentifier,
+      authority: profile.authority,
       thread: this.options.core.sessionGet(threadIdentifier),
     });
 
@@ -297,7 +310,7 @@ export class SyncThreadRuntime {
 
     if (manifest.phase === "remote") return this.resume(threadIdentifier);
 
-    const profile = this.profile(manifest.connection);
+    const profile = await this.profile(manifest.connection).connect();
     const previous = v.parse(
       SyncThreadImportUploadSchema,
       JSON.parse(this.store.syncState.readUpload(threadIdentifier)),
@@ -312,6 +325,7 @@ export class SyncThreadRuntime {
 
     const operation = syncThreadOperations.import.create({
       workspaceIdentifier: previous.operation.workspaceIdentifier,
+      authority: profile.authority,
       arguments: previous.operation.arguments,
     });
     const upload = v.parse(SyncThreadImportUploadSchema, { ...previous, operation });
@@ -321,10 +335,10 @@ export class SyncThreadRuntime {
     return this.resume(threadIdentifier);
   }
 
-  async resume(threadIdentifier: string) {
+  async resume(threadIdentifier: string, acceptRecovery = false) {
     this.assertEnabled(threadIdentifier);
     const manifest = this.store.syncState.read(threadIdentifier);
-    const profile = this.profile(manifest.connection);
+    const profile = await this.profile(manifest.connection).connect();
 
     if (manifest.phase === "importing") {
       const upload = v.parse(
@@ -360,6 +374,12 @@ export class SyncThreadRuntime {
             "Sync Thread import acknowledgement is pending; resume with its saved operation identity",
           );
 
+        if (outcome.status === "recovery-required")
+          throw new DaemonError(
+            "sync_recovery_required",
+            "Sync Thread import outcome is unknown after recovery; its saved operation and snapshot are retained",
+          );
+
         receipt = outcome;
       }
 
@@ -370,7 +390,7 @@ export class SyncThreadRuntime {
         );
     }
 
-    const observation = this.observe(threadIdentifier);
+    const observation = await this.observe(threadIdentifier, acceptRecovery);
 
     await this.waitForProjection(observation, 1);
 
@@ -425,10 +445,13 @@ export class SyncThreadRuntime {
         "Sync Thread import must complete before accepting new changes",
       );
 
-    const observation = this.observe(threadIdentifier);
+    const observation = await this.observe(threadIdentifier);
+
+    await this.waitForProjection(observation, 1);
     const connection = manifest.connection;
     const prepared = await prepareSyncThreadCommand({
       ...connection,
+      authority: observation.profile.authority,
       expectedVersion:
         capturedVersion ??
         Math.max(observation.version, this.store.syncState.projectionVersion(threadIdentifier)),
@@ -461,7 +484,7 @@ export class SyncThreadRuntime {
     knownReceipt?: SyncOperationReceipt,
   ) {
     const connection = this.store.syncState.read(threadIdentifier).connection;
-    const profile = this.profile(connection);
+    const profile = await this.profile(connection).connect();
     const outcome =
       knownReceipt ?? (await this.submitPreparedCommand(profile, connection, prepared));
 
@@ -469,6 +492,12 @@ export class SyncThreadRuntime {
       throw new DaemonError(
         "sync_command_pending",
         "Sync Thread command acknowledgement is pending; its draft and operation identity are retained",
+      );
+
+    if (outcome.status === "recovery-required")
+      throw new DaemonError(
+        "sync_recovery_required",
+        "Sync Thread command outcome is unknown after recovery; its original draft and operation are retained",
       );
 
     await profile.drafts.recordReceipt({
@@ -528,12 +557,12 @@ export class SyncThreadRuntime {
 
       this.options.core.sessionProjectSyncThread(fork, record.thread.version);
       await profile.drafts.discard(draftIdentifier);
-      this.observe(fork.id);
+      await this.observe(fork.id);
 
       return fork;
     }
 
-    const observation = this.observe(threadIdentifier);
+    const observation = await this.observe(threadIdentifier);
 
     await this.waitForProjection(observation, result.version ?? observation.version);
     await profile.drafts.discard(draftIdentifier);
@@ -634,7 +663,7 @@ export class SyncThreadRuntime {
   }
 
   private async submitPreparedCommand(
-    profile: SyncThreadProfile,
+    profile: ConnectedSyncThreadProfile,
     connection: SyncThreadConnection,
     prepared: v.InferOutput<typeof PreparedCommandSchema>,
   ) {
@@ -679,8 +708,7 @@ export class SyncThreadRuntime {
 
     await Promise.all(
       [...this.profiles.values()].map(async (profile) => {
-        await profile.client.close();
-        await profile.drafts.close();
+        await profile.close();
       }),
     );
     this.observations.clear();

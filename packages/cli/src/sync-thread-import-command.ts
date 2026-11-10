@@ -2,7 +2,7 @@ import { DaemonClient } from "@cueloop/daemon/client";
 import { parseArgs, stringFlag } from "./args";
 
 export async function syncThreadImportCommand(arguments_: string[]): Promise<number> {
-  const { positional, flags } = parseArgs(arguments_);
+  const { positional, flags } = parseArgs(arguments_, ["accept-recovery"]);
   const [command, threadIdentifier, draftIdentifier] = positional;
 
   if (
@@ -38,7 +38,10 @@ export async function syncThreadImportCommand(arguments_: string[]): Promise<num
     }
 
     if (command === "resume") {
-      const thread = await client.sessionSyncResume(threadIdentifier);
+      const thread = await client.sessionSyncResume(
+        threadIdentifier,
+        flags["accept-recovery"] === true,
+      );
 
       console.log(JSON.stringify({ threadIdentifier: thread.id, status: thread.status }));
 
