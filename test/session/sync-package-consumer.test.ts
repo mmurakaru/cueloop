@@ -77,9 +77,10 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
   async () => {
     const stack = await createTestSyncStack();
     const database = postgres(stack.environment.SYNC_DATABASE_URL);
-    const consumer = await createTestPackedSyncConsumer();
+    let consumer: Awaited<ReturnType<typeof createTestPackedSyncConsumer>> | undefined;
 
     try {
+      consumer = await createTestPackedSyncConsumer();
       await database.unsafe("CREATE DATABASE sync_compiled_initialize");
       await database.unsafe("CREATE DATABASE sync_compiled_restore");
       const tools = (name: string) => ({
@@ -158,7 +159,7 @@ console.log(JSON.stringify(result));
       });
       expect(restored.authority?.generation).not.toBe(stack.authority.generation);
     } finally {
-      await consumer.close();
+      await consumer?.close();
       await database.end();
       await stack.close();
     }
