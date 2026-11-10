@@ -1,5 +1,5 @@
+import { generateEd25519Key } from "../../packages/gateway/src/host-key";
 import * as v from "valibot";
-import { utils as sshUtilities } from "ssh2";
 import { join } from "node:path";
 import type { Thread } from "@cueloop/schema";
 import { sharePublicationView } from "@cueloop/schema";
@@ -26,7 +26,7 @@ export async function exerciseTestSyncThreadSharing(options: {
   const shareOwner = {
     port: gateway.port,
     username: "share",
-    privateKey: sshUtilities.generateKeyPairSync("ed25519").private,
+    privateKey: generateEd25519Key(),
   };
   const viewer = new MirrorSshView();
 
@@ -56,7 +56,7 @@ export async function exerciseTestSyncThreadSharing(options: {
       {
         port: gateway.port,
         username: shareIdentifier,
-        privateKey: sshUtilities.generateKeyPairSync("ed25519").private,
+        privateKey: generateEd25519Key(),
       },
       "Shared sync review",
     );
