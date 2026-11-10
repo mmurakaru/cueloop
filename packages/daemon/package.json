@@ -48,7 +48,8 @@
     "./migrations/001-sync-thread.sql": "./migrations/001-sync-thread.sql",
     "./sync-thread-mutators": "./src/sync-thread-mutators.ts",
     "./sync-thread-import-client": "./src/sync-thread-import-client.ts",
-    "./sync-thread-authority": "./src/sync-thread-authority.ts"
+    "./sync-thread-authority": "./src/sync-thread-authority.ts",
+    "./sync-thread-transfer": "./src/sync-thread-transfer.ts"
   },
   "publishConfig": {
     "access": "public"

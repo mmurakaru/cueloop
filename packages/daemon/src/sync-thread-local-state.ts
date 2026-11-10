@@ -1,4 +1,9 @@
-import { SyncAuthorityIdentitySchema, type SyncAuthorityIdentity } from "@cueloop/sync/authority";
+import {
+  SyncAuthorityIdentitySchema,
+  SyncWorkspaceAuthoritySchema,
+  type SyncAuthorityIdentity,
+  type SyncWorkspaceAuthority,
+} from "@cueloop/sync/authority";
 import { SyncThreadConnectionSchema, type SyncThreadConnection } from "./sync-thread-connection";
 import { createHash, randomUUID } from "node:crypto";
 import {
@@ -28,7 +33,9 @@ const ManifestSchema = v.strictObject({
 const ProjectionSchema = v.strictObject({
   version: v.pipe(v.number(), v.safeInteger(), v.minValue(0)),
   thread: ThreadRecordSchema,
-  authority: v.optional(SyncAuthorityIdentitySchema),
+  authority: v.optional(
+    v.union([SyncWorkspaceAuthoritySchema, v.strictObject(SyncAuthorityIdentitySchema.entries)]),
+  ),
   heldMessageIdentifiers: v.optional(v.array(v.string()), []),
 });
 
@@ -36,11 +43,11 @@ interface SyncThreadProjectionRecord {
   thread: Thread;
   version: number;
   heldMessageIdentifiers: string[];
-  authority?: SyncAuthorityIdentity;
+  authority?: SyncAuthorityIdentity | SyncWorkspaceAuthority;
 }
 
 export interface SyncThreadProjectionOptions {
-  authority?: SyncAuthorityIdentity;
+  authority?: SyncAuthorityIdentity | SyncWorkspaceAuthority;
   acceptRecovery?: boolean;
 }
 
@@ -122,7 +129,7 @@ export class SyncThreadLocalState {
     upload: string;
     phase?: "importing" | "remote";
     version?: number;
-    authority?: SyncAuthorityIdentity;
+    authority?: SyncAuthorityIdentity | SyncWorkspaceAuthority;
   }): void {
     const manifest = v.parse(ManifestSchema, {
       threadIdentifier: options.thread.id,
@@ -173,6 +180,34 @@ export class SyncThreadLocalState {
     return manifest;
   }
 
+  rebind(threadIdentifier: string, connection: SyncThreadConnection): void {
+    const previous = this.read(threadIdentifier);
+    const target = v.parse(SyncThreadConnectionSchema, connection);
+
+    if (
+      previous.phase !== "remote" ||
+      previous.connection.workspaceIdentifier !== target.workspaceIdentifier ||
+      previous.connection.actorIdentifier !== target.actorIdentifier ||
+      previous.connection.recordIdentifier !== target.recordIdentifier
+    )
+      throw new Error(
+        "Sync Thread rebind must preserve its accepted workspace, actor, and record identities",
+      );
+
+    const transition = JSON.stringify({ previous: previous.connection, target });
+    const directory = join(this.threadDirectory(threadIdentifier), "rebindings");
+
+    mkdirSync(directory, { recursive: true, mode: 0o700 });
+    writeSyncThreadFile(
+      join(directory, `${createHash("sha256").update(transition).digest("hex")}.json`),
+      transition,
+    );
+    writeSyncThreadFile(
+      this.manifestPath(threadIdentifier),
+      JSON.stringify({ ...previous, connection: target }),
+    );
+  }
+
   readUpload(threadIdentifier: string): string {
     return readFileSync(join(this.threadDirectory(threadIdentifier), "import.json"), "utf8");
   }
@@ -214,7 +249,11 @@ export class SyncThreadLocalState {
       authority !== undefined &&
       (previous.authority
         ? authority.authorityIdentifier !== previous.authority.authorityIdentifier ||
-          authority.generation !== previous.authority.generation
+          authority.generation !== previous.authority.generation ||
+          ("workspaceGeneration" in authority ? authority.workspaceGeneration : undefined) !==
+            ("workspaceGeneration" in previous.authority
+              ? previous.authority.workspaceGeneration
+              : undefined)
         : manifest.phase === "remote");
 
     if (changedGeneration && !options.acceptRecovery)

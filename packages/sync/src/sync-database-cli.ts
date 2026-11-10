@@ -1,3 +1,4 @@
+import { readSyncCommandFlag, readSyncDatabaseCredential } from "./sync-command-arguments.ts";
 import { initializeSyncDatabase, activateSyncDatabase } from "./sync-database-initialize.ts";
 import { readFile } from "node:fs/promises";
 import * as v from "valibot";
@@ -24,28 +25,6 @@ PostgreSQL credentials must be stored in the named environment variables.
 Restore does not activate traffic or resume held execution requests.
 `;
 
-function databaseFlag(arguments_: string[], name: string, fallback?: string): string {
-  const index = arguments_.indexOf(name);
-  const value = index < 0 ? fallback : arguments_[index + 1];
-
-  if (!value || value.startsWith("--")) throw new Error(`Sync database command requires ${name}`);
-
-  return value;
-}
-
-function databaseCredential(arguments_: string[], name: string, fallback?: string): string {
-  const reference = databaseFlag(arguments_, name, fallback);
-
-  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(reference))
-    throw new Error("Sync database credential must name an environment variable");
-
-  const value = process.env[reference];
-
-  if (!value) throw new Error("Sync database credential environment variable is empty");
-
-  return value;
-}
-
 export async function runSyncDatabaseCli(arguments_: string[]): Promise<number> {
   const command = arguments_[0];
 
@@ -60,7 +39,7 @@ export async function runSyncDatabaseCli(arguments_: string[]): Promise<number> 
   )
     throw new Error("Sync database command is unknown");
 
-  const databaseURL = databaseCredential(arguments_, "--database-env", "SYNC_DATABASE_URL");
+  const databaseURL = readSyncDatabaseCredential(arguments_, "--database-env", "SYNC_DATABASE_URL");
   let result: unknown;
 
   switch (command) {
@@ -70,13 +49,13 @@ export async function runSyncDatabaseCli(arguments_: string[]): Promise<number> 
     case "backup":
       result = await createSyncBackup({
         databaseURL,
-        directory: databaseFlag(arguments_, "--directory"),
+        directory: readSyncCommandFlag(arguments_, "--directory"),
       });
       break;
     case "restore":
       result = await restoreSyncBackup({
         databaseURL,
-        directory: databaseFlag(arguments_, "--directory"),
+        directory: readSyncCommandFlag(arguments_, "--directory"),
       });
       break;
     case "status":
@@ -85,7 +64,7 @@ export async function runSyncDatabaseCli(arguments_: string[]): Promise<number> 
     case "migrate": {
       const migrations = v.parse(
         v.array(v.strictObject({ identity: v.string(), path: v.string() })),
-        JSON.parse(await readFile(databaseFlag(arguments_, "--migrations"), "utf8")),
+        JSON.parse(await readFile(readSyncCommandFlag(arguments_, "--migrations"), "utf8")),
       );
 
       result = await migrateSyncDatabase({ databaseURL, migrations });
@@ -96,7 +75,7 @@ export async function runSyncDatabaseCli(arguments_: string[]): Promise<number> 
         databaseURL,
         authority: v.parse(
           SyncAuthorityIdentitySchema,
-          JSON.parse(await readFile(databaseFlag(arguments_, "--authority"), "utf8")),
+          JSON.parse(await readFile(readSyncCommandFlag(arguments_, "--authority"), "utf8")),
         ),
       });
       break;
@@ -106,12 +85,14 @@ export async function runSyncDatabaseCli(arguments_: string[]): Promise<number> 
           authority: SyncAuthorityIdentitySchema,
           source: v.nullable(SyncAuthorityIdentitySchema),
         }),
-        JSON.parse(await readFile(databaseFlag(arguments_, "--recovery"), "utf8")),
+        JSON.parse(await readFile(readSyncCommandFlag(arguments_, "--recovery"), "utf8")),
       );
       const sourceDatabaseURL = recovery.source
-        ? databaseCredential(arguments_, "--source-database-env")
+        ? readSyncDatabaseCredential(arguments_, "--source-database-env")
         : undefined;
-      const application = await loadSyncApplication(databaseFlag(arguments_, "--application"));
+      const application = await loadSyncApplication(
+        readSyncCommandFlag(arguments_, "--application"),
+      );
 
       try {
         if (!application.verifyReplica)

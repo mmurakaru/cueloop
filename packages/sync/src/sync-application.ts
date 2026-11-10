@@ -1,3 +1,7 @@
+import {
+  defineSyncWorkspaceTransferAdapter,
+  SyncTransferTableSchema,
+} from "./sync-transfer-adapter.ts";
 import { validateSyncTextEditorSession, SyncTextEditorSourceSchema } from "./sync-text-session.ts";
 import * as v from "valibot";
 import { resolve } from "node:path";
@@ -12,6 +16,14 @@ const SyncApplicationModuleSchema = v.object({
     openText: v.optional(v.function()),
     close: v.optional(v.function()),
     verifyReplica: v.optional(v.function()),
+    transferAdapter: v.optional(
+      v.object({
+        identifier: v.string(),
+        tables: v.array(SyncTransferTableSchema),
+        verifyImport: v.function(),
+      }),
+    ),
+    verifyWorkspaceReplica: v.optional(v.function()),
   }),
 });
 const SyncClientOutcomeSchema = v.optional(
@@ -26,7 +38,16 @@ export async function loadSyncApplication(path: string): Promise<SyncApplication
     SyncApplicationModuleSchema,
     await import(pathToFileURL(resolve(path)).href),
   );
-  const { fetch, connect, execute, openText, close, verifyReplica } = module.syncApplication;
+  const {
+    fetch,
+    connect,
+    execute,
+    openText,
+    close,
+    verifyReplica,
+    transferAdapter,
+    verifyWorkspaceReplica,
+  } = module.syncApplication;
 
   return {
     fetch: async (request) => v.parse(v.instance(Response), await fetch(request)),
@@ -47,6 +68,20 @@ export async function loadSyncApplication(path: string): Promise<SyncApplication
     verifyReplica: verifyReplica
       ? async (configuration) => {
           await verifyReplica(configuration);
+        }
+      : undefined,
+    transferAdapter: transferAdapter
+      ? defineSyncWorkspaceTransferAdapter({
+          identifier: transferAdapter.identifier,
+          tables: transferAdapter.tables,
+          verifyImport: async (transaction, workspaceIdentifier) => {
+            await transferAdapter.verifyImport(transaction, workspaceIdentifier);
+          },
+        })
+      : undefined,
+    verifyWorkspaceReplica: verifyWorkspaceReplica
+      ? async (authority) => {
+          await verifyWorkspaceReplica(authority);
         }
       : undefined,
     close: close

@@ -235,3 +235,56 @@ test.each(["accepted", "rejected"] as const)(
     }
   },
 );
+
+test("draft transfer is atomic, preserves pending envelopes, and detects conflicts across restart", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "cueloop-sync-draft-transfer-"));
+  const storage = createSyncSqliteStorage({ directory });
+  const source = createSyncDraftStore({
+    storage,
+    authorityIdentifier: "source",
+    userIdentifier: "alice",
+  });
+  let target = createSyncDraftStore({
+    storage,
+    authorityIdentifier: "target",
+    userIdentifier: "alice",
+  });
+
+  try {
+    const saved = await source.save({ content: "Retain this uncertain text" });
+    const operation = defineSyncOperation({
+      name: "comment.add",
+      version: 1,
+      arguments: v.object({ body: v.string() }),
+    }).create({
+      workspaceIdentifier: "019a6650-0000-7000-8000-000000000001",
+      arguments: { body: "Retain this uncertain text" },
+    });
+
+    await source.markSubmitted({ draftIdentifier: saved.draftIdentifier, operation });
+    const records = await source.list();
+
+    await target.importRecords(records);
+    await target.importRecords(records);
+    await target.close();
+    target = createSyncDraftStore({
+      storage,
+      authorityIdentifier: "target",
+      userIdentifier: "alice",
+    });
+    expect(await target.list()).toEqual(records);
+    expect(await source.list()).toEqual(records);
+    const [pending] = records;
+
+    if (!pending) throw new Error("Transfer test requires its saved pending draft");
+
+    await expect(
+      target.importRecords([{ ...pending, content: "Conflicting user content" }]),
+    ).rejects.toThrow("conflicts");
+    expect(await target.list()).toEqual(records);
+  } finally {
+    await source.close();
+    await target.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});

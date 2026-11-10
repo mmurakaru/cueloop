@@ -1,3 +1,4 @@
+import { rebindSyncWorkspace } from "@cueloop/sync/rebind";
 import {
   createSyncThreadProfile,
   type SyncThreadProfile,
@@ -333,6 +334,68 @@ export class SyncThreadRuntime {
     this.store.syncState.replaceRejectedUpload(threadIdentifier, JSON.stringify(upload));
 
     return this.resume(threadIdentifier);
+  }
+
+  async rebind(threadIdentifier: string, connection: SyncThreadConnection) {
+    this.assertEnabled(threadIdentifier);
+    const previous = this.store.syncState.read(threadIdentifier);
+
+    if (
+      previous.phase !== "remote" ||
+      previous.connection.workspaceIdentifier !== connection.workspaceIdentifier ||
+      previous.connection.actorIdentifier !== connection.actorIdentifier ||
+      previous.connection.recordIdentifier !== connection.recordIdentifier
+    )
+      throw new DaemonError(
+        "sync_rebind_identity",
+        "Sync Thread rebind must preserve its accepted workspace, actor, and record identities",
+      );
+
+    const source = this.profile(previous.connection);
+    const target = await this.profile(connection).connect();
+    const document = await target.client.run(
+      syncThreadQueries.ownerDocument({
+        workspaceIdentifier: connection.workspaceIdentifier,
+        recordIdentifier: connection.recordIdentifier,
+      }),
+      { type: "complete" },
+    );
+
+    if (!document?.thread || v.parse(ThreadRecordSchema, document.document).id !== threadIdentifier)
+      throw new DaemonError(
+        "sync_rebind_identity",
+        "Sync Thread rebind destination has no matching accepted Thread",
+      );
+
+    const selectedDrafts = new Set(
+      (await this.pendingDrafts(threadIdentifier)).map((draft) => draft.draftIdentifier),
+    );
+    const rebound = await rebindSyncWorkspace({
+      authorityURL: connection.authorityURL,
+      workspaceIdentifier: connection.workspaceIdentifier,
+      headers: { authorization: `Bearer ${target.authenticationToken}` },
+      sourceDrafts: source.drafts,
+      targetDrafts: target.drafts,
+      selectDraft: (draft) => selectedDrafts.has(draft.draftIdentifier),
+      lookup: (operation) =>
+        lookupSyncThreadOperation({
+          authorityURL: connection.authorityURL,
+          authenticationToken: target.authenticationToken,
+          operation,
+        }),
+    });
+
+    if (!isDeepStrictEqual(rebound.authority, target.authority))
+      throw new DaemonError(
+        "sync_recovery_required",
+        "Sync Thread destination changed during rebind; repeat the command",
+      );
+
+    this.observations.get(threadIdentifier)?.close();
+    this.observations.delete(threadIdentifier);
+    this.store.syncState.rebind(threadIdentifier, connection);
+
+    return this.resume(threadIdentifier, true);
   }
 
   async resume(threadIdentifier: string, acceptRecovery = false) {

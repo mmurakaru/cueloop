@@ -5,12 +5,13 @@ import { createSyncDraftStore } from "@cueloop/sync/drafts";
 import { createSyncSqliteStorage } from "@cueloop/sync/storage";
 import { prepareSyncThreadCommand } from "@cueloop/daemon/sync-thread-protocol";
 
-/** Persist the interrupted save-before-submission format without running a daemon or sending changes. */
+/** Persist interrupted native drafts without running a daemon or sending changes. */
 export async function createTestSyncThreadDrafts(options: {
   authority: SyncWorkspaceAuthority;
   home: string;
   threadIdentifier: string;
   expectedVersion: number;
+  submitted?: boolean;
   connection: {
     authorityURL: string;
     cacheURL: string;
@@ -50,6 +51,12 @@ export async function createTestSyncThreadDrafts(options: {
     });
     const retry = await drafts.save({ content: JSON.stringify(prepared) });
     const discard = await drafts.save({ content: JSON.stringify(prepared) });
+
+    if (options.submitted)
+      await drafts.markSubmitted({
+        draftIdentifier: retry.draftIdentifier,
+        operation: prepared.operation,
+      });
 
     return { retryIdentifier: retry.draftIdentifier, discardIdentifier: discard.draftIdentifier };
   } finally {

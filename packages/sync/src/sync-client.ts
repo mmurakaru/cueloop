@@ -1,5 +1,5 @@
 import { syncAuthorityStorageKey } from "./sync-authority-client.ts";
-import type { SyncAuthorityIdentity } from "./sync-authority-protocol.ts";
+import type { SyncAuthorityIdentity, SyncWorkspaceAuthority } from "./sync-authority-protocol.ts";
 import {
   Zero,
   type MutateRequest,
@@ -36,7 +36,7 @@ export interface SyncClient<ApplicationSchema extends Schema, Context> {
 
 export function createSyncClient<const ApplicationSchema extends Schema, Context = unknown>(
   options: ZeroOptions<ApplicationSchema, undefined, Context> & {
-    authority?: SyncAuthorityIdentity;
+    authority?: SyncAuthorityIdentity | SyncWorkspaceAuthority;
   },
 ): SyncClient<ApplicationSchema, Context> {
   if (options.cacheURL !== null && options.kvStore !== "mem" && !options.authority)

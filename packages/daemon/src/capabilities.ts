@@ -31,6 +31,7 @@ const PRIMITIVE_ROLES = {
   "events.subscribe": "any",
   "session.syncImport": "owner",
   "session.syncResume": "owner",
+  "session.syncRebind": "owner",
   "session.syncDrafts": "owner",
   "session.syncRetry": "owner",
   "session.syncDiscard": "owner",

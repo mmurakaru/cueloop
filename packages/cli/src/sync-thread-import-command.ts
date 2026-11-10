@@ -65,13 +65,22 @@ export async function syncThreadImportCommand(arguments_: string[]): Promise<num
         "Sync Thread import requires --workspace, --authority, --cache, --actor, and --token-env; the daemon reads credentials from that environment variable",
       );
 
-    const thread = await client.sessionSyncImport(threadIdentifier, {
+    const connection = {
       workspaceIdentifier,
       authorityURL,
       cacheURL,
       actorIdentifier,
       authenticationTokenEnvironment,
-    });
+    };
+    const recordIdentifier = stringFlag(flags, "record");
+
+    if (command === "rebind" && !recordIdentifier)
+      throw new Error("Sync Thread rebind requires --record with its retained record identity");
+
+    const thread =
+      command === "rebind" && recordIdentifier
+        ? await client.sessionSyncRebind(threadIdentifier, { ...connection, recordIdentifier })
+        : await client.sessionSyncImport(threadIdentifier, connection);
 
     console.log(JSON.stringify({ threadIdentifier: thread.id, status: thread.status }));
 

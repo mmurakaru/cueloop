@@ -1,3 +1,4 @@
+import { sharedWorkspaceTransferAdapter } from "./workspace-transfer.ts";
 import {
   createSyncAuthorityDatabase,
   readSyncAuthority,
@@ -209,6 +210,7 @@ async function fetch(request: Request): Promise<Response> {
 }
 
 export const syncApplication = {
+  transferAdapter: sharedWorkspaceTransferAdapter,
   fetch,
   connect: connectSharedRecord,
   execute: executeSharedRequests,

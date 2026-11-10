@@ -1,3 +1,4 @@
+import { syncThreadTransferAdapter } from "./sync-thread-transfer";
 import { mustGetMutator, mustGetQuery } from "@rocicorp/zero";
 import type { Database } from "@rocicorp/zero/server";
 import type { ServerTransaction } from "@rocicorp/zero";
@@ -53,6 +54,7 @@ export function createSyncThreadApplication<WrappedTransaction>(options: {
   });
 
   return {
+    transferAdapter: syncThreadTransferAdapter,
     async fetch(request: Request): Promise<Response> {
       const path = new URL(request.url).pathname;
 

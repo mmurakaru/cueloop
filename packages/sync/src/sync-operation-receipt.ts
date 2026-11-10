@@ -1,4 +1,9 @@
-import { assertSyncAuthorityOperation } from "./sync-authority-database.ts";
+import { syncTransactionAuthority } from "./sync-authority-context.ts";
+import { SyncAuthorityFenced } from "./sync-authority-protocol.ts";
+import {
+  assertSyncAuthorityOperation,
+  readSyncWorkspaceAuthority,
+} from "./sync-authority-database.ts";
 import { createHash } from "node:crypto";
 import serialize from "canonicalize";
 import * as v from "valibot";
@@ -332,6 +337,14 @@ export async function compactSyncOperationResults<
   );
 
   await options.authorize(options.transaction, workspaceIdentifier);
+
+  if (syncTransactionAuthority(options.transaction)) {
+    const current = await readSyncWorkspaceAuthority(options.transaction, workspaceIdentifier);
+
+    if (current.phase !== "active" || current.deploymentPhase !== "active")
+      throw new SyncAuthorityFenced();
+  }
+
   const now = v.parse(
     v.pipe(v.number(), v.safeInteger(), v.minValue(0)),
     options.now?.() ?? Date.now(),

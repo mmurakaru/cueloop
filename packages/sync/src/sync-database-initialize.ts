@@ -17,6 +17,7 @@ export async function initializeSyncDatabase(options: { databaseURL: string }) {
       "002-execution.sql",
       "003-authority.sql",
       "004-restore-journal.sql",
+      "005-workspace-transfer.sql",
     ].map(async (name) => {
       const source = await readFile(new URL(`../migrations/${name}`, import.meta.url), "utf8");
 

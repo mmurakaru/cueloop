@@ -614,6 +614,9 @@ export class DaemonClient implements ThreadClient {
   ): Promise<Thread> {
     return this.request("session.syncImport", { id, connection }, ThreadRecordSchema, 90000);
   }
+  sessionSyncRebind(id: string, connection: SyncThreadConnection): Promise<Thread> {
+    return this.request("session.syncRebind", { id, connection }, ThreadRecordSchema, 90000);
+  }
   sessionSyncResume(id: string, acceptRecovery = false): Promise<Thread> {
     return this.request("session.syncResume", { id, acceptRecovery }, ThreadRecordSchema, 90000);
   }
