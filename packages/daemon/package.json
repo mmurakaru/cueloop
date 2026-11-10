@@ -39,7 +39,8 @@
     "./sdk-effect": "./src/daemon-sdk-effect.ts",
     "./thread-subscription": "./src/thread-subscription.ts",
     "./shared-agent-protocol": "./src/shared-agent-protocol.ts",
-    "./sync-plan": "./src/sync-plan.ts"
+    "./sync-plan": "./src/sync-plan.ts",
+    "./operation-receipts": "./src/operation-receipts.ts"
   },
   "publishConfig": {
     "access": "public"

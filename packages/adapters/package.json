@@ -37,7 +37,8 @@
     "./herdr-acp": "./src/herdr-acp/index.ts",
     "./pi/harness-output": "./src/pi/harness-output.ts",
     "./pi/durable-harness": "./src/pi/durable-harness.ts",
-    "./owner-agent-relay": "./src/owner-agent-relay.ts"
+    "./owner-agent-relay": "./src/owner-agent-relay.ts",
+    "./sync-executor": "./src/sync-executor.ts"
   },
   "publishConfig": {
     "access": "public"
@@ -45,6 +46,7 @@
   "dependencies": {
     "@cueloop/daemon": "0.1.0-alpha.115",
     "@cueloop/schema": "0.1.0-alpha.115",
+    "@cueloop/sync": "workspace:*",
     "@earendil-works/chord": "1.4.0",
     "@earendil-works/pi-ai": "1.4.0",
     "@earendil-works/pi-durable": "1.4.0",

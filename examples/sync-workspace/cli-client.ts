@@ -2,6 +2,7 @@ import { connectSharedPresence } from "./presence-client.ts";
 import { parseArgs } from "node:util";
 import * as v from "valibot";
 import { createSharedRecordClient } from "./client.ts";
+import { inspectSharedExecutions } from "./execution-client.ts";
 import { watchSharedRecords } from "./watch-records.ts";
 import { createSyncSqliteStorage } from "@cueloop/sync/storage";
 import { createSyncDraftStore } from "@cueloop/sync/drafts";
@@ -27,6 +28,7 @@ export async function connectSharedRecord(arguments_: string[]): Promise<void | 
       "operation-status": { type: "boolean" },
       drafts: { type: "boolean" },
       presence: { type: "boolean" },
+      executions: { type: "boolean" },
     },
   });
   const queryArguments = parseSharedRecordQueryArguments(values);
@@ -37,6 +39,7 @@ export async function connectSharedRecord(arguments_: string[]): Promise<void | 
   if (values.presence) {
     if (
       [
+        values.executions,
         values.drafts,
         values.operation !== undefined,
         values["operation-status"],
@@ -65,6 +68,7 @@ export async function connectSharedRecord(arguments_: string[]): Promise<void | 
       storage,
       userIdentifier: userID,
       hasOtherCommand: [
+        values.executions,
         values.watch,
         values.content !== undefined,
         values.operation !== undefined,
@@ -87,6 +91,22 @@ export async function connectSharedRecord(arguments_: string[]): Promise<void | 
   const query = sharedRecordQueries.records(queryArguments);
 
   try {
+    if (values.executions) {
+      return await inspectSharedExecutions({
+        client,
+        workspaceIdentifier: queryArguments.workspaceIdentifier,
+        pageSize: queryArguments.pageSize,
+        watch: Boolean(values.watch),
+        hasOtherCommand: [
+          values.content !== undefined,
+          values.operation !== undefined,
+          values["operation-status"],
+          values["after-created-at"] !== undefined,
+          values["after-identifier"] !== undefined,
+        ].some(Boolean),
+      });
+    }
+
     if (values.operation !== undefined) {
       const authorityURL = process.env.SYNC_AUTHORITY_URL;
 
@@ -98,7 +118,7 @@ export async function connectSharedRecord(arguments_: string[]): Promise<void | 
       return await connectSharedOperation({
         client,
         operationPath: values.operation,
-        statusOnly: values["operation-status"] ?? false,
+        statusOnly: Boolean(values["operation-status"]),
         authorityURL,
         auth,
       });

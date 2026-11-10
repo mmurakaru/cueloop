@@ -111,24 +111,26 @@ export async function createTestSyncStack(
       }
     }
 
-    await docker(
-      [
-        "exec",
-        "-i",
-        postgresName,
-        "psql",
-        "-v",
-        "ON_ERROR_STOP=1",
-        "-U",
-        "sync_test",
-        "-d",
-        "sync_test",
-      ],
-      readFileSync(
-        new URL(import.meta.resolve("@cueloop/sync/migrations/001-operation-receipt.sql")),
-        "utf8",
-      ),
-    );
+    for (const migration of [
+      "@cueloop/sync/migrations/001-operation-receipt.sql",
+      "@cueloop/sync/migrations/002-execution.sql",
+    ]) {
+      await docker(
+        [
+          "exec",
+          "-i",
+          postgresName,
+          "psql",
+          "-v",
+          "ON_ERROR_STOP=1",
+          "-U",
+          "sync_test",
+          "-d",
+          "sync_test",
+        ],
+        readFileSync(new URL(import.meta.resolve(migration)), "utf8"),
+      );
+    }
 
     const migrationDirectory = new URL("../../examples/sync-workspace/", import.meta.url);
 

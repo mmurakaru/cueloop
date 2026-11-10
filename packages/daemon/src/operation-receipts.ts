@@ -92,7 +92,7 @@ export function findPromptOperationReceipt(
   );
 }
 
-function promptOperationFingerprint(input: AgentPromptRequest): string {
+export function promptOperationFingerprint(input: AgentPromptRequest): string {
   return operationFingerprint([
     input.text,
     input.context ?? null,

@@ -4,7 +4,10 @@ import { sharedRecordSchema } from "./workspace-schema.ts";
 
 const MembershipSchema = v.object({ role: v.picklist(["viewer", "editor", "owner"]) });
 
-type SharedWorkspaceTransaction = ServerTransaction<typeof sharedRecordSchema, unknown>;
+type SharedWorkspaceTransaction = Pick<
+  ServerTransaction<typeof sharedRecordSchema, unknown>,
+  "dbTransaction"
+>;
 export interface SharedWorkspaceAccess {
   workspaceIdentifier: string;
   actorIdentifier: string;
