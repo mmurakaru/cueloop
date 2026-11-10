@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DaemonCore, messageResponse } from "./api";
-import { ThreadStore } from "./store";
+import { MemoryThreadStore, ThreadStore } from "./store";
 import { derivePath, tipOf, type Artifact, type WorkspaceKey } from "@cueloop/schema";
 import { MAX_BLOB_BYTES, packSessionBlob, unpackSessionBlob } from "./share-blob";
 
@@ -24,6 +24,60 @@ beforeEach(() => {
 afterEach(() => rmSync(home, { recursive: true, force: true }));
 
 describe("session lifecycle", () => {
+  test("an application repository preserves Thread mutations without writing the local canonical store", () => {
+    const original = core.sessionCreate({ workspace: WS, artifact: PLAN });
+    const other = core.sessionCreate({ workspace: WS, artifact: PLAN });
+    const binding = core.harnessBind({
+      threadId: other.id,
+      harness: "test",
+      harnessSessionId: "owner-conversation",
+    });
+    const repository = new MemoryThreadStore([structuredClone(original)]);
+    const application = new DaemonCore(home, repository);
+
+    try {
+      application.sessionAnnotate(original.id, {
+        id: "shared-comment",
+        kind: "comment",
+        author: "collaborator",
+        anchor: { quote: "carefully", prefix: "the thing ", suffix: "." },
+        body: "Shared feedback",
+      });
+      application.sessionBranch(original.id, "proposal");
+      const changed = application.sessionGet(original.id);
+
+      expect(changed.annotations[0]).toMatchObject({
+        id: "shared-comment",
+        author: "collaborator",
+      });
+      expect(changed.history).toBeDefined();
+      expect(application.harnessGetBinding(binding.id)).toEqual(binding);
+      const local = new ThreadStore(home);
+
+      local.recover();
+      expect(local.get(original.id)).toEqual(original);
+      expect(local.list()).toHaveLength(2);
+    } finally {
+      application.dispose();
+    }
+  });
+
+  test("an externally owned repository retains imported history beyond local cleanup age", () => {
+    const original = core.sessionCreate({ workspace: WS, artifact: PLAN });
+    const archived = {
+      ...structuredClone(original),
+      createdAt: "2020-01-01T00:00:00Z",
+      status: "resolved" as const,
+    };
+    const application = new DaemonCore(home, new MemoryThreadStore([archived]));
+
+    try {
+      expect(application.sessionGet(original.id)).toEqual(archived);
+    } finally {
+      application.dispose();
+    }
+  });
+
   test("startup retention clears native surface handles for expired Threads", () => {
     const session = core.sessionCreate({ workspace: WS, artifact: PLAN });
 

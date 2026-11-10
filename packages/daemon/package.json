@@ -15,7 +15,8 @@
   "files": [
     "src",
     "README.md",
-    "SDK.md"
+    "SDK.md",
+    "migrations"
   ],
   "type": "module",
   "exports": {
@@ -40,7 +41,14 @@
     "./thread-subscription": "./src/thread-subscription.ts",
     "./shared-agent-protocol": "./src/shared-agent-protocol.ts",
     "./sync-plan": "./src/sync-plan.ts",
-    "./operation-receipts": "./src/operation-receipts.ts"
+    "./operation-receipts": "./src/operation-receipts.ts",
+    "./sync-thread-schema": "./src/sync-thread-schema.ts",
+    "./sync-thread-protocol": "./src/sync-thread-protocol.ts",
+    "./sync-thread-queries": "./src/sync-thread-queries.ts",
+    "./migrations/001-sync-thread.sql": "./migrations/001-sync-thread.sql",
+    "./sync-thread-mutators": "./src/sync-thread-mutators.ts",
+    "./sync-thread-import-client": "./src/sync-thread-import-client.ts",
+    "./sync-thread-authority": "./src/sync-thread-authority.ts"
   },
   "publishConfig": {
     "access": "public"
@@ -50,6 +58,7 @@
     "@cueloop/schema": "0.1.0-alpha.115",
     "@cueloop/sync": "workspace:*",
     "@pierre/diffs": "^1.6.4",
+    "@rocicorp/zero": "1.11.4",
     "effect": "^4.1.1",
     "smol-toml": "^1.9.1",
     "valibot": "^1.5.0"

@@ -100,3 +100,57 @@ outcome, lists and replies to a comment, then sends approval. It creates a real
 Thread and invokes the configured model. IDs are generated once per invocation;
 a resumable application should save them rather than generate replacements when
 retrying.
+
+## Workspace authority
+
+Enable `sync` in Settings > Experimental for the Thread's repository.
+Local Threads use local storage until their owner explicitly imports them.
+
+Apply the SDK operation-receipt migration and `@cueloop/daemon/migrations/001-sync-thread.sql` to PostgreSQL.
+Configure Zero with the Thread authority's `/query` and `/mutate` endpoints.
+Disable legacy queries and CRUD mutations in Zero.
+The [`examples/sync-thread/authority.ts`](../../examples/sync-thread/authority.ts) module provides an authenticated development authority.
+Its environment variables select the database, authentication tokens, and verified actor identifiers.
+
+```sh
+cueloop sync serve --application examples/sync-thread/authority.ts \
+  --maximum-request-bytes 67108864
+
+cueloop sync import <thread> --workspace <workspace-id> \
+  --authority https://sync.example.com --cache https://cache.example.com \
+  --actor <verified-subject> --token-env CUELOOP_SYNC_TOKEN
+```
+
+The daemon reads the token from its environment.
+Set it before starting the daemon.
+Credentials stay outside Thread data and routing journals.
+
+> [!IMPORTANT]
+> A durable local fence precedes import acceptance.
+> Disabling experimental sync keeps imported Threads read-only.
+> Missing acknowledgements require recovery through the saved operation identity.
+
+```sh
+cueloop sync resume <thread>
+cueloop sync pending <thread>
+cueloop sync retry <thread> <draft-id>
+cueloop sync discard <thread> <draft-id>
+```
+
+Repeat `import` with the same connection to retry a durably rejected import.
+Pending or accepted imports retain their original operation identity.
+Command drafts retain their original input across restart.
+A rejected command requires an explicit edit and a new operation identity.
+Pending drafts cannot be discarded.
+
+`createSyncThreadApplication` from `@cueloop/daemon/sync-thread-authority` accepts a configured Zero PostgreSQL database and a credential-verification callback.
+Current workspace membership controls every query and transaction.
+Owners can import, navigate history, manage shares, send final Messages, fork, and delete.
+Editors can change text and their own comments.
+Viewers can read shared documents.
+Native SSH roles retain their existing capability limits through owner-mediated comment operations.
+
+Large imports and agent revisions use private bounded staging.
+Thread state, collaborator projection, metadata, and operation receipt commit together.
+Collaborator queries exclude native operation receipts, share administration, and private execution recovery fields.
+Text edits carry a document generation; history or agent-base changes reject edits from an old generation and retain their input for recovery.

@@ -1,3 +1,4 @@
+import { SyncThreadImportConnectionSchema } from "./sync-thread-connection";
 /**
  * Runtime validation of the wire boundary. Everything arriving over the
  * socket is untrusted JSON: adapters, the CLI, extensions, and any script a
@@ -237,6 +238,11 @@ export const Params = {
   "agent.cancel": v.object({ id: SessionId }),
   "agent.comment": v.object({ id: SessionId, comment: AgentCommentSchema }),
   "agent.permission": v.object({ id: SessionId, requestId: NonEmpty, optionId: NonEmpty }),
+  "session.syncImport": v.object({ id: SessionId, connection: SyncThreadImportConnectionSchema }),
+  "session.syncResume": v.object({ id: SessionId }),
+  "session.syncDrafts": v.object({ id: SessionId }),
+  "session.syncRetry": v.object({ id: SessionId, draftIdentifier: v.pipe(v.string(), v.uuid()) }),
+  "session.syncDiscard": v.object({ id: SessionId, draftIdentifier: v.pipe(v.string(), v.uuid()) }),
   "session.create": v.object({ workspace: WorkspaceSchema, artifact: ArtifactSchema }),
   "session.get": v.object({ id: SessionId }),
   "session.list": v.object({
@@ -314,6 +320,10 @@ export const Params = {
   "session.label": v.object({ id: SessionId, label: NonEmpty }),
   "session.fork": v.object({ id: SessionId }),
   "session.refreshDiff": v.object({ id: SessionId }),
+  "session.applyDiffCapture": v.object({
+    id: SessionId,
+    snapshot: v.pipe(v.string(), v.maxLength(16 * 1024 * 1024)),
+  }),
   "session.setShares": v.object({ id: SessionId, shares: v.array(ShareLinkSchema) }),
   "session.delete": v.object({ id: SessionId }),
   "session.mergeShared": v.object({

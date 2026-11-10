@@ -27,6 +27,7 @@ import { dirname, join } from "node:path";
 import { historyFromLinear, type Thread } from "@cueloop/schema";
 import { migratedSessionsDir, sessionsDir, threadBucket, threadsDir } from "./paths";
 import { validateThreadRecord } from "./validate";
+import { SyncThreadLocalState, type SyncThreadConnection } from "./sync-thread-local-state";
 
 /** A thread's log is rewritten to a single snapshot line once it grows past this many, so an
  *  active thread's file never bloats unbounded while writes stay cheap appends in between. */
@@ -40,6 +41,8 @@ export interface RecoveryReport {
 /** What the daemon needs from session storage. */
 export interface ThreadRepository {
   recover(): RecoveryReport;
+  isLocalAuthority?(id: string): boolean;
+  hasSyncThreads?(): boolean;
   get(id: string): Thread | undefined;
   list(): Thread[];
   upsert(session: Thread): void;
@@ -63,6 +66,7 @@ function oldestFirst(sessions: Iterable<Thread>): Thread[] {
 }
 
 export class ThreadStore implements ThreadRepository {
+  readonly syncState: SyncThreadLocalState;
   private sessions = new Map<string, Thread>();
   /** id -> its JSONL path (the bucket depends on the record's root commit, so it is tracked). */
   private files = new Map<string, string>();
@@ -70,6 +74,7 @@ export class ThreadStore implements ThreadRepository {
   private lineCounts = new Map<string, number>();
 
   constructor(private readonly home: string) {
+    this.syncState = new SyncThreadLocalState(home);
     mkdirSync(threadsDir(home), { recursive: true });
     // the legacy dir is where a pre-upgrade daemon wrote; ensure it exists so its scan is uniform
     mkdirSync(sessionsDir(home), { recursive: true });
@@ -94,6 +99,12 @@ export class ThreadStore implements ThreadRepository {
         try {
           const { session, lines, torn } = readThread(filePath);
 
+          if (this.syncState.isFenced(session.id)) {
+            this.syncState.park(session.id, filePath);
+
+            continue;
+          }
+
           this.sessions.set(session.id, session);
           this.files.set(session.id, filePath);
           this.lineCounts.set(session.id, lines);
@@ -109,6 +120,11 @@ export class ThreadStore implements ThreadRepository {
           });
         }
       }
+    }
+
+    for (const thread of this.syncState.projections()) {
+      this.sessions.set(thread.id, thread);
+      report.recovered.push(thread.id);
     }
 
     return report;
@@ -142,6 +158,16 @@ export class ThreadStore implements ThreadRepository {
         });
         continue;
       }
+
+      if (this.syncState.isFenced(session.id)) {
+        report.skipped.push({
+          file,
+          error: "Sync Thread is fenced; retain the legacy file for explicit recovery",
+        });
+
+        continue;
+      }
+
       const targetPath = join(
         threadBucket(session.workspace.rootCommit, this.home),
         `${session.id}.jsonl`,
@@ -174,15 +200,53 @@ export class ThreadStore implements ThreadRepository {
     this.lineCounts.set(session.id, 1);
   }
 
+  hasSyncThreads(): boolean {
+    return this.syncState.hasFences();
+  }
+
+  isLocalAuthority(id: string): boolean {
+    return !this.syncState.isFenced(id);
+  }
+
+  beginSyncImport(options: {
+    thread: Thread;
+    connection: SyncThreadConnection;
+    upload: string;
+  }): void {
+    this.syncState.begin(options);
+    this.sessions.set(options.thread.id, structuredClone(options.thread));
+    const path = this.files.get(options.thread.id);
+
+    if (path) this.syncState.park(options.thread.id, path);
+
+    this.files.delete(options.thread.id);
+    this.lineCounts.delete(options.thread.id);
+  }
+
+  removeSyncProjection(id: string): void {
+    this.syncState.markDeleted(id);
+    this.sessions.delete(id);
+  }
+
+  installSyncProjection(thread: Thread, version: number): void {
+    this.syncState.project({ thread, version });
+    this.sessions.set(thread.id, structuredClone(thread));
+  }
+
   get(id: string): Thread | undefined {
-    return this.sessions.get(id);
+    const thread = this.sessions.get(id);
+
+    return thread && this.syncState.isFenced(id) ? structuredClone(thread) : thread;
   }
 
   list(): Thread[] {
-    return oldestFirst(this.sessions.values());
+    return oldestFirst(this.sessions.values()).map((thread) =>
+      this.syncState.isFenced(thread.id) ? structuredClone(thread) : thread,
+    );
   }
 
   upsert(session: Thread): void {
+    this.syncState.assertLocalAuthority(session.id);
     const filePath = this.files.get(session.id);
     const lines = this.lineCounts.get(session.id) ?? 0;
 
@@ -206,6 +270,8 @@ export class ThreadStore implements ThreadRepository {
   }
 
   delete(id: string): boolean {
+    this.syncState.assertLocalAuthority(id);
+
     if (!this.sessions.delete(id)) return false;
 
     const filePath = this.files.get(id);

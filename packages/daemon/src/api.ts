@@ -1,3 +1,5 @@
+import { isDeepStrictEqual } from "node:util";
+import type { SyncThreadConnection } from "./sync-thread-local-state";
 /**
  * The daemon's method surface. Transport-independent: the socket
  * server and the in-process test harness both call these handlers.
@@ -53,7 +55,7 @@ import {
 } from "@cueloop/schema";
 import { findOperationReceipt, operationFingerprint } from "./operation-receipts";
 import { curateDiff } from "./curate";
-import { ThreadStore, withHistory } from "./store";
+import { ThreadStore, withHistory, type ThreadRepository } from "./store";
 import { pruneExpiredSessions, resolveCleanupPeriodDays } from "./retention";
 import {
   HerdrThreadSurfaceStore,
@@ -123,8 +125,18 @@ export interface DaemonEvent {
 
 type EventListener = (event: DaemonEvent) => void;
 
+export interface SyncThreadDiffLifecycle {
+  refresh(threadIdentifier: string): Promise<{ changed: boolean }>;
+  markAvailable(
+    threadIdentifier: string,
+    references: { baseSha: string; headSha: string },
+  ): Promise<void>;
+}
+
 export class DaemonCore {
-  readonly store: ThreadStore;
+  private syncDiffLifecycle?: SyncThreadDiffLifecycle;
+  readonly store: ThreadRepository;
+  private readonly ownsLocalThreadLifecycle: boolean;
   readonly herdrThreadSurfaces: HerdrThreadSurfaceStore;
   readonly ghosttyThreadSurfaces: GhosttyThreadSurfaceStore;
   readonly harnessState: HarnessStateStore;
@@ -148,27 +160,17 @@ export class DaemonCore {
     Promise<{ session: Thread; diff: VcsDiffSnapshot & { vcs: string } }>
   >();
 
-  constructor(home: string) {
-    this.store = new ThreadStore(home);
+  /** External repositories own retention and publish local effects after their transaction commits. */
+  constructor(home: string, repository?: ThreadRepository) {
+    this.ownsLocalThreadLifecycle = repository === undefined;
+    this.store = repository ?? new ThreadStore(home);
     this.store.recover();
     this.harnessState = new HarnessStateStore(home);
-    for (const session of this.store.list()) this.reconcileDeliveries(session);
     this.herdrThreadSurfaces = new HerdrThreadSurfaceStore(home);
     this.ghosttyThreadSurfaces = new GhosttyThreadSurfaceStore(home);
-    const expiredThreadIds = pruneExpiredSessions(
-      this.store,
-      resolveCleanupPeriodDays(),
-      Date.now(),
-      this.harnessState.pendingThreadIds(),
-    );
 
-    for (const threadId of expiredThreadIds) {
-      this.herdrThreadSurfaces.delete(threadId);
-      this.ghosttyThreadSurfaces.delete(threadId);
-    }
-    this.harnessState.deleteOrphanedThreadState(
-      new Set(this.store.list().map((session) => session.id)),
-    );
+    if (this.ownsLocalThreadLifecycle) this.recoverLocalThreadState();
+
     this.diffWatcher = new DiffWatcher((repoRoot) => void this.refreshDiffsForRepo(repoRoot));
     this.prPoller = new PrReviewPoller((sessionId, refs) =>
       this.markPrRefreshAvailable(sessionId, refs),
@@ -177,6 +179,32 @@ export class DaemonCore {
     for (const session of this.store.list()) {
       this.trackLiveDiffSession(session);
     }
+  }
+
+  private recoverLocalThreadState(): void {
+    for (const session of this.store.list()) this.reconcileDeliveries(session);
+
+    const expiredThreadIds = pruneExpiredSessions(
+      this.store,
+      resolveCleanupPeriodDays(),
+      Date.now(),
+      new Set([
+        ...this.harnessState.pendingThreadIds(),
+        ...this.store
+          .list()
+          .filter((thread) => this.store.isLocalAuthority?.(thread.id) === false)
+          .map((thread) => thread.id),
+      ]),
+    );
+
+    for (const threadId of expiredThreadIds) {
+      this.herdrThreadSurfaces.delete(threadId);
+      this.ghosttyThreadSurfaces.delete(threadId);
+    }
+
+    this.harnessState.deleteOrphanedThreadState(
+      new Set(this.store.list().map((session) => session.id)),
+    );
   }
 
   /** Release the watchers and pollers behind diff hot-reload; call on daemon shutdown. */
@@ -353,8 +381,13 @@ export class DaemonCore {
     return session;
   }
 
-  private reconcileDeliveries(session: Thread): void {
-    if (!session.message) return;
+  private reconcileDeliveries(session: Thread, authoritativeProjection = false): void {
+    if (
+      !this.ownsLocalThreadLifecycle ||
+      !session.message ||
+      (!authoritativeProjection && this.store.isLocalAuthority?.(session.id) === false)
+    )
+      return;
 
     const binding = this.harnessState.submittingBinding(session.id);
 
@@ -364,6 +397,83 @@ export class DaemonCore {
 
   private newSessionId(now: string): string {
     return `ses_${now.replace(/\D/g, "").slice(0, 14)}_${(++this.seq).toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+  }
+
+  sessionFenceForSync(options: {
+    id: string;
+    snapshot: string;
+    connection: SyncThreadConnection;
+    upload: string;
+  }): void {
+    if (!(this.store instanceof ThreadStore))
+      throw new DaemonError("invalid_state", "Sync import requires the local Thread repository");
+
+    const thread = this.sessionGet(options.id);
+
+    if (!isDeepStrictEqual(JSON.parse(JSON.stringify(thread)), JSON.parse(options.snapshot)))
+      throw new DaemonError(
+        "thread_version_conflict",
+        "Thread changed while preparing its import; prepare a fresh snapshot",
+      );
+
+    this.diffRefreshGenerations.set(
+      thread.id,
+      (this.diffRefreshGenerations.get(thread.id) ?? 0) + 1,
+    );
+    this.untrackLiveDiffSession(thread);
+    this.store.beginSyncImport({ thread, connection: options.connection, upload: options.upload });
+    this.emit("session.updated", thread.id);
+  }
+
+  /** Only committed authority projections can release the owner's native adapter deliveries. */
+  sessionProjectSyncThread(thread: Thread, version: number): void {
+    if (!(this.store instanceof ThreadStore))
+      throw new DaemonError(
+        "invalid_state",
+        "Sync projection requires the local Thread repository",
+      );
+
+    const previous = this.store.get(thread.id);
+
+    this.store.installSyncProjection(thread, version);
+    this.reconcileDeliveries(thread, true);
+    this.trackLiveDiffSession(thread);
+
+    if (thread.message && thread.message.id !== previous?.message?.id) {
+      this.emit("message.sent", thread.id);
+
+      if (thread.status === "resolved") {
+        const parked = this.waiters.get(thread.id) ?? [];
+
+        this.waiters.delete(thread.id);
+
+        for (const resolve of parked) resolve(thread);
+      }
+    }
+
+    this.emit("session.updated", thread.id);
+    this.emit("inbox.changed", thread.id);
+  }
+
+  sessionRemoveSyncProjection(id: string): void {
+    if (!(this.store instanceof ThreadStore))
+      throw new DaemonError(
+        "invalid_state",
+        "Sync projection deletion requires the local Thread repository",
+      );
+
+    this.store.removeSyncProjection(id);
+    this.herdrThreadSurfaces.delete(id);
+    this.ghosttyThreadSurfaces.delete(id);
+    this.harnessState.deleteThreadState(id);
+    const parked = this.waiters.get(id) ?? [];
+
+    this.waiters.delete(id);
+
+    for (const resolve of parked) resolve(null);
+
+    this.emit("session.deleted", id);
+    this.emit("inbox.changed", id);
   }
 
   sessionGet(id: string): Thread {
@@ -1154,8 +1264,49 @@ export class DaemonCore {
     return fork;
   }
 
+  setSyncDiffLifecycle(lifecycle: SyncThreadDiffLifecycle): void {
+    this.syncDiffLifecycle = lifecycle;
+  }
+
+  sessionApplyDiffCapture(id: string, snapshot: Thread): Thread {
+    const current = this.mutable(id);
+
+    if (snapshot.id !== id || snapshot.artifact.type !== "diff" || current.artifact.type !== "diff")
+      throw new DaemonError(
+        "invalid_params",
+        "Sync diff capture must retain its Thread and diff artifact identities",
+      );
+
+    const capture = {
+      artifact: snapshot.artifact,
+      revisions: snapshot.revisions,
+      history: snapshot.history,
+    };
+
+    if (
+      isDeepStrictEqual(
+        { artifact: current.artifact, revisions: current.revisions, history: current.history },
+        capture,
+      )
+    )
+      return current;
+
+    Object.assign(current, structuredClone(capture));
+    this.store.upsert(current);
+    this.emit("session.updated", id);
+
+    return current;
+  }
+
   /** Re-capture a diff session's working tree; broadcasts session.updated only when the patch moved. */
   async sessionRefreshDiff(id: string): Promise<{ changed: boolean }> {
+    if (this.syncDiffLifecycle && this.store.isLocalAuthority?.(id) === false)
+      return this.syncDiffLifecycle.refresh(id);
+
+    return this.refreshLocalDiff(id);
+  }
+
+  private async refreshLocalDiff(id: string): Promise<{ changed: boolean }> {
     const session = this.mutable(id);
 
     if (session.artifact.type !== "diff") return { changed: false };
@@ -1274,6 +1425,13 @@ export class DaemonCore {
    * it never runs workingTreeDiff - the diff comes from gh.
    */
   async sessionRefreshPrDiff(id: string): Promise<{ changed: boolean }> {
+    if (this.syncDiffLifecycle && this.store.isLocalAuthority?.(id) === false)
+      return this.syncDiffLifecycle.refresh(id);
+
+    return this.refreshLocalPrDiff(id);
+  }
+
+  private async refreshLocalPrDiff(id: string): Promise<{ changed: boolean }> {
     const session = this.store.get(id);
 
     if (!session || session.status !== "pending" || session.artifact.type !== "diff")
@@ -1354,6 +1512,14 @@ export class DaemonCore {
 
   /** Record moved PR refs without replacing the review until the reviewer refreshes it. */
   private markPrRefreshAvailable(id: string, refs: { baseSha: string; headSha: string }): void {
+    if (this.syncDiffLifecycle && this.store.isLocalAuthority?.(id) === false) {
+      void this.syncDiffLifecycle
+        .markAvailable(id, refs)
+        .catch((error) => console.error("[sync diff references]", error));
+
+      return;
+    }
+
     const session = this.store.get(id);
 
     if (!session || session.status !== "pending" || session.artifact.meta.pr === undefined) return;
@@ -1395,6 +1561,12 @@ export class DaemonCore {
   }
 
   private trackLiveDiffSession(session: Thread): void {
+    if (
+      !this.ownsLocalThreadLifecycle ||
+      (this.store.isLocalAuthority?.(session.id) === false && !this.syncDiffLifecycle)
+    )
+      return;
+
     if (isWorkingTreeDiffSession(session))
       this.diffWatcher.trackDiffRepo(
         session.workspace.repoRoot,

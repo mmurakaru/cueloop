@@ -1,3 +1,5 @@
+export type { SyncThreadConnection } from "./sync-thread-connection";
+import type { SyncThreadConnection } from "./sync-thread-connection";
 /**
  * Daemon client: the one library every consumer shares - CLI primitives, the TUI,
  * adapters, and tests. Also owns the lazy-launch story: connect() with
@@ -605,6 +607,43 @@ export class DaemonClient implements ThreadClient {
   }
   subscribe(): Promise<void> {
     return this.request("events.subscribe", {}, EmptyResultSchema).then(() => undefined);
+  }
+  sessionSyncImport(
+    id: string,
+    connection: Omit<SyncThreadConnection, "recordIdentifier">,
+  ): Promise<Thread> {
+    return this.request("session.syncImport", { id, connection }, ThreadRecordSchema, 90000);
+  }
+  sessionSyncResume(id: string): Promise<Thread> {
+    return this.request("session.syncResume", { id }, ThreadRecordSchema, 90000);
+  }
+  sessionSyncDrafts(id: string) {
+    return this.request(
+      "session.syncDrafts",
+      { id },
+      v.array(
+        v.object({
+          draftIdentifier: v.string(),
+          status: v.picklist(["draft", "pending", "accepted", "rejected"]),
+          content: v.string(),
+          operationIdentifier: v.string(),
+          updatedAt: v.number(),
+        }),
+      ),
+    );
+  }
+  sessionSyncRetry(id: string, draftIdentifier: string): Promise<Thread | null> {
+    return this.request(
+      "session.syncRetry",
+      { id, draftIdentifier },
+      v.nullable(ThreadRecordSchema),
+      90000,
+    );
+  }
+  sessionSyncDiscard(id: string, draftIdentifier: string): Promise<void> {
+    return this.request("session.syncDiscard", { id, draftIdentifier }, EmptyResultSchema).then(
+      () => undefined,
+    );
   }
   sessionCreate(workspace: WorkspaceKey, artifact: Artifact): Promise<Thread> {
     return this.request("session.create", { workspace, artifact }, ThreadRecordSchema);

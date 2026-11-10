@@ -50,6 +50,11 @@ test("invalid CLI options cannot initialize an application", async () => {
     await expect(
       runSyncCli(["serve", "--application", application, "--port", "invalid"]),
     ).rejects.toThrow("port must be an integer");
+    for (const budget of ["0", "invalid", "1.5", "67108865"]) {
+      await expect(
+        runSyncCli(["serve", "--application", application, "--maximum-request-bytes", budget]),
+      ).rejects.toThrow("request byte budget");
+    }
     expect(existsSync(marker)).toBe(false);
   } finally {
     rmSync(directory, { recursive: true, force: true });

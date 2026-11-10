@@ -30,7 +30,7 @@ jobs:
   sync:
     name: Sync compatibility
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
@@ -40,6 +40,16 @@ jobs:
         with:
           node-version: 24
       - run: bun install --frozen-lockfile
+      - uses: actions/cache@v6
+        with:
+          path: |
+            /tmp/cueloop-libghostty-build/ghostty
+            /tmp/cueloop-libghostty-build/zig-*.tar.xz
+            /tmp/cueloop-libghostty-build/zig-gcache
+            /tmp/cueloop-libghostty-build/zig-lcache
+          key: gateway-vt-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('packages/client/native/build.sh') }}
+      - name: Build terminal screen reader
+        run: sh packages/client/native/build.sh
       - run: bunx playwright install --with-deps chromium
       - run: bun run test:sync
 
