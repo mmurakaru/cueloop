@@ -9,6 +9,7 @@ import {
 } from "@cueloop/sync/operations";
 import {
   sharedCommentOperations,
+  sharedExecutionOperations,
   sharedTextOperations,
   sharedWorkspaceMutators,
 } from "./shared-workspace.ts";
@@ -40,6 +41,7 @@ export async function connectSharedOperation(options: {
   } else {
     v.parse(
       v.union([
+        sharedExecutionOperations.request.schema,
         sharedCommentOperations.add.schema,
         sharedCommentOperations.edit.schema,
         sharedCommentOperations.remove.schema,
@@ -56,6 +58,14 @@ export async function connectSharedOperation(options: {
       operation,
       lookup,
       submit(request) {
+        if (request.name === "execution.request") {
+          return options.client.mutate(
+            sharedWorkspaceMutators.execution.request(
+              sharedExecutionOperations.request.parse(request),
+            ),
+          );
+        }
+
         if (request.name === "comment.add") {
           return options.client.mutate(
             sharedWorkspaceMutators.comment.add(sharedCommentOperations.add.parse(request)),

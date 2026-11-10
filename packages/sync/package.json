@@ -37,7 +37,12 @@
     "./migrations/001-operation-receipt.sql": "./migrations/001-operation-receipt.sql",
     "./text": "./dist/sync-text.js",
     "./presence": "./dist/sync-presence-client.js",
-    "./presence/server": "./dist/sync-presence-authority.js"
+    "./presence/server": "./dist/sync-presence-authority.js",
+    "./execution": "./dist/sync-execution.js",
+    "./execution/server": "./dist/sync-execution-authority.js",
+    "./migrations/002-execution.sql": "./migrations/002-execution.sql",
+    "./execution/schema": "./dist/sync-execution-schema.js",
+    "./execution/http": "./dist/sync-execution-http.js"
   },
   "publishConfig": {
     "access": "public"

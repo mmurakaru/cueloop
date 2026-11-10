@@ -17,6 +17,9 @@ import { readSharedTextRecord } from "./shared-text-authority.ts";
 import { SharedTextStateRequestSchema } from "./shared-text.ts";
 import { openSharedTextEditor } from "./text-editor-cli.ts";
 import { connectSharedRecord } from "./cli-client.ts";
+import { SyncExecutionLeaseConflict } from "@cueloop/sync/execution/server";
+import { handleSharedExecution } from "./execution-authority.ts";
+import { executeSharedRequests } from "./owner-client.ts";
 
 const databaseUrl = process.env.SYNC_DATABASE_URL;
 const token = process.env.SYNC_AUTH_TOKEN;
@@ -98,7 +101,8 @@ async function fetch(request: Request): Promise<Response> {
 
   if (path === "/presence") return presence.fetch(request);
 
-  if (path !== "/operation" && path !== "/text") return handleSync(request);
+  if (path !== "/operation" && path !== "/text" && path !== "/execution")
+    return handleSync(request);
 
   if (request.method !== "POST")
     return new Response("Method not allowed", { status: 405, headers: { Allow: "POST" } });
@@ -110,6 +114,14 @@ async function fetch(request: Request): Promise<Response> {
   if (!database) return new Response("Sync authority database is not configured", { status: 503 });
 
   try {
+    if (path === "/execution") {
+      const input: unknown = await request.json();
+
+      return await database.transaction((transaction) =>
+        handleSharedExecution({ transaction, actorIdentifier: principal.userIdentifier, input }),
+      );
+    }
+
     if (path === "/text") {
       const input = v.parse(SharedTextStateRequestSchema, await request.json());
       const record = await database.transaction((transaction) =>
@@ -148,7 +160,7 @@ async function fetch(request: Request): Promise<Response> {
     if (cause instanceof SharedWorkspaceAccessError)
       return Response.json({ error: "forbidden" }, { status: 403 });
 
-    if (cause instanceof SyncOperationConflict)
+    if (cause instanceof SyncOperationConflict || cause instanceof SyncExecutionLeaseConflict)
       return Response.json({ error: "operation_conflict" }, { status: 409 });
 
     throw cause;
@@ -158,6 +170,7 @@ async function fetch(request: Request): Promise<Response> {
 export const syncApplication = {
   fetch,
   connect: connectSharedRecord,
+  execute: executeSharedRequests,
   openText: openSharedTextEditor,
   close: async () => {
     presence.close();

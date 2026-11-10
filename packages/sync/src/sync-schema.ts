@@ -5,6 +5,7 @@ export {
   defineMutatorWithType,
   defineQueriesWithType,
   defineQueryWithType,
+  json,
   number,
   relationships,
   string,

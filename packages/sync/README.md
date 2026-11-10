@@ -99,6 +99,12 @@ See the [text guide](./docs/text.md) for the API and experimental terminal edito
 Presence checks current workspace access, expires after missed heartbeats, and stays outside durable history.
 See the [presence guide](./docs/presence.md) for the authority, client, and standalone inspection commands.
 
+## Execute accepted intent
+
+`@cueloop/sync/execution` separates durable request acceptance from owner execution progress.
+An injectable executor recovers provider state before dispatch and retains its operation identity after uncertain replies.
+See the [execution guide](./docs/execution.md) for claims, recovery, the owner CLI, and cueloop bindings.
+
 ## Host an authority
 
 `createSyncAuthority` from `@cueloop/sync/server` accepts your schema, database adapter, authentication callback, and named query and mutation handlers.

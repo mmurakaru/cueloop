@@ -68,6 +68,12 @@ Credentials stay out of share blobs and relay frames.
 
 See the [fx example](../../examples/fx-thread), [lifecycle checks](../../examples/agent-lifecycle), and [submission checks](../../examples/agent-submission).
 
+### Execute synchronized requests
+
+`createCueloopSyncExecutor` from `@cueloop/adapters/sync-executor` binds explicit workspace records to local Threads.
+It uses durable daemon prompt identities and keeps final review Message submission with the owner.
+See the [execution guide](../sync/docs/execution.md) for recovery and the experimental owner CLI.
+
 ### Recover fx processes
 
 ```toml

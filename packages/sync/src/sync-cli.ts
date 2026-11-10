@@ -8,10 +8,11 @@ import { loadSyncApplication } from "./sync-application.ts";
 
 const SYNC_HELP = `General-purpose sync for terminals
 
-Usage: cueloop-sync <serve|connect> --application <module> [options]
+Usage: cueloop-sync <serve|connect|owner> --application <module> [options]
 
   serve     Run the application's authenticated query and mutation authority
   connect   Run the application's sync client
+  owner     Recover and execute accepted requests through an application integration
 
 Serve options: --host <address> --port <number> --public-origin <url>
 The authority requires a configured PostgreSQL database and Zero cache service.
@@ -49,16 +50,19 @@ function syncAuthorityOptions(arguments_: string[]) {
 async function connectSyncApplication(
   application: SyncApplication,
   clientArguments: string[],
+  method: "connect" | "execute" = "connect",
 ): Promise<number> {
   let outcome: SyncClientOutcome | void;
 
   try {
-    if (!application.connect) throw new Error("Sync application does not provide a client");
+    const run = application[method];
+
+    if (!run) throw new Error(`Sync application does not provide ${method}`);
 
     const applicationIndex = clientArguments.indexOf("--application");
 
     clientArguments.splice(applicationIndex, 2);
-    outcome = await application.connect(clientArguments);
+    outcome = await run(clientArguments);
   } finally {
     await application.close?.();
   }
@@ -113,6 +117,7 @@ export async function runSyncCli(
   if (
     command !== "serve" &&
     command !== "connect" &&
+    command !== "owner" &&
     (command !== "edit" || !options.renderTextEditor)
   ) {
     throw new Error(`Sync command is unknown: ${command}`);
@@ -132,6 +137,10 @@ export async function runSyncCli(
 
   if (command === "connect") {
     return connectSyncApplication(application, arguments_.slice(1));
+  }
+
+  if (command === "owner") {
+    return connectSyncApplication(application, arguments_.slice(1), "execute");
   }
 
   let server: Awaited<ReturnType<typeof serveSyncApplication>>;

@@ -36,7 +36,8 @@
     ],
     "@cueloop/adapters": [
       "@cueloop/schema",
-      "@cueloop/daemon"
+      "@cueloop/daemon",
+      "@cueloop/sync"
     ],
     "@cueloop/pi": [
       "@cueloop/adapters"

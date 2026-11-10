@@ -3,8 +3,12 @@
     "target": "ES2023",
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "lib": ["ES2023"],
-    "types": ["bun"],
+    "lib": [
+      "ES2023"
+    ],
+    "types": [
+      "bun"
+    ],
     "jsx": "react-jsx",
     "jsxImportSource": "@opentui/react",
     "strict": true,
@@ -15,11 +19,21 @@
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
     "paths": {
-      "@cueloop/schema": ["./packages/schema/src/index.ts"],
-      "@cueloop/daemon": ["./packages/daemon/src/index.ts"],
-      "@cueloop/gateway": ["./packages/gateway/src/index.ts"],
-      "@cueloop/extension-api": ["./packages/extension-api/src/index.ts"],
-      "@cueloop/integration-obsidian": ["./packages/integrations/obsidian/src/index.ts"]
+      "@cueloop/schema": [
+        "./packages/schema/src/index.ts"
+      ],
+      "@cueloop/daemon": [
+        "./packages/daemon/src/index.ts"
+      ],
+      "@cueloop/gateway": [
+        "./packages/gateway/src/index.ts"
+      ],
+      "@cueloop/extension-api": [
+        "./packages/extension-api/src/index.ts"
+      ],
+      "@cueloop/integration-obsidian": [
+        "./packages/integrations/obsidian/src/index.ts"
+      ]
     }
   },
   "include": [
@@ -29,7 +43,10 @@
     "hooks/**/*.ts",
     "packages/integrations/*/src/**/*.ts",
     "test/**/*.ts",
-    "benchmarks/**/*.ts"
+    "benchmarks/**/*.ts",
+    "examples/**/*.ts"
   ],
-  "exclude": ["site"]
+  "exclude": [
+    "site"
+  ]
 }

@@ -1,3 +1,4 @@
+import { syncExecutionTable } from "@cueloop/sync/execution/schema";
 import { createSchema, number, relationships, string, table } from "@cueloop/sync/schema";
 
 const sharedRecord = table("shared_record")
@@ -110,9 +111,34 @@ const commentRelationships = relationships(sharedComment, ({ many, one }) => ({
   }),
 }));
 
+const executionRelationships = relationships(syncExecutionTable, ({ many, one }) => ({
+  memberships: many({
+    sourceField: ["workspaceIdentifier"],
+    destField: ["workspaceIdentifier"],
+    destSchema: syncWorkspaceMember,
+  }),
+  workspace: one({
+    sourceField: ["workspaceIdentifier"],
+    destField: ["id"],
+    destSchema: syncWorkspace,
+  }),
+}));
+
 export const sharedRecordSchema = createSchema({
-  tables: [sharedRecord, syncWorkspace, syncWorkspaceMember, sharedComment, sharedTextRevision],
-  relationships: [recordRelationships, commentRelationships, textEditRelationships],
+  tables: [
+    sharedRecord,
+    syncWorkspace,
+    syncWorkspaceMember,
+    sharedComment,
+    sharedTextRevision,
+    syncExecutionTable,
+  ],
+  relationships: [
+    recordRelationships,
+    commentRelationships,
+    textEditRelationships,
+    executionRelationships,
+  ],
   enableLegacyQueries: false,
   enableLegacyMutators: false,
 });
