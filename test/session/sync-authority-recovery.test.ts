@@ -43,6 +43,17 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
         readSyncAuthority(transaction),
       );
       const source = createSyncAuthorityDatabase({ database, identity: sourceIdentity });
+      const normalizedSource = createSyncAuthorityDatabase({
+        database,
+        identity: {
+          authorityIdentifier: sourceIdentity.authorityIdentifier.toUpperCase(),
+          generation: sourceIdentity.generation.toUpperCase(),
+        },
+      });
+
+      expect(
+        await normalizedSource.transaction((transaction) => readSyncAuthority(transaction)),
+      ).toEqual(sourceIdentity);
       const original = await source.transaction((transaction) =>
         readSyncWorkspaceAuthority(transaction, record.workspace_identifier),
       );

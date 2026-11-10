@@ -1,4 +1,5 @@
-import { fetchSyncWorkspaceAuthority } from "@cueloop/sync/authority/client";
+import { editSharedRecord } from "./shared-record-edit-client.ts";
+import { fetchSyncAuthority } from "@cueloop/sync/authority/client";
 import { connectSharedPresence } from "./presence-client.ts";
 import { parseArgs } from "node:util";
 import * as v from "valibot";
@@ -9,11 +10,7 @@ import { createSyncSqliteStorage } from "@cueloop/sync/storage";
 import { createSyncDraftStore } from "@cueloop/sync/drafts";
 import { connectSharedOperation } from "./operation-client.ts";
 import type { SyncClientOutcome } from "@cueloop/sync/serve";
-import {
-  sharedRecordMutators,
-  sharedRecordQueries,
-  sharedRecordQueryArgumentsSchema,
-} from "./shared-record.ts";
+import { sharedRecordQueries, sharedRecordQueryArgumentsSchema } from "./shared-record.ts";
 
 export async function connectSharedRecord(arguments_: string[]): Promise<void | SyncClientOutcome> {
   const { values } = parseArgs({
@@ -87,9 +84,8 @@ export async function connectSharedRecord(arguments_: string[]): Promise<void | 
   if (!authorityURL)
     throw new Error("Sync client requires SYNC_AUTHORITY_URL before opening a replica");
 
-  const authority = await fetchSyncWorkspaceAuthority({
+  const authority = await fetchSyncAuthority({
     authorityURL,
-    workspaceIdentifier: queryArguments.workspaceIdentifier,
     headers: { authorization: `Bearer ${auth}` },
   });
   const client = createSharedRecordClient({
@@ -148,12 +144,14 @@ export async function connectSharedRecord(arguments_: string[]): Promise<void | 
 
       if (!record) throw new Error("Sync example edit requires an authorized record");
 
-      const result = await client.mutate(
-        sharedRecordMutators.edit({ authority, id: record.id, content: values.content }),
-      ).server;
-
-      if (result.type === "error")
-        throw new Error(`Sync example mutation failed: ${result.error.message}`);
+      await editSharedRecord({
+        client,
+        authorityURL,
+        auth,
+        workspaceIdentifier: record.workspaceIdentifier,
+        recordIdentifier: record.id,
+        content: values.content,
+      });
     }
 
     process.stdout.write(JSON.stringify(await client.run(query, { type: "complete" })) + "\n");

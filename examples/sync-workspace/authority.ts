@@ -132,20 +132,19 @@ async function fetch(request: Request): Promise<Response> {
         await request.json(),
       );
       const current = await database.transaction(async (transaction) => {
-        let workspaceIdentifier = input.workspaceIdentifier;
+        const workspaceIdentifier = input.workspaceIdentifier;
 
         if (!workspaceIdentifier) {
-          const rows = await transaction.dbTransaction.query(
-            "SELECT workspace_identifier::text FROM sync_workspace_member WHERE user_identifier = $1 AND deleted_at IS NULL ORDER BY workspace_identifier LIMIT 1",
-            [principal.userIdentifier],
-          );
-          const [membership] = v.parse(v.array(v.object({ workspace_identifier: v.string() })), [
-            ...rows,
-          ]);
+          const authority = await readSyncAuthority(transaction);
 
-          if (!membership) throw new SharedWorkspaceAccessError();
-
-          workspaceIdentifier = membership.workspace_identifier;
+          return {
+            authority: {
+              authorityIdentifier: authority.authorityIdentifier,
+              generation: authority.generation,
+            },
+            phase: "active" as const,
+            deploymentPhase: authority.phase,
+          };
         }
 
         await authorizeSharedWorkspace({

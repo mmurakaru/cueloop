@@ -1,3 +1,4 @@
+import type { SyncWorkspaceAuthority } from "@cueloop/sync/authority";
 import * as v from "valibot";
 import { SyncTextStateSchema, type SyncTextEditorSnapshot } from "@cueloop/sync/text";
 import type { createSyncDraftStore } from "@cueloop/sync/drafts";
@@ -13,7 +14,7 @@ interface SharedTextAuthorityOptions {
   recordIdentifier: string;
 }
 
-const TextDraftContentSchema = v.object({
+export const SharedTextDraftContentSchema = v.object({
   kind: v.literal("shared-text"),
   workspaceIdentifier: v.pipe(v.string(), v.uuid()),
   recordIdentifier: v.pipe(v.string(), v.uuid()),
@@ -42,19 +43,12 @@ export async function readSharedTextAuthority(options: SharedTextAuthorityOption
 
 export async function loadSharedTextEditorState(
   options: SharedTextAuthorityOptions & {
+    authority: SyncWorkspaceAuthority;
     client: ReturnType<typeof createSharedRecordClient>;
     drafts: ReturnType<typeof createSyncDraftStore>;
   },
 ) {
-  const candidates = (await options.drafts.list())
-    .map((record) => ({ record, content: v.safeParse(TextDraftContentSchema, record.content) }))
-    .filter(
-      (entry) =>
-        entry.content.success &&
-        entry.content.output.workspaceIdentifier === options.workspaceIdentifier &&
-        entry.content.output.recordIdentifier === options.recordIdentifier,
-    )
-    .toSorted((left, right) => right.record.updatedAt - left.record.updatedAt);
+  const candidates = await readSharedTextDrafts(options);
   const stored = candidates[0];
   const restored = stored?.content.success ? stored.content.output : undefined;
   let source: v.InferOutput<typeof SharedTextStateResponseSchema>;
@@ -64,6 +58,7 @@ export async function loadSharedTextEditorState(
 
     if (source.textState === null) {
       const initialized = await initializeSharedText({
+        authority: options.authority,
         client: options.client,
         drafts: options.drafts,
         authorityURL: options.authorityURL,
@@ -129,7 +124,7 @@ function restoreSharedTextEditorState({
   stored:
     | { record: Awaited<ReturnType<ReturnType<typeof createSyncDraftStore>["list"]>>[number] }
     | undefined;
-  restored: v.InferOutput<typeof TextDraftContentSchema> | undefined;
+  restored: v.InferOutput<typeof SharedTextDraftContentSchema> | undefined;
 }) {
   const hasDraft = restored !== undefined && stored?.record.status !== "accepted";
   const operation: SyncTextEditorSnapshot["operation"] =
@@ -156,4 +151,25 @@ function restoreSharedTextEditorState({
     generation: hasDraft ? 1 : 0,
     operation,
   };
+}
+
+export async function readSharedTextDrafts(options: {
+  drafts: ReturnType<typeof createSyncDraftStore>;
+  workspaceIdentifier: string;
+  recordIdentifier: string;
+}) {
+  const candidates = (await options.drafts.list())
+    .map((record) => ({
+      record,
+      content: v.safeParse(SharedTextDraftContentSchema, record.content),
+    }))
+    .filter(
+      (entry) =>
+        entry.content.success &&
+        entry.content.output.workspaceIdentifier === options.workspaceIdentifier &&
+        entry.content.output.recordIdentifier === options.recordIdentifier,
+    )
+    .toSorted((left, right) => right.record.updatedAt - left.record.updatedAt);
+
+  return candidates;
 }

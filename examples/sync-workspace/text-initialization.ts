@@ -1,3 +1,4 @@
+import type { SyncWorkspaceAuthority } from "@cueloop/sync/authority";
 import * as v from "valibot";
 import { createSyncTextState } from "@cueloop/sync/text";
 import { submitSyncOperation } from "@cueloop/sync/operations";
@@ -11,6 +12,7 @@ import {
 import { lookupSharedOperationReceipt } from "./operation-receipt-client.ts";
 
 export async function initializeSharedText(options: {
+  authority: SyncWorkspaceAuthority;
   client: ReturnType<typeof createSharedRecordClient>;
   drafts: ReturnType<typeof createSyncDraftStore>;
   authorityURL: string;
@@ -38,7 +40,7 @@ export async function initializeSharedText(options: {
     ? previous.operation.output
     : sharedTextOperations.initialize.create({
         workspaceIdentifier: options.workspaceIdentifier,
-        authority: options.client.authority,
+        authority: options.authority,
         arguments: {
           recordIdentifier: options.recordIdentifier,
           state: createSyncTextState(options.content).state,

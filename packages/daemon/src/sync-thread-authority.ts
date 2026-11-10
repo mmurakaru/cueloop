@@ -1,7 +1,7 @@
 import { mustGetMutator, mustGetQuery } from "@rocicorp/zero";
 import type { Database } from "@rocicorp/zero/server";
 import type { ServerTransaction } from "@rocicorp/zero";
-import { readSyncWorkspaceAuthority } from "@cueloop/sync/authority/server";
+import { readSyncAuthority, readSyncWorkspaceAuthority } from "@cueloop/sync/authority/server";
 import { SyncAuthorityFenced, SyncAuthorityRecoveryRequired } from "@cueloop/sync/authority";
 import {
   createSyncAuthority,
@@ -76,10 +76,23 @@ export function createSyncThreadApplication<WrappedTransaction>(options: {
 
         if (path === "/authority") {
           const descriptor = v.parse(
-            v.strictObject({ workspaceIdentifier: v.pipe(v.string(), v.uuid()) }),
+            v.strictObject({ workspaceIdentifier: v.optional(v.pipe(v.string(), v.uuid())) }),
             input,
           );
           const current = await options.database.transaction(async (transaction) => {
+            if (!descriptor.workspaceIdentifier) {
+              const authority = await readSyncAuthority(transaction);
+
+              return {
+                authority: {
+                  authorityIdentifier: authority.authorityIdentifier,
+                  generation: authority.generation,
+                },
+                phase: "active" as const,
+                deploymentPhase: authority.phase,
+              };
+            }
+
             await authorizeSyncThreadWorkspace({
               transaction,
               workspaceIdentifier: descriptor.workspaceIdentifier,

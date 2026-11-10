@@ -9,7 +9,6 @@ import {
   SyncAuthorityFenced,
   SyncAuthorityRecoveryRequired,
   SyncWorkspaceAuthoritySchema,
-  type SyncAuthorityIdentity,
 } from "./sync-authority-protocol.ts";
 import {
   syncTransactionAuthority,
@@ -70,12 +69,9 @@ export async function readSyncWorkspaceAuthority(
 /** The state-row share lock remains held until the same transaction commits or rolls back. */
 export function createSyncAuthorityDatabase<Transaction extends SyncAuthorityTransaction>(options: {
   database: Database<Transaction>;
-  identity: SyncAuthorityIdentity;
+  identity: v.InferInput<typeof SyncAuthorityIdentitySchema>;
 }) {
-  const identity = Object.freeze({
-    authorityIdentifier: options.identity.authorityIdentifier,
-    generation: options.identity.generation,
-  });
+  const identity = Object.freeze(v.parse(SyncAuthorityIdentitySchema, options.identity));
 
   return {
     transaction<Result>(

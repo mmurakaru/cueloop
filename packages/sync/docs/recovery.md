@@ -104,7 +104,9 @@ Capture the authority identity once when the server starts.
 All authoritative writes, staging uploads, execution claims, and reports must use this wrapper.
 Its fence lock lasts until the transaction commits.
 
-Resolve `fetchSyncWorkspaceAuthority` before constructing a client that can reopen persistent mutations.
+Resolve `fetchSyncAuthority` before constructing a client that can reopen persistent mutations.
+Use `fetchSyncWorkspaceAuthority` to obtain a workspace descriptor before creating a change.
+Read-only deployment metadata grants no access to application records.
 Pass the descriptor as `createSyncClient({ authority, ...options })`.
 The replica storage key includes the logical authority and generation.
 Keep the draft store's authority namespace stable across cache replacement.
@@ -118,6 +120,8 @@ This outcome is not an acceptance or rejection receipt.
 
 The experimental Thread integration resolves the generation before opening its replica.
 It keeps drafts available without connecting and displays unknown outcomes as recovery required.
+The standalone text editor can reopen unsent drafts without starting a replica or presence connection.
+Submitted input stays read-only until its original outcome can be recovered.
 
 ## Recover a native Thread projection
 

@@ -1,3 +1,4 @@
+import { openSharedTextOfflineDraft } from "./text-editor-offline.ts";
 import { fetchSyncWorkspaceAuthority } from "@cueloop/sync/authority/client";
 import { createSyncPresenceClient } from "@cueloop/sync/presence";
 import { loadSharedTextEditorState, readSharedTextAuthority } from "./text-editor-state.ts";
@@ -34,16 +35,32 @@ export async function createSharedTextEditorSession(options: {
     workspaceIdentifier: options.workspaceIdentifier,
     recordIdentifier: options.recordIdentifier,
   });
-  const authority = await fetchSyncWorkspaceAuthority({
-    authorityURL: options.authorityURL,
-    workspaceIdentifier: options.workspaceIdentifier,
-    headers: { authorization: `Bearer ${options.auth}` },
-  });
   const drafts = createSyncDraftStore({
     storage: options.storage,
     authorityIdentifier: options.authorityURL,
     userIdentifier: options.userID,
   });
+  let authority: Awaited<ReturnType<typeof fetchSyncWorkspaceAuthority>>;
+
+  try {
+    authority = await fetchSyncWorkspaceAuthority({
+      authorityURL: options.authorityURL,
+      workspaceIdentifier: options.workspaceIdentifier,
+      headers: { authorization: `Bearer ${options.auth}` },
+    });
+  } catch (cause) {
+    try {
+      const offline = await openSharedTextOfflineDraft({ ...request, drafts });
+
+      if (offline) return offline;
+
+      throw cause;
+    } catch (failure) {
+      await drafts.close();
+
+      throw failure;
+    }
+  }
   const client = createSharedRecordClient({
     ...options,
     authority,
@@ -69,6 +86,7 @@ export async function createSharedTextEditorSession(options: {
     const initial = await loadSharedTextEditorState({
       ...options,
       ...request,
+      authority,
       client,
       drafts,
     });

@@ -1,3 +1,4 @@
+import { SyncWorkspaceAuthoritySchema } from "@cueloop/sync/authority";
 import { expect, test } from "bun:test";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -17,7 +18,7 @@ import {
 
 const uncheckedMutators = defineMutatorsWithType<typeof sharedRecordSchema>()({
   edit: defineMutatorWithType<typeof sharedRecordSchema, SharedRecordContext>()(
-    v.object({ id: v.string(), content: v.string() }),
+    v.object({ id: v.string(), content: v.string(), authority: SyncWorkspaceAuthoritySchema }),
     async () => {},
   ),
 });
@@ -232,7 +233,11 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
       try {
         await uncheckedClient.run(sharedRecordQueries.records(), { type: "complete" });
         const forged = uncheckedClient.mutate(
-          uncheckedMutators.edit({ id: record.id, content: "Forged edit" }),
+          uncheckedMutators.edit({
+            id: record.id,
+            content: "Forged edit",
+            authority: stack.authority,
+          }),
         );
 
         expect((await forged.client).type).toBe("success");

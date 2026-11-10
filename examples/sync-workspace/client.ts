@@ -1,4 +1,4 @@
-import type { SyncWorkspaceAuthority } from "@cueloop/sync/authority";
+import type { SyncAuthorityIdentity } from "@cueloop/sync/authority";
 import { createSyncClient } from "@cueloop/sync";
 import type { ZeroOptions } from "@rocicorp/zero";
 import type { SharedRecordContext } from "./shared-record.ts";
@@ -6,7 +6,7 @@ import { sharedRecordSchema } from "./workspace-schema.ts";
 import { sharedWorkspaceMutators } from "./shared-workspace.ts";
 
 export function createSharedRecordClient(options: {
-  authority: SyncWorkspaceAuthority;
+  authority: SyncAuthorityIdentity;
   cacheURL: string;
   userID: string;
   auth: string;
