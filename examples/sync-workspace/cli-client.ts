@@ -1,3 +1,4 @@
+import { connectSharedPresence } from "./presence-client.ts";
 import { parseArgs } from "node:util";
 import * as v from "valibot";
 import { createSharedRecordClient } from "./client.ts";
@@ -25,12 +26,35 @@ export async function connectSharedRecord(arguments_: string[]): Promise<void | 
       operation: { type: "string" },
       "operation-status": { type: "boolean" },
       drafts: { type: "boolean" },
+      presence: { type: "boolean" },
     },
   });
   const queryArguments = parseSharedRecordQueryArguments(values);
   const cacheURL = process.env.SYNC_CACHE_URL;
   const userID = process.env.SYNC_USER_ID;
   const auth = process.env.SYNC_AUTH_TOKEN;
+
+  if (values.presence) {
+    if (
+      [
+        values.drafts,
+        values.operation !== undefined,
+        values["operation-status"],
+        values.content !== undefined,
+        values.limit !== undefined,
+        values["after-created-at"] !== undefined,
+        values["after-identifier"] !== undefined,
+      ].some(Boolean)
+    )
+      throw new Error("Sync presence requires a presence-only command");
+
+    return connectSharedPresence({
+      workspaceIdentifier: queryArguments.workspaceIdentifier,
+      authorityURL: process.env.SYNC_AUTHORITY_URL,
+      auth,
+      watch: Boolean(values.watch),
+    });
+  }
 
   const storage = process.env.SYNC_STORAGE_DIRECTORY
     ? createSyncSqliteStorage({ directory: process.env.SYNC_STORAGE_DIRECTORY })

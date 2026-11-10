@@ -20,7 +20,7 @@ import React, {
   useState,
 } from "react";
 import type { KeyBinding, TextareaRenderable } from "@opentui/core";
-import { useRenderer } from "@opentui/react";
+import { useRenderer, useSelectionHandler } from "@opentui/react";
 import { type Theme } from "../../appearance/theme";
 import { markdownHighlightRanges } from "../markdown-highlight";
 import { markdownEditorStyle } from "../markdown-editor-syntax-style";
@@ -31,8 +31,9 @@ export interface MarkdownThreadEditorProps {
   onExitEditor: (text: string) => void;
   text?: string;
   onTextChange?: (text: string) => void;
+  onSelectionChange?: (selection: { anchor: number; focus: number } | null) => void;
   editable?: boolean;
-  mapCursor?: (offset: number) => number | undefined;
+  mapCursor?: (offset: number, association?: -1 | 0) => number | undefined;
   footerHint?: string;
 }
 
@@ -82,6 +83,7 @@ export const MarkdownThreadEditor = forwardRef<MarkdownEditorHandle, MarkdownThr
       onExitEditor,
       text,
       onTextChange,
+      onSelectionChange,
       editable = true,
       mapCursor,
       footerHint,
@@ -96,6 +98,25 @@ export const MarkdownThreadEditor = forwardRef<MarkdownEditorHandle, MarkdownThr
       column: 1,
       lineCount: initialText.split("\n").length,
     });
+
+    const reportSelection = useCallback(() => {
+      if (!onSelectionChange) return;
+
+      const editor = editorRef.current;
+
+      if (!editor || editor.plainText !== reportedText.current) return;
+
+      const selection = editor.getSelection();
+      const anchor = selection?.start ?? editor.cursorOffset;
+      const focus = selection?.end ?? editor.cursorOffset;
+
+      onSelectionChange?.({
+        anchor: editor.editBuffer.getTextRange(0, anchor).length,
+        focus: editor.editBuffer.getTextRange(0, focus).length,
+      });
+    }, [onSelectionChange]);
+
+    useSelectionHandler(reportSelection);
 
     const exitWithCurrentText = (): void =>
       onExitEditor(editorRef.current?.plainText ?? initialText);
@@ -138,6 +159,13 @@ export const MarkdownThreadEditor = forwardRef<MarkdownEditorHandle, MarkdownThr
 
       if (!editor || text === undefined || editor.plainText === text) return;
 
+      const selection = editor.getSelection();
+      const selectionStart = selection
+        ? mapCursor?.(editor.editBuffer.getTextRange(0, selection.start).length, 0)
+        : undefined;
+      const selectionEnd = selection
+        ? mapCursor?.(editor.editBuffer.getTextRange(0, selection.end).length, -1)
+        : undefined;
       const characterOffset = editor.editBuffer.getTextRange(0, editor.cursorOffset).length;
       const mappedOffset = mapCursor?.(characterOffset);
       const offset =
@@ -148,13 +176,28 @@ export const MarkdownThreadEditor = forwardRef<MarkdownEditorHandle, MarkdownThr
       reportedText.current = text;
       editor.setText(text);
       editor.cursorOffset = Math.min(offset, editor.editBuffer.measureText(text));
+
+      if (
+        selectionStart !== undefined &&
+        selectionEnd !== undefined &&
+        selectionStart < selectionEnd
+      ) {
+        editor.setSelection(
+          editor.editBuffer.measureText(text.slice(0, selectionStart)),
+          editor.editBuffer.measureText(text.slice(0, selectionEnd)),
+        );
+        reportSelection();
+      } else if (selection) {
+        onSelectionChange?.(null);
+      }
+
       paintMarkdown(editor);
       setPosition({
         line: editor.logicalCursor.row + 1,
         column: editor.logicalCursor.col + 1,
         lineCount: editor.editBuffer.getLineCount(),
       });
-    }, [text, mapCursor, paintMarkdown]);
+    }, [text, mapCursor, paintMarkdown, onSelectionChange, reportSelection]);
 
     return (
       <box style={{ flexDirection: "column", flexGrow: 1, paddingLeft: 2 }}>
@@ -166,13 +209,14 @@ export const MarkdownThreadEditor = forwardRef<MarkdownEditorHandle, MarkdownThr
           wrapMode="word"
           cursorStyle={{ style: "block", blinking: true }}
           onSubmit={exitWithCurrentText}
-          onCursorChange={(event) =>
+          onCursorChange={(event) => {
             setPosition((prior) => ({
               ...prior,
               line: event.line + 1,
               column: event.visualColumn + 1,
-            }))
-          }
+            }));
+            reportSelection();
+          }}
           onContentChange={() => {
             const editor = editorRef.current;
 
@@ -187,6 +231,7 @@ export const MarkdownThreadEditor = forwardRef<MarkdownEditorHandle, MarkdownThr
               onTextChange?.(currentText);
             }
 
+            reportSelection();
             setPosition((prior) => ({ ...prior, lineCount: editor.editBuffer.getLineCount() }));
           }}
           style={{

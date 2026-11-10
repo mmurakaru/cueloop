@@ -1,3 +1,4 @@
+import { createSyncPresenceClient } from "@cueloop/sync/presence";
 import { loadSharedTextEditorState, readSharedTextAuthority } from "./text-editor-state.ts";
 import type { StoreProvider } from "@rocicorp/zero/sqlite";
 import * as v from "valibot";
@@ -55,6 +56,8 @@ export async function createSharedTextEditorSession(options: {
       operation,
     });
 
+  let presence: ReturnType<typeof createSyncPresenceClient> | undefined;
+
   try {
     const initial = await loadSharedTextEditorState({
       ...options,
@@ -63,6 +66,11 @@ export async function createSharedTextEditorSession(options: {
       drafts,
     });
     const { source } = initial;
+    const presenceClient = createSyncPresenceClient({ ...options, ...request });
+
+    presence = presenceClient;
+
+    presenceClient.setEnabled(client.connection.state.current.name === "connected");
     let role = source.role;
     let closed = false;
     let closing: Promise<void> | undefined;
@@ -93,6 +101,7 @@ export async function createSharedTextEditorSession(options: {
       snapshot = {
         text,
         textState: document.snapshot.state,
+        documentIdentifier: request.recordIdentifier,
         connection: client.connection.state.current.name,
         freshness,
         lifecycle: client.lifecycle.current.status,
@@ -101,6 +110,14 @@ export async function createSharedTextEditorSession(options: {
         draftSaved: hasDraft && generation === persistedGeneration,
         editable: !closed && !saving && operation !== "pending" && role !== "viewer",
         revision,
+        presence: {
+          ...presenceClient.getSnapshot(),
+          peers: presenceClient
+            .getSnapshot()
+            .peers.filter(
+              (peer) => peer.connectionIdentifier !== presenceClient.connectionIdentifier,
+            ),
+        },
         error,
       };
 
@@ -198,7 +215,11 @@ export async function createSharedTextEditorSession(options: {
         : undefined;
       publish();
     });
-    const unsubscribeConnection = client.connection.state.subscribe(publish);
+    const unsubscribePresence = presenceClient.subscribe(publish);
+    const unsubscribeConnection = client.connection.state.subscribe((state) => {
+      presenceClient.setEnabled(state.name === "connected");
+      publish();
+    });
     const unsubscribeLifecycle = client.lifecycle.subscribe(publish);
     const submit = async (): Promise<SyncTextSaveOutcome> => {
       error = undefined;
@@ -306,6 +327,7 @@ export async function createSharedTextEditorSession(options: {
           throw new Error("Shared text operation must finish before editing continues");
 
         text = value;
+        presenceClient.update({ typing: true });
         hasDraft = true;
         operation = "idle";
         error = undefined;
@@ -321,6 +343,29 @@ export async function createSharedTextEditorSession(options: {
         generation++;
         publish();
         void persist();
+      },
+      select(selection) {
+        if (closed) return;
+
+        if (!selection || text !== document.snapshot.text) {
+          presenceClient.update({ selection: null });
+
+          return;
+        }
+
+        presenceClient.update({
+          selection: {
+            documentIdentifier: request.recordIdentifier,
+            anchor: document.createPosition({
+              index: selection.anchor,
+              association: selection.anchor < selection.focus ? 0 : -1,
+            }),
+            focus: document.createPosition({
+              index: selection.focus,
+              association: selection.focus < selection.anchor ? 0 : -1,
+            }),
+          },
+        });
       },
       save() {
         if (closed) return Promise.reject(new Error("Shared text editor is closed"));
@@ -353,6 +398,7 @@ export async function createSharedTextEditorSession(options: {
         unsubscribeHistory();
         unsubscribeConnection();
         unsubscribeLifecycle();
+        unsubscribePresence();
         view.destroy();
         historyView.destroy();
         closing = (async () => {
@@ -362,6 +408,7 @@ export async function createSharedTextEditorSession(options: {
             if (hasDraft && !pending) await persist();
           } finally {
             document.close();
+            await presenceClient.close();
             await client.close();
             await drafts.close();
             listeners.clear();
@@ -372,6 +419,7 @@ export async function createSharedTextEditorSession(options: {
       },
     };
   } catch (cause) {
+    await presence?.close();
     view.destroy();
     historyView.destroy();
     await client.close();

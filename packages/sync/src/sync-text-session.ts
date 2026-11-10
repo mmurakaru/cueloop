@@ -1,3 +1,5 @@
+import { SyncPresenceSnapshotSchema } from "./sync-presence-protocol.ts";
+import type { SyncPresenceSnapshot } from "./sync-presence-client.ts";
 import * as v from "valibot";
 import { SyncTextStateSchema } from "./sync-text.ts";
 import { SyncOperationReceiptSchema, SyncOperationIdentifierSchema } from "./sync-operation.ts";
@@ -17,6 +19,7 @@ export interface SyncTextRevision {
 export interface SyncTextEditorSnapshot {
   readonly text: string;
   readonly textState: string;
+  readonly documentIdentifier?: string;
   readonly connection: Connection["state"]["current"]["name"];
   readonly freshness: ResultType;
   readonly lifecycle: SyncClientLifecycle["status"];
@@ -25,6 +28,7 @@ export interface SyncTextEditorSnapshot {
   readonly draftSaved: boolean;
   readonly editable: boolean;
   readonly revision?: SyncTextRevision;
+  readonly presence?: SyncPresenceSnapshot;
   readonly error?: string;
 }
 
@@ -35,6 +39,7 @@ export interface SyncTextEditorSession {
   getSnapshot(): SyncTextEditorSnapshot;
   subscribe(listener: () => void): () => void;
   change(text: string): void;
+  select?(selection: { anchor: number; focus: number } | null): void;
   save(): Promise<SyncTextSaveOutcome>;
   close(): Promise<void>;
 }
@@ -42,6 +47,7 @@ export interface SyncTextEditorSession {
 const TextEditorSnapshotSchema = v.object({
   text: v.pipe(v.string(), v.maxLength(8 * 1024 * 1024)),
   textState: SyncTextStateSchema,
+  documentIdentifier: v.optional(v.pipe(v.string(), v.uuid())),
   connection: v.picklist([
     "initializing",
     "connecting",
@@ -58,6 +64,7 @@ const TextEditorSnapshotSchema = v.object({
   draftSaved: v.boolean(),
   editable: v.boolean(),
   error: v.optional(v.string()),
+  presence: v.optional(SyncPresenceSnapshotSchema),
   revision: v.optional(
     v.object({
       identifier: v.string(),
@@ -73,6 +80,7 @@ const TextEditorSessionMethodsSchema = v.object({
   getSnapshot: v.function(),
   subscribe: v.function(),
   change: v.function(),
+  select: v.optional(v.function()),
   save: v.function(),
   close: v.function(),
 });
@@ -124,6 +132,21 @@ export async function validateSyncTextEditorSession(
     change(text) {
       session.change(v.parse(v.string(), text));
     },
+    select: session.select
+      ? (selection) => {
+          session.select?.(
+            v.parse(
+              v.nullable(
+                v.object({
+                  anchor: v.pipe(v.number(), v.safeInteger(), v.minValue(0)),
+                  focus: v.pipe(v.number(), v.safeInteger(), v.minValue(0)),
+                }),
+              ),
+              selection,
+            ),
+          );
+        }
+      : undefined,
     async save() {
       return v.parse(TextSaveOutcomeSchema, await session.save());
     },
