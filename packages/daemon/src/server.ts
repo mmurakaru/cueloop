@@ -317,7 +317,7 @@ export class DaemonServer {
           home: this.home,
           core: this.core,
           onDelete: (id) => this.threadAgent.remove(id),
-          enabled: (id) => this.options.sync?.enabledForThread(this.core.sessionGet(id)) ?? false,
+          enabled: (thread) => this.options.sync?.enabledForThread(thread) ?? false,
         }),
     );
 

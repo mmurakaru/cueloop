@@ -1,3 +1,4 @@
+import { recoverTestSyncDeletedThread } from "../helpers/sync-thread-delete";
 import { runTestSyncDiffReview } from "../helpers/sync-thread-diff";
 import { exerciseTestSyncThreadSharing } from "../helpers/sync-thread-sharing";
 import { createTestSyncThreadDrafts } from "../helpers/sync-thread-drafts";
@@ -43,6 +44,7 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
       userID: stack.userID,
       auth: stack.auth,
       kvStore: "mem",
+      storageKey: stack.storageKey,
       context: { actorIdentifier: stack.userID },
     });
 
@@ -262,7 +264,16 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
 
       expect(fork.id).not.toBe(thread.id);
       expect(fork.parentSessionId).toBe(thread.id);
-      await owner.sessionDelete(fork.id);
+      const recoveredDeletion = await recoverTestSyncDeletedThread({
+        server,
+        client: owner,
+        home,
+        threadIdentifier: fork.id,
+        gate: stack.pauseNextMutation(),
+      });
+
+      server = recoveredDeletion.server;
+      owner = recoveredDeletion.client;
       expect((await owner.sessionList()).map((item) => item.id)).not.toContain(fork.id);
       expect((await owner.sessionGet(thread.id)).message).toMatchObject({ id: messageIdentifier });
       const recoveryThread = await owner.sessionCreate(

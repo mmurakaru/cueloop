@@ -83,3 +83,51 @@ test("accepted projections reject older versions and remain fenced when their ma
     rmSync(home, { recursive: true, force: true });
   }
 });
+
+test("an interrupted import preparation retains a writable original until its complete recovery journal is published", async () => {
+  const home = mkdtempSync(join(tmpdir(), "cueloop-thread-fence-preparation-"));
+  const core = new DaemonCore(home);
+
+  try {
+    const thread = core.sessionCreate({
+      workspace: { repoRoot: home, branch: "main" },
+      artifact: { type: "plan", content: "Retained original plan.\n".repeat(1000), meta: {} },
+    });
+    const script = join(home, "interrupted-import.ts");
+
+    writeFileSync(
+      script,
+      `import {DaemonCore} from ${JSON.stringify(join(import.meta.dir, "api.ts"))}; import {SyncThreadLocalState} from ${JSON.stringify(join(import.meta.dir, "sync-thread-local-state.ts"))}; const core=new DaemonCore(${JSON.stringify(home)});new SyncThreadLocalState(${JSON.stringify(home)}).begin({thread:core.sessionGet(${JSON.stringify(thread.id)}),connection:${JSON.stringify(connection)},upload:"retained-upload"});core.dispose();`,
+    );
+    const child = Bun.spawn(
+      [
+        "/bin/sh",
+        "-c",
+        'ulimit -c 0; ulimit -f 1; exec "$@"',
+        "sync-import-failure",
+        process.execPath,
+        script,
+      ],
+      {
+        stdout: "ignore",
+        stderr: "ignore",
+        env: { ...process.env, BUN_RUNTIME_TRANSPILER_CACHE_PATH: "0" },
+      },
+    );
+
+    expect(await child.exited).not.toBe(0);
+    const recovered = new DaemonCore(home);
+
+    try {
+      expect(recovered.sessionGet(thread.id).artifact.content).toBe(thread.artifact.content);
+      expect(
+        recovered.sessionSetWorkingCopy(thread.id, "Import never reached an authority").workingCopy,
+      ).toBe("Import never reached an authority");
+    } finally {
+      recovered.dispose();
+    }
+  } finally {
+    core.dispose();
+    rmSync(home, { recursive: true, force: true });
+  }
+});

@@ -1,18 +1,15 @@
+import { createSyncThreadProfile, type SyncThreadProfile } from "./sync-thread-profile";
+import type { Thread } from "@cueloop/schema";
 import { createSyncThreadDiffLifecycle } from "./sync-thread-diff-refresh";
 import { isDeepStrictEqual } from "node:util";
-import { createHash } from "node:crypto";
-import { join } from "node:path";
-import { createSyncClient } from "@cueloop/sync";
-import { createSyncSqliteStorage } from "@cueloop/sync/storage";
-import { createSyncDraftStore, type SyncDraftRecord } from "@cueloop/sync/drafts";
+import type { SyncDraftRecord } from "@cueloop/sync/drafts";
 import { createSyncQuerySubscription } from "@cueloop/sync/queries";
-import { submitSyncOperation } from "@cueloop/sync/operations";
+import { submitSyncOperation, type SyncOperationReceipt } from "@cueloop/sync/operations";
 import * as v from "valibot";
 import type { DaemonCore } from "./api";
 import { ThreadStore } from "./store";
 import { ThreadRecordSchema } from "./validate";
 import { DaemonError } from "./errors";
-import { syncThreadSchema } from "./sync-thread-schema";
 import { syncThreadQueries } from "./sync-thread-queries";
 import { syncThreadMutators } from "./sync-thread-mutators";
 import {
@@ -48,46 +45,8 @@ const CommandResultSchema = v.object({
   deleted: v.optional(v.boolean()),
 });
 
-function createThreadProfile(options: {
-  home: string;
-  connection: SyncThreadConnection;
-  authenticationToken: string;
-}) {
-  const profileIdentifier = createHash("sha256")
-    .update(
-      JSON.stringify({
-        cacheURL: options.connection.cacheURL,
-        authorityURL: options.connection.authorityURL,
-        actorIdentifier: options.connection.actorIdentifier,
-      }),
-    )
-    .digest("hex");
-  const storage = createSyncSqliteStorage({
-    directory: join(options.home, "sync-replicas", profileIdentifier),
-  });
-  const client = createSyncClient({
-    schema: syncThreadSchema,
-    mutators: syncThreadMutators,
-    context: { actorIdentifier: options.connection.actorIdentifier },
-    cacheURL: options.connection.cacheURL,
-    userID: options.connection.actorIdentifier,
-    auth: options.authenticationToken,
-    storageKey: profileIdentifier,
-    kvStore: storage,
-  });
-  const drafts = createSyncDraftStore({
-    storage,
-    authorityIdentifier: options.connection.authorityURL,
-    userIdentifier: options.connection.actorIdentifier,
-    maximumBytes: 64 * 1024 * 1024,
-  });
-
-  return { client, drafts, authenticationToken: options.authenticationToken };
-}
-
-type ThreadProfile = ReturnType<typeof createThreadProfile>;
 interface ThreadObservation {
-  profile: ThreadProfile;
+  profile: SyncThreadProfile;
   version: number;
   failure?: Error;
   changed: Set<() => void>;
@@ -96,7 +55,7 @@ interface ThreadObservation {
 
 /** Files contain only projections and journals; every supported mutation crosses the workspace authority. */
 export class SyncThreadRuntime {
-  private readonly profiles = new Map<string, ThreadProfile>();
+  private readonly profiles = new Map<string, SyncThreadProfile>();
   private readonly observations = new Map<string, ThreadObservation>();
   private readonly store: ThreadStore;
   private closed = false;
@@ -105,7 +64,7 @@ export class SyncThreadRuntime {
     private readonly options: {
       home: string;
       core: DaemonCore;
-      enabled(threadIdentifier: string): boolean;
+      enabled(thread: Thread): boolean;
       onDelete?(threadIdentifier: string): Promise<void>;
     },
   ) {
@@ -133,17 +92,25 @@ export class SyncThreadRuntime {
     );
   }
 
+  private isEnabled(threadIdentifier: string): boolean {
+    const thread =
+      this.store.get(threadIdentifier) ??
+      this.store.syncState.readProjection(threadIdentifier).thread;
+
+    return this.options.enabled(thread);
+  }
+
   private assertEnabled(threadIdentifier: string): void {
     if (this.closed) throw new DaemonError("sync_closed", "Sync Thread runtime is closed");
 
-    if (!this.options.enabled(threadIdentifier))
+    if (!this.isEnabled(threadIdentifier))
       throw new DaemonError(
         "sync_disabled",
         "Multiplayer sync is experimental; enable it in Settings > Experimental; this Thread remains a read-only projection",
       );
   }
 
-  private profile(connection: SyncThreadConnection): ThreadProfile {
+  private profile(connection: SyncThreadConnection): SyncThreadProfile {
     const key = JSON.stringify({
       ...connection,
       recordIdentifier: undefined,
@@ -161,7 +128,7 @@ export class SyncThreadRuntime {
         "Sync Thread credentials are missing from the configured environment variable",
       );
 
-    const profile = createThreadProfile({
+    const profile = createSyncThreadProfile({
       home: this.options.home,
       connection,
       authenticationToken,
@@ -201,7 +168,7 @@ export class SyncThreadRuntime {
     void (async () => {
       try {
         for await (const snapshot of subscription) {
-          if (this.closed || !this.options.enabled(threadIdentifier)) {
+          if (this.closed || !this.isEnabled(threadIdentifier)) {
             subscription.close();
             throw new DaemonError(
               "sync_disabled",
@@ -479,14 +446,24 @@ export class SyncThreadRuntime {
     return this.finishCommand(threadIdentifier, draft.draftIdentifier, prepared);
   }
 
+  private async retireDeletedProjection(threadIdentifier: string): Promise<void> {
+    this.observations.get(threadIdentifier)?.close();
+
+    if (this.store.get(threadIdentifier)) await this.options.onDelete?.(threadIdentifier);
+
+    this.options.core.sessionRemoveSyncProjection(threadIdentifier);
+  }
+
   private async finishCommand(
     threadIdentifier: string,
     draftIdentifier: SyncDraftRecord["draftIdentifier"],
     prepared: v.InferOutput<typeof PreparedCommandSchema>,
+    knownReceipt?: SyncOperationReceipt,
   ) {
-    const observation = this.observe(threadIdentifier);
     const connection = this.store.syncState.read(threadIdentifier).connection;
-    const outcome = await this.submitPreparedCommand(observation.profile, connection, prepared);
+    const profile = this.profile(connection);
+    const outcome =
+      knownReceipt ?? (await this.submitPreparedCommand(profile, connection, prepared));
 
     if (outcome.status === "pending")
       throw new DaemonError(
@@ -494,7 +471,7 @@ export class SyncThreadRuntime {
         "Sync Thread command acknowledgement is pending; its draft and operation identity are retained",
       );
 
-    await observation.profile.drafts.recordReceipt({
+    await profile.drafts.recordReceipt({
       draftIdentifier,
       receipt: outcome,
     });
@@ -514,16 +491,14 @@ export class SyncThreadRuntime {
     const result = v.parse(CommandResultSchema, outcome.result.value);
 
     if (result.deleted) {
-      observation.close();
-      await this.options.onDelete?.(threadIdentifier);
-      this.options.core.sessionRemoveSyncProjection(threadIdentifier);
-      await observation.profile.drafts.discard(draftIdentifier);
+      await this.retireDeletedProjection(threadIdentifier);
+      await profile.drafts.discard(draftIdentifier);
 
       return null;
     }
 
     if (result.threadIdentifier && result.threadIdentifier !== threadIdentifier) {
-      const record = await observation.profile.client.run(
+      const record = await profile.client.run(
         syncThreadQueries.ownerDocument({
           workspaceIdentifier: connection.workspaceIdentifier,
           recordIdentifier: result.recordIdentifier,
@@ -552,14 +527,16 @@ export class SyncThreadRuntime {
         });
 
       this.options.core.sessionProjectSyncThread(fork, record.thread.version);
-      await observation.profile.drafts.discard(draftIdentifier);
+      await profile.drafts.discard(draftIdentifier);
       this.observe(fork.id);
 
       return fork;
     }
 
+    const observation = this.observe(threadIdentifier);
+
     await this.waitForProjection(observation, result.version ?? observation.version);
-    await observation.profile.drafts.discard(draftIdentifier);
+    await profile.drafts.discard(draftIdentifier);
     const thread = this.options.core.sessionGet(threadIdentifier);
     const previousMessage = result.messageIdentifier
       ? thread.messageOperations?.find((receipt) => receipt.result.id === result.messageIdentifier)
@@ -644,13 +621,20 @@ export class SyncThreadRuntime {
         operation: prepared.operation,
       });
 
-    await this.resume(threadIdentifier);
+    const connection = this.store.syncState.read(threadIdentifier).connection;
+    const receipt = await lookupSyncThreadOperation({
+      authorityURL: connection.authorityURL,
+      authenticationToken: this.profile(connection).authenticationToken,
+      operation: prepared.operation,
+    });
 
-    return this.finishCommand(threadIdentifier, draft.draftIdentifier, prepared);
+    if (!receipt) await this.resume(threadIdentifier);
+
+    return this.finishCommand(threadIdentifier, draft.draftIdentifier, prepared, receipt);
   }
 
   private async submitPreparedCommand(
-    profile: ThreadProfile,
+    profile: SyncThreadProfile,
     connection: SyncThreadConnection,
     prepared: v.InferOutput<typeof PreparedCommandSchema>,
   ) {

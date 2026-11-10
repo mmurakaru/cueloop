@@ -9,6 +9,7 @@ import {
   readdirSync,
   readFileSync,
   renameSync,
+  rmSync,
   writeFileSync,
 } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -107,14 +108,24 @@ export class SyncThreadLocalState {
     mkdirSync(this.root, { recursive: true, mode: 0o700 });
     syncDirectory(dirname(this.root));
     activeSyncHomes.add(this.root);
-    mkdirSync(this.threadDirectory(thread.id), { mode: 0o700 });
-    syncDirectory(this.root);
-    writeSyncThreadFile(
-      join(this.threadDirectory(thread.id), "projection.json"),
-      JSON.stringify(v.parse(ProjectionSchema, { version: options.version ?? 0, thread })),
-    );
-    writeSyncThreadFile(join(this.threadDirectory(thread.id), "import.json"), options.upload);
-    writeSyncThreadFile(this.manifestPath(thread.id), JSON.stringify(manifest));
+    const preparing = `${this.threadDirectory(thread.id)}.preparing.${randomUUID()}`;
+
+    mkdirSync(preparing, { mode: 0o700 });
+
+    try {
+      writeSyncThreadFile(
+        join(preparing, "projection.json"),
+        JSON.stringify(v.parse(ProjectionSchema, { version: options.version ?? 0, thread })),
+      );
+      writeSyncThreadFile(join(preparing, "import.json"), options.upload);
+      writeSyncThreadFile(join(preparing, "manifest.json"), JSON.stringify(manifest));
+      renameSync(preparing, this.threadDirectory(thread.id));
+      syncDirectory(this.root);
+    } catch (cause) {
+      rmSync(preparing, { recursive: true, force: true });
+
+      throw cause;
+    }
   }
 
   read(threadIdentifier: string) {
@@ -140,13 +151,22 @@ export class SyncThreadLocalState {
     writeSyncThreadFile(join(this.threadDirectory(threadIdentifier), "import.json"), upload);
   }
 
-  projectionVersion(threadIdentifier: string): number {
-    return v.parse(
+  readProjection(threadIdentifier: string) {
+    const projection = v.parse(
       ProjectionSchema,
       JSON.parse(
         readFileSync(join(this.threadDirectory(threadIdentifier), "projection.json"), "utf8"),
       ),
-    ).version;
+    );
+
+    if (projection.thread.id !== threadIdentifier)
+      throw new Error("Sync Thread cached projection identity does not match its fence");
+
+    return projection;
+  }
+
+  projectionVersion(threadIdentifier: string): number {
+    return this.readProjection(threadIdentifier).version;
   }
 
   project(options: { thread: Thread; version: number }): void {

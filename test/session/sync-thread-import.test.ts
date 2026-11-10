@@ -32,6 +32,7 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
       userID: stack.userID,
       auth: stack.auth,
       kvStore: "mem",
+      storageKey: stack.storageKey,
       context: { actorIdentifier: stack.userID },
     });
     let collaborator: typeof owner | undefined;
