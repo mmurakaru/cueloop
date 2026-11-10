@@ -19,7 +19,7 @@ const PLAN_TITLE = "Rollout Plan";
 /** Milliseconds from spawn to the ready signal. */
 async function timeToReady(home: string, sessionId: string): Promise<number> {
   const started = performance.now();
-  const session = launchTuiSession({ home, args: [sessionId], cols: 140, rows: 40 });
+  const session = launchTuiSession({ home, cwd: home, args: [sessionId], cols: 140, rows: 40 });
 
   try {
     await session.waitForReady(READY_TIMEOUT_MS, READY_POLL_MS);

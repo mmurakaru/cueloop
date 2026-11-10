@@ -32,6 +32,7 @@ if (!ptyTuiAvailable()) {
     );
     const session = launchTuiSession({
       home: reviewHome.home,
+      cwd: repository.dir,
       args: [review.id],
       cols: 110,
       rows: 18,
