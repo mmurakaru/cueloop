@@ -19,7 +19,7 @@
         "@types/node": "24.19.2",
         "@types/react": "^19.3.0",
         "cueloop": "workspace:*",
-        "effect": "^4.1.1",
+        "effect": "^4.1.2",
         "oxfmt": "^0.75.0",
         "oxlint": "1.90.0",
         "playwright": "1.65.0",
@@ -96,7 +96,7 @@
         "@cueloop/schema": "0.1.0-alpha.115",
         "@cueloop/sync": "workspace:*",
         "@pierre/diffs": "^1.6.4",
-        "effect": "^4.1.1",
+        "effect": "^4.1.2",
         "smol-toml": "^1.9.1",
         "valibot": "^1.5.0",
       },
@@ -948,7 +948,7 @@
 
     "ecdsa-sig-formatter": ["ecdsa-sig-formatter@1.0.11", "", { "dependencies": { "safe-buffer": "^5.0.1" } }, "sha512-nagl3RYrbNv6kQkeJIpt6NJZy8twLB/2vtz6yN9Z4vRKHN4/QZJIEbqohALSgwKdnksuY3k5Addp5lg8sVoVcQ=="],
 
-    "effect": ["effect@4.1.1", "", {}, "sha512-XYu65BrcmNqu5i7PPvP4dqL+R5ma37zIsfuSPjcn78mog+6e5PkilNg7Xo+pBpjXJYlWEIpH4j91tMrfW05CMw=="],
+    "effect": ["effect@4.1.2", "", {}, "sha512-d3Oah1WyKxFLFh19yWheS5IXIVaITzxZ71JkE1rkUozq/6EcJSU5nPk5bF2QrSygZ3SQoiNQB8TsxFriyMeMaQ=="],
 
     "emoji-regex": ["emoji-regex@10.6.0", "", {}, "sha512-toUI84YS5YmxW219erniWD0CIVOo46xGKColeNQRgOzDorgBi1v4D71/OFzgD9GO2UGKIv1C3Sp8DAn0+j5w7A=="],
 
