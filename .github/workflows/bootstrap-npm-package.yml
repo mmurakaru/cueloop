@@ -1,11 +1,16 @@
-name: Prepare first npm publish
+name: Bootstrap first npm publish
 
 # New npm packages cannot use trusted publishing until their first version exists.
-# This workflow prepares the exact tarball; a maintainer publishes it with 2FA,
-# then grants release.yml trusted-publisher access for later versions.
+# The repository token can publish the first version after an explicit dispatch.
+# A maintainer grants release.yml trusted-publisher access for later versions.
 on:
   workflow_dispatch:
     inputs:
+      publish:
+        description: "Publish the prepared first version with the repository token"
+        required: true
+        default: false
+        type: boolean
       package_name:
         description: "Publishable workspace package name, for example @cueloop/pi"
         required: true
@@ -15,6 +20,10 @@ on:
         required: true
         default: alpha
         type: string
+
+concurrency:
+  group: npm-bootstrap-${{ inputs.package_name }}
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -34,6 +43,7 @@ jobs:
           registry-url: "https://registry.npmjs.org"
       - run: npm install -g npm@latest
       - run: bun install --frozen-lockfile
+      - run: bun run check:release
       - run: bun run check:publish
       - name: Select unpublished workspace package
         id: package
@@ -91,6 +101,47 @@ jobs:
           name: npm-first-publish-${{ github.run_id }}
           path: bootstrap/${{ steps.pack.outputs.tarball }}
           if-no-files-found: error
+      - name: Publish first version with repository token
+        if: ${{ inputs.publish }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          DIST_TAG: ${{ inputs.dist_tag }}
+          TARBALL: ${{ steps.pack.outputs.tarball }}
+        run: |
+          set -euo pipefail
+          if [ -z "$NODE_AUTH_TOKEN" ]; then
+            echo "First publication requires the repository NPM_TOKEN secret" >&2
+            exit 1
+          fi
+          for changeset in .changeset/*.md; do
+            [ -f "$changeset" ] || continue
+            [ "$(basename "$changeset")" != README.md ] || continue
+            echo "Version pending changesets through the release PR before publishing" >&2
+            exit 1
+          done
+          npm publish "./bootstrap/$TARBALL" --access public --tag "$DIST_TAG" --ignore-scripts
+      - name: Verify first publication
+        if: ${{ inputs.publish }}
+        env:
+          PACKAGE_NAME: ${{ inputs.package_name }}
+          VERSION: ${{ steps.package.outputs.version }}
+          TARBALL: ${{ steps.pack.outputs.tarball }}
+        run: |
+          set -euo pipefail
+          expected=$(node --input-type=module -e 'import {readFileSync} from "node:fs"; import {createHash} from "node:crypto"; console.log("sha512-" + createHash("sha512").update(readFileSync(process.argv[1])).digest("base64"))' "./bootstrap/$TARBALL")
+          for attempt in {1..15}; do
+            actual=$(npm view "$PACKAGE_NAME@$VERSION" dist.integrity --prefer-online 2>/dev/null || true)
+            if [ "$actual" = "$expected" ]; then
+              exit 0
+            fi
+            if [ -n "$actual" ]; then
+              echo "Published tarball integrity does not match the prepared artifact" >&2
+              exit 1
+            fi
+            sleep 2
+          done
+          echo "Published tarball was not visible before the verification deadline" >&2
+          exit 1
       - name: Show maintainer commands
         env:
           PACKAGE_NAME: ${{ inputs.package_name }}
@@ -101,7 +152,8 @@ jobs:
           {
             echo "Prepared $PACKAGE_NAME@$VERSION from $GITHUB_SHA."
             echo
-            echo 'Download the artifact, sign in to npm with 2FA, then run:'
+            echo 'If publication was disabled, download the artifact and publish it with npm.'
+            echo 'Configure the trusted publisher from an authenticated owner session:'
             echo '```bash'
             printf 'npm publish ./%s --access public --tag %s\n' "$TARBALL" "$DIST_TAG"
             printf 'npm trust github %s --repo mmurakaru/cueloop --file release.yml --allow-publish\n' "$PACKAGE_NAME"

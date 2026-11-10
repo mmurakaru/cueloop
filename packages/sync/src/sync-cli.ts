@@ -16,6 +16,7 @@ Usage: cueloop-sync <serve|connect|owner> --application <module> [options]
   owner     Recover and execute accepted requests through an application integration
   database  Back up, restore, fence, migrate, and inspect a PostgreSQL authority
   workspace Transfer a workspace between PostgreSQL authorities
+  alias     Install the optional cs shortcut without replacing an existing command
 
 Serve options: --host <address> --port <number> --public-origin <url> --maximum-request-bytes <number>
 The authority requires a configured PostgreSQL database and Zero cache service.
@@ -104,9 +105,16 @@ async function editSyncApplication(
 export async function runSyncCli(
   arguments_: string[],
   options: {
+    standaloneExecutable?: string;
     renderTextEditor?: (session: SyncTextEditorSession) => Promise<void | SyncClientOutcome>;
   } = {},
 ): Promise<number> {
+  if (arguments_[0] === "alias") {
+    const { runSyncAliasCli } = await import("./sync-command-alias.ts");
+
+    return runSyncAliasCli(arguments_.slice(1), options.standaloneExecutable);
+  }
+
   if (arguments_[0] === "database") {
     const { runSyncDatabaseCli } = await import("./sync-database-cli.ts");
 
@@ -133,9 +141,7 @@ export async function runSyncCli(
   const command = arguments_[0];
 
   if (
-    command !== "serve" &&
-    command !== "connect" &&
-    command !== "owner" &&
+    !["serve", "connect", "owner"].includes(command ?? "") &&
     (command !== "edit" || !options.renderTextEditor)
   ) {
     throw new Error(`Sync command is unknown: ${command}`);

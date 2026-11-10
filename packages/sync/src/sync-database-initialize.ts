@@ -1,7 +1,7 @@
 import { getSyncTelemetry, type SyncTelemetry } from "./sync-telemetry.ts";
 import postgres from "postgres";
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import syncMigrationResources from "./sync-migration-resources.generated.json" with { type: "json" };
 import { v7 as uuidv7 } from "uuid";
 import * as v from "valibot";
 import {
@@ -12,23 +12,11 @@ import { syncAuthorityReplicaConfiguration } from "./sync-restore.ts";
 
 /** Initialization is explicit and requires an empty database before any application server starts. */
 async function initializeSyncDatabaseState(options: { databaseURL: string }) {
-  const migrations = await Promise.all(
-    [
-      "001-operation-receipt.sql",
-      "002-execution.sql",
-      "003-authority.sql",
-      "004-restore-journal.sql",
-      "005-workspace-transfer.sql",
-    ].map(async (name) => {
-      const source = await readFile(new URL(`../migrations/${name}`, import.meta.url), "utf8");
-
-      return {
-        identity: `@cueloop/sync/${name}`,
-        source,
-        digest: createHash("sha256").update(source).digest("hex"),
-      };
-    }),
-  );
+  const migrations = Object.entries(syncMigrationResources).map(([name, source]) => ({
+    identity: `@cueloop/sync/${name}`,
+    source,
+    digest: createHash("sha256").update(source).digest("hex"),
+  }));
   const database = postgres(options.databaseURL, { max: 1, onnotice: () => {} });
 
   try {

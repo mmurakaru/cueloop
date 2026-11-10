@@ -64,7 +64,7 @@
     "access": "public"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "bun run scripts/generate-migration-resources.ts && tsc -p tsconfig.build.json",
     "prepack": "bun run build"
   },
   "dependencies": {
