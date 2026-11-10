@@ -44,6 +44,12 @@ export const syncApplication = {
       readSyncAuthority(transaction),
     );
 
+    if (
+      authority.authorityIdentifier !== identity.authorityIdentifier ||
+      authority.generation !== identity.generation
+    )
+      return { ready: false, phase: "fenced" as const };
+
     return { ready: authority.phase === "active", phase: authority.phase };
   },
   close: () => connection.end(),

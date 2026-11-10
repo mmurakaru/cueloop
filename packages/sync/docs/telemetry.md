@@ -54,6 +54,20 @@ The SDK propagates W3C `traceparent` and `tracestate` through its HTTP clients a
 `serveSyncApplication` extracts that context into an HTTP server span.
 The authority handler and transaction spans inherit the request context.
 A Zero transport batch can link several pending mutations.
+Configure W3C context propagation on the Zero cache as well as the client and authority.
+For a cache that only relays trace context, use:
+
+```sh
+OTEL_TRACES_EXPORTER=none
+OTEL_METRICS_EXPORTER=none
+OTEL_LOGS_EXPORTER=none
+OTEL_PROPAGATORS=tracecontext
+```
+
+Zero 1.11.4 initializes its context manager and propagator when these exporter settings are present.
+Without cache context propagation, client mutation spans and authority transaction spans have separate traces.
+A cache that exports its own telemetry can use its configured exporters with the same W3C propagator.
+
 The trace context does not change operation envelopes or receipt identities.
 
 Application-specific HTTP clients can use the same propagation:

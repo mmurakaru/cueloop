@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { v7 as createAuthorityGeneration } from "uuid";
 import { fileURLToPath } from "node:url";
 import { createTestSyncStack } from "../helpers/sync-stack";
 import { createTestSyncTelemetryCollector } from "../helpers/sync-telemetry-collector";
@@ -48,6 +49,56 @@ const parseSpans = (output: string) =>
       ),
     );
 
+type TestSyncCollectedSpan = ReturnType<typeof parseSpans>[number];
+
+function hasTestSyncTraceAncestor(
+  spans: ReadonlyMap<string, TestSyncCollectedSpan>,
+  descendant: TestSyncCollectedSpan,
+  ancestor: TestSyncCollectedSpan,
+): boolean {
+  const seen = new Set<string>();
+  let current: TestSyncCollectedSpan | undefined = descendant;
+
+  while (current && !seen.has(current.spanId)) {
+    if (current.traceId === ancestor.traceId && current.spanId === ancestor.spanId) return true;
+
+    seen.add(current.spanId);
+    current = spans.get(`${current.traceId}:${current.parentSpanId}`);
+  }
+
+  return false;
+}
+
+async function verifyTestSyncAuthorityReadiness(
+  stack: Awaited<ReturnType<typeof createTestSyncStack>>,
+) {
+  const health = await fetch(`${stack.authorityURL}/health`);
+  const readiness = await fetch(`${stack.authorityURL}/ready`);
+
+  expect(health.status).toBe(200);
+  expect(readiness.status).toBe(200);
+  expect(await readiness.json()).toEqual({ ready: true, phase: "active" });
+  const database = postgres(stack.environment.SYNC_DATABASE_URL);
+
+  try {
+    await database`UPDATE sync_authority SET phase = 'fenced' WHERE singleton`;
+    const fenced = await fetch(`${stack.authorityURL}/ready`);
+
+    expect(fenced.status).toBe(503);
+    expect(await fenced.json()).toEqual({ ready: false, phase: "fenced" });
+    expect((await fetch(`${stack.authorityURL}/health`)).status).toBe(200);
+    await database`UPDATE sync_authority SET phase = 'active', generation = ${createAuthorityGeneration()} WHERE singleton`;
+    const obsolete = await fetch(`${stack.authorityURL}/ready`);
+
+    expect(obsolete.status).toBe(503);
+    expect(await obsolete.json()).toEqual({ ready: false, phase: "fenced" });
+    expect((await fetch(`${stack.authorityURL}/health`)).status).toBe(200);
+    await database`UPDATE sync_authority SET generation = ${stack.authority.generation} WHERE singleton`;
+  } finally {
+    await database.end();
+  }
+}
+
 async function runTestSyncTelemetryConsumer(
   runtime: string,
   script: string,
@@ -89,28 +140,11 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
 
     try {
       stack = await createTestSyncStack({
+        cacheTraceContext: true,
         authorityPreload: preload,
         authorityEnvironment: { CUELOOP_TEST_OTLP_ENDPOINT: collector.endpoint },
       });
-      const health = await fetch(`${stack.authorityURL}/health`);
-      const readiness = await fetch(`${stack.authorityURL}/ready`);
-
-      expect(health.status).toBe(200);
-      expect(readiness.status).toBe(200);
-      expect(await readiness.json()).toEqual({ ready: true, phase: "active" });
-      const database = postgres(stack.environment.SYNC_DATABASE_URL);
-
-      try {
-        await database`UPDATE sync_authority SET phase = 'fenced' WHERE singleton`;
-        const fenced = await fetch(`${stack.authorityURL}/ready`);
-
-        expect(fenced.status).toBe(503);
-        expect(await fenced.json()).toEqual({ ready: false, phase: "fenced" });
-        expect((await fetch(`${stack.authorityURL}/health`)).status).toBe(200);
-        await database`UPDATE sync_authority SET phase = 'active' WHERE singleton`;
-      } finally {
-        await database.end();
-      }
+      await verifyTestSyncAuthorityReadiness(stack);
 
       for (const runtime of [process.execPath, "node"])
         await runTestSyncTelemetryConsumer(
@@ -122,9 +156,11 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
 
       native = await createTestSyncStack({
         application: "thread",
+        cacheTraceContext: true,
         authorityPreload: preload,
         authorityEnvironment: { CUELOOP_TEST_OTLP_ENDPOINT: collector.endpoint },
       });
+      await verifyTestSyncAuthorityReadiness(native);
       await runTestSyncTelemetryConsumer(
         process.execPath,
         "test/helpers/sync-telemetry-native.ts",
@@ -178,7 +214,38 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
           ),
         ).toBe(true);
 
-      expect(spans.some((span) => span.name === "cueloop.sync.transaction.commit")).toBe(true);
+      const ancestry = new Map(spans.map((span) => [`${span.traceId}:${span.spanId}`, span]));
+
+      for (const service of ["sync-test-bun", "sync-test-node", "sync-test-native"]) {
+        const operations = spans.filter(
+          (span) => span.service === service && span.name === "cueloop.sync.operation.submit",
+        );
+        const mutations = spans.filter(
+          (span) =>
+            span.service === service &&
+            span.name === "cueloop.sync.mutation.submit" &&
+            operations.some((operation) => hasTestSyncTraceAncestor(ancestry, span, operation)),
+        );
+        const transports = spans.filter(
+          (span) =>
+            span.service === service &&
+            span.name === "cueloop.sync.transport.send" &&
+            mutations.some((mutation) => hasTestSyncTraceAncestor(ancestry, span, mutation)),
+        );
+        const commits = spans.filter((span) => span.name === "cueloop.sync.transaction.commit");
+
+        expect(
+          transports.some((transport) =>
+            servers.some(
+              (server) =>
+                server.traceId === transport.traceId &&
+                commits.some((commit) => hasTestSyncTraceAncestor(ancestry, commit, server)),
+            ),
+          ),
+          JSON.stringify({ service, spans }),
+        ).toBe(true);
+      }
+
       expect(signals.metrics).toContain("cueloop.sync.events");
       expect(signals.logs).toContain("Sync boundary observation");
       const exported = JSON.stringify(signals);

@@ -38,12 +38,13 @@ if (!token || !userIdentifier) {
 
 const connection = databaseUrl ? postgres(databaseUrl) : undefined;
 const rawDatabase = connection ? zeroPostgresJS(sharedRecordSchema, connection) : undefined;
-const database = rawDatabase
-  ? createSyncAuthorityDatabase({
-      database: rawDatabase,
-      identity: await rawDatabase.transaction((transaction) => readSyncAuthority(transaction)),
-    })
+const authorityIdentity = rawDatabase
+  ? await rawDatabase.transaction((transaction) => readSyncAuthority(transaction))
   : undefined;
+const database =
+  rawDatabase && authorityIdentity
+    ? createSyncAuthorityDatabase({ database: rawDatabase, identity: authorityIdentity })
+    : undefined;
 const identities = [{ token, userIdentifier }];
 const collaboratorToken = process.env.SYNC_COLLABORATOR_AUTH_TOKEN;
 const collaboratorIdentifier = process.env.SYNC_COLLABORATOR_USER_ID;
@@ -217,6 +218,13 @@ export const syncApplication = {
     const authority = await rawDatabase.transaction((transaction) =>
       readSyncAuthority(transaction),
     );
+
+    if (
+      !authorityIdentity ||
+      authority.authorityIdentifier !== authorityIdentity.authorityIdentifier ||
+      authority.generation !== authorityIdentity.generation
+    )
+      return { ready: false, phase: "fenced" as const };
 
     return { ready: authority.phase === "active", phase: authority.phase };
   },

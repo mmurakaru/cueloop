@@ -43,6 +43,19 @@ function testSyncAuthenticationToken(existing: string | undefined): string {
   return existing ?? randomBytes(24).toString("hex");
 }
 
+function testSyncCacheTraceConfiguration(enabled?: boolean): string[] {
+  if (!enabled) return [];
+
+  return [
+    "OTEL_TRACES_EXPORTER=none",
+    "OTEL_METRICS_EXPORTER=none",
+    "OTEL_LOGS_EXPORTER=none",
+    "OTEL_PROPAGATORS=tracecontext",
+    "OTEL_NODE_RESOURCE_DETECTORS=none",
+    "DO_NOT_TRACK=1",
+  ];
+}
+
 export async function createTestSyncStack(
   options: {
     authenticationToken?: string;
@@ -50,6 +63,7 @@ export async function createTestSyncStack(
     interceptMutations?: boolean;
     collaborator?: boolean;
     application?: "shared-record" | "thread";
+    cacheTraceContext?: boolean;
     authorityPreload?: string;
     authorityEnvironment?: Record<string, string>;
   } = {},
@@ -408,6 +422,7 @@ export async function createTestSyncStack(
       "ZERO_NUM_SYNC_WORKERS=1",
       "ZERO_ALLOW_LEGACY_QUERIES=false",
       "ZERO_ENABLE_CRUD_MUTATIONS=false",
+      ...testSyncCacheTraceConfiguration(options.cacheTraceContext),
       `ZERO_ADMIN_PASSWORD=${randomBytes(24).toString("hex")}`,
       `ZERO_QUERY_URL=http://host.docker.internal:${authorityPort}/query`,
       `ZERO_MUTATE_URL=http://host.docker.internal:${mutationPort}/mutate`,

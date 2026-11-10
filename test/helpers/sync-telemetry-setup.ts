@@ -10,7 +10,7 @@ import { W3CTraceContextPropagator } from "@opentelemetry/core";
 import { resourceFromAttributes } from "@opentelemetry/resources";
 
 export function createTestSyncTelemetry(endpoint: string, serviceName: string) {
-  const sdk = new NodeSDK({
+  const telemetry = new NodeSDK({
     autoDetectResources: false,
     resource: resourceFromAttributes({ "service.name": serviceName }),
     contextManager: new AsyncLocalStorageContextManager(),
@@ -38,7 +38,7 @@ export function createTestSyncTelemetry(endpoint: string, serviceName: string) {
     ],
   });
 
-  sdk.start();
+  telemetry.start();
 
-  return sdk;
+  return telemetry;
 }
