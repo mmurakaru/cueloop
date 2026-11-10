@@ -1,3 +1,4 @@
+import { fetchSyncHttp } from "@cueloop/sync/telemetry/http";
 import { SyncAuthorityRecoveryRequired } from "@cueloop/sync/authority";
 import * as v from "valibot";
 import {
@@ -11,7 +12,7 @@ export async function lookupSharedOperationReceipt(options: {
   auth: string;
   operation: SyncOperation;
 }) {
-  const response = await fetch(
+  const response = await fetchSyncHttp(
     new URL("operation", `${options.authorityURL.replace(/\/$/, "")}/`),
     {
       method: "POST",

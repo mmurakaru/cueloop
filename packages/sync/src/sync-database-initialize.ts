@@ -1,3 +1,4 @@
+import { getSyncTelemetry, type SyncTelemetry } from "./sync-telemetry.ts";
 import postgres from "postgres";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
@@ -10,7 +11,7 @@ import {
 import { syncAuthorityReplicaConfiguration } from "./sync-restore.ts";
 
 /** Initialization is explicit and requires an empty database before any application server starts. */
-export async function initializeSyncDatabase(options: { databaseURL: string }) {
+async function initializeSyncDatabaseState(options: { databaseURL: string }) {
   const migrations = await Promise.all(
     [
       "001-operation-receipt.sql",
@@ -66,7 +67,7 @@ export async function initializeSyncDatabase(options: { databaseURL: string }) {
 }
 
 /** Initial activation cannot be used to bypass a restored deployment's source-fence requirement. */
-export async function activateSyncDatabase(options: {
+async function activateSyncDatabaseState(options: {
   databaseURL: string;
   authority: SyncAuthorityIdentity;
   verifyReplica: (
@@ -97,4 +98,24 @@ export async function activateSyncDatabase(options: {
   } finally {
     await database.end();
   }
+}
+
+export function initializeSyncDatabase(
+  options: Parameters<typeof initializeSyncDatabaseState>[0] & { telemetry?: SyncTelemetry },
+) {
+  return (options.telemetry ?? getSyncTelemetry()).run(
+    "database.initialize",
+    () => initializeSyncDatabaseState(options),
+    (result) => result.status,
+  );
+}
+
+export function activateSyncDatabase(
+  options: Parameters<typeof activateSyncDatabaseState>[0] & { telemetry?: SyncTelemetry },
+) {
+  return (options.telemetry ?? getSyncTelemetry()).run(
+    "restore.activate",
+    () => activateSyncDatabaseState(options),
+    (result) => result.status,
+  );
 }

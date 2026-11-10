@@ -1,3 +1,5 @@
+import { fetchSyncHttp } from "./sync-telemetry-http.ts";
+import { getSyncTelemetry, type SyncTelemetry } from "./sync-telemetry.ts";
 import * as v from "valibot";
 import {
   SyncExecutionClaimSchema,
@@ -12,7 +14,9 @@ export function createSyncExecutionQueue(options: {
   workspaceIdentifier: string;
   headers: () => HeadersInit | Promise<HeadersInit>;
   fetch?: typeof globalThis.fetch;
+  telemetry?: SyncTelemetry;
 }): SyncExecutionQueue {
+  const telemetry = options.telemetry ?? getSyncTelemetry();
   const endpoint = new URL(options.url);
   const workspaceIdentifier = v.parse(
     v.pipe(v.string(), v.uuid(), v.toLowerCase()),
@@ -32,15 +36,20 @@ export function createSyncExecutionQueue(options: {
     let response: Response;
 
     try {
-      response = await (options.fetch ?? globalThis.fetch)(endpoint, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(v.parse(SyncExecutionRequestSchema, input)),
-        signal: signal
-          ? AbortSignal.any([signal, AbortSignal.timeout(30000)])
-          : AbortSignal.timeout(30000),
-        redirect: "error",
-      });
+      response = await fetchSyncHttp(
+        endpoint,
+        {
+          method: "POST",
+          headers,
+          body: JSON.stringify(v.parse(SyncExecutionRequestSchema, input)),
+          signal: signal
+            ? AbortSignal.any([signal, AbortSignal.timeout(30000)])
+            : AbortSignal.timeout(30000),
+          redirect: "error",
+        },
+        telemetry,
+        options.fetch,
+      );
     } catch {
       signal?.throwIfAborted();
       throw new SyncExecutionAuthorityError();
@@ -74,10 +83,15 @@ export function createSyncExecutionQueue(options: {
       if (result.claim && result.claim.workspaceIdentifier !== workspaceIdentifier)
         throw new Error("Sync execution response belongs to a different workspace");
 
+      telemetry.event("execution.claim", result.claim ? "accepted" : "completed", {
+        items: result.claim ? 1 : 0,
+      });
+
       return result.claim;
     },
     async report(report, signal) {
       await request({ action: "report", ...report }, signal);
+      telemetry.event("execution.report", "completed");
     },
   };
 }

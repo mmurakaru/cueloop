@@ -1,3 +1,4 @@
+import { getSyncTelemetry, type SyncTelemetry } from "./sync-telemetry.ts";
 import postgres from "postgres";
 import * as v from "valibot";
 import { mkdir, open, rename, rm, stat, writeFile } from "node:fs/promises";
@@ -12,7 +13,7 @@ import {
 import { runSyncPostgresTool, type SyncPostgresTools } from "./sync-postgres-tools.ts";
 
 /** Canonical schemas and receipts share one PostgreSQL snapshot; derived Zero metadata is excluded. */
-export async function createSyncBackup(options: {
+async function createSyncBackupArchive(options: {
   databaseURL: string;
   directory: string;
   schemas?: string[];
@@ -136,4 +137,12 @@ export async function syncBackupDirectory(directory: string): Promise<void> {
   } finally {
     await handle.close();
   }
+}
+
+export function createSyncBackup(
+  options: Parameters<typeof createSyncBackupArchive>[0] & { telemetry?: SyncTelemetry },
+) {
+  return (options.telemetry ?? getSyncTelemetry()).run("backup", () =>
+    createSyncBackupArchive(options),
+  );
 }

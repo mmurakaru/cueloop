@@ -1,3 +1,4 @@
+import { fetchSyncHttp } from "@cueloop/sync/telemetry/http";
 import { SyncAuthorityRecoveryRequired } from "@cueloop/sync/authority";
 import * as v from "valibot";
 import {
@@ -16,7 +17,7 @@ export async function uploadSyncThreadImport(options: {
   upload: v.InferOutput<typeof SyncThreadImportUploadSchema>;
   signal?: AbortSignal;
 }): Promise<void> {
-  const response = await fetch(
+  const response = await fetchSyncHttp(
     new URL("thread-import", `${options.authorityURL.replace(/\/$/, "")}/`),
     {
       method: "POST",
@@ -41,7 +42,7 @@ export async function lookupSyncThreadOperation(options: {
   operation: SyncOperation;
   signal?: AbortSignal;
 }) {
-  const response = await fetch(
+  const response = await fetchSyncHttp(
     new URL("operation", `${options.authorityURL.replace(/\/$/, "")}/`),
     {
       method: "POST",
@@ -78,7 +79,7 @@ export async function uploadSyncThreadCommand(options: {
   upload: v.InferOutput<typeof SyncThreadCommandUploadSchema>;
   signal?: AbortSignal;
 }): Promise<void> {
-  const response = await fetch(
+  const response = await fetchSyncHttp(
     new URL("thread-command", `${options.authorityURL.replace(/\/$/, "")}/`),
     {
       method: "POST",

@@ -133,6 +133,13 @@ Export `syncApplication` with `fetch`, `connect`, and an optional `close` callba
 PostgreSQL and Zero run as separate services.
 Supply credentials through environment variables.
 
+## Observe an authority
+
+OpenTelemetry providers and OTLP export belong to the application.
+The SDK emits bounded traces, metrics, and logs for sync, recovery, execution, storage, and queue limits.
+The host exposes separate liveness and application readiness checks and drains admitted work during shutdown.
+See the [telemetry guide](./docs/telemetry.md) for configuration and deployment health.
+
 ## Enable in cueloop
 
 Choose **Settings > Experimental > Multiplayer sync** or set:

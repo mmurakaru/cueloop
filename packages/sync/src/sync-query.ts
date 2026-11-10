@@ -1,8 +1,10 @@
+import { getSyncTelemetry, type SyncTelemetry } from "./sync-telemetry.ts";
 import type { Connection, ResultType, TypedView } from "@rocicorp/zero";
 import * as v from "valibot";
 import type { SyncClientLifecycle, SyncClientLifecycleSource } from "./sync-client.ts";
 
 interface SyncQueryClient {
+  readonly telemetry?: SyncTelemetry;
   connection: Connection;
   lifecycle: SyncClientLifecycleSource;
 }
@@ -20,11 +22,19 @@ export function createSyncQuerySubscription<Data>(options: {
   view: TypedView<Data>;
   maximumBytes?: number;
   signal?: AbortSignal;
+  telemetry?: SyncTelemetry;
 }) {
   const maximumBytes = v.parse(
     v.pipe(v.number(), v.safeInteger(), v.minValue(1), v.maxValue(64 * 1024 * 1024)),
     options.maximumBytes ?? 8 * 1024 * 1024,
   );
+  const telemetry = options.telemetry ?? options.client.telemetry ?? getSyncTelemetry();
+
+  telemetry.activeWork("query.subscription", 1);
+  telemetry.event("query.subscription", "started");
+  let previousState: string | undefined;
+  let previouslyComplete = false;
+  let staleSince = performance.now();
   let changed = Promise.withResolvers<void>();
   const completion = new AbortController();
   let pending: SyncQuerySnapshot<Data> | undefined;
@@ -36,7 +46,11 @@ export function createSyncQuerySubscription<Data>(options: {
   let unsubscribeConnection: (() => void) | undefined;
   let unsubscribeLifecycle: (() => void) | undefined;
   const close = () => {
+    if (stopped) return;
+
     stopped = true;
+    telemetry.activeWork("query.subscription", -1);
+    telemetry.event("query.subscription", "closed");
     pending = undefined;
     unsubscribeView?.();
     unsubscribeConnection?.();
@@ -68,8 +82,28 @@ export function createSyncQuerySubscription<Data>(options: {
         lifecycle: options.client.lifecycle.current,
       };
       const serialized = JSON.stringify(snapshot);
+      const bytes = new TextEncoder().encode(serialized).byteLength;
+      const state = `${snapshot.freshness}:${snapshot.connection}:${snapshot.lifecycle.status}`;
 
-      if (new TextEncoder().encode(serialized).byteLength > maximumBytes) {
+      if (state !== previousState) {
+        const complete =
+          snapshot.freshness === "complete" &&
+          snapshot.connection === "connected" &&
+          snapshot.lifecycle.status === "active";
+
+        if (!complete && previouslyComplete) staleSince = performance.now();
+
+        telemetry.event("query.subscription", complete ? "complete" : "stale", {
+          bytes,
+          ageSeconds: complete ? (performance.now() - staleSince) / 1000 : 0,
+        });
+
+        previouslyComplete = complete;
+        previousState = state;
+      }
+
+      if (bytes > maximumBytes) {
+        telemetry.event("query.subscription", "overflow", { bytes });
         fail(
           new Error(
             "Sync query snapshot exceeds its byte budget; reduce the query or increase the budget",
@@ -86,30 +120,40 @@ export function createSyncQuerySubscription<Data>(options: {
     }
   };
 
-  unsubscribeView = options.view.addListener((_data, nextFreshness, error) => {
-    if (stopped) return;
+  try {
+    unsubscribeView = options.view.addListener((_data, nextFreshness, error) => {
+      if (stopped) return;
 
-    if (nextFreshness === "error") {
-      fail(new Error(`Sync query failed: ${error?.message ?? "Unknown query error"}`));
+      if (nextFreshness === "error") {
+        fail(new Error(`Sync query failed: ${error?.message ?? "Unknown query error"}`));
 
-      return;
-    }
+        return;
+      }
 
-    freshness = nextFreshness;
-    publish();
-  });
-
-  if (!stopped) unsubscribeConnection = options.client.connection.state.subscribe(publish);
-
-  if (!stopped)
-    unsubscribeLifecycle = options.client.lifecycle.subscribe((state) => {
-      if (state.status === "closing" || state.status === "closed") close();
-      else publish();
+      freshness = nextFreshness;
+      publish();
     });
 
-  options.signal?.addEventListener("abort", close, { once: true });
+    if (stopped) unsubscribeView?.();
 
-  if (stopped || options.signal?.aborted) close();
+    if (!stopped) unsubscribeConnection = options.client.connection.state.subscribe(publish);
+
+    if (!stopped)
+      unsubscribeLifecycle = options.client.lifecycle.subscribe((state) => {
+        if (state.status === "closing" || state.status === "closed") close();
+        else publish();
+      });
+
+    if (!stopped) options.signal?.addEventListener("abort", close, { once: true });
+
+    if (stopped || options.signal?.aborted) close();
+  } catch (cause) {
+    try {
+      close();
+    } catch {}
+
+    throw cause;
+  }
 
   async function* snapshots(): AsyncGenerator<SyncQuerySnapshot<Data>> {
     try {

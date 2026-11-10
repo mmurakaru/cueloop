@@ -1,3 +1,4 @@
+import { getSyncTelemetry, type SyncTelemetry } from "./sync-telemetry.ts";
 import postgres from "postgres";
 import { v7 as uuidv7 } from "uuid";
 import * as v from "valibot";
@@ -106,7 +107,7 @@ function parseSyncTransferBinding(
 }
 
 /** Fence once, then export canonical rows; failures keep the source reserved for this destination. */
-export async function prepareSyncWorkspaceTransfer(options: {
+async function prepareSyncWorkspaceTransferState(options: {
   databaseURL: string;
   directory: string;
   binding: SyncTransferBinding;
@@ -229,7 +230,7 @@ export async function prepareSyncWorkspaceTransfer(options: {
 }
 
 /** Import commits with its journal into a fenced workspace; unrelated deployment state stays active. */
-export async function importSyncWorkspaceTransfer(options: {
+async function importSyncWorkspaceTransferState(options: {
   databaseURL: string;
   sourceDatabaseURL: string;
   directory: string;
@@ -346,7 +347,7 @@ export async function importSyncWorkspaceTransfer(options: {
 }
 
 /** Replica proof is application-owned and must observe the imported workspace before activation. */
-export async function activateSyncWorkspaceTransfer(options: {
+async function activateSyncWorkspaceTransferState(options: {
   databaseURL: string;
   sourceDatabaseURL: string;
   binding: SyncTransferBinding;
@@ -432,3 +433,33 @@ export async function readSyncWorkspaceTransfer(options: {
 }
 
 export { syncTransferAdapterDigest } from "./sync-transfer-adapter.ts";
+
+export function prepareSyncWorkspaceTransfer(
+  options: Parameters<typeof prepareSyncWorkspaceTransferState>[0] & { telemetry?: SyncTelemetry },
+) {
+  return (options.telemetry ?? getSyncTelemetry()).run(
+    "transfer.prepare",
+    () => prepareSyncWorkspaceTransferState(options),
+    (result) => result.status,
+  );
+}
+
+export function importSyncWorkspaceTransfer(
+  options: Parameters<typeof importSyncWorkspaceTransferState>[0] & { telemetry?: SyncTelemetry },
+) {
+  return (options.telemetry ?? getSyncTelemetry()).run(
+    "transfer.import",
+    () => importSyncWorkspaceTransferState(options),
+    (result) => result.status,
+  );
+}
+
+export function activateSyncWorkspaceTransfer(
+  options: Parameters<typeof activateSyncWorkspaceTransferState>[0] & { telemetry?: SyncTelemetry },
+) {
+  return (options.telemetry ?? getSyncTelemetry()).run(
+    "transfer.activate",
+    () => activateSyncWorkspaceTransferState(options),
+    (result) => result.status,
+  );
+}

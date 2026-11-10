@@ -1,3 +1,5 @@
+import { fetchSyncHttp } from "./sync-telemetry-http.ts";
+import type { SyncTelemetry } from "./sync-telemetry.ts";
 import * as v from "valibot";
 import {
   SyncAuthorityFenced,
@@ -13,6 +15,7 @@ export async function fetchSyncWorkspaceAuthority(options: {
   workspaceIdentifier: string;
   headers?: HeadersInit;
   signal?: AbortSignal;
+  telemetry?: SyncTelemetry;
 }) {
   const workspaceIdentifier = v.parse(
     SyncWorkspaceAuthoritySchema.entries.workspaceIdentifier,
@@ -21,7 +24,7 @@ export async function fetchSyncWorkspaceAuthority(options: {
   const headers = new Headers(options.headers);
 
   headers.set("content-type", "application/json");
-  const response = await fetch(
+  const response = await fetchSyncHttp(
     new URL("authority", `${options.authorityURL.replace(/\/$/, "")}/`),
     {
       method: "POST",
@@ -33,6 +36,7 @@ export async function fetchSyncWorkspaceAuthority(options: {
         ? AbortSignal.any([options.signal, AbortSignal.timeout(30000)])
         : AbortSignal.timeout(30000),
     },
+    options.telemetry,
   );
 
   if (response.status === 503) throw new SyncAuthorityFenced();
@@ -72,11 +76,12 @@ export async function fetchSyncAuthority(options: {
   authorityURL: string;
   headers?: HeadersInit;
   signal?: AbortSignal;
+  telemetry?: SyncTelemetry;
 }) {
   const headers = new Headers(options.headers);
 
   headers.set("content-type", "application/json");
-  const response = await fetch(
+  const response = await fetchSyncHttp(
     new URL("authority", `${options.authorityURL.replace(/\/$/, "")}/`),
     {
       method: "POST",
@@ -88,6 +93,7 @@ export async function fetchSyncAuthority(options: {
         ? AbortSignal.any([options.signal, AbortSignal.timeout(30000)])
         : AbortSignal.timeout(30000),
     },
+    options.telemetry,
   );
 
   if (response.status === 503) throw new SyncAuthorityFenced();

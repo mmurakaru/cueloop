@@ -1,3 +1,4 @@
+import { getSyncTelemetry, type SyncTelemetry } from "./sync-telemetry.ts";
 import {
   advanceSyncExecution,
   SyncExecutionAuthorityError,
@@ -28,8 +29,13 @@ export async function runSyncExecutionWorker(options: {
   queue: SyncExecutionQueue;
   executor: SyncExecutionExecutor;
   signal: AbortSignal;
+  telemetry?: SyncTelemetry;
   onReport?: (report: SyncExecutionReport) => void | Promise<void>;
 }): Promise<void> {
+  const telemetry = options.telemetry ?? getSyncTelemetry();
+
+  telemetry.activeWork("execution.worker", 1);
+  telemetry.event("execution.worker", "started");
   let pendingReport: SyncExecutionReport | undefined;
   let failures = 0;
   const queue: SyncExecutionQueue = {
@@ -41,35 +47,41 @@ export async function runSyncExecutionWorker(options: {
     },
   };
 
-  while (!options.signal.aborted) {
-    try {
-      if (pendingReport) {
-        const report = pendingReport;
+  try {
+    while (!options.signal.aborted) {
+      try {
+        if (pendingReport) {
+          const report = pendingReport;
 
-        await options.queue.report(report, options.signal);
-        pendingReport = undefined;
-        await options.onReport?.(report);
-      } else {
-        const report = await advanceSyncExecution({
-          queue,
-          executor: options.executor,
-          signal: options.signal,
-        });
+          await options.queue.report(report, options.signal);
+          pendingReport = undefined;
+          await options.onReport?.(report);
+        } else {
+          const report = await advanceSyncExecution({
+            queue,
+            executor: options.executor,
+            signal: options.signal,
+            telemetry,
+          });
 
-        if (report) await options.onReport?.(report);
-        else await waitForExecutionRetry(250, options.signal);
+          if (report) await options.onReport?.(report);
+          else await waitForExecutionRetry(250, options.signal);
+        }
+
+        failures = 0;
+      } catch (cause) {
+        options.signal.throwIfAborted();
+
+        if (!(cause instanceof SyncExecutionAuthorityError) || !cause.recoverable) throw cause;
+
+        if (cause.statusCode === 409) pendingReport = undefined;
+
+        await waitForExecutionRetry(Math.min(5000, 250 * 2 ** failures), options.signal);
+        failures = Math.min(5, failures + 1);
       }
-
-      failures = 0;
-    } catch (cause) {
-      options.signal.throwIfAborted();
-
-      if (!(cause instanceof SyncExecutionAuthorityError) || !cause.recoverable) throw cause;
-
-      if (cause.statusCode === 409) pendingReport = undefined;
-
-      await waitForExecutionRetry(Math.min(5000, 250 * 2 ** failures), options.signal);
-      failures = Math.min(5, failures + 1);
     }
+  } finally {
+    telemetry.activeWork("execution.worker", -1);
+    telemetry.event("execution.worker", "closed");
   }
 }

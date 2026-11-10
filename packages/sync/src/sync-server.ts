@@ -1,37 +1,16 @@
-import type { SyncWorkspaceTransferAdapter } from "./sync-transfer-adapter.ts";
-import type { SyncWorkspaceAuthority } from "./sync-authority-protocol.ts";
-import type { syncAuthorityReplicaConfiguration } from "./sync-restore.ts";
-import type { SyncTextEditorSession } from "./sync-text-session.ts";
 import { createServer } from "node:http";
 import * as v from "valibot";
+import { getSyncTelemetry, type SyncTelemetry } from "./sync-telemetry.ts";
+import { createSyncServerReadiness } from "./sync-server-readiness.ts";
+import { handleSyncApplicationRequest, isSyncOrigin } from "./sync-http-server-request.ts";
+import type { SyncApplication } from "./sync-server-protocol.ts";
 
-export type SyncClientOutcome =
-  | { status: "completed" }
-  | { status: "interrupted"; signal: "SIGINT" | "SIGTERM" };
-
-export interface SyncApplication {
-  fetch: (request: Request) => Response | Promise<Response>;
-  connect?: (arguments_: string[]) => Promise<void | SyncClientOutcome>;
-  execute?: (arguments_: string[]) => Promise<void | SyncClientOutcome>;
-  openText?: (arguments_: string[]) => Promise<SyncTextEditorSession>;
-  verifyReplica?: (
-    configuration: ReturnType<typeof syncAuthorityReplicaConfiguration>,
-  ) => Promise<void>;
-  transferAdapter?: SyncWorkspaceTransferAdapter;
-  verifyWorkspaceReplica?: (authority: SyncWorkspaceAuthority) => Promise<void>;
-  close?: () => void | Promise<void>;
-}
-
-function isSyncOrigin(origin: URL): boolean {
-  return (
-    (origin.protocol === "http:" || origin.protocol === "https:") &&
-    !origin.username &&
-    !origin.password &&
-    origin.pathname === "/" &&
-    !origin.search &&
-    !origin.hash
-  );
-}
+export {
+  SyncServerReadinessSchema,
+  type SyncServerReadiness,
+  type SyncApplication,
+  type SyncClientOutcome,
+} from "./sync-server-protocol.ts";
 
 export function parseSyncRequestByteBudget(value: number): number {
   if (!Number.isSafeInteger(value) || value < 1 || value > 64 * 1024 * 1024)
@@ -47,68 +26,50 @@ export async function serveSyncApplication(
     port?: number;
     maximumRequestBytes?: number;
     publicOrigin?: string;
+    readinessTimeoutMilliseconds?: number;
+    shutdownTimeoutMilliseconds?: number;
+    telemetry?: SyncTelemetry;
   } = {},
 ) {
   const host = options.host ?? "127.0.0.1";
   const maximumRequestBytes = parseSyncRequestByteBudget(options.maximumRequestBytes ?? 1048576);
   const publicOrigin = options.publicOrigin ? new URL(options.publicOrigin) : undefined;
+  const telemetry = options.telemetry ?? getSyncTelemetry();
+  const timeoutSchema = v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(300000));
+  const readinessTimeoutMilliseconds = v.parse(
+    timeoutSchema,
+    options.readinessTimeoutMilliseconds ?? 5000,
+  );
+  const shutdownTimeoutMilliseconds = v.parse(
+    timeoutSchema,
+    options.shutdownTimeoutMilliseconds ?? 30000,
+  );
 
-  if (publicOrigin && !isSyncOrigin(publicOrigin)) {
+  if (publicOrigin && !isSyncOrigin(publicOrigin))
     throw new Error("Sync authority public origin must be an HTTP or HTTPS origin");
-  }
 
-  const server = createServer(async (incoming, outgoing) => {
-    try {
-      const chunks: Buffer[] = [];
-      let length = 0;
+  const cancellation = new AbortController();
+  const state = createSyncServerReadiness({
+    probe: application.readiness,
+    timeoutMilliseconds: readinessTimeoutMilliseconds,
+    telemetry,
+  });
+  const inFlight = new Set<Promise<void>>();
+  const server = createServer((incoming, outgoing) => {
+    const request = handleSyncApplicationRequest(incoming, outgoing, {
+      application,
+      publicOrigin,
+      maximumRequestBytes,
+      state,
+      telemetry,
+      signal: cancellation.signal,
+    });
 
-      for await (const chunk of incoming) {
-        length += chunk.length;
-
-        if (length > maximumRequestBytes) {
-          outgoing.writeHead(413).end("Request body is too large");
-
-          return;
-        }
-
-        chunks.push(Buffer.from(chunk));
-      }
-
-      const headers = new Headers();
-
-      for (const [name, value] of Object.entries(incoming.headers)) {
-        for (const entry of Array.isArray(value) ? value : value ? [value] : []) {
-          headers.append(name, entry);
-        }
-      }
-
-      const method = incoming.method ?? "GET";
-      const origin = publicOrigin ?? new URL(`http://${incoming.headers.host ?? "localhost"}`);
-      const url = new URL(incoming.url ?? "/", origin);
-
-      if (url.origin !== origin.origin || !isSyncOrigin(origin)) {
-        outgoing.writeHead(400).end("Invalid request authority");
-
-        return;
-      }
-
-      const request = new Request(url.href, {
-        method,
-        headers,
-        body: method === "GET" || method === "HEAD" ? undefined : Buffer.concat(chunks),
-      });
-      const response = await application.fetch(request);
-
-      outgoing.writeHead(response.status, {
-        ...Object.fromEntries(response.headers),
-        "set-cookie": response.headers.getSetCookie(),
-      });
-      outgoing.end(Buffer.from(await response.arrayBuffer()));
-    } catch {
-      if (!outgoing.headersSent) outgoing.writeHead(500);
-
-      outgoing.end("Sync authority request failed");
-    }
+    inFlight.add(request);
+    void request.then(
+      () => inFlight.delete(request),
+      () => inFlight.delete(request),
+    );
   });
 
   server.requestTimeout = 30000;
@@ -121,14 +82,53 @@ export async function serveSyncApplication(
     });
   });
   const address = v.parse(v.object({ port: v.number() }), server.address());
+  let closing: Promise<void> | undefined;
 
   return {
     port: address.port,
-    async close() {
-      await new Promise<void>((resolve, reject) =>
-        server.close((error) => (error ? reject(error) : resolve())),
-      );
-      await application.close?.();
+    liveness: state.liveness,
+    readiness: state.readiness,
+    close(): Promise<void> {
+      if (closing) return closing;
+
+      const completion = Promise.withResolvers<void>();
+
+      closing = completion.promise;
+      state.beginClose();
+      const observation = telemetry.start("server.shutdown");
+      const expired = Promise.withResolvers<never>();
+      const timer = setTimeout(() => {
+        cancellation.abort();
+        server.closeAllConnections();
+        expired.reject(new Error("Sync authority shutdown deadline exceeded"));
+      }, shutdownTimeoutMilliseconds);
+      const stop = async () => {
+        const stopped = new Promise<void>((resolve, reject) =>
+          server.close((error) => (error ? reject(error) : resolve())),
+        );
+
+        await Promise.all(inFlight);
+        server.closeIdleConnections();
+        await stopped;
+        await application.close?.(cancellation.signal);
+        state.closed();
+      };
+
+      void Promise.race([stop(), expired.promise])
+        .then(
+          () => {
+            observation.end("closed");
+            completion.resolve();
+          },
+          (cause) => {
+            observation.end("failed");
+
+            completion.reject(cause);
+          },
+        )
+        .finally(() => clearTimeout(timer));
+
+      return closing;
     },
   };
 }

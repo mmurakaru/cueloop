@@ -1,3 +1,4 @@
+import { getSyncTelemetry, type SyncTelemetry } from "./sync-telemetry.ts";
 import { v7 as createDraftIdentifier } from "uuid";
 import * as v from "valibot";
 import type { StoreProvider } from "@rocicorp/zero/sqlite";
@@ -55,7 +56,9 @@ export function createSyncDraftStore(options: {
   userIdentifier: string;
   maximumItems?: number;
   maximumBytes?: number;
+  telemetry?: SyncTelemetry;
 }) {
+  const telemetry = options.telemetry ?? getSyncTelemetry();
   const scope = v.parse(
     v.object({
       authorityIdentifier: v.pipe(v.string(), v.minLength(1), v.maxLength(2000)),
@@ -71,7 +74,16 @@ export function createSyncDraftStore(options: {
     v.pipe(v.number(), v.safeInteger(), v.minValue(1), v.maxValue(64 * 1024 * 1024)),
     options.maximumBytes ?? 8 * 1024 * 1024,
   );
-  const recordsSchema = v.pipe(v.array(SyncDraftRecordSchema), v.maxLength(maximumItems));
+  const parseRecords = (input: ReadonlyJSONValue): SyncDraftRecord[] => {
+    const records = v.parse(v.array(SyncDraftRecordSchema), input);
+
+    if (records.length > maximumItems) {
+      telemetry.event("draft.queue", "overflow", { items: records.length });
+      throw new Error("Sync draft store exceeds its item budget; retain the unsaved input");
+    }
+
+    return records;
+  };
   const store = createSyncDraftStorage(
     options.storage,
     `cueloop-sync-drafts:${JSON.stringify(scope)}`,
@@ -87,6 +99,7 @@ export function createSyncDraftStore(options: {
   };
   const checkBudget = (records: SyncDraftRecord[]) => {
     if (!fitsBudget(records)) {
+      telemetry.event("draft.queue", "overflow");
       throw new Error("Sync draft store exceeds its byte budget; retain the unsaved input");
     }
   };
@@ -94,9 +107,9 @@ export function createSyncDraftStore(options: {
     change: (records: SyncDraftRecord[]) => SyncDraftRecord,
   ): Promise<SyncDraftRecord> => {
     return store.update((current) => {
-      const records = v.parse(recordsSchema, current ?? []);
+      const records = parseRecords(current ?? []);
       const record = change(records);
-      const next = v.parse(recordsSchema, [
+      const next = parseRecords([
         ...records.filter((existing) => existing.draftIdentifier !== record.draftIdentifier),
         record,
       ]);
@@ -109,17 +122,17 @@ export function createSyncDraftStore(options: {
 
   return {
     async list(): Promise<SyncDraftRecord[]> {
-      const records = v.parse(recordsSchema, (await store.read()) ?? []);
+      const records = parseRecords((await store.read()) ?? []);
 
       checkBudget(records);
 
       return records;
     },
     async importRecords(input: readonly SyncDraftRecord[]): Promise<void> {
-      const incoming = v.parse(recordsSchema, input);
+      const incoming = parseRecords(input);
 
       await store.update((current) => {
-        const records = v.parse(recordsSchema, current ?? []);
+        const records = parseRecords(current ?? []);
         const merged = new Map(records.map((record) => [record.draftIdentifier, record]));
 
         for (const record of incoming) {
@@ -131,7 +144,7 @@ export function createSyncDraftStore(options: {
           merged.set(record.draftIdentifier, record);
         }
 
-        const next = v.parse(recordsSchema, [...merged.values()]);
+        const next = parseRecords([...merged.values()]);
 
         checkBudget(next);
 
@@ -228,7 +241,7 @@ export function createSyncDraftStore(options: {
     },
     async discard(draftIdentifier: SyncDraftRecord["draftIdentifier"]): Promise<void> {
       await store.update((stored) => {
-        const records = v.parse(recordsSchema, stored ?? []);
+        const records = parseRecords(stored ?? []);
         const current = records.find((record) => record.draftIdentifier === draftIdentifier);
 
         if (current?.status === "pending")

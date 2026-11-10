@@ -1,0 +1,70 @@
+import * as v from "valibot";
+
+export const SyncTelemetryBoundarySchema = v.picklist([
+  "http.server",
+  "authority.request",
+  "authority.readiness",
+  "http.client",
+  "transport.send",
+  "operation.submit",
+  "mutation.submit",
+  "operation.lookup",
+  "operation.prepare",
+  "transaction.commit",
+  "client.lifecycle",
+  "query.subscription",
+  "execution.claim",
+  "execution.recover",
+  "execution.dispatch",
+  "execution.report",
+  "execution.worker",
+  "presence",
+  "draft.queue",
+  "storage",
+  "backup",
+  "restore",
+  "restore.activate",
+  "authority.fence",
+  "database.initialize",
+  "database.migrate",
+  "transfer.prepare",
+  "transfer.import",
+  "transfer.activate",
+  "server.shutdown",
+]);
+export const SyncTelemetryOutcomeSchema = v.picklist([
+  "started",
+  "completed",
+  "accepted",
+  "rejected",
+  "pending",
+  "recovery-required",
+  "conflict",
+  "failed",
+  "connected",
+  "disconnected",
+  "complete",
+  "stale",
+  "overflow",
+  "closing",
+  "closed",
+  "absent",
+  "executing",
+  "ready",
+  "unready",
+  "fenced",
+  "imported",
+  "active",
+  "recovering",
+]);
+
+export type SyncTelemetryBoundary = v.InferOutput<typeof SyncTelemetryBoundarySchema>;
+export type SyncTelemetryOutcome = v.InferOutput<typeof SyncTelemetryOutcomeSchema>;
+export const SyncTelemetryMeasurementSchema = v.object({
+  bytes: v.optional(v.pipe(v.number(), v.finite(), v.minValue(0))),
+  items: v.optional(v.pipe(v.number(), v.safeInteger(), v.minValue(0))),
+  ageSeconds: v.optional(v.pipe(v.number(), v.finite(), v.minValue(0))),
+  httpStatus: v.optional(v.pipe(v.number(), v.integer(), v.minValue(100), v.maxValue(599))),
+});
+
+export type SyncTelemetryMeasurement = v.InferOutput<typeof SyncTelemetryMeasurementSchema>;

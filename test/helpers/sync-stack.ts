@@ -43,6 +43,19 @@ function testSyncAuthenticationToken(existing: string | undefined): string {
   return existing ?? randomBytes(24).toString("hex");
 }
 
+function testSyncCacheTraceConfiguration(enabled?: boolean): string[] {
+  if (!enabled) return [];
+
+  return [
+    "OTEL_TRACES_EXPORTER=none",
+    "OTEL_METRICS_EXPORTER=none",
+    "OTEL_LOGS_EXPORTER=none",
+    "OTEL_PROPAGATORS=tracecontext",
+    "OTEL_NODE_RESOURCE_DETECTORS=none",
+    "DO_NOT_TRACK=1",
+  ];
+}
+
 export async function createTestSyncStack(
   options: {
     authenticationToken?: string;
@@ -50,6 +63,9 @@ export async function createTestSyncStack(
     interceptMutations?: boolean;
     collaborator?: boolean;
     application?: "shared-record" | "thread";
+    cacheTraceContext?: boolean;
+    authorityPreload?: string;
+    authorityEnvironment?: Record<string, string>;
   } = {},
 ) {
   const profile = testSyncApplicationProfile(options.application);
@@ -343,6 +359,7 @@ export async function createTestSyncStack(
       authority = Bun.spawn(
         [
           process.execPath,
+          ...(options.authorityPreload ? ["--preload", options.authorityPreload] : []),
           "packages/sync/bin/cueloop-sync.js",
           "serve",
           "--application",
@@ -353,7 +370,12 @@ export async function createTestSyncStack(
           String(authorityPort),
           ...profile.requestOptions,
         ],
-        { env: environment, stdin: "ignore", stdout: "pipe", stderr: "pipe" },
+        {
+          env: { ...environment, ...options.authorityEnvironment },
+          stdin: "ignore",
+          stdout: "pipe",
+          stderr: "pipe",
+        },
       );
       const reader = authority.stdout.getReader();
       let startup = "";
@@ -376,7 +398,7 @@ export async function createTestSyncStack(
       }
 
       const ready = v.parse(
-        v.object({ event: v.literal("sync.authority.ready"), port: v.number() }),
+        v.object({ event: v.literal("sync.authority.listening"), port: v.number() }),
         JSON.parse(startup.trim()),
       );
 
@@ -400,6 +422,7 @@ export async function createTestSyncStack(
       "ZERO_NUM_SYNC_WORKERS=1",
       "ZERO_ALLOW_LEGACY_QUERIES=false",
       "ZERO_ENABLE_CRUD_MUTATIONS=false",
+      ...testSyncCacheTraceConfiguration(options.cacheTraceContext),
       `ZERO_ADMIN_PASSWORD=${randomBytes(24).toString("hex")}`,
       `ZERO_QUERY_URL=http://host.docker.internal:${authorityPort}/query`,
       `ZERO_MUTATE_URL=http://host.docker.internal:${mutationPort}/mutate`,
@@ -439,7 +462,9 @@ export async function createTestSyncStack(
       if (logs.includes('"message":"zero-cache ready (')) break;
 
       if (Date.now() >= readyDeadline)
-        throw new Error("Sync test cache did not signal worker readiness");
+        throw new Error(
+          `Sync test cache did not signal worker readiness: ${redact(logs.slice(-6000))}`,
+        );
 
       await Bun.sleep(50);
     }

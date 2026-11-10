@@ -38,12 +38,13 @@ if (!token || !userIdentifier) {
 
 const connection = databaseUrl ? postgres(databaseUrl) : undefined;
 const rawDatabase = connection ? zeroPostgresJS(sharedRecordSchema, connection) : undefined;
-const database = rawDatabase
-  ? createSyncAuthorityDatabase({
-      database: rawDatabase,
-      identity: await rawDatabase.transaction((transaction) => readSyncAuthority(transaction)),
-    })
+const authorityIdentity = rawDatabase
+  ? await rawDatabase.transaction((transaction) => readSyncAuthority(transaction))
   : undefined;
+const database =
+  rawDatabase && authorityIdentity
+    ? createSyncAuthorityDatabase({ database: rawDatabase, identity: authorityIdentity })
+    : undefined;
 const identities = [{ token, userIdentifier }];
 const collaboratorToken = process.env.SYNC_COLLABORATOR_AUTH_TOKEN;
 const collaboratorIdentifier = process.env.SYNC_COLLABORATOR_USER_ID;
@@ -211,6 +212,22 @@ async function fetch(request: Request): Promise<Response> {
 
 export const syncApplication = {
   transferAdapter: sharedWorkspaceTransferAdapter,
+  readiness: async (signal: AbortSignal) => {
+    if (!rawDatabase || signal.aborted) return { ready: false, phase: "unavailable" as const };
+
+    const authority = await rawDatabase.transaction((transaction) =>
+      readSyncAuthority(transaction),
+    );
+
+    if (
+      !authorityIdentity ||
+      authority.authorityIdentifier !== authorityIdentity.authorityIdentifier ||
+      authority.generation !== authorityIdentity.generation
+    )
+      return { ready: false, phase: "fenced" as const };
+
+    return { ready: authority.phase === "active", phase: authority.phase };
+  },
   fetch,
   connect: connectSharedRecord,
   execute: executeSharedRequests,

@@ -10,6 +10,12 @@ test("the packed sync SDK and CLI run from node_modules under Node", async () =>
 
   mkdirSync(installed, { recursive: true });
   symlinkSync(resolve("node_modules/@rocicorp"), join(modules, "@rocicorp"), "dir");
+  mkdirSync(join(modules, "@opentelemetry"));
+  symlinkSync(
+    resolve("node_modules/@opentelemetry/api"),
+    join(modules, "@opentelemetry", "api"),
+    "dir",
+  );
   for (const dependency of ["valibot", "uuid", "canonicalize", "idb", "yjs"]) {
     symlinkSync(resolve("node_modules", dependency), join(modules, dependency), "dir");
   }
@@ -75,9 +81,13 @@ test("the packed sync SDK and CLI run from node_modules under Node", async () =>
       stderr: "pipe",
       signal: AbortSignal.timeout(5000),
     });
-    const result = await new Response(consumer.stdout).text();
+    const [result, errors, status] = await Promise.all([
+      new Response(consumer.stdout).text(),
+      new Response(consumer.stderr).text(),
+      consumer.exited,
+    ]);
 
-    expect(await consumer.exited).toBe(0);
+    expect(status, errors).toBe(0);
     expect(result).toContain("Packed SDK closed");
     const cli = Bun.spawn(["node", join(installed, "bin", "cueloop-sync.js"), "--help"], {
       stdout: "pipe",

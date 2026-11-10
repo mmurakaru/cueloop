@@ -1,3 +1,4 @@
+import { getSyncTelemetry, type SyncTelemetry } from "./sync-telemetry.ts";
 import { finalizeSyncRestore } from "./sync-restore-finalization.ts";
 import {
   hasSyncDatabaseTable,
@@ -25,7 +26,7 @@ export function syncAuthorityReplicaConfiguration(identity: SyncAuthorityIdentit
 }
 
 /** A failed or interrupted restore has no active authority; activation is a separate fenced operation. */
-export async function restoreSyncBackup(options: {
+async function restoreSyncBackupState(options: {
   databaseURL: string;
   directory: string;
   tools?: SyncPostgresTools;
@@ -122,7 +123,7 @@ export async function restoreSyncBackup(options: {
 }
 
 /** Source fencing drains committing transactions; an unreachable source is never treated as fenced. */
-export async function fenceSyncAuthority(options: {
+async function fenceSyncAuthorityState(options: {
   databaseURL: string;
   authority: SyncAuthorityIdentity;
 }) {
@@ -145,7 +146,7 @@ export async function fenceSyncAuthority(options: {
 }
 
 /** The host proves fresh replica readiness before the destination can accept writes. */
-export async function activateSyncRestore(options: {
+async function activateSyncRestoreState(options: {
   databaseURL: string;
   sourceDatabaseURL: string;
   source: SyncAuthorityIdentity;
@@ -203,4 +204,34 @@ export async function activateSyncRestore(options: {
     await original.end();
     await database.end();
   }
+}
+
+export function restoreSyncBackup(
+  options: Parameters<typeof restoreSyncBackupState>[0] & { telemetry?: SyncTelemetry },
+) {
+  return (options.telemetry ?? getSyncTelemetry()).run(
+    "restore",
+    () => restoreSyncBackupState(options),
+    (result) => result.status,
+  );
+}
+
+export function fenceSyncAuthority(
+  options: Parameters<typeof fenceSyncAuthorityState>[0] & { telemetry?: SyncTelemetry },
+) {
+  return (options.telemetry ?? getSyncTelemetry()).run(
+    "authority.fence",
+    () => fenceSyncAuthorityState(options),
+    (result) => result.status,
+  );
+}
+
+export function activateSyncRestore(
+  options: Parameters<typeof activateSyncRestoreState>[0] & { telemetry?: SyncTelemetry },
+) {
+  return (options.telemetry ?? getSyncTelemetry()).run(
+    "restore.activate",
+    () => activateSyncRestoreState(options),
+    (result) => result.status,
+  );
 }

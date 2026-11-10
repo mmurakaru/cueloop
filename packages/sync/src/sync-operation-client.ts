@@ -1,3 +1,4 @@
+import { getSyncTelemetry, type SyncTelemetry } from "./sync-telemetry.ts";
 import { SyncAuthorityRecoveryRequired } from "./sync-authority-protocol.ts";
 import type { MutatorResult } from "@rocicorp/zero";
 import * as v from "valibot";
@@ -23,11 +24,66 @@ export type SyncOperationOutcome =
       workspaceIdentifier: string;
     };
 
-/** Receipt recovery never submits or changes an envelope, including outside a restored boundary. */
-export async function lookupSyncOperationOutcome<Operation extends SyncOperation>(options: {
+interface SyncOperationLookupOptions<Operation extends SyncOperation> {
   operation: Operation;
   lookup: (operation: Operation) => Promise<SyncOperationReceipt | undefined>;
-}): Promise<SyncOperationOutcome> {
+  telemetry?: SyncTelemetry;
+}
+
+interface SyncOperationSubmissionOptions<Operation extends SyncOperation> {
+  operation: Operation;
+  submit: (operation: Operation) => MutatorResult;
+  lookup?: (operation: Operation) => Promise<SyncOperationReceipt | undefined>;
+  acknowledgementTimeoutMilliseconds?: number;
+  signal?: AbortSignal;
+  telemetry?: SyncTelemetry;
+}
+
+async function observeSyncOperationOutcome(
+  telemetry: SyncTelemetry,
+  boundary: "operation.submit" | "operation.lookup",
+  operation: () => Promise<SyncOperationOutcome>,
+): Promise<SyncOperationOutcome> {
+  const observation = telemetry.start(boundary);
+
+  try {
+    const outcome = await observation.run(operation);
+
+    observation.end(outcome.status);
+
+    return outcome;
+  } catch (cause) {
+    observation.end(cause instanceof SyncOperationConflict ? "conflict" : "failed");
+
+    throw cause;
+  }
+}
+
+/** Receipt recovery never submits or changes an envelope, including outside a restored boundary. */
+export function lookupSyncOperationOutcome<Operation extends SyncOperation>(
+  options: SyncOperationLookupOptions<Operation>,
+): Promise<SyncOperationOutcome> {
+  return observeSyncOperationOutcome(
+    options.telemetry ?? getSyncTelemetry(),
+    "operation.lookup",
+    () => recoverSyncOperationOutcome(options),
+  );
+}
+
+/** A missing acknowledgement remains pending and never triggers an automatic resubmission. */
+export function submitSyncOperation<Operation extends SyncOperation>(
+  options: SyncOperationSubmissionOptions<Operation>,
+): Promise<SyncOperationOutcome> {
+  return observeSyncOperationOutcome(
+    options.telemetry ?? getSyncTelemetry(),
+    "operation.submit",
+    () => sendSyncOperationEnvelope(options),
+  );
+}
+
+async function recoverSyncOperationOutcome<Operation extends SyncOperation>(
+  options: SyncOperationLookupOptions<Operation>,
+): Promise<SyncOperationOutcome> {
   const operation = structuredClone(options.operation);
   const normalized = parseSyncOperation(operation);
 
@@ -61,14 +117,9 @@ export async function lookupSyncOperationOutcome<Operation extends SyncOperation
   }
 }
 
-/** A missing acknowledgement remains pending and never triggers an automatic resubmission. */
-export async function submitSyncOperation<Operation extends SyncOperation>(options: {
-  operation: Operation;
-  submit: (operation: Operation) => MutatorResult;
-  lookup?: (operation: Operation) => Promise<SyncOperationReceipt | undefined>;
-  acknowledgementTimeoutMilliseconds?: number;
-  signal?: AbortSignal;
-}): Promise<SyncOperationOutcome> {
+async function sendSyncOperationEnvelope<Operation extends SyncOperation>(
+  options: SyncOperationSubmissionOptions<Operation>,
+): Promise<SyncOperationOutcome> {
   const operation = structuredClone(options.operation);
   const normalized = parseSyncOperation(operation);
 
