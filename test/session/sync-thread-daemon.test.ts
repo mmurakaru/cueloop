@@ -1,5 +1,6 @@
-import { writeFileSync } from "node:fs";
-import { createTestGitRepo } from "../helpers/git-repo";
+import { runTestSyncDiffReview } from "../helpers/sync-thread-diff";
+import { exerciseTestSyncThreadSharing } from "../helpers/sync-thread-sharing";
+import { createTestSyncThreadDrafts } from "../helpers/sync-thread-drafts";
 import { expect, test } from "bun:test";
 import { join } from "node:path";
 import { DaemonServer } from "@cueloop/daemon";
@@ -116,6 +117,27 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
       peer.close();
       await server.shutdown();
       await interruptedComment;
+      const [persistedMetadata] = await reader.run(
+        syncThreadQueries.threads({ workspaceIdentifier: workspace.id, pageSize: 10 }),
+        { type: "complete" },
+      );
+
+      if (!persistedMetadata)
+        throw new Error("Interrupted draft fixture requires its imported Thread metadata");
+
+      const interruptedDrafts = await createTestSyncThreadDrafts({
+        home,
+        threadIdentifier: thread.id,
+        expectedVersion: 4,
+        connection: {
+          authorityURL: stack.authorityURL,
+          cacheURL: stack.cacheURL,
+          actorIdentifier: stack.userID,
+          workspaceIdentifier: workspace.id,
+          recordIdentifier: persistedMetadata.id,
+        },
+      });
+
       await stack.restartAuthority();
       enabled = false;
       server = new DaemonServer({ home, idleExitMs: 0, sync: { enabledForThread: () => enabled } });
@@ -126,6 +148,13 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
       await expect(owner.sessionSetWorkingCopy(thread.id, "Flag-off fork")).rejects.toThrow(
         "read-only",
       );
+      const unsubmitted = (await owner.sessionSyncDrafts(thread.id)).find(
+        (draft) => draft.draftIdentifier === interruptedDrafts.retryIdentifier,
+      );
+
+      expect(unsubmitted?.status).toBe("draft");
+      expect(unsubmitted?.content).toContain("Recovered unsent title");
+      await owner.sessionSyncDiscard(thread.id, interruptedDrafts.discardIdentifier);
       enabled = true;
       await owner.sessionSyncResume(thread.id);
       const retained = (await owner.sessionSyncDrafts(thread.id)).find((draft) =>
@@ -143,6 +172,10 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
           (annotation) => annotation.id === "accepted-before-owner-restart",
         ),
       ).toHaveLength(1);
+      await owner.sessionSyncRetry(thread.id, interruptedDrafts.retryIdentifier);
+      expect((await owner.sessionGet(thread.id)).artifact.meta.title).toBe(
+        "Recovered unsent title",
+      );
       expect(await owner.sessionSyncDrafts(thread.id)).toEqual([]);
 
       const waiting = owner.sessionWait(thread.id, 30000);
@@ -154,10 +187,14 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
         "stable-native-message",
       );
 
-      expect((await waiting)?.message?.id).toBe(sent.message?.id);
+      const nativeMessage = sent.message;
 
-      if (!sent.message?.id)
+      if (!nativeMessage?.id)
         throw new Error("Imported Thread must receive an identified native Message");
+
+      const messageIdentifier = nativeMessage.id;
+
+      expect(await waiting).toMatchObject({ message: { id: messageIdentifier } });
 
       const pending = await runHarnessBridge(
         { operation: "pending", harness: "claude-code", harnessSessionId: "sync-owner-test" },
@@ -168,13 +205,13 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
         throw new Error("Imported Thread must release a native adapter delivery after acceptance");
 
       expect(pending.deliveries).toHaveLength(1);
-      expect(pending.deliveries[0].message.id).toBe(sent.message?.id);
+      expect(pending.deliveries[0].message.id).toBe(messageIdentifier);
       await runHarnessBridge(
         {
           operation: "ack",
           bindingId: binding.id,
           deliveryId: pending.deliveries[0].deliveryId,
-          messageId: sent.message.id,
+          messageId: messageIdentifier,
         },
         home,
       );
@@ -186,7 +223,7 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
         "stable-native-message",
       );
 
-      expect(replayed.message?.id).toBe(sent.message?.id);
+      expect(replayed.message).toMatchObject({ id: messageIdentifier });
       expect(await owner.deliveryPending(binding.id)).toEqual([]);
       const [metadata] = await reader.run(
         syncThreadQueries.threads({ workspaceIdentifier: workspace.id, pageSize: 10 }),
@@ -227,7 +264,7 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
       expect(fork.parentSessionId).toBe(thread.id);
       await owner.sessionDelete(fork.id);
       expect((await owner.sessionList()).map((item) => item.id)).not.toContain(fork.id);
-      expect((await owner.sessionGet(thread.id)).message?.id).toBe(sent.message?.id);
+      expect((await owner.sessionGet(thread.id)).message).toMatchObject({ id: messageIdentifier });
       const recoveryThread = await owner.sessionCreate(
         { repoRoot: stack.directory, branch: "main" },
         { type: "plan", content: "Retained after a rejected import", meta: {} },
@@ -269,62 +306,31 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
 
       expect(retried.id).toBe(recoveryThread.id);
       expect(retried.artifact.content).toBe("Retained after a rejected import");
-      const repository = createTestGitRepo([
-        { path: "owner.txt", before: "before\n", after: "first owner diff\n" },
-      ]);
+      const sharedThread = await owner.sessionSetTitle(recoveryThread.id, "Shared sync review");
+      const sharing = await exerciseTestSyncThreadSharing({
+        client: owner,
+        home,
+        thread: sharedThread,
+      });
 
-      try {
-        const initialDiff = await repository.diff();
-        const diffThread = await owner.sessionCreate(
-          { repoRoot: repository.dir, branch: "main" },
-          {
-            type: "diff",
-            content: initialDiff.patch,
-            files: initialDiff.files,
-            meta: { title: "Owner-local capture" },
-          },
-        );
-
-        await owner.sessionSyncImport(diffThread.id, recoveryConnection);
-        await owner.subscribe();
-        const refreshed = Promise.withResolvers<void>();
-        const connection = owner;
-        const unsubscribe = owner.onEvent((event) => {
-          if (event.sessionId !== diffThread.id || event.event !== "session.updated") return;
-
-          void connection
-            .sessionGet(diffThread.id)
-            .then((current) => {
-              if (current.artifact.content.includes("second owner diff")) refreshed.resolve();
-            })
-            .catch(refreshed.reject);
-        });
-        const timer = setTimeout(
-          () =>
-            refreshed.reject(
-              new Error("Imported diff did not receive its committed owner-local capture"),
-            ),
-          30000,
-        );
-
-        try {
-          writeFileSync(join(repository.dir, "owner.txt"), "second owner diff\n");
-          await owner.sessionRefreshDiff(diffThread.id);
-          await refreshed.promise;
-          expect((await owner.sessionGet(diffThread.id)).artifact.content).toContain(
-            "+second owner diff",
-          );
+      expect(sharing.sharedComment?.author).toMatch(/^SHA256:/);
+      expect(sharing.merged.id).toBe(sharedThread.id);
+      expect(sharing.republishedThread.id).toBe(sharedThread.id);
+      expect(
+        sharing.republishedThread.annotations.find(
+          (annotation) => annotation.id === sharing.sharedComment?.id,
+        )?.body,
+      ).toBe("SSH feedback for the synced Thread");
+      await runTestSyncDiffReview({
+        client: owner,
+        connection: recoveryConnection,
+        inspect: (diffThread) => {
+          expect(diffThread.artifact.content).toContain("+second owner diff");
           expect(() =>
             server.core.sessionSetWorkingCopy(diffThread.id, "Competing captured diff"),
           ).toThrow("authority");
-        } finally {
-          clearTimeout(timer);
-          unsubscribe();
-          await owner.sessionDelete(diffThread.id);
-        }
-      } finally {
-        repository.cleanup();
-      }
+        },
+      });
     } finally {
       owner?.close();
       peer?.close();

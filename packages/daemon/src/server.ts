@@ -500,19 +500,13 @@ export class DaemonServer {
       const parameters = parseParams("session.syncDrafts", request.params);
       const drafts = await (await this.getSyncRuntime()).pendingDrafts(parameters.id);
 
-      return drafts.flatMap((draft) =>
-        draft.status === "draft"
-          ? []
-          : [
-              {
-                draftIdentifier: draft.draftIdentifier,
-                status: draft.status,
-                content: draft.content,
-                operationIdentifier: draft.operation.operationIdentifier,
-                updatedAt: draft.updatedAt,
-              },
-            ],
-      );
+      return drafts.map((draft) => ({
+        draftIdentifier: draft.draftIdentifier,
+        status: draft.status,
+        content: draft.content,
+        operationIdentifier: draft.operation.operationIdentifier,
+        updatedAt: draft.updatedAt,
+      }));
     },
     "session.syncRetry": async (_connection, request) => {
       const parameters = parseParams("session.syncRetry", request.params);

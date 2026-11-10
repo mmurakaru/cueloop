@@ -574,15 +574,36 @@ export class SyncThreadRuntime {
     const profile = this.profile(connection);
     const records = await profile.drafts.list();
 
-    return records.filter(
-      (record) =>
+    return records.flatMap((record) => {
+      const serialized = v.safeParse(v.string(), record.content);
+
+      if (!serialized.success) return [];
+
+      let input: unknown;
+
+      try {
+        input = JSON.parse(serialized.output);
+      } catch {
+        return [];
+      }
+
+      const prepared = v.safeParse(PreparedCommandSchema, input);
+
+      if (
+        !prepared.success ||
+        prepared.output.operation.workspaceIdentifier !== connection.workspaceIdentifier ||
+        prepared.output.operation.arguments.recordIdentifier !== connection.recordIdentifier
+      )
+        return [];
+
+      if (
         record.status !== "draft" &&
-        record.operation.workspaceIdentifier === connection.workspaceIdentifier &&
-        v.is(
-          v.object({ recordIdentifier: v.literal(connection.recordIdentifier) }),
-          record.operation.arguments,
-        ),
-    );
+        !isDeepStrictEqual(record.operation, prepared.output.operation)
+      )
+        throw new Error("Sync Thread saved draft does not match its immutable operation");
+
+      return [{ ...record, content: serialized.output, operation: prepared.output.operation }];
+    });
   }
 
   async discardDraft(threadIdentifier: string, draftIdentifier: string): Promise<void> {
@@ -602,8 +623,7 @@ export class SyncThreadRuntime {
     const records = await this.pendingDrafts(threadIdentifier);
     const draft = records.find((record) => record.draftIdentifier === draftIdentifier);
 
-    if (!draft || draft.status === "draft")
-      throw new DaemonError("not_found", "Sync Thread draft is unavailable");
+    if (!draft) throw new DaemonError("not_found", "Sync Thread draft is unavailable");
 
     if (draft.status === "rejected")
       throw new DaemonError(
@@ -615,6 +635,14 @@ export class SyncThreadRuntime {
 
     if (!isDeepStrictEqual(prepared.operation, draft.operation))
       throw new Error("Sync Thread saved draft does not match its immutable operation");
+
+    if (draft.status === "draft")
+      await this.profile(
+        this.store.syncState.read(threadIdentifier).connection,
+      ).drafts.markSubmitted({
+        draftIdentifier: draft.draftIdentifier,
+        operation: prepared.operation,
+      });
 
     await this.resume(threadIdentifier);
 

@@ -1,3 +1,4 @@
+export type { SyncThreadConnection } from "./sync-thread-connection";
 import type { SyncThreadConnection } from "./sync-thread-connection";
 /**
  * Daemon client: the one library every consumer shares - CLI primitives, the TUI,
