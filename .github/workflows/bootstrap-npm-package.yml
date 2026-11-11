@@ -129,7 +129,7 @@ jobs:
         run: |
           set -euo pipefail
           expected=$(node --input-type=module -e 'import {readFileSync} from "node:fs"; import {createHash} from "node:crypto"; console.log("sha512-" + createHash("sha512").update(readFileSync(process.argv[1])).digest("base64"))' "./bootstrap/$TARBALL")
-          for attempt in {1..15}; do
+          for attempt in {1..180}; do
             actual=$(npm view "$PACKAGE_NAME@$VERSION" dist.integrity --prefer-online 2>/dev/null || true)
             if [ "$actual" = "$expected" ]; then
               exit 0
@@ -138,7 +138,7 @@ jobs:
               echo "Published tarball integrity does not match the prepared artifact" >&2
               exit 1
             fi
-            sleep 2
+            sleep 5
           done
           echo "Published tarball was not visible before the verification deadline" >&2
           exit 1

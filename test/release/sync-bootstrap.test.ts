@@ -82,7 +82,7 @@ for (const scenario of ["publish", "pending-changeset", "missing-token"] as cons
   });
 }
 
-for (const scenario of ["delayed-visibility", "wrong-integrity"] as const) {
+for (const scenario of ["delayed-visibility", "wrong-integrity", "unavailable"] as const) {
   test(`first publication verification rejects replacement and handles ${scenario}`, async () => {
     const workflow = await Bun.file(".github/workflows/bootstrap-npm-package.yml").text();
     const body = workflow
@@ -99,6 +99,7 @@ for (const scenario of ["delayed-visibility", "wrong-integrity"] as const) {
     const directory = await mkdtemp(join(tmpdir(), "cueloop-sync-publication-integrity-"));
     const bin = join(directory, "bin");
     const record = join(directory, "attempts");
+    const clock = join(directory, "elapsed-seconds");
     const archive = "Prepared first publication archive";
     const { createHash } = await import("node:crypto");
     const expected = `sha512-${createHash("sha512").update(archive).digest("base64")}`;
@@ -107,17 +108,24 @@ for (const scenario of ["delayed-visibility", "wrong-integrity"] as const) {
       await mkdir(bin);
       await mkdir(join(directory, "bootstrap"));
       await writeFile(join(directory, "bootstrap", "sync.tgz"), archive);
+      await writeFile(record, "0\n");
+      await writeFile(clock, "0\n");
       await writeFile(join(bin, "package.json"), '{"type":"module"}');
       await writeFile(
         join(bin, "npm"),
-        `#!/usr/bin/env node
-import {readFileSync, writeFileSync} from 'node:fs';
-let count = 0;
-try {count = Number(readFileSync(process.env.PUBLISH_RECORD, 'utf8'));} catch {}
-writeFileSync(process.env.PUBLISH_RECORD, String(count + 1));
-if (process.env.REGISTRY_SCENARIO === 'delayed-visibility' && count === 0) process.exit(1);
-console.log(process.env.REGISTRY_INTEGRITY);
+        `#!/bin/sh
+read -r count < "$PUBLISH_RECORD"
+printf '%s\n' "$((count + 1))" > "$PUBLISH_RECORD"
+read -r elapsed < "$REGISTRY_CLOCK"
+if [ "$REGISTRY_SCENARIO" = unavailable ]; then exit 1; fi
+if [ "$REGISTRY_SCENARIO" = delayed-visibility ] && [ "$elapsed" -lt 300 ]; then exit 1; fi
+printf '%s\n' "$REGISTRY_INTEGRITY"
 `,
+        { mode: 0o755 },
+      );
+      await writeFile(
+        join(bin, "sleep"),
+        '#!/bin/sh\nread -r elapsed < "$REGISTRY_CLOCK"\nprintf \'%s\\n\' "$((elapsed + $1))" > "$REGISTRY_CLOCK"\n',
         { mode: 0o755 },
       );
       const child = Bun.spawn(["bash", "-eu", "-c", script], {
@@ -128,6 +136,7 @@ console.log(process.env.REGISTRY_INTEGRITY);
           NODE_AUTH_TOKEN: undefined,
           NPM_TOKEN: undefined,
           PUBLISH_RECORD: record,
+          REGISTRY_CLOCK: clock,
           REGISTRY_SCENARIO: scenario,
           REGISTRY_INTEGRITY: scenario === "wrong-integrity" ? "sha512-wrong" : expected,
           PACKAGE_NAME: "@cueloop/sync",
@@ -139,8 +148,20 @@ console.log(process.env.REGISTRY_INTEGRITY);
       });
       const [status, errors] = await Promise.all([child.exited, new Response(child.stderr).text()]);
 
-      expect(status, errors).toBe(scenario === "wrong-integrity" ? 1 : 0);
-      expect(await readFile(record, "utf8")).toBe(scenario === "wrong-integrity" ? "1" : "2");
+      expect(status, errors).toBe(scenario === "delayed-visibility" ? 0 : 1);
+
+      if (scenario === "wrong-integrity") {
+        expect(Number(await readFile(record, "utf8"))).toBe(1);
+        expect(Number(await readFile(clock, "utf8"))).toBe(0);
+      } else if (scenario === "unavailable") {
+        expect(errors).toContain(
+          "Published tarball was not visible before the verification deadline",
+        );
+        expect(Number(await readFile(clock, "utf8"))).toBe(900);
+      } else {
+        expect(Number(await readFile(record, "utf8"))).toBeGreaterThan(1);
+        expect(Number(await readFile(clock, "utf8"))).toBe(300);
+      }
     } finally {
       await rm(directory, { recursive: true, force: true });
     }
