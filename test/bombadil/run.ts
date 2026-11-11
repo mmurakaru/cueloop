@@ -7,7 +7,11 @@ import { pipeline } from "node:stream/promises";
 import { createGunzip } from "node:zlib";
 import * as v from "valibot";
 import { createTestBombadilReview } from "../helpers/bombadil-review.ts";
-import { compressBombadilTrace, summarizeBombadilTrace } from "./trace-report.ts";
+import {
+  bombadilPropertiesPassed,
+  compressBombadilTrace,
+  summarizeBombadilTrace,
+} from "./trace-report.ts";
 
 const { values } = parseArgs({
   args: process.argv.slice(2),
@@ -49,7 +53,6 @@ async function runScenario(scenario: BombadilScenario) {
   const directory = join(output, scenario);
 
   mkdirSync(directory);
-  const fixture = await createTestBombadilReview(scenario);
   const specification = resolve(
     `test/bombadil/${scenario === "draft" ? "draft" : "navigation"}.bombadil.ts`,
   );
@@ -86,6 +89,7 @@ async function runScenario(scenario: BombadilScenario) {
     commandArguments.push("--reproduce", reproduction);
   }
 
+  const fixture = await createTestBombadilReview(scenario);
   const command = [
     process.execPath,
     resolve("node_modules/.bin/bombadil"),
@@ -132,18 +136,7 @@ async function runScenario(scenario: BombadilScenario) {
   const trace = existsSync(tracePath) ? await summarizeBombadilTrace(tracePath) : null;
   const compressed = trace ? await compressBombadilTrace(tracePath) : null;
   const expectedViolation = scenario === "negative-control" ? "noReplacementChars" : null;
-  const propertiesPassed =
-    trace !== null &&
-    (expectedViolation
-      ? bombadilExitCode === 1 &&
-        trace.violations.length === 1 &&
-        trace.violations[0] === expectedViolation
-      : bombadilExitCode === 0 &&
-        trace.violations.length === 0 &&
-        trace.actions >= 10 &&
-        trace.readyStates >= 10 &&
-        trace.resizes > 0 &&
-        (scenario === "draft" ? trace.unicodeInputs > 0 : trace.clicks > 0));
+  const propertiesPassed = bombadilPropertiesPassed(trace, scenario, bombadilExitCode);
   const passed = !errorMessage && readySignalObserved && dataUnchanged && propertiesPassed;
   const report = {
     scenario,

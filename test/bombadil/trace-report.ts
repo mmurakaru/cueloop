@@ -1,4 +1,8 @@
-import { BOMBADIL_READY_TITLE, BOMBADIL_DRAFT_TEXT } from "./fixture-contract.ts";
+import {
+  BOMBADIL_READY_TITLE,
+  BOMBADIL_DRAFT_TEXT,
+  type BombadilScenario,
+} from "./fixture-contract.ts";
 import { createHash } from "node:crypto";
 import { createReadStream, createWriteStream } from "node:fs";
 import { rm } from "node:fs/promises";
@@ -32,6 +36,31 @@ export interface BombadilTraceSummary {
   readyStates: number;
   sizes: string[];
   violations: string[];
+}
+
+export function bombadilPropertiesPassed(
+  trace: BombadilTraceSummary | null,
+  scenario: BombadilScenario,
+  exitCode: number | null,
+): boolean {
+  if (!trace) return false;
+
+  if (scenario === "negative-control") {
+    return (
+      exitCode === 1 &&
+      trace.violations.length === 1 &&
+      trace.violations[0] === "noReplacementChars"
+    );
+  }
+
+  return (
+    exitCode === 0 &&
+    trace.violations.length === 0 &&
+    trace.actions >= 10 &&
+    trace.readyStates >= 10 &&
+    trace.resizes > 0 &&
+    (scenario === "draft" ? trace.unicodeInputs > 0 : trace.clicks > 0)
+  );
 }
 
 export async function summarizeBombadilTrace(path: string) {
