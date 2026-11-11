@@ -6,7 +6,11 @@ import { createTestReviewHome } from "./review-home.ts";
 import { createTestGitRepo, type TestGitRepo } from "./git-repo.ts";
 import { hermeticCueloopEnvironment } from "./env.ts";
 
-import { BOMBADIL_READY_TITLE, type BombadilScenario } from "../bombadil/fixture-contract.ts";
+import {
+  BOMBADIL_PLAN_READY_TITLE,
+  BOMBADIL_DIFF_READY_TITLE,
+  type BombadilScenario,
+} from "../bombadil/fixture-contract.ts";
 
 function reviewFingerprint(thread: Thread): string {
   const {
@@ -99,7 +103,10 @@ export async function createTestBombadilReview(scenario: BombadilScenario) {
         await readiness.promise;
         clearTimeout(timeout);
         watcher.close();
-        reviewHome.server.core.sessionSetTitle(thread.id, BOMBADIL_READY_TITLE);
+        reviewHome.server.core.sessionSetTitle(
+          thread.id,
+          scenario === "diff" ? BOMBADIL_DIFF_READY_TITLE : BOMBADIL_PLAN_READY_TITLE,
+        );
         // The revision exposes the action gate only after the ready-file signal.
         reviewHome.server.core.sessionSubmitRevision(
           thread.id,

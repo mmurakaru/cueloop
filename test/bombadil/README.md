@@ -28,6 +28,7 @@ bun run test:bombadil --scenario negative-control
 
 - A review becomes usable after the application's ready-file signal.
 - Navigation and resize recover a usable review within two seconds.
+- A usable plan contains a fixture paragraph; a usable diff contains a fixture code row.
 - The application remains running throughout exploration.
 - Well-formed fixtures and typed Unicode do not render replacement characters.
 - A typed Unicode draft becomes visible within one second.

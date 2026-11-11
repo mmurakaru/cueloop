@@ -1,6 +1,7 @@
 import { BOMBADIL_READY_TITLE } from "./fixture-contract.ts";
 import { always, eventually, extract, next, now } from "@antithesishq/bombadil";
 import type { State } from "@antithesishq/bombadil/terminal";
+import { hasBombadilReviewContent } from "./review-content.ts";
 
 export const reviewScreen = extract((state: State) => ({
   text: Array.from({ length: state.grid.size.rows }, (_, row) => state.grid.rowText(row)).join(
@@ -13,7 +14,7 @@ export const reviewScreen = extract((state: State) => ({
 })).named("reviewScreen");
 
 export const reviewBecomesReady = eventually(() =>
-  reviewScreen.current.text.includes(BOMBADIL_READY_TITLE),
+  hasBombadilReviewContent(reviewScreen.current.text),
 ).within(10, "seconds");
 
 export const reviewRemainsRunning = always(() => reviewScreen.current.exitStatus === null);
@@ -21,10 +22,7 @@ export const reviewRemainsRunning = always(() => reviewScreen.current.exitStatus
 export const reviewRecoversAfterInput = always(
   now(() => reviewScreen.current.text.includes(BOMBADIL_READY_TITLE)).implies(
     next(
-      eventually(() => reviewScreen.current.text.includes(BOMBADIL_READY_TITLE)).within(
-        2,
-        "seconds",
-      ),
+      eventually(() => hasBombadilReviewContent(reviewScreen.current.text)).within(2, "seconds"),
     ),
   ),
 );

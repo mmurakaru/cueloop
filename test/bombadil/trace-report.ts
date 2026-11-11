@@ -9,22 +9,37 @@ import { rm } from "node:fs/promises";
 import { createInterface } from "node:readline";
 import { pipeline } from "node:stream/promises";
 import { createGzip } from "node:zlib";
-import * as v from "valibot";
+import * as valibot from "valibot";
 
-const TraceEntrySchema = v.object({
-  action: v.nullable(
-    v.union([
-      v.object({ TypeText: v.object({ text: v.string() }) }),
-      v.object({ Resize: v.object({ size: v.object({ columns: v.number(), rows: v.number() }) }) }),
-      v.object({ Click: v.object({ row: v.number(), column: v.number() }) }),
-      v.object({ ScrollUp: v.object({}) }),
-      v.object({ ScrollDown: v.object({}) }),
+const TraceEntrySchema = valibot.object({
+  action: valibot.nullable(
+    valibot.union([
+      valibot.object({ TypeText: valibot.object({ text: valibot.string() }) }),
+      valibot.object({
+        Resize: valibot.object({
+          size: valibot.object({ columns: valibot.number(), rows: valibot.number() }),
+        }),
+      }),
+      valibot.object({
+        Click: valibot.object({ row: valibot.number(), column: valibot.number() }),
+      }),
+      valibot.object({ ScrollUp: valibot.object({}) }),
+      valibot.object({ ScrollDown: valibot.object({}) }),
     ]),
   ),
-  snapshots: v.array(v.object({ name: v.optional(v.nullable(v.string())), value: v.unknown() })),
-  violations: v.array(v.object({ name: v.string() })),
+  snapshots: valibot.array(
+    valibot.object({
+      name: valibot.optional(valibot.nullable(valibot.string())),
+      value: valibot.unknown(),
+    }),
+  ),
+  violations: valibot.array(valibot.object({ name: valibot.string() })),
 });
-const ScreenSnapshotSchema = v.object({ text: v.string(), rows: v.number(), columns: v.number() });
+const ScreenSnapshotSchema = valibot.object({
+  text: valibot.string(),
+  rows: valibot.number(),
+  columns: valibot.number(),
+});
 
 export interface BombadilTraceSummary {
   states: number;
@@ -82,7 +97,7 @@ export async function summarizeBombadilTrace(path: string) {
 
   try {
     for await (const line of lines) {
-      const entry = v.parse(TraceEntrySchema, JSON.parse(line));
+      const entry = valibot.parse(TraceEntrySchema, JSON.parse(line));
 
       summary.states += 1;
 
@@ -91,7 +106,7 @@ export async function summarizeBombadilTrace(path: string) {
       for (const snapshot of entry.snapshots) {
         if (snapshot.name !== "reviewScreen") continue;
 
-        const screen = v.parse(ScreenSnapshotSchema, snapshot.value);
+        const screen = valibot.parse(ScreenSnapshotSchema, snapshot.value);
 
         sizes.add(`${screen.columns}x${screen.rows}`);
 

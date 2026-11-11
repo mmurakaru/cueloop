@@ -5,7 +5,7 @@ import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { pipeline } from "node:stream/promises";
 import { createGunzip } from "node:zlib";
-import * as v from "valibot";
+import * as valibot from "valibot";
 import { createTestBombadilReview } from "../helpers/bombadil-review.ts";
 import {
   bombadilPropertiesPassed,
@@ -23,19 +23,19 @@ const { values } = parseArgs({
   },
   strict: true,
 });
-const durationSeconds = v.parse(
-  v.pipe(
-    v.string(),
-    v.regex(/^\d+$/),
-    v.transform(Number),
-    v.integer(),
-    v.minValue(5),
-    v.maxValue(300),
+const durationSeconds = valibot.parse(
+  valibot.pipe(
+    valibot.string(),
+    valibot.regex(/^\d+$/),
+    valibot.transform(Number),
+    valibot.integer(),
+    valibot.minValue(5),
+    valibot.maxValue(300),
   ),
   values.duration,
 );
 const scenarios = values.scenario
-  ? [v.parse(v.picklist(BOMBADIL_SCENARIOS), values.scenario)]
+  ? [valibot.parse(valibot.picklist(BOMBADIL_SCENARIOS), values.scenario)]
   : [...BOMBADIL_SCENARIOS];
 const output = resolve(
   values.output ?? join("tmp", "bombadil", new Date().toISOString().replaceAll(/[:.]/g, "-")),
