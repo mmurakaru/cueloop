@@ -1,0 +1,103 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Sync quickstart
+eyebrow: Docs · Sync
+lede: Install the SDK, merge two text edits, and test live synchronization.
+prev: { title: "Sync", href: "/docs/sync/" }
+next: { title: "Build a sync application", href: "/docs/sync/applications/" }
+---
+
+## Install @cueloop/sync
+
+Use Bun 1.4.4 or Node 24 and later.
+Create a directory and save this as `package.json`:
+
+```json
+{
+  "private": true,
+  "type": "module",
+  "overrides": { "tinypool": "2.2.0" }
+}
+```
+
+Install the SDK:
+
+```bash
+npm install @cueloop/sync@alpha
+```
+
+<div class="callout callout--warning">
+  <div class="callout__label">Important</div>
+  Keep the application-level tinypool override. The SDK's Zero dependency includes an affected
+  worker-pool version. A library's overrides do not apply to its consumers.
+</div>
+
+See the [dependency advisory](https://github.com/advisories/GHSA-85c8-ppgw-ccpr).
+
+## Merge two edits
+
+Save this as `merge.mjs`:
+
+```js
+import { createSyncTextState, createSyncTextDocument } from "@cueloop/sync/text";
+
+const initial = createSyncTextState("Plan");
+const first = createSyncTextDocument({ state: initial.state, canEdit: () => true });
+const second = createSyncTextDocument({ state: initial.state, canEdit: () => true });
+
+first.edit({ index: 0, deleteCount: 0, insert: "Team " });
+second.edit({ index: 4, deleteCount: 0, insert: " draft" });
+first.receive(second.snapshot.state);
+second.receive(first.snapshot.state);
+
+console.log(first.snapshot.text);
+console.log(second.snapshot.text);
+first.close();
+second.close();
+```
+
+Run it with either runtime:
+
+```bash
+node merge.mjs
+# or: bun merge.mjs
+```
+
+Both lines print `Team Plan draft`.
+This example merges text in memory in one process.
+Live clients also need the authenticated services described in [application setup](/docs/sync/applications/).
+The application must check current edit permissions before accepting updates.
+
+## Test live clients
+
+The repository includes checks that start PostgreSQL, a Zero cache, and an application authority.
+They exercise Bun, Node, browser, and experimental cueloop clients against shared records and reconnects.
+
+With Docker running, Bun 1.4.4, and Node 24 or later, run from the repository root:
+
+```bash
+bun install --frozen-lockfile
+bunx playwright install chromium
+CUELOOP_RUN_SYNC=1 bun test --timeout 120000 test/session/sync-workspace.test.ts
+```
+
+To use an installed Chrome, set `CUELOOP_TEST_CHROME_EXECUTABLE` to its executable path.
+The checks create temporary credentials and remove their services when finished.
+
+Run all sync integration checks, including recovery, permissions, presence, execution, and telemetry:
+
+```bash
+bun run test:sync
+```
+
+## Try the terminal editor
+
+With an application that exports `openText`, enable multiplayer sync in cueloop and run:
+
+```bash
+cueloop sync edit --application ./application.ts --workspace <id> --record <id>
+```
+
+Ctrl+Enter saves and closes after acceptance.
+Ctrl+Q closes with a saved local draft.
+The [application guide](/docs/sync/applications/) explains the client, authority, and editor contracts.

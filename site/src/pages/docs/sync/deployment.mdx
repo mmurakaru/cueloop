@@ -1,0 +1,64 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Deploy and observe sync
+eyebrow: Docs · Sync
+lede: Host the application authority, check readiness, and export OpenTelemetry signals.
+prev: { title: "Operations and recovery", href: "/docs/sync/recovery/" }
+---
+
+## Run the services
+
+Live synchronization uses PostgreSQL with logical replication, a Zero cache service, and your application authority.
+The application owns credentials, authentication, permissions, and application migrations.
+Local hosting uses this same stack.
+
+`serveSyncApplication` from `@cueloop/sync/serve` serves a Fetch-compatible application in Bun or Node.
+It binds to loopback and limits request bodies.
+Use TLS for remote clients and configure `publicOrigin` behind a TLS proxy.
+Forwarded headers do not establish a trusted origin.
+
+```bash
+cueloop-sync serve --application ./application.ts --port 4849
+```
+
+## Check liveness and readiness
+
+```bash
+curl --fail http://127.0.0.1:4849/health
+curl --fail http://127.0.0.1:4849/ready
+```
+
+`/health` reports process liveness.
+`/ready` reports the application's authority readiness.
+Only an active authority can report ready.
+A process that is restoring, fenced, or awaiting activation must remain unready.
+The host drains admitted work during shutdown.
+
+## Export telemetry
+
+The SDK emits OpenTelemetry traces, metrics, and structured logs at sync boundaries.
+Configure providers, sampling, resource attributes, and OTLP exporters in the application before opening clients or serving requests.
+Importing the SDK does not register global providers.
+
+The library depends on `@opentelemetry/api`; exporter packages belong to the application.
+Use `createSyncTelemetry` from `@cueloop/sync/telemetry` when supplying isolated providers or explicit context propagation.
+Keep Node exporter packages outside browser entry points.
+
+## Follow a request
+
+The SDK propagates W3C `traceparent` and `tracestate` through its HTTP clients and Zero transport hook.
+Configure context propagation on the cache as well as the client and authority.
+Authority handler and transaction spans inherit the request context.
+A transport batch can link several pending mutations.
+
+Signals cover acceptance, rejection, uncertainty, reconnects, query freshness, persistence, queue limits, execution dispatch, and shutdown.
+Presence remains temporary state, separate from saved history.
+
+<div class="callout">
+  <div class="callout__label">Note</div>
+  Exporter availability does not determine whether authoritative changes commit. Bound export
+  timeouts and queue sizes. Stop sync work before flushing and closing application telemetry
+  providers.
+</div>
+
+See the [telemetry guide](https://github.com/mmurakaru/cueloop/blob/main/packages/sync/docs/telemetry.md) for provider configuration, metric names, cache propagation settings, and shutdown order.

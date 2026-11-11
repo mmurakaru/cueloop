@@ -16,6 +16,9 @@ Do not use the public API to create or modify reviews. Review operations run thr
 - [Agent integrations](https://www.cueloop.dev/docs/agents/index.md)
 - [CLI command reference](https://www.cueloop.dev/docs/reference/commands/index.md)
 
+- [Sync SDK and CLI](https://www.cueloop.dev/docs/sync/index.md)
+- [Sync quickstart](https://www.cueloop.dev/docs/sync/quickstart/index.md)
+
 ## Machine-readable resources
 
 - [OpenAPI 3.1](https://www.cueloop.dev/openapi.json)

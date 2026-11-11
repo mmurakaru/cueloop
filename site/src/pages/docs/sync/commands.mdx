@@ -1,0 +1,87 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Sync commands
+eyebrow: Docs · Sync
+lede: Use the standalone CLI or cueloop integration with your application.
+prev: { title: "Build a sync application", href: "/docs/sync/applications/" }
+next: { title: "Operations and recovery", href: "/docs/sync/recovery/" }
+---
+
+## Install cueloop-sync and cs
+
+```bash
+npm install --global @cueloop/sync@alpha
+cueloop-sync --help
+```
+
+The executable is `cueloop-sync`.
+Install the optional `cs` shortcut in a directory on your PATH:
+
+```bash
+cueloop-sync alias install --directory "$HOME/.local/bin"
+cs --help
+```
+
+<div class="callout">
+  <div class="callout__label">Note</div>
+  The alias installer preserves an existing cs command and returns a preserved result with exit
+  status 1. It does not edit shell configuration. Keep the package installed at the shortcut's
+  target path.
+</div>
+
+## Serve and connect
+
+```bash
+cueloop-sync serve --application ./application.ts --port 4849
+cueloop-sync connect --application ./application.ts
+```
+
+The application exports its server and client callbacks as `syncApplication`.
+Application callbacks define their own connection arguments.
+For example, the shared-workspace application supports record and presence watches.
+Supply credentials through environment variables.
+
+## Inspect or submit an operation
+
+With an application that supports durable operation commands:
+
+```bash
+cueloop-sync connect --application ./application.ts --operation ./request.json
+cueloop-sync connect --application ./application.ts --operation ./request.json --operation-status
+```
+
+The file contains a saved operation envelope created by the application's operation definition.
+A status lookup does not create a new request.
+Keep the original envelope after an uncertain reply.
+
+## Manage an authority
+
+```bash
+cueloop-sync database initialize > recovery.json
+cueloop-sync database status
+cueloop-sync database backup --directory ./backups/workspace
+```
+
+Set `SYNC_DATABASE_URL` in the environment before database commands.
+Initialization creates a fenced authority; apply application migrations and activate it before admitting clients.
+Restore, activation, fencing, and workspace transfer have explicit source and target contracts.
+Follow [operations and recovery](/docs/sync/recovery/) before running them.
+
+## Use cueloop
+
+Enable **Settings > Experimental > Multiplayer sync**.
+`cueloop sync` uses the same SDK and CLI contracts, with Thread and terminal-editor integration.
+
+```bash
+cueloop sync --help
+cueloop sync edit --application ./application.ts --workspace <id> --record <id>
+cueloop sync pending <thread>
+cueloop sync resume <thread>
+cueloop sync retry <thread> <draft-id>
+cueloop sync discard <thread> <draft-id>
+```
+
+A pending operation requires receipt recovery before it can be discarded.
+The owner execution adapter uses the `owner` command to claim and execute accepted intent.
+The application supplies the executor; the sync library retains identity, claims, and recovery state.
+See the [execution contract](https://github.com/mmurakaru/cueloop/blob/main/packages/sync/docs/execution.md) for provider integration and command arguments.

@@ -181,6 +181,7 @@ Opt-in features, all off by default.
 
 ```toml
 [experimental]
+sync = true               # enable the multiplayer sync commands and editor
 prototype_pixels = true   # render a prototype as a pixel mockup instead of the text design doc
 thread_agent = true       # enable the local owner’s experimental agent conversation
 ```
@@ -190,6 +191,11 @@ thread_agent = true       # enable the local owner’s experimental agent conver
 | `prototype_pixels` | boolean | `false` | render an HTML prototype as a kitty-graphics pixel mockup; the default is the Markdown design doc |
 
 `thread_agent` is a boolean, defaults to `false`, and gates both the Thread UI and local daemon agent API. It is unavailable in shared views or to collaborators. Enable it in user or repository configuration and restart cueloop; Ctrl+Enter invokes the agent, while Option+Enter saves an editable comment.
+
+`sync` is a boolean, defaults to `false`, and enables the multiplayer commands and text editor.
+Change it in **Settings > Experimental > Multiplayer sync**.
+Configure an application authority before connecting clients.
+See [Sync](/docs/sync/) for installation and setup.
 
 ## `[thread]`
 

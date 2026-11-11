@@ -1,0 +1,82 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Operations and recovery
+eyebrow: Docs · Sync
+lede: Keep change identities, recover uncertain replies, and move authorities safely.
+prev: { title: "Sync commands", href: "/docs/sync/commands/" }
+next: { title: "Deploy and observe sync", href: "/docs/sync/deployment/" }
+---
+
+## Commit a change once
+
+Define operations with `defineSyncOperation` from `@cueloop/sync/operations`.
+Create an operation once and save its complete envelope before submission.
+Bind new requests to the current workspace authority.
+
+```ts
+const operation = addComment.create({
+  workspaceIdentifier,
+  authority,
+  arguments: { body },
+});
+await saveDraft(operation);
+const outcome = await submitSyncOperation({
+  operation,
+  submit: (request) => client.mutate(mutators.comment.add(request)),
+  lookup: (request) => lookupReceipt(request),
+});
+```
+
+This fragment uses application-defined operations, mutators, and receipt lookup.
+The result is `accepted`, `rejected`, `pending`, or `recovery-required`.
+A timeout or lost reply retains the original request for receipt lookup or explicit retry.
+
+<div class="callout callout--warning">
+  <div class="callout__label">Important</div>
+  Commit the application change and its receipt in one authoritative transaction. Send acceptance
+  only after the transaction commits. Acceptance does not confirm replication to every client or
+  completion of external execution.
+</div>
+
+An authorized retry with the same identity and canonical request returns the existing receipt.
+Reusing an identity with different input fails.
+Unexpected transaction failures leave no accepted receipt.
+
+## Recover a client
+
+`createSyncDraftStore` from `@cueloop/sync/drafts` retains input and complete operation envelopes across restarts.
+Use SQLite storage in terminal applications or IndexedDB in a browser.
+Keep the draft namespace stable across authority generations.
+
+The client catches up through the engine's replication protocol.
+An authority generation scopes its persistent replica.
+Disconnected input remains a draft until the user submits it.
+A connection becoming active does not establish that every query is fresh.
+
+## Track execution separately
+
+An accepted agent request records durable intent.
+`@cueloop/sync/execution` tracks owner claims, execution progress, and provider recovery separately.
+The application supplies the executor and recovers provider state before uncertain dispatch is retried.
+Retain the operation identity across that recovery.
+
+## Back up and restore
+
+The database commands initialize, migrate, fence, back up, restore, and activate an authority.
+A restore creates a new recovery generation so clients rebuild their replicas.
+Keep retained drafts and uncertain requests tied to their original identities.
+
+An old-generation request missing after restore has an unknown outcome.
+Its absence does not authorize submitting it as a new request.
+
+Follow the [database recovery procedure](https://github.com/mmurakaru/cueloop/blob/main/packages/sync/docs/recovery.md) for migration ordering, manifests, fencing, and activation verification.
+It documents each required credential and command argument.
+
+## Transfer one workspace
+
+Workspace transfer prepares a fenced handoff from a source authority, imports the selected workspace into an independent target, and verifies it before activation.
+Applications register their owned tables and import verification through a transfer adapter.
+Clients explicitly rebind to the new authority and rebuild their replicas.
+
+Use the [workspace transfer procedure](https://github.com/mmurakaru/cueloop/blob/main/packages/sync/docs/workspace-transfer.md) for prepare, import, activation, and client rebinding.
+See the [operation contract](https://github.com/mmurakaru/cueloop/blob/main/packages/sync/docs/operations.md) for receipt retention and expired results.
