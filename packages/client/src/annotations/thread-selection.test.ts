@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  caretCharacterRange,
   isCollapsed,
   isDoubleClick,
   nextWordStart,
@@ -24,6 +25,19 @@ const LINES: LineGeometry[] = [
 ];
 const textLengthOf = (blockIndex: number): number =>
   blockIndex === 3 ? TEXT.length : BULLET.length;
+
+describe("caretCharacterRange", () => {
+  test("keeps surrogate pairs and combining sequences inside one painted caret", () => {
+    const text = "a🙂e\u0301z";
+
+    expect(caretCharacterRange(text, 1)).toEqual({ start: 1, end: 3 });
+    expect(caretCharacterRange(text, 2)).toEqual({ start: 1, end: 3 });
+    expect(caretCharacterRange(text, 3)).toEqual({ start: 3, end: 5 });
+    expect(caretCharacterRange(text, 4)).toEqual({ start: 3, end: 5 });
+    expect(caretCharacterRange(text, text.length)).toEqual({ start: 5, end: 6 });
+    expect(caretCharacterRange("", 0)).toBeNull();
+  });
+});
 
 describe("positionAt", () => {
   test("maps a cell inside a line to the character under it", () => {

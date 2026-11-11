@@ -25,6 +25,14 @@ const AccessExceptionSchema = valibot.object({
 const DEVELOPMENT_SOURCE =
   "^(test|benchmarks|snapshots|examples|scripts|tools)/|\\.(test|stories)\\.[cm]?[jt]sx?$|/(testing|stories|examples)/|^site/scripts/";
 const TEST_SOURCE = "^test/|\\.(test|stories)\\.[cm]?[jt]sx?$|/(testing|stories)/";
+const BOMBADIL_SPECIFICATION_SOURCE = "^test/bombadil/(terminal-state\\.ts|[^/]+\\.bombadil\\.ts)$";
+// Bombadil provides these modules inside its specification runtime, with types-only npm exports.
+const BOMBADIL_RUNTIME_IMPORT = dependencyPathPattern([
+  "@antithesishq/bombadil",
+  "@antithesishq/bombadil/terminal",
+  "@antithesishq/bombadil/terminal/defaults/properties",
+  "@antithesishq/bombadil/actions",
+]);
 
 function escapeDependencyPattern(path) {
   return path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -113,7 +121,18 @@ function createDependencyConfiguration(root, site = false) {
         via: { dependencyTypes: ["type-only", "type-import", "pre-compilation-only"] },
       },
     },
-    { name: "no-unresolved-imports", severity: "error", from: {}, to: { couldNotResolve: true } },
+    {
+      name: "no-unresolved-imports",
+      severity: "error",
+      from: { pathNot: BOMBADIL_SPECIFICATION_SOURCE },
+      to: { couldNotResolve: true },
+    },
+    {
+      name: "no-unresolved-specification-imports",
+      severity: "error",
+      from: { path: BOMBADIL_SPECIFICATION_SOURCE },
+      to: { couldNotResolve: true, pathNot: BOMBADIL_RUNTIME_IMPORT },
+    },
     {
       name: "no-undeclared-dependencies",
       severity: "error",

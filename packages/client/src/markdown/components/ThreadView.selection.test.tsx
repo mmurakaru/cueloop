@@ -47,25 +47,25 @@ let setup: TestRendererSetup;
 let annotate: Mock<AnnotateHandler>;
 let reply: Mock<ReplyHandler>;
 
-function session(annotations: Annotation[] = []) {
+function session(annotations: Annotation[] = [], content = PLAN) {
   return fixturePlanSession({
     artifact: {
       type: "plan",
-      content: PLAN,
+      content,
       meta: { title: "Plan", planPath: "plan.md" },
     },
     annotations,
   });
 }
 
-async function mount(annotations: Annotation[] = [], height = 24): Promise<void> {
+async function mount(annotations: Annotation[] = [], height = 24, content = PLAN): Promise<void> {
   annotate = mock<AnnotateHandler>(() => {});
   reply = mock<ReplyHandler>(() => {});
-  const display = buildDisplay(PLAN, undefined);
+  const display = buildDisplay(content, undefined);
 
   setup = await testRender(
     <ThreadView
-      session={session(annotations)}
+      session={session(annotations, content)}
       display={display}
       marks={marksByDisplay(annotations, display)}
       quickActions={DEFAULT_QUICK_ACTIONS}
@@ -175,6 +175,24 @@ afterEach(() => {
 });
 
 describe("marking feel", () => {
+  test("word navigation preserves emoji when the caret reaches its first character", async () => {
+    setup.renderer.destroy();
+    const paragraph = "Navigation sample 0: café 界 🙂 and stable review text.";
+
+    await mount([], 24, `# Unicode\n\n${paragraph}`);
+    const { row, column } = locate("Navigation");
+
+    await setup.mockMouse.pressDown(column + 3, row);
+    await setup.mockMouse.release(column + 3, row);
+    await settle(setup);
+
+    for (const step of Array.from({ length: 8 }, (_, index) => index)) {
+      setup.mockInput.pressKey("ARROW_RIGHT");
+      await settle(setup);
+      expect(setup.captureCharFrame(), `word navigation step ${step}`).toContain(paragraph);
+    }
+  });
+
   test("a drag from mid-word paints a character-precise selection within one frame per step", async () => {
     // Arrange: press inside "daemon" (on the "e"), not at a word boundary
     const { row, column } = locate("daemon");

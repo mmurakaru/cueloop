@@ -26,6 +26,7 @@ import type { Mark } from "../markdown/view-plan";
 import type { QuickAction } from "../settings/config";
 import type { Theme } from "../appearance/theme";
 import {
+  caretCharacterRange,
   comparePositions,
   isDoubleClick,
   nextWordStart,
@@ -1116,12 +1117,11 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
 
     if (caretIsSelection && !compose) pushSpan(heldSpan);
 
-    // the idle caret cell sits at the head, also at the end of a held mark;
-    // an open card takes the cursor with it, so no cell is painted then
+    // A styled caret must contain the whole character to preserve its Unicode encoding.
     if (blockIndex === head.blockIndex && !compose && textLength > 0) {
-      const cell = Math.max(0, Math.min(textLength - 1, head.char));
+      const character = caretCharacterRange(blockText(blockIndex), head.char);
 
-      ranges.push({ start: cell, end: cell + 1, caretOnly: true });
+      if (character) ranges.push({ ...character, caretOnly: true });
     }
 
     return ranges;
