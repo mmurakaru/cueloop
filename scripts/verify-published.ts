@@ -34,14 +34,8 @@ for (const glob of ["packages/*/package.json", "packages/integrations/*/package.
   }
 }
 
-/**
- * The registry is served through a CDN, so a read moments after a publish or a
- * retag can still return the previous document - that is how the alpha.3 run
- * reported a stale tag one second after retagging it. Every registry assertion
- * polls until it holds or the deadline passes: a stale read must not look like
- * a broken release, and a genuinely broken one must still fail.
- */
-const PROPAGATION_TIMEOUT_MS = 180_000;
+// npm processing and registry caches can delay accepted versions for several minutes.
+const PROPAGATION_TIMEOUT_MS = 15 * 60_000;
 const POLL_INTERVAL_MS = 5_000;
 
 async function settle(check: () => Promise<string | null>): Promise<string | null> {

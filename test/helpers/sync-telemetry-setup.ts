@@ -6,10 +6,17 @@ import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http";
 import { OTLPLogExporter } from "@opentelemetry/exporter-logs-otlp-http";
 import { AsyncLocalStorageContextManager } from "@opentelemetry/context-async-hooks";
-import { W3CTraceContextPropagator } from "@opentelemetry/core";
+import { W3CTraceContextPropagator, setGlobalErrorHandler } from "@opentelemetry/core";
 import { resourceFromAttributes } from "@opentelemetry/resources";
 
-export function createTestSyncTelemetry(endpoint: string, serviceName: string) {
+export function createTestSyncTelemetry(
+  endpoint: string,
+  serviceName: string,
+  onTelemetryError?: () => void,
+) {
+  // Scheduled exports can fail before shutdown has a batch left to flush.
+  if (onTelemetryError) setGlobalErrorHandler(onTelemetryError);
+
   const telemetry = new NodeSDK({
     autoDetectResources: false,
     resource: resourceFromAttributes({ "service.name": serviceName }),
