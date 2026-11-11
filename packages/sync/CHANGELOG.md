@@ -1,5 +1,11 @@
 # @cueloop/sync
 
+## 0.1.0-alpha.117
+
+### Patch Changes
+
+- Publish the standalone sync package through the configured trusted publisher.
+
 ## 0.1.0-alpha.116
 
 ### Minor Changes
