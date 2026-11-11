@@ -13,6 +13,7 @@ import { createSharedRecordClient } from "../../examples/sync-workspace/client.t
 import { sharedRecordQueries } from "../../examples/sync-workspace/shared-record.ts";
 import { editSharedRecord } from "../../examples/sync-workspace/shared-record-edit-client.ts";
 import { fetchSyncWorkspaceAuthority } from "@cueloop/sync/authority/client";
+import { waitForTestSyncState } from "./sync-test-deadline.ts";
 
 const endpoint = process.env.CUELOOP_TEST_OTLP_ENDPOINT;
 const authority = v.parse(
@@ -27,9 +28,15 @@ const userID = process.env.SYNC_USER_ID;
 if (!endpoint || !authority || !authorityURL || !auth || !cacheURL || !userID)
   throw new Error("Sync telemetry consumer fixture requires deployment configuration");
 
+const telemetryError = Promise.withResolvers<void>();
+const reportTestSyncTelemetryError = () => {
+  process.stdout.write(JSON.stringify({ event: "sync.telemetry.error" }) + "\n");
+  telemetryError.resolve();
+};
 const telemetry = createTestSyncTelemetry(
   endpoint,
   `sync-test-${process.versions.bun ? "bun" : "node"}`,
+  reportTestSyncTelemetryError,
 );
 const client = createSharedRecordClient({ authority, cacheURL, auth, userID });
 
@@ -89,6 +96,9 @@ try {
   try {
     await telemetry.shutdown();
   } catch {
-    process.stdout.write(JSON.stringify({ event: "sync.telemetry.export.failed" }) + "\n");
+    reportTestSyncTelemetryError();
   }
 }
+
+if (process.env.CUELOOP_TEST_TELEMETRY_ERROR_EXPECTED === "1")
+  await waitForTestSyncState(telemetryError.promise, "an SDK error after the collector outage");

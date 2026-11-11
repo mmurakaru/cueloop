@@ -104,6 +104,7 @@ async function runTestSyncTelemetryConsumer(
   script: string,
   stack: Awaited<ReturnType<typeof createTestSyncStack>>,
   endpoint: string,
+  expectTelemetryError = false,
 ) {
   const child = Bun.spawn([runtime, script], {
     env: {
@@ -111,6 +112,7 @@ async function runTestSyncTelemetryConsumer(
       CUELOOP_TEST_OTLP_ENDPOINT: endpoint,
       CUELOOP_TEST_AUTHORITY: JSON.stringify(stack.authority),
       CUELOOP_TEST_SYNC_DIRECTORY: stack.directory,
+      CUELOOP_TEST_TELEMETRY_ERROR_EXPECTED: expectTelemetryError ? "1" : "0",
     },
     stdout: "pipe",
     stderr: "pipe",
@@ -146,13 +148,16 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
       });
       await verifyTestSyncAuthorityReadiness(stack);
 
-      for (const runtime of [process.execPath, "node"])
-        await runTestSyncTelemetryConsumer(
+      for (const runtime of [process.execPath, "node"]) {
+        const completed = await runTestSyncTelemetryConsumer(
           runtime,
           "test/helpers/sync-telemetry-consumer.ts",
           stack,
           collector.endpoint,
         );
+
+        expect(completed).not.toContain("sync.telemetry.error");
+      }
 
       native = await createTestSyncStack({
         application: "thread",
@@ -267,9 +272,10 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
         "test/helpers/sync-telemetry-consumer.ts",
         stack,
         collector.endpoint,
+        true,
       );
 
-      expect(completedDuringOutage).toContain("sync.telemetry.export.failed");
+      expect(completedDuringOutage).toContain("sync.telemetry.error");
       await stack.close();
       stackClosed = true;
     } finally {
