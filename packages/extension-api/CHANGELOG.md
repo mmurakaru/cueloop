@@ -1,5 +1,13 @@
 # @cueloop/extension-api
 
+## 0.1.0-alpha.116
+
+### Patch Changes
+
+- [#630](https://github.com/mmurakaru/cueloop/pull/630) [`12e2d54`](https://github.com/mmurakaru/cueloop/commit/12e2d54a67f2f6673d00bcbf054dade684b41714) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Update OpenTUI to 0.8.3 and require Bun 1.4.4 for the terminal client, CLI, and gateway to avoid native scroll failures with older Bun releases.
+- Updated dependencies [[`3d04a30`](https://github.com/mmurakaru/cueloop/commit/3d04a30d95198c59d5334dcebf4fc2ee45410e59)]:
+  - @cueloop/schema@0.1.0-alpha.116
+
 ## 0.1.0-alpha.115
 
 ### Patch Changes

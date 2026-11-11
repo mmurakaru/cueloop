@@ -1,5 +1,35 @@
 # @cueloop/client
 
+## 0.1.0-alpha.116
+
+### Minor Changes
+
+- [#652](https://github.com/mmurakaru/cueloop/pull/652) [`3d04a30`](https://github.com/mmurakaru/cueloop/commit/3d04a30d95198c59d5334dcebf4fc2ee45410e59) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Add authorized collaborative plan editing with durable text operations, recoverable local drafts, and an experimental terminal editor.
+
+- [#653](https://github.com/mmurakaru/cueloop/pull/653) [`a2487c4`](https://github.com/mmurakaru/cueloop/commit/a2487c4e8d3089134533ea59ea2fb1f714607a14) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Add temporary collaborator presence, typing, and shared-text selections with current permission checks and bounded heartbeat traffic.
+
+- [#644](https://github.com/mmurakaru/cueloop/pull/644) [`48d8a9c`](https://github.com/mmurakaru/cueloop/commit/48d8a9ce0399aa85ce0833d07c6a3eb276798d9d) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Add the standalone sync SDK and CLI with an experimental cueloop integration and verified shared-record clients.
+
+### Patch Changes
+
+- [#658](https://github.com/mmurakaru/cueloop/pull/658) [`aaaeb18`](https://github.com/mmurakaru/cueloop/commit/aaaeb189a302edc9b33601a97981863441d4d244) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Back up and restore canonical sync data with authority generations, immutable recovery outcomes, execution quarantine, and explicit native projection recovery.
+
+- [#648](https://github.com/mmurakaru/cueloop/pull/648) [`ecf1de9`](https://github.com/mmurakaru/cueloop/commit/ecf1de92d98efdda549f22a1924456a77926f491) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Preserve a valid pane focus choice while reconciling workbench navigation.
+
+- [#630](https://github.com/mmurakaru/cueloop/pull/630) [`12e2d54`](https://github.com/mmurakaru/cueloop/commit/12e2d54a67f2f6673d00bcbf054dade684b41714) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Update OpenTUI to 0.8.3 and require Bun 1.4.4 for the terminal client, CLI, and gateway to avoid native scroll failures with older Bun releases.
+
+- [#654](https://github.com/mmurakaru/cueloop/pull/654) [`5d6eb85`](https://github.com/mmurakaru/cueloop/commit/5d6eb8509124770c3b5887cb86aec3eb47fe1e21) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Keep the caret at the submitted prompt when input arrives before its focus update paints, preserving the next draft during agent streaming.
+
+- [#650](https://github.com/mmurakaru/cueloop/pull/650) [`2032709`](https://github.com/mmurakaru/cueloop/commit/203270941df81f8226ac249739fd82f33e33b753) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Wait for terminal presentation before announcing readiness, including live rendering and connection teardown.
+
+- [#630](https://github.com/mmurakaru/cueloop/pull/630) [`f08e1a5`](https://github.com/mmurakaru/cueloop/commit/f08e1a5836f413133c08c0d98557715d99241b22) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Update the diff parser, list virtualizer, Effect, and development formatter dependencies.
+- Updated dependencies [[`aefb868`](https://github.com/mmurakaru/cueloop/commit/aefb868e583ae36cd8fa4834e1c91564d6de8e20), [`aaaeb18`](https://github.com/mmurakaru/cueloop/commit/aaaeb189a302edc9b33601a97981863441d4d244), [`48df947`](https://github.com/mmurakaru/cueloop/commit/48df947c56f2e1ce8b4993104c4a3b314d156c1d), [`20d814b`](https://github.com/mmurakaru/cueloop/commit/20d814bab1c3828923613255c868c7dbdf1a5b76), [`12e2d54`](https://github.com/mmurakaru/cueloop/commit/12e2d54a67f2f6673d00bcbf054dade684b41714), [`f0bdcc9`](https://github.com/mmurakaru/cueloop/commit/f0bdcc9e3f06c115b1160614f8892545c14dc9a6), [`3d04a30`](https://github.com/mmurakaru/cueloop/commit/3d04a30d95198c59d5334dcebf4fc2ee45410e59), [`36d00a4`](https://github.com/mmurakaru/cueloop/commit/36d00a476e4659a11ce9b7e82c658bbbc18a95e7), [`4450481`](https://github.com/mmurakaru/cueloop/commit/44504813c3c9b3521677927f4fa5f7ea5eae8d39), [`379c54c`](https://github.com/mmurakaru/cueloop/commit/379c54c2cffb6e1cb48781a69678e1b06d891e18), [`a2487c4`](https://github.com/mmurakaru/cueloop/commit/a2487c4e8d3089134533ea59ea2fb1f714607a14), [`48d8a9c`](https://github.com/mmurakaru/cueloop/commit/48d8a9ce0399aa85ce0833d07c6a3eb276798d9d), [`f08e1a5`](https://github.com/mmurakaru/cueloop/commit/f08e1a5836f413133c08c0d98557715d99241b22), [`e6fd7b2`](https://github.com/mmurakaru/cueloop/commit/e6fd7b263b284a86f1b8eabfba5730725e29804a)]:
+  - @cueloop/sync@0.1.0-alpha.116
+  - @cueloop/daemon@0.1.0-alpha.116
+  - @cueloop/extension-api@0.1.0-alpha.116
+  - @cueloop/schema@0.1.0-alpha.116
+  - @cueloop/integration-obsidian@0.1.0-alpha.116
+
 ## 0.1.0-alpha.115
 
 ### Patch Changes

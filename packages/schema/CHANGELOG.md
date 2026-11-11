@@ -1,5 +1,11 @@
 # @cueloop/schema
 
+## 0.1.0-alpha.116
+
+### Patch Changes
+
+- [#652](https://github.com/mmurakaru/cueloop/pull/652) [`3d04a30`](https://github.com/mmurakaru/cueloop/commit/3d04a30d95198c59d5334dcebf4fc2ee45410e59) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Add authorized collaborative plan editing with durable text operations, recoverable local drafts, and an experimental terminal editor.
+
 ## 0.1.0-alpha.115
 
 No changes in this release.

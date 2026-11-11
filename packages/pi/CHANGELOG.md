@@ -1,5 +1,12 @@
 # @cueloop/pi
 
+## 0.1.0-alpha.116
+
+### Patch Changes
+
+- Updated dependencies [[`48df947`](https://github.com/mmurakaru/cueloop/commit/48df947c56f2e1ce8b4993104c4a3b314d156c1d)]:
+  - @cueloop/adapters@0.1.0-alpha.116
+
 ## 0.1.0-alpha.115
 
 ### Patch Changes
