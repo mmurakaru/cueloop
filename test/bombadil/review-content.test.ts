@@ -8,4 +8,5 @@ test("a ready header cannot hide an empty or wrong review document", () => {
   expect(hasBombadilReviewContent("READY D\nNavigation sample 0: text.")).toBe(false);
   expect(hasBombadilReviewContent("READY P\nNavigation sample 65: café 界 🙂.")).toBe(true);
   expect(hasBombadilReviewContent("READY D\n│+export const record12 = 13;")).toBe(true);
+  expect(hasBombadilReviewContent("READY D\n│ 4 - export\n│ const\n│ record3 =\n│ 3;")).toBe(true);
 });
