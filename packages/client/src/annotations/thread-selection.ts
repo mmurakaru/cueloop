@@ -35,6 +35,20 @@ export interface CharRange {
   end: number;
 }
 
+const characterSegmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+
+export function caretCharacterRange(text: string, offset: number): CharRange | null {
+  const position = Math.max(0, Math.min(text.length - 1, offset));
+
+  for (const { index, segment } of characterSegmenter.segment(text)) {
+    if (index + segment.length > position) {
+      return { start: index, end: index + segment.length };
+    }
+  }
+
+  return null;
+}
+
 /** An ordered stretch of text, possibly across consecutive blocks. */
 export interface TextSpan {
   start: TextPosition;

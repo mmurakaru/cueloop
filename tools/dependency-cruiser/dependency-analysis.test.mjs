@@ -291,6 +291,28 @@ describe("dependency parser and public interfaces", () => {
       expect(names).toContain("no-undeclared-dependencies");
     }));
 
+  test("Bombadil virtual imports are limited to its specifications and known modules", () =>
+    withDependencyFixture(async (fixture, analyze) => {
+      fixture.write(
+        "test/bombadil/navigation.bombadil.ts",
+        'import "@antithesishq/bombadil/terminal";\n',
+      );
+
+      expect((await analyze()).summary.error).toBe(0);
+      fixture.write(
+        "test/bombadil/navigation.bombadil.ts",
+        'import "@antithesishq/bombadil/missing";\nimport "./missing";\n',
+      );
+      fixture.write("packages/base/src/index.ts", 'import "@antithesishq/bombadil/terminal";\n');
+
+      const names = dependencyRuleNames(await analyze());
+
+      expect(names.filter((name) => name === "no-unresolved-specification-imports")).toHaveLength(
+        2,
+      );
+      expect(names).toContain("no-unresolved-imports");
+    }));
+
   test("private-access exceptions allow only the exact pair and expose stale access", () =>
     withDependencyFixture(async (fixture, analyze) => {
       fixture.write("test/entry.ts", 'export { value } from "../packages/base/src/internal";\n');
