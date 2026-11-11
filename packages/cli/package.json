@@ -1,6 +1,6 @@
 {
   "name": "cueloop",
-  "version": "0.1.0-alpha.117",
+  "version": "0.1.0-alpha.118",
   "description": "Terminal review surface for coding agents: annotate plans and diffs, return a message, send structured feedback back",
   "homepage": "https://github.com/mmurakaru/cueloop#readme",
   "bugs": {
@@ -27,15 +27,15 @@
     "access": "public"
   },
   "scripts": {
-    "build:binary": "bun build --compile --bytecode --format=esm --minify --external cpu-features ./src/main.ts --outfile dist/cueloop"
+    "build:binary": "bun build --compile --compile-autoload-package-json --bytecode --format=esm --minify --external cpu-features ./src/main.ts --outfile dist/cueloop"
   },
   "dependencies": {
-    "@cueloop/adapters": "0.1.0-alpha.117",
-    "@cueloop/client": "0.1.0-alpha.117",
-    "@cueloop/daemon": "0.1.0-alpha.117",
-    "@cueloop/extension-api": "0.1.0-alpha.117",
-    "@cueloop/schema": "0.1.0-alpha.117",
-    "@cueloop/sync": "0.1.0-alpha.117",
+    "@cueloop/adapters": "0.1.0-alpha.118",
+    "@cueloop/client": "0.1.0-alpha.118",
+    "@cueloop/daemon": "0.1.0-alpha.118",
+    "@cueloop/extension-api": "0.1.0-alpha.118",
+    "@cueloop/schema": "0.1.0-alpha.118",
+    "@cueloop/sync": "0.1.0-alpha.118",
     "@modelcontextprotocol/server": "2.4.0",
     "@valibot/to-json-schema": "1.8.0",
     "valibot": "^1.5.0"

@@ -1,5 +1,18 @@
 # cueloop
 
+## 0.1.0-alpha.118
+
+### Patch Changes
+
+- Load installed application dependencies from package manifests in the standalone executable.
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.118
+  - @cueloop/client@0.1.0-alpha.118
+  - @cueloop/daemon@0.1.0-alpha.118
+  - @cueloop/extension-api@0.1.0-alpha.118
+  - @cueloop/schema@0.1.0-alpha.118
+  - @cueloop/sync@0.1.0-alpha.118
+
 ## 0.1.0-alpha.117
 
 ### Patch Changes
