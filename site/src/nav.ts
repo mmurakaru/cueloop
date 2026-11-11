@@ -34,6 +34,17 @@ export const docsNav: NavGroup[] = [
     ],
   },
   {
+    title: "Sync",
+    items: [
+      { title: "Sync overview", href: "/docs/sync/" },
+      { title: "Quickstart", href: "/docs/sync/quickstart/" },
+      { title: "Build an application", href: "/docs/sync/applications/" },
+      { title: "Commands", href: "/docs/sync/commands/" },
+      { title: "Operations and recovery", href: "/docs/sync/recovery/" },
+      { title: "Deploy and observe", href: "/docs/sync/deployment/" },
+    ],
+  },
+  {
     title: "Reference",
     items: [
       { title: "Commands", href: "/docs/reference/commands/" },

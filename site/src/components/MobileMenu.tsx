@@ -11,6 +11,7 @@ import { useDocsSearch, SearchGlyph, highlight } from "./useDocsSearch.tsx";
 const LINKS = [
   { title: "Docs", href: "/docs/" },
   { title: "Sharing", href: "/docs/sharing/" },
+  { title: "Sync", href: "/docs/sync/" },
   { title: "Install", href: "/docs/install/" },
   { title: "GitHub", href: "https://github.com/mmurakaru/cueloop" },
 ];

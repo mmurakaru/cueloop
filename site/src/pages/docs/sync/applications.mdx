@@ -1,0 +1,122 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Build a sync application
+eyebrow: Docs · Sync
+lede: Define a schema, enforce permissions, and connect terminal or browser clients.
+prev: { title: "Sync quickstart", href: "/docs/sync/quickstart/" }
+next: { title: "Sync commands", href: "/docs/sync/commands/" }
+---
+
+## Define the application
+
+Import schema, relationship, named query, and mutation builders from `@cueloop/sync/schema`.
+Keep the data model in your application.
+The SDK works without cueloop's Thread model or terminal renderer.
+
+Queries can filter rows, include related records, and paginate with ordered cursors.
+Use every ordering field in a cursor, including an identifier as a tie breaker.
+Live pages change as records enter or leave their ordered range.
+
+## Authenticate and authorize
+
+Verify credentials on the server and derive the actor from that identity.
+Enforce membership and record permissions in named query and mutation handlers.
+Protected queries need replicated membership predicates so subscriptions respond to access changes.
+Check current write permissions inside the authoritative transaction.
+
+<div class="callout callout--warning">
+  <div class="callout__label">Important</div>
+  Client-supplied context is not proof of permission. Revocation removes matching query results
+  after replication, but cannot erase data a client has downloaded.
+</div>
+
+## Open a client
+
+Supply your schema, named mutators, query definitions, credentials, and endpoints.
+This fragment shows the client lifecycle:
+
+```ts
+import { createSyncClient } from "@cueloop/sync";
+import { fetchSyncWorkspaceAuthority } from "@cueloop/sync/authority/client";
+
+const authority = await fetchSyncWorkspaceAuthority({
+  authorityURL,
+  workspaceIdentifier,
+  headers: { authorization: `Bearer ${auth}` },
+});
+const client = createSyncClient({
+  authority,
+  schema,
+  mutators,
+  context,
+  cacheURL,
+  userID,
+  auth,
+  storageKey,
+  kvStore: "mem",
+});
+const view = client.materialize(queries.records());
+const unsubscribe = view.addListener((records, freshness) => {
+  renderRecords(records, freshness);
+});
+
+unsubscribe();
+view.destroy();
+await client.close();
+```
+
+Resolve the authority before opening a persistent replica.
+Use `createSyncSqliteStorage` from `@cueloop/sync/storage` for terminal persistence, or `kvStore: "idb"` in a browser.
+An in-memory cache uses `kvStore: "mem"`.
+Connection status, query freshness, and committed draft storage are separate states.
+
+## Host the authority
+
+`createSyncAuthority` from `@cueloop/sync/server` accepts your schema, database adapter, authentication callback, and named handlers.
+Export a `syncApplication` with a Fetch-compatible `fetch` callback.
+Add `connect` for application CLI clients and `close` for cleanup.
+
+```bash
+cueloop-sync serve --application ./application.ts --port 4849
+cueloop-sync connect --application ./application.ts
+```
+
+PostgreSQL and Zero run as separate services.
+The application owns their configuration, authentication, and migrations.
+See [deployment and telemetry](/docs/sync/deployment/) for health checks and shutdown.
+
+## Add text and presence
+
+Use `createSyncTextDocument` from `@cueloop/sync/text` for bounded plain-text edits.
+Seed the shared state once, then load that same state in each editor.
+Commit accepted text, shared state, history, and the operation receipt together.
+
+An `openText` callback returns a `SyncTextEditorSession` with `getSnapshot`, `subscribe`, `change`, `save`, and `close`.
+Cueloop renders this contract with `cueloop sync edit`.
+Keep disconnected input as a local draft for explicit submission after reconnect.
+
+Use `@cueloop/sync/presence` for connected collaborators, typing, and text-aware selections.
+The presence authority checks current access and expires activity after missed heartbeats.
+Presence stays outside durable history and is not replayed after reconnect.
+
+## Connect cueloop
+
+Enable **Settings > Experimental > Multiplayer sync**.
+The owner can serve a Thread authority and import a local Thread explicitly:
+
+```bash
+cueloop sync serve --application examples/sync-thread/authority.ts --maximum-request-bytes 67108864
+cueloop sync import <thread> --workspace <workspace-id> \
+  --authority <authority-url> --cache <cache-url> \
+  --actor <verified-subject> --token-env CUELOOP_SYNC_TOKEN
+```
+
+Use the [Thread authority contract](https://github.com/mmurakaru/cueloop/blob/main/packages/daemon/SDK.md#workspace-authority) to configure the example's services and credentials.
+Set the token in the daemon's environment before starting it.
+The local daemon mediates remote Thread writes and retains pending operations.
+See [operations and recovery](/docs/sync/recovery/) for retry rules.
+
+## SDK reference
+
+The [shared workspace example](https://github.com/mmurakaru/cueloop/tree/main/examples/sync-workspace) contains the schema, migrations, authenticated handlers, and clients.
+The package guides cover [queries](https://github.com/mmurakaru/cueloop/blob/main/packages/sync/docs/queries.md), [text](https://github.com/mmurakaru/cueloop/blob/main/packages/sync/docs/text.md), and [presence](https://github.com/mmurakaru/cueloop/blob/main/packages/sync/docs/presence.md).

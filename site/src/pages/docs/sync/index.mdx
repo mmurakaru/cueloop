@@ -1,0 +1,65 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Sync
+eyebrow: Docs · Sync
+lede: Build shared terminal applications with a headless TypeScript client.
+next: { title: "Sync quickstart", href: "/docs/sync/quickstart/" }
+---
+
+## General-purpose sync for terminals
+
+`@cueloop/sync` synchronizes application data between terminal and browser clients.
+Use it as a standalone library or through cueloop's experimental multiplayer integration.
+Your application defines its schema, permissions, interface, and execution adapters.
+
+- Subscribe to typed, live queries.
+- Submit durable changes with identities and recoverable receipts.
+- Merge shared text and map collaborator selections.
+- Keep presence separate from saved history.
+- Recover clients, restore authorities, and transfer workspaces.
+
+## Start here
+
+[Try the quickstart](/docs/sync/quickstart/) to merge two edits locally or test live clients against isolated services.
+Then [build an application](/docs/sync/applications/) and use the [CLI](/docs/sync/commands/).
+
+```bash
+npm install @cueloop/sync@alpha
+```
+
+<div class="callout">
+  <div class="callout__label">Requirements</div>
+  Terminal clients use Bun 1.4.4 or Node 24 and later. Live synchronization requires PostgreSQL 18
+  or later with logical replication and a Zero cache service. Browser clients use a bundler.
+</div>
+
+## What runs where
+
+```text
+Terminal or browser client
+  -> Zero cache
+  -> authenticated application handlers
+  -> PostgreSQL
+```
+
+The cache replicates authorized query results to clients.
+Application handlers validate requests and commit changes with their receipts.
+SQLite can retain a terminal client's replica and drafts on disk.
+PostgreSQL remains the server's authoritative database.
+Local hosting uses the same services as remote hosting.
+
+## Use sync in cueloop
+
+Open **Settings > Experimental > Multiplayer sync**, or set:
+
+```toml
+[experimental]
+sync = true
+```
+
+The flag enables `cueloop sync` and the shared text editor.
+Configure an application authority before connecting clients.
+Import a local Thread explicitly when it should use that authority.
+Existing local Threads keep their local storage and ownership.
+
+See [application setup](/docs/sync/applications/#connect-cueloop) for the owner commands.
