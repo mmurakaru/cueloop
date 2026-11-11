@@ -1,5 +1,17 @@
 # @cueloop/client
 
+## 0.1.0-alpha.119
+
+### Patch Changes
+
+- [#667](https://github.com/mmurakaru/cueloop/pull/667) [`99d06a5`](https://github.com/mmurakaru/cueloop/commit/99d06a520fecb974a265affd6f530adf4a1b6336) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Preserve complete Unicode characters when painting the review caret.
+- Updated dependencies []:
+  - @cueloop/daemon@0.1.0-alpha.119
+  - @cueloop/extension-api@0.1.0-alpha.119
+  - @cueloop/integration-obsidian@0.1.0-alpha.119
+  - @cueloop/schema@0.1.0-alpha.119
+  - @cueloop/sync@0.1.0-alpha.119
+
 ## 0.1.0-alpha.118
 
 ### Patch Changes
