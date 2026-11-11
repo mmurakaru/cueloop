@@ -1,5 +1,14 @@
 # @cueloop/daemon
 
+## 0.1.0-alpha.118
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @cueloop/extension-api@0.1.0-alpha.118
+  - @cueloop/schema@0.1.0-alpha.118
+  - @cueloop/sync@0.1.0-alpha.118
+
 ## 0.1.0-alpha.117
 
 ### Patch Changes
