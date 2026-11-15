@@ -69,7 +69,7 @@
   },
   "dependencies": {
     "@opentelemetry/api": "1.10.0",
-    "@rocicorp/zero": "1.11.4",
+    "@rocicorp/zero": "1.11.6",
     "canonicalize": "5.1.0",
     "idb": "8.0.4",
     "postgres": "3.4.7",

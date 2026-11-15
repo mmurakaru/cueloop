@@ -23,7 +23,7 @@ Configure this override in the consuming application's package manifest:
 }
 ```
 
-Zero 1.11.4 includes a formatter dependency with an affected worker-pool version.
+Zero 1.11.6 includes a formatter dependency with an affected worker-pool version.
 The application-level override selects the patched version; overrides inside a library do not configure its consumers.
 See the [upstream advisory](https://github.com/advisories/GHSA-85c8-ppgw-ccpr).
 
