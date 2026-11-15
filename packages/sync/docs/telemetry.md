@@ -64,7 +64,7 @@ OTEL_LOGS_EXPORTER=none
 OTEL_PROPAGATORS=tracecontext
 ```
 
-Zero 1.11.4 initializes its context manager and propagator when these exporter settings are present.
+Zero 1.11.6 initializes its context manager and propagator when these exporter settings are present.
 Without cache context propagation, client mutation spans and authority transaction spans have separate traces.
 A cache that exports its own telemetry can use its configured exporters with the same W3C propagator.
 

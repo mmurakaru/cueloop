@@ -59,7 +59,7 @@
     "@cueloop/schema": "0.1.0-alpha.118",
     "@cueloop/sync": "0.1.0-alpha.118",
     "@pierre/diffs": "^1.6.4",
-    "@rocicorp/zero": "1.11.4",
+    "@rocicorp/zero": "1.11.6",
     "effect": "^4.1.4",
     "smol-toml": "^1.9.1",
     "valibot": "^1.5.0"

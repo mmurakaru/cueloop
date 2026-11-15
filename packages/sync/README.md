@@ -17,7 +17,7 @@ The package contains JavaScript and TypeScript declarations.
 Local and remote hosting use the same service stack.
 
 > [!IMPORTANT]
-> Zero 1.11.4 includes an affected worker-pool dependency.
+> Zero 1.11.6 includes an affected worker-pool dependency.
 > Set this override in the consuming application; library overrides do not apply to consumers.
 > See the [upstream advisory](https://github.com/advisories/GHSA-85c8-ppgw-ccpr).
 
