@@ -60,7 +60,7 @@
     "@opentelemetry/sdk-trace": "3.1.1",
     "@opentui/core": "^0.8.3",
     "@opentui/react": "^0.8.3",
-    "@oxlint/plugins": "1.90.0",
+    "@oxlint/plugins": "1.92.0",
     "@rocicorp/zero": "1.11.4",
     "@types/bun": "^1.4.4",
     "@types/node": "24.19.2",
