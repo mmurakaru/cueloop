@@ -3,7 +3,12 @@ import { afterEach, expect, test } from "bun:test";
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createModels, fauxProvider, fauxAssistantMessage } from "@earendil-works/pi-ai";
+import {
+  createModels,
+  fauxProvider,
+  fauxAssistantMessage,
+  fauxToolCall,
+} from "@earendil-works/pi-ai";
 import { createPiHarness } from "./durable-harness";
 import type { AgentHarnessEvent } from "@cueloop/schema";
 
@@ -304,5 +309,108 @@ await connection.start(); await connection.prompt("Recover this input", "durable
   } finally {
     child.kill();
     await child.exited;
+  }
+});
+
+test("Pi structural watches retain tool completion and replay the admitted answer without another tool call", async () => {
+  const home = mkdtempSync(join(tmpdir(), "cueloop-pi-tool-watch-"));
+  const models = createModels();
+  const provider = fauxProvider();
+  const running = Promise.withResolvers<void>();
+  const release = Promise.withResolvers<void>();
+  const events: AgentHarnessEvent[] = [];
+  const calls: string[] = [];
+
+  directories.push(home);
+  models.setProvider(provider.provider);
+  provider.setResponses([
+    fauxAssistantMessage(fauxToolCall("inspect", { item: "fixture" }, { id: "inspect-1" }), {
+      stopReason: "toolUse",
+    }),
+    fauxAssistantMessage("Inspection complete"),
+  ]);
+  const connection = createPiHarness({ home, models }).connect({
+    cwd: home,
+    tools: {
+      definitions: [
+        {
+          name: "inspect",
+          description: "Inspect a fixture",
+          inputSchema: {
+            type: "object",
+            properties: { item: { type: "string" } },
+            required: ["item"],
+          },
+        },
+      ],
+      call: async (name, arguments_) => {
+        calls.push(name);
+        expect(arguments_).toBe('{"item":"fixture"}');
+        await release.promise;
+
+        return '{"inspected":true}';
+      },
+    },
+    onEvent: (event) => {
+      events.push(event);
+
+      if (event.kind === "tool" && event.status === "in_progress") running.resolve();
+    },
+    onExit() {},
+  });
+
+  try {
+    await connection.start();
+    const answer = connection.prompt("Inspect the fixture", "tool-request");
+
+    await running.promise;
+    release.resolve();
+    expect(await answer).toEqual({ outcome: "completed" });
+    expect(calls).toEqual(["inspect"]);
+    expect(events.filter((event) => event.kind === "tool" && event.status === "completed")).toEqual(
+      [{ kind: "tool", id: "inspect-1", title: "inspect", status: "completed" }],
+    );
+    const completedEvents = events.filter((event) => event.kind === "tool").length;
+
+    expect(await connection.prompt("Inspect the fixture", "tool-request")).toEqual({
+      outcome: "completed",
+    });
+    expect(provider.state.callCount).toBe(2);
+    expect(events.filter((event) => event.kind === "tool")).toHaveLength(completedEvents);
+    expect(events.filter((event) => event.kind === "message").at(-1)).toMatchObject({
+      text: "Inspection complete",
+    });
+  } finally {
+    release.resolve();
+    await connection.close();
+  }
+});
+
+test("Pi runtime diagnostics preserve the reported storage failure", async () => {
+  const { openNodeJsonlStorage } = await import("@earendil-works/pi-durable/storage/jsonl/node");
+  const home = mkdtempSync(join(tmpdir(), "cueloop-pi-storage-report-"));
+  const events: AgentHarnessEvent[] = [];
+  const connection = createPiHarness({
+    home,
+    models: createModels(),
+    storage: async (sessionId, context) => {
+      const storage = await openNodeJsonlStorage(join(home, sessionId), context);
+
+      storage.commit = async () => {
+        throw new Error("Fixture storage outage");
+      };
+
+      return storage;
+    },
+  }).connect({ cwd: home, onEvent: (event) => events.push(event), onExit() {} });
+
+  directories.push(home);
+  try {
+    await expect(connection.start()).rejects.toThrow("Fixture storage outage");
+    expect(events).toContainEqual(
+      expect.objectContaining({ kind: "diagnostic", text: "Error: Fixture storage outage" }),
+    );
+  } finally {
+    await connection.close();
   }
 });

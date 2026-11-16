@@ -247,20 +247,22 @@ test("cancelling while the dispatch checkpoint is committing prevents native exe
       const storage = await openNodeJsonlStorage(join(home, sessionId), context);
       const commit = storage.commit.bind(storage);
 
-      storage.commit = async (writes, context) => {
+      storage.commit = async (batches, receive, context) => {
         if (
-          writes.some(
-            (write) =>
-              write.type === "task" &&
-              write.value.state.status === "running" &&
-              JSON.stringify(write.value.state.checkpoint) === '{"phase":"dispatched"}',
-          )
+          batches
+            .flat()
+            .some(
+              (write) =>
+                write.type === "task" &&
+                write.value.state.status === "running" &&
+                JSON.stringify(write.value.state.checkpoint) === '{"phase":"dispatched"}',
+            )
         ) {
           checkpoint.resolve();
           await release.promise;
         }
 
-        return commit(writes, context);
+        return commit(batches, receive, context);
       };
 
       return storage;
