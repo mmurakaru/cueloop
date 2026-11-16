@@ -1,6 +1,6 @@
 import { createSyncAuthorityDatabase, readSyncAuthority } from "@cueloop/sync/authority/server";
 import postgres from "postgres";
-import { zeroPostgresJS } from "@rocicorp/zero/server/adapters/postgresjs";
+import { createSyncPostgresDatabase } from "@cueloop/sync/database/postgres";
 import { createSyncThreadApplication } from "@cueloop/daemon/sync-thread-authority";
 import { syncThreadSchema } from "@cueloop/daemon/sync-thread-schema";
 
@@ -19,7 +19,7 @@ const identities = [
     actorIdentifier: process.env.SYNC_COLLABORATOR_USER_ID,
   },
 ];
-const rawDatabase = zeroPostgresJS(syncThreadSchema, connection);
+const rawDatabase = createSyncPostgresDatabase(syncThreadSchema, connection);
 const identity = await rawDatabase.transaction((transaction) => readSyncAuthority(transaction));
 const application = createSyncThreadApplication({
   database: createSyncAuthorityDatabase({ database: rawDatabase, identity }),

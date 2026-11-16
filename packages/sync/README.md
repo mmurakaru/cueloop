@@ -118,6 +118,9 @@ See the [execution guide](./docs/execution.md) for claims, recovery, the owner C
 
 ## Host an authority
 
+`createSyncPostgresDatabase` from `@cueloop/sync/database/postgres` wraps a Postgres 4 client for authority queries and transactions.
+The application owns the client and closes its connection pool after the authority stops.
+
 `createSyncAuthority` from `@cueloop/sync/server` accepts your schema, authority-wrapped database adapter, authentication callback, and named query and mutation handlers.
 Derive the principal from verified credentials and enforce record permissions in application handlers.
 
