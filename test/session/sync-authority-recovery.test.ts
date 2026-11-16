@@ -1,7 +1,7 @@
 import type { ServerTransaction } from "@rocicorp/zero";
 import { expect, test } from "bun:test";
 import postgres from "postgres";
-import { zeroPostgresJS } from "@rocicorp/zero/server/adapters/postgresjs";
+import { createSyncPostgresDatabase } from "@cueloop/sync/database/postgres";
 import * as v from "valibot";
 import { defineSyncOperation, createSyncRecordIdentifier } from "@cueloop/sync/operations";
 import { acceptSyncOperation, findSyncOperationReceipt } from "@cueloop/sync/server";
@@ -24,7 +24,7 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
   async () => {
     const stack = await createTestSyncStack();
     const connection = postgres(stack.environment.SYNC_DATABASE_URL);
-    const database = zeroPostgresJS(sharedRecordSchema, connection);
+    const database = createSyncPostgresDatabase(sharedRecordSchema, connection);
     const definition = defineSyncOperation({
       name: "record.append",
       version: 1,

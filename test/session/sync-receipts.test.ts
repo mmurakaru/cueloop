@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import postgres from "postgres";
 import * as v from "valibot";
-import { zeroPostgresJS } from "@rocicorp/zero/server/adapters/postgresjs";
+import { createSyncPostgresDatabase } from "@cueloop/sync/database/postgres";
 import { createBuilder } from "@cueloop/sync/schema";
 import { defineSyncOperation } from "@cueloop/sync/operations";
 import {
@@ -29,7 +29,7 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
   async () => {
     const stack = await createTestSyncStack();
     const connection = postgres(stack.environment.SYNC_DATABASE_URL);
-    const database = zeroPostgresJS(sharedRecordSchema, connection);
+    const database = createSyncPostgresDatabase(sharedRecordSchema, connection);
     const client = createSharedRecordClient(stack);
 
     try {
@@ -175,7 +175,7 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
   async () => {
     const stack = await createTestSyncStack();
     const connection = postgres(stack.environment.SYNC_DATABASE_URL);
-    const database = zeroPostgresJS(sharedRecordSchema, connection);
+    const database = createSyncPostgresDatabase(sharedRecordSchema, connection);
     const client = createSharedRecordClient(stack);
     let authorityTime = 1700000000000;
 
@@ -242,7 +242,7 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
   async () => {
     const stack = await createTestSyncStack();
     const connection = postgres(stack.environment.SYNC_DATABASE_URL);
-    const database = zeroPostgresJS(sharedRecordSchema, connection);
+    const database = createSyncPostgresDatabase(sharedRecordSchema, connection);
     const client = createSharedRecordClient(stack);
 
     try {
@@ -317,7 +317,7 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
   async () => {
     const stack = await createTestSyncStack();
     const connection = postgres(stack.environment.SYNC_DATABASE_URL);
-    const database = zeroPostgresJS(sharedRecordSchema, connection);
+    const database = createSyncPostgresDatabase(sharedRecordSchema, connection);
     const client = createSharedRecordClient(stack);
     let authorityTime = 1700000000000;
 
@@ -421,7 +421,7 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
   async () => {
     const stack = await createTestSyncStack();
     const connection = postgres(stack.environment.SYNC_DATABASE_URL);
-    const database = zeroPostgresJS(sharedRecordSchema, connection);
+    const database = createSyncPostgresDatabase(sharedRecordSchema, connection);
     const client = createSharedRecordClient(stack);
 
     try {

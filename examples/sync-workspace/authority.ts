@@ -7,7 +7,7 @@ import {
 import { SyncAuthorityFenced, SyncAuthorityRecoveryRequired } from "@cueloop/sync/authority";
 import { createSyncPresenceAuthority } from "@cueloop/sync/presence/server";
 import { mustGetMutator, mustGetQuery } from "@rocicorp/zero";
-import { zeroPostgresJS } from "@rocicorp/zero/server/adapters/postgresjs";
+import { createSyncPostgresDatabase } from "@cueloop/sync/database/postgres";
 import {
   createSyncAuthority,
   findSyncOperationReceipt,
@@ -37,7 +37,9 @@ if (!token || !userIdentifier) {
 }
 
 const connection = databaseUrl ? postgres(databaseUrl) : undefined;
-const rawDatabase = connection ? zeroPostgresJS(sharedRecordSchema, connection) : undefined;
+const rawDatabase = connection
+  ? createSyncPostgresDatabase(sharedRecordSchema, connection)
+  : undefined;
 const authorityIdentity = rawDatabase
   ? await rawDatabase.transaction((transaction) => readSyncAuthority(transaction))
   : undefined;
