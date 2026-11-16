@@ -381,7 +381,7 @@ jobs:
         with:
           node-version: "24"
           registry-url: "https://registry.npmjs.org"
-      - run: npm install -g npm@latest
+      - run: npm install -g npm@12.2.2
       - run: bun install --frozen-lockfile
       - run: brew install jj
       - run: bun run typecheck
@@ -404,6 +404,7 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: write
+      id-token: write
     steps:
       - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
@@ -413,6 +414,7 @@ jobs:
         with:
           node-version: "24"
           registry-url: "https://registry.npmjs.org"
+      - run: npm install -g npm@12.2.2
       - run: bun install --frozen-lockfile
       - name: Verify staged binaries on a resumed draft
         if: needs.guard.outputs.publish == 'false'
@@ -431,8 +433,6 @@ jobs:
           sha256sum -c checksums.txt
       - name: Sync prerelease dist-tags
         run: bun run scripts/sync-dist-tags.ts
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: Install pinned pi host
         run: npm install -g "@earendil-works/pi-coding-agent@$(jq -r .pi test/install/harness-hosts/pins.json)"
       - name: Verify the published release

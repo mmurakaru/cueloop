@@ -86,6 +86,7 @@ The pi package includes cueloop workflow skills. Use `/cueloop:plan`, `/cueloop:
 | [`@cueloop/schema`](https://www.npmjs.com/package/@cueloop/schema)                             | the Thread primitive, anchors, feedback serialization |
 | [`@cueloop/daemon`](https://www.npmjs.com/package/@cueloop/daemon)                             | the session daemon and its client                     |
 | [`@cueloop/client`](https://www.npmjs.com/package/@cueloop/client)                             | the review UI                                         |
+| [`@cueloop/sync`](https://www.npmjs.com/package/@cueloop/sync)                                 | general-purpose sync for terminals                    |
 | [`@cueloop/extension-api`](https://www.npmjs.com/package/@cueloop/extension-api)               | the typed extension contract                          |
 | [`@cueloop/adapters`](https://www.npmjs.com/package/@cueloop/adapters)                         | Claude Code, pi and codex adapters                    |
 | [`@cueloop/integration-obsidian`](https://www.npmjs.com/package/@cueloop/integration-obsidian) | the Obsidian vault export integration                 |

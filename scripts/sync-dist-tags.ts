@@ -1,19 +1,8 @@
-/**
- * Point the prerelease dist-tag at the current release and deprecate versions
- * known to be unusable.
- *
- * Why this exists: changesets in pre mode publishes to `latest` for a package
- * that has never had a normal release, so the prerelease tag it advertises can
- * be left pointing at an older publish. `npm i cueloop@alpha` then serves a
- * version nobody intended - which is exactly what happened with the first
- * alpha. Runs in the release lane after a successful publish.
- */
-
 const releasePackage: { version: string } = await Bun.file("packages/cli/package.json").json();
 const version = releasePackage.version;
-const preTag = version.includes("-") ? (version.split("-")[1] ?? "").split(".")[0] : null;
+const prereleaseTag = version.includes("-") ? (version.split("-")[1] ?? "").split(".")[0] : null;
 
-if (!preTag) {
+if (!prereleaseTag) {
   console.log(`${version} is not a prerelease - nothing to retag`);
   process.exit(0);
 }
@@ -31,29 +20,16 @@ for (const glob of ["packages/*/package.json", "packages/integrations/*/package.
 let failures = 0;
 
 for (const name of new Set(names)) {
-  const result = Bun.spawnSync(["npm", "dist-tag", "add", `${name}@${version}`, preTag]);
+  const result = Bun.spawnSync(["npm", "dist-tag", "add", `${name}@${version}`, prereleaseTag]);
   const succeeded = result.exitCode === 0;
 
-  console.log(
-    `${succeeded ? "retagged" : "FAILED"} ${name}@${version} as ${preTag}${succeeded ? "" : ": " + result.stderr.toString().trim().split("\n").pop()}`,
-  );
-
-  if (!succeeded) failures++;
-}
-
-/** Versions that shipped broken; nobody should resolve to them. */
-const DEPRECATED: [string, string][] = [
-  [
-    "cueloop@0.1.0-alpha.0",
-    "unusable: internal dependencies shipped as an unresolvable workspace protocol - install cueloop@alpha instead",
-  ],
-];
-
-for (const [spec, message] of DEPRECATED) {
-  const result = Bun.spawnSync(["npm", "deprecate", spec, message]);
-
-  // a version that does not exist is not a failure - the list is historical
-  if (result.exitCode === 0) console.log(`deprecated ${spec}`);
+  if (succeeded) {
+    console.log(`retagged ${name}@${version} as ${prereleaseTag}`);
+  } else {
+    console.error(`FAILED ${name}@${version} as ${prereleaseTag} (npm exit ${result.exitCode})`);
+    console.error(result.stderr.toString().trim());
+    failures++;
+  }
 }
 
 process.exit(failures > 0 ? 1 : 0);
