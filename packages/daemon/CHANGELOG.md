@@ -1,5 +1,15 @@
 # @cueloop/daemon
 
+## 0.1.0-alpha.119
+
+### Patch Changes
+
+- [#680](https://github.com/mmurakaru/cueloop/pull/680) [`e9b1a4c`](https://github.com/mmurakaru/cueloop/commit/e9b1a4c56ce11c3c9eacf606756a46305c7e9e8e) Thanks [@dependabot](https://github.com/apps/dependabot)! - Update Effect to 4.1.4.
+- Updated dependencies [[`37f37c6`](https://github.com/mmurakaru/cueloop/commit/37f37c66e62c5fec26c0e6d968c80979e84636a8), [`e90e622`](https://github.com/mmurakaru/cueloop/commit/e90e6220c831934fc57f9aad21eed25c69158f3e)]:
+  - @cueloop/sync@0.1.0-alpha.119
+  - @cueloop/extension-api@0.1.0-alpha.119
+  - @cueloop/schema@0.1.0-alpha.119
+
 ## 0.1.0-alpha.118
 
 ### Patch Changes

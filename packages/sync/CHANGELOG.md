@@ -1,5 +1,13 @@
 # @cueloop/sync
 
+## 0.1.0-alpha.119
+
+### Patch Changes
+
+- [#671](https://github.com/mmurakaru/cueloop/pull/671) [`37f37c6`](https://github.com/mmurakaru/cueloop/commit/37f37c66e62c5fec26c0e6d968c80979e84636a8) Thanks [@dependabot](https://github.com/apps/dependabot)! - Update dependencies from Dependabot PR [#671](https://github.com/mmurakaru/cueloop/issues/671).
+
+- [#674](https://github.com/mmurakaru/cueloop/pull/674) [`e90e622`](https://github.com/mmurakaru/cueloop/commit/e90e6220c831934fc57f9aad21eed25c69158f3e) Thanks [@dependabot](https://github.com/apps/dependabot)! - Update Postgres to 4.0.0 and provide a database adapter that preserves caller ownership of connection pools.
+
 ## 0.1.0-alpha.118
 
 No changes in this release.

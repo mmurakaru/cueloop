@@ -1,5 +1,17 @@
 # cueloop
 
+## 0.1.0-alpha.119
+
+### Patch Changes
+
+- Updated dependencies [[`99d06a5`](https://github.com/mmurakaru/cueloop/commit/99d06a520fecb974a265affd6f530adf4a1b6336), [`37f37c6`](https://github.com/mmurakaru/cueloop/commit/37f37c66e62c5fec26c0e6d968c80979e84636a8), [`db79777`](https://github.com/mmurakaru/cueloop/commit/db79777c8a4042773297df2f39292f3289e5d265), [`e745622`](https://github.com/mmurakaru/cueloop/commit/e7456223e15fdb809f47c65016d9d3abf82451f1), [`2a1bd90`](https://github.com/mmurakaru/cueloop/commit/2a1bd909788cc18bdf16dc8a38bda9e54fcaba3e), [`5d40f35`](https://github.com/mmurakaru/cueloop/commit/5d40f3581461b0d2bd61327cf4bbf28940239baa), [`e9b1a4c`](https://github.com/mmurakaru/cueloop/commit/e9b1a4c56ce11c3c9eacf606756a46305c7e9e8e), [`e90e622`](https://github.com/mmurakaru/cueloop/commit/e90e6220c831934fc57f9aad21eed25c69158f3e)]:
+  - @cueloop/client@0.1.0-alpha.119
+  - @cueloop/sync@0.1.0-alpha.119
+  - @cueloop/adapters@0.1.0-alpha.119
+  - @cueloop/daemon@0.1.0-alpha.119
+  - @cueloop/extension-api@0.1.0-alpha.119
+  - @cueloop/schema@0.1.0-alpha.119
+
 ## 0.1.0-alpha.118
 
 ### Patch Changes
