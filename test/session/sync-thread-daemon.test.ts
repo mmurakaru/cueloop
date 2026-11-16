@@ -1,7 +1,10 @@
 import { recoverTestSyncDeletedThread } from "../helpers/sync-thread-delete";
 import { runTestSyncDiffReview } from "../helpers/sync-thread-diff";
 import { exerciseTestSyncThreadSharing } from "../helpers/sync-thread-sharing";
-import { createTestSyncThreadDrafts } from "../helpers/sync-thread-drafts";
+import {
+  createTestSyncThreadDrafts,
+  readTestPendingSyncThreadDraft,
+} from "../helpers/sync-thread-drafts";
 import { expect, test } from "bun:test";
 import { join } from "node:path";
 import { DaemonServer } from "@cueloop/daemon";
@@ -19,9 +22,25 @@ import { lookupSyncThreadOperation } from "@cueloop/daemon/sync-thread-import-cl
 import { runHarnessBridge } from "@cueloop/adapters/harness-bridge";
 import { createTestSyncStack } from "../helpers/sync-stack";
 
-test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
-  "native daemon import retains adapter delivery and comment mediation across restart and a disabled flag",
-  async () => {
+async function retryTestRetainedSyncCommand(
+  owner: DaemonClient,
+  threadIdentifier: string,
+  command: Awaited<ReturnType<typeof readTestPendingSyncThreadDraft>>,
+) {
+  const retained = (await owner.sessionSyncDrafts(threadIdentifier)).find(
+    (draft) => draft.draftIdentifier === command.draftIdentifier,
+  );
+
+  if (!retained) return;
+
+  expect(retained.status).not.toBe("draft");
+  expect(retained.operationIdentifier).toBe(command.operation.operationIdentifier);
+  await owner.sessionSyncRetry(threadIdentifier, retained.draftIdentifier);
+}
+
+test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1").each(["pending", "confirmed"] as const)(
+  "native daemon import retains adapter delivery across restart with a %s command receipt",
+  async (receiptAtShutdown) => {
     const stack = await createTestSyncStack({
       application: "thread",
       collaborator: true,
@@ -113,8 +132,29 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
         .catch(() => undefined);
 
       await lostAcknowledgement.received;
+      const savedCommand = await readTestPendingSyncThreadDraft({
+        home,
+        contentMarker: "accepted-before-owner-restart",
+        connection: {
+          authorityURL: stack.authorityURL,
+          cacheURL: stack.cacheURL,
+          actorIdentifier: stack.userID,
+        },
+      });
+
       lostAcknowledgement.forward();
       await lostAcknowledgement.processed;
+
+      if (receiptAtShutdown === "confirmed") {
+        const settledComment = await interruptedComment;
+
+        expect(
+          settledComment?.annotations.some(
+            (annotation) => annotation.id === "accepted-before-owner-restart",
+          ),
+        ).toBe(true);
+      }
+
       owner.close();
       peer.close();
       await server.shutdown();
@@ -132,6 +172,7 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
         home,
         threadIdentifier: thread.id,
         expectedVersion: 4,
+        submitted: receiptAtShutdown === "pending",
         connection: {
           authorityURL: stack.authorityURL,
           cacheURL: stack.cacheURL,
@@ -155,21 +196,30 @@ test.skipIf(process.env.CUELOOP_RUN_SYNC !== "1")(
         (draft) => draft.draftIdentifier === interruptedDrafts.retryIdentifier,
       );
 
-      expect(unsubmitted?.status).toBe("draft");
+      expect(unsubmitted?.status).toBe(receiptAtShutdown === "pending" ? "pending" : "draft");
+
+      if (receiptAtShutdown === "pending")
+        expect(unsubmitted?.operationIdentifier).toBe(
+          interruptedDrafts.operation.operationIdentifier,
+        );
+
       expect(unsubmitted?.content).toContain("Recovered unsent title");
       await owner.sessionSyncDiscard(thread.id, interruptedDrafts.discardIdentifier);
       enabled = true;
       await owner.sessionSyncResume(thread.id);
-      const retained = (await owner.sessionSyncDrafts(thread.id)).find((draft) =>
-        draft.content.includes("accepted-before-owner-restart"),
-      );
+      await retryTestRetainedSyncCommand(owner, thread.id, savedCommand);
 
-      if (!retained)
-        throw new Error(
-          "Lost acknowledgement must retain its saved command identity across restart",
-        );
-
-      await owner.sessionSyncRetry(thread.id, retained.draftIdentifier);
+      expect(
+        await lookupSyncThreadOperation({
+          authorityURL: stack.authorityURL,
+          authenticationToken: stack.auth,
+          operation: savedCommand.operation,
+        }),
+      ).toMatchObject({
+        status: "accepted",
+        operationIdentifier: savedCommand.operation.operationIdentifier,
+        workspaceIdentifier: savedCommand.operation.workspaceIdentifier,
+      });
       expect(
         (await owner.sessionGet(thread.id)).annotations.filter(
           (annotation) => annotation.id === "accepted-before-owner-restart",
