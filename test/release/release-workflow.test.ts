@@ -3,7 +3,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { createTestGitRepo } from "../helpers/git-repo";
 
-test.each(["release", "empty", "archived", "invalid"] as const)(
+test.each(["release", "empty", "archived", "invalid", "draft", "published"] as const)(
   "release guard checks the Changesets release plan for %s input",
   async (scenario) => {
     const workflow = await Bun.file(".github/workflows/release.yml").text();
@@ -65,18 +65,25 @@ test.each(["release", "empty", "archived", "invalid"] as const)(
         const content =
           scenario === "release"
             ? "---\ncueloop: patch\n---\n\nFixture release.\n"
-            : scenario === "empty"
-              ? "---\n{}\n---\n"
-              : "---\n[invalid yaml\n---\n";
+            : scenario === "invalid"
+              ? "---\n[invalid yaml\n---\n"
+              : "---\n{}\n---\n";
 
         writeFileSync(join(directory, ".changeset", "feature.md"), content);
       }
 
       writeFileSync(
         join(bin, "npm"),
-        '#!/bin/sh\ncase "$2" in @cueloop/sync@*) echo E404 >&2; exit 1;; *) echo 1.0.0;; esac\n',
+        '#!/bin/sh\nif [ "$ALL_PACKAGES_PUBLISHED" != true ] && [ "$2" = @cueloop/sync@1.0.0 ]; then echo E404 >&2; exit 1; fi\necho 1.0.0\n',
         { mode: 0o755 },
       );
+
+      writeFileSync(
+        join(bin, "gh"),
+        '#!/bin/sh\n[ "$1" = release ] && [ "$2" = view ] || exit 1\necho "$RELEASE_IS_DRAFT"\n',
+        { mode: 0o755 },
+      );
+      const allPackagesPublished = scenario === "draft" || scenario === "published";
 
       const child = Bun.spawn(["bash", "-eu", "-c", script], {
         cwd: directory,
@@ -84,6 +91,8 @@ test.each(["release", "empty", "archived", "invalid"] as const)(
           ...process.env,
           PATH: `${bin}:${process.env.PATH}`,
           GITHUB_OUTPUT: output,
+          ALL_PACKAGES_PUBLISHED: String(allPackagesPublished),
+          RELEASE_IS_DRAFT: String(scenario !== "published"),
           CHANGESET_RUNTIME: process.execPath,
           CHANGESET_CLI: resolve("node_modules/@changesets/cli/bin.js"),
         },
@@ -113,8 +122,14 @@ test.each(["release", "empty", "archived", "invalid"] as const)(
           .map((line) => line.split("=")),
       );
 
-      expect(values.publish).toBe(scenario === "release" ? "false" : "true");
-      expect(values.finalize).toBe(scenario === "release" ? "false" : "true");
+      expect(values.publish).toBe(
+        scenario === "release" || allPackagesPublished ? "false" : "true",
+      );
+      expect(values.any_published).toBe(scenario === "release" ? "false" : "true");
+      expect(values.finalize).toBe(
+        scenario === "release" || scenario === "published" ? "false" : "true",
+      );
+      expect(values.release_published).toBe(scenario === "published" ? "true" : "false");
     } finally {
       repository.cleanup();
     }
