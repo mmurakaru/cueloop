@@ -30,6 +30,26 @@ export function createTestSyncThreadDraftStore(options: {
   });
 }
 
+/** Read the saved identity while the daemon's command is paused at the mutation boundary. */
+export async function readTestPendingSyncThreadDraft(
+  options: Parameters<typeof createTestSyncThreadDraftStore>[0] & { contentMarker: string },
+) {
+  const drafts = createTestSyncThreadDraftStore(options);
+
+  try {
+    const saved = (await drafts.list()).find((draft) =>
+      JSON.stringify(draft.content).includes(options.contentMarker),
+    );
+
+    if (!saved || saved.status !== "pending")
+      throw new Error("Paused command requires its saved pending operation identity");
+
+    return saved;
+  } finally {
+    await drafts.close();
+  }
+}
+
 /** Persist interrupted native drafts without running a daemon or sending changes. */
 export async function createTestSyncThreadDrafts(options: {
   authority: SyncWorkspaceAuthority;
@@ -67,7 +87,11 @@ export async function createTestSyncThreadDrafts(options: {
         operation: prepared.operation,
       });
 
-    return { retryIdentifier: retry.draftIdentifier, discardIdentifier: discard.draftIdentifier };
+    return {
+      retryIdentifier: retry.draftIdentifier,
+      discardIdentifier: discard.draftIdentifier,
+      operation: prepared.operation,
+    };
   } finally {
     await drafts.close();
   }

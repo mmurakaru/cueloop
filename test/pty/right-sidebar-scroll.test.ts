@@ -46,13 +46,49 @@ ptyTest("right sidebar changes and project trees reveal keyboard selection", asy
     }
     expect(session.text()).toContain("file-16.ts");
 
+    const selectedLocation = session.locate("file-16.ts");
+    const selectedForeground = JSON.stringify(
+      session.cells(selectedLocation.row)[selectedLocation.column]?.fg,
+    );
+    const selectedFiles: string[][] = [];
+
+    expect(selectedForeground).toBeDefined();
     session.terminalFrames.length = 0;
+    session.onTerminalFrame = (frame, cellAt) => {
+      const selected: string[] = [];
+
+      for (let row = 0; row < frame.split("\n").length; row++) {
+        const cell = cellAt(selectedLocation.column, row);
+
+        if (
+          cell === null ||
+          cell.codepoint !== "f".codePointAt(0) ||
+          JSON.stringify(cell.fg) !== selectedForeground
+        )
+          continue;
+
+        selected.push(
+          Array.from({ length: "file-17.ts".length }, (_, offset) =>
+            String.fromCodePoint(cellAt(selectedLocation.column + offset, row)?.codepoint ?? 0),
+          ).join(""),
+        );
+      }
+      selectedFiles.push(selected);
+    };
+    session.onTerminalFrame(session.text(), (column, row) => session.cells(row)[column] ?? null);
     session.captureTerminalFrames = true;
     await session.press("j");
     session.captureTerminalFrames = false;
-    expect(session.terminalFrames.length).toBeGreaterThan(0);
-    for (const frame of session.terminalFrames) expect(frame).toContain("file-17.ts");
-    expect(new Set(session.terminalFrames).size).toBe(1);
+    session.onTerminalFrame = undefined;
+    expect(selectedFiles.length).toBeGreaterThan(0);
+    for (const selected of selectedFiles) expect(selected).toHaveLength(1);
+    const selections = selectedFiles.map((selected) => selected.join(""));
+    const revealed = selections.indexOf("file-17.ts");
+
+    expect(selections[0]).toBe("file-16.ts");
+    expect(revealed).toBeGreaterThanOrEqual(0);
+    for (const selected of selections) expect(["file-16.ts", "file-17.ts"]).toContain(selected);
+    for (const selected of selections.slice(revealed)) expect(selected).toBe("file-17.ts");
 
     await session.click("project");
     await session.waitForText("aaa-project-only.ts");
