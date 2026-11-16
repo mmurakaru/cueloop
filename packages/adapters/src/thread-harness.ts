@@ -6,12 +6,7 @@ import { join } from "node:path";
 import { homedir } from "node:os";
 import * as v from "valibot";
 import { BACKGROUND_CONTEXT, type Context } from "@earendil-works/chord/context";
-import {
-  Type,
-  getSupportedThinkingLevels,
-  clampThinkingLevel,
-  type Models,
-} from "@earendil-works/pi-ai";
+import { getSupportedThinkingLevels, clampThinkingLevel, type Models } from "@earendil-works/pi-ai";
 import { builtinModels } from "@earendil-works/pi-ai/providers/all";
 import { registerBunOAuthFlows } from "@earendil-works/pi-ai/bun-oauth";
 import {
@@ -19,9 +14,11 @@ import {
   createRegistry,
   defineExtension,
   defineTool,
-  watchEvents,
   type Conversation,
-  type AgentEventStream,
+  type ConversationWatch,
+  type ConversationView,
+  type LiveState,
+  LiveDoc,
   type Storage,
   type EntryId,
   type Cursor,
@@ -41,6 +38,7 @@ import type {
 } from "@cueloop/schema";
 import { THREAD_MODEL_DEFAULTS } from "@cueloop/schema";
 import { PiAnswerProjection } from "./pi/answer-projection";
+import { PiToolProjection } from "./pi/tool-projection";
 import { ownerCredentialStore } from "./pi/owner-credentials";
 
 export interface ThreadHarnessOptions {
@@ -103,7 +101,7 @@ class ThreadHarnessConnection implements AgentHarnessConnection {
   private starting?: Promise<string>;
   private closePending?: Promise<void>;
   private conversation?: Conversation;
-  private stream?: AgentEventStream;
+  private stream?: ConversationWatch;
   private closing = false;
   private backend?: AgentHarnessConnection;
   private readonly backendReady = Promise.withResolvers<AgentHarnessConnection>();
@@ -141,7 +139,7 @@ class ThreadHarnessConnection implements AgentHarnessConnection {
       defineTool({
         name: definition.name,
         description: definition.description,
-        parameters: Type.Unsafe<Record<string, string>>(definition.inputSchema),
+        parameters: definition.inputSchema,
         replay: "unsafe" as const,
         execute: async (args) => ({
           output: [
@@ -182,12 +180,12 @@ class ThreadHarnessConnection implements AgentHarnessConnection {
             cwd ?? this.options.cwd,
           ),
         settings: { retry: { maxRetries: 2 }, toolExecution: "sequential" },
-        onReport: (error) =>
+        onReport: (report) =>
           this.options.onEvent({
             kind: "diagnostic",
             severity: "warning",
             title: "Pi runtime notice",
-            text: String(error),
+            text: String(report.error),
             source: "protocol",
           }),
       },
@@ -364,76 +362,67 @@ class ThreadHarnessConnection implements AgentHarnessConnection {
     );
     const record = await input.status(context);
     const projection = new PiAnswerProjection(record.entry);
+    let publishedText: string | undefined;
     const publish = () => {
+      const text = projection.text();
+
+      if (text === publishedText || (!text && publishedText === undefined)) return;
+
+      publishedText = text;
       this.options.onEvent({
         kind: "message",
         id: `pi-answer-${requestId}`,
-        text: projection.text(),
+        text,
         replace: true,
       });
     };
-    const stream = await watchEvents(harness, conversation.id, context);
+    const stream = await conversation.watch(context);
+    const tools =
+      record.status === "done" || record.status === "unanswered"
+        ? undefined
+        : new PiToolProjection();
+    let inputEntry = record.entry;
+    let newestEntry: EntryId | undefined;
+    const update = async (view: ConversationView) => {
+      const current = await input.status(context);
+      const lastEntry = view.entries.at(-1)?.id;
+
+      if (!current.entry || !lastEntry || lastEntry < current.entry) return;
+
+      const missingPrefix =
+        !newestEntry || (view.before !== undefined && view.before > newestEntry);
+      const entries =
+        inputEntry !== current.entry || missingPrefix
+          ? await this.answerEntries(current.entry, lastEntry)
+          : view.entries;
+      // SAFETY: The registered LiveDoc owns the state published under its durable document kind.
+      const live = view.docs[LiveDoc.definition.kind] as Readonly<LiveState> | undefined;
+
+      inputEntry = current.entry;
+      newestEntry = lastEntry;
+      projection.restore(entries, live, inputEntry);
+      publish();
+      for (const event of tools?.restore(entries, live, inputEntry) ?? [])
+        this.options.onEvent(event);
+    };
 
     this.stream = stream;
-    projection.restore(
-      record.entry
-        ? await this.answerEntries(record.entry, record.answer)
-        : stream.snapshot.entries,
-      stream.snapshot,
-      record.entry,
-    );
-
-    if (projection.text()) publish();
-
-    stream.start(async (events) => {
-      for (const event of events) {
-        if (event.type === "snapshot") {
-          const current = await input.status(context);
-
-          projection.restore(
-            current.entry
-              ? await this.answerEntries(current.entry, event.entries.at(-1)?.id)
-              : event.entries,
-            event,
-            current.entry,
-          );
-        } else projection.apply(event);
-
-        if (
-          event.type === "message_update" ||
-          event.type === "message_end" ||
-          event.type === "snapshot"
-        )
-          publish();
-
-        if (event.type === "tool_execution_start")
-          this.options.onEvent({
-            kind: "tool",
-            id: event.toolCallId,
-            title: event.toolName,
-            status: "in_progress",
-          });
-
-        if (event.type === "tool_execution_end")
-          this.options.onEvent({
-            kind: "tool",
-            id: event.toolCallId,
-            title: event.toolName,
-            status: event.entry ? "completed" : "failed",
-          });
-      }
-    });
     try {
+      await update(stream.value);
+      stream.start(async (call) => {
+        if (call.kind === "value") await update(call.value);
+      });
       const result = await input.wait(context);
 
       await stream.stop();
 
-      if (result.entry)
-        projection.restore(
-          await this.answerEntries(result.entry, result.answer),
-          undefined,
-          result.entry,
-        );
+      if (result.entry) {
+        const entries = await this.answerEntries(result.entry, result.answer);
+
+        projection.restore(entries, undefined, result.entry);
+        for (const event of tools?.restore(entries, undefined, result.entry) ?? [])
+          this.options.onEvent(event);
+      }
 
       if (projection.text()) publish();
 
