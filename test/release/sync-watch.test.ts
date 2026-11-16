@@ -34,14 +34,14 @@ const client = {
 export const syncApplication = {
   fetch: () => new Response('ok'),
   async connect() {
-    if (${JSON.stringify(signal)} === 'small-query-error') {
-      for (let writes = 0; writes < 4096; writes++) {
-        process.stdout.write('x'.repeat(1024));
-        await new Promise(resolve => setImmediate(resolve));
-        if (process.stdout.writableLength > 0) break;
+    setImmediate(async () => {
+      if (${JSON.stringify(signal)} === 'small-query-error') {
+        for (let writes = 0; writes < 4096; writes++) {
+          process.stdout.write('x'.repeat(1024));
+          await new Promise(resolve => setImmediate(resolve));
+          if (process.stdout.writableLength > 0) break;
+        }
       }
-    }
-    setImmediate(() => {
       const state = ${JSON.stringify(signal)} === 'small-query-error'
         ? process.stdout.writableLength > 0 && !process.stdout.writableNeedDrain ? 'small-blocked' : 'flowing'
         : process.stdout.writableNeedDrain ? 'blocked' : 'flowing';
