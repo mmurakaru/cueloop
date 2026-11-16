@@ -1,5 +1,17 @@
 # @cueloop/adapters
 
+## 0.1.0-alpha.119
+
+### Patch Changes
+
+- [#678](https://github.com/mmurakaru/cueloop/pull/678) [`2a1bd90`](https://github.com/mmurakaru/cueloop/commit/2a1bd909788cc18bdf16dc8a38bda9e54fcaba3e) Thanks [@dependabot](https://github.com/apps/dependabot)! - Update dependencies from Dependabot PR [#678](https://github.com/mmurakaru/cueloop/issues/678).
+
+- [#677](https://github.com/mmurakaru/cueloop/pull/677) [`5d40f35`](https://github.com/mmurakaru/cueloop/commit/5d40f3581461b0d2bd61327cf4bbf28940239baa) Thanks [@dependabot](https://github.com/apps/dependabot)! - Update pi-ai and pi-durable to 1.5.0 and project conversation views into answer text and tool status.
+- Updated dependencies [[`37f37c6`](https://github.com/mmurakaru/cueloop/commit/37f37c66e62c5fec26c0e6d968c80979e84636a8), [`e9b1a4c`](https://github.com/mmurakaru/cueloop/commit/e9b1a4c56ce11c3c9eacf606756a46305c7e9e8e), [`e90e622`](https://github.com/mmurakaru/cueloop/commit/e90e6220c831934fc57f9aad21eed25c69158f3e)]:
+  - @cueloop/sync@0.1.0-alpha.119
+  - @cueloop/daemon@0.1.0-alpha.119
+  - @cueloop/schema@0.1.0-alpha.119
+
 ## 0.1.0-alpha.118
 
 ### Patch Changes
