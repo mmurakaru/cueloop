@@ -68,7 +68,7 @@
     "cueloop": "workspace:*",
     "effect": "^4.1.4",
     "oxfmt": "^0.77.0",
-    "oxlint": "1.92.0",
+    "oxlint": "1.93.0",
     "playwright": "1.65.1",
     "postgres": "4.0.0",
     "react": "^19.3.1",
