@@ -67,7 +67,7 @@
     "@types/react": "^19.3.0",
     "cueloop": "workspace:*",
     "effect": "^4.1.4",
-    "oxfmt": "^0.77.0",
+    "oxfmt": "^0.78.0",
     "oxlint": "1.92.0",
     "playwright": "1.65.1",
     "postgres": "4.0.0",
