@@ -3,7 +3,7 @@
   "type": "module",
   "dependencies": {
     "@cueloop/sync": "workspace:*",
-    "@rocicorp/zero": "1.11.6",
+    "@rocicorp/zero": "1.12.0",
     "postgres": "4.1.1",
     "valibot": "^1.5.0"
   },
