@@ -35,7 +35,7 @@
         "oxfmt": "^0.79.0",
         "oxlint": "1.94.0",
         "playwright": "1.65.1",
-        "postgres": "4.0.0",
+        "postgres": "4.1.1",
         "react": "^19.3.1",
         "ssh2": "^1.17.0",
         "typescript": "^7.0.2",
@@ -180,7 +180,7 @@
         "@rocicorp/zero": "1.11.6",
         "canonicalize": "5.1.0",
         "idb": "8.0.4",
-        "postgres": "4.0.0",
+        "postgres": "4.1.1",
         "uuid": "14.0.3",
         "valibot": "^1.5.0",
         "yjs": "13.6.33",
@@ -1281,7 +1281,7 @@
 
     "possible-typed-array-names": ["possible-typed-array-names@1.1.0", "", {}, "sha512-/+5VFTchJDoVj3bhoqi6UeymcD00DAwb1nJwamzPvHEszJ4FpF6SNNbUbOS8yI56qHzdV8eK0qEfOSiodkTdxg=="],
 
-    "postgres": ["postgres@4.0.0", "", {}, "sha512-kBh8qXtcvvIAc00DftQyOxz7M/3Zxww1tRMXZPLzipNXXl5PIzHml+9zB3Mrge2U8ldc0WF1ZdLp1iYQi7Kh3A=="],
+    "postgres": ["postgres@4.1.1", "", {}, "sha512-1kJDojqNZC+iTHHXh6eif0J98LUtyLAePe/qkW1GK35eh2JixlsAiIKq3FGI+xqI+SUGTNodzf7TScVeIIyUug=="],
 
     "postgres-array": ["postgres-array@2.0.0", "", {}, "sha512-VpZrUqU5A69eQyW2c5CA1jtLecCsN2U/bD6VilrFDWq5+5UIEVO7nazS3TEcHf1zuPYO/sqGvUvW62g86RXZuA=="],
 
