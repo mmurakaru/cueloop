@@ -1,5 +1,11 @@
 # @cueloop/sync
 
+## 0.1.0-alpha.120
+
+### Patch Changes
+
+- [#696](https://github.com/mmurakaru/cueloop/pull/696) [`0cf035f`](https://github.com/mmurakaru/cueloop/commit/0cf035f3cfac806fc70f635c3cdaf8bdf3ace175) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Update effect, puppeteer-core, postgres and Zero dependencies.
+
 ## 0.1.0-alpha.119
 
 ### Patch Changes
